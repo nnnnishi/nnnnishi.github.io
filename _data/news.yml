@@ -1,0 +1,11 @@
+# トップページの News。新しいものを上に書く（上から5件を表示）。text には HTML のリンクを書ける
+- date: "2026-11"
+  text: '<a href="https://orsj.org/ramp/ramp2026/program">第38回 RAMP 数理最適化シンポジウム</a>で招待講演を行いました。'
+- date: "2026-10"
+  text: '<a href="https://www.sk.tsukuba.ac.jp/~ytakano/lab/">筑波大学 高野研究室</a>の客員研究員に着任しました。'
+- date: "2026-09"
+  text: '共著論文 "Compact representations of impact-based fair-ranking policies" が NeurIPS 2026 に採択されました。'
+- date: "2026-09"
+  text: '日本オペレーションズ・リサーチ学会 <a href="https://kenkoba2119.github.io/cv">第46回 事例研究賞</a>を受賞しました。'
+- date: "2026-08"
+  text: '共著論文 "<a href="https://proceedings.mlr.press/v337/yamao26a.html">Robust decision-focused learning via worst-case regret minimization</a>" が UAI 2026 で発表されました。'

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {%- if page.title %}{% assign full_title = page.title | append: " | " | append: site.title %}{% else %}{% assign full_title = site.title %}{% endif %}
+  {%- assign desc = page.description | default: site.description %}
+  <title>{{ full_title }}</title>
+  <meta name="description" content="{{ desc }}">
+  <link rel="canonical" href="{{ page.url | absolute_url }}">
+  <meta property="og:type" content="{% if page.url == '/' %}profile{% else %}website{% endif %}">
+  <meta property="og:title" content="{{ full_title }}">
+  <meta property="og:description" content="{{ desc }}">
+  <meta property="og:url" content="{{ page.url | absolute_url }}">
+  <meta name="twitter:card" content="summary">
+  <!-- Search Console の所有権確認タグはここに貼る -->
+  <!-- <meta name="google-site-verification" content="..."> -->
+  <link rel="stylesheet" href="{{ '/style.css' | relative_url }}">
+  {%- if page.url == '/' %}
+  {% include jsonld.html %}
+  {%- endif %}
+</head>
+<body>
+  <header class="site-header{% unless page.url == '/' %} compact{% endunless %}">
+    <div class="wrap">
+      {%- if page.url == '/' %}
+      <h1>西村 直樹 <span class="en">Naoki Nishimura</span></h1>
+      {%- else %}
+      <p class="site-name"><a href="{{ '/' | relative_url }}">西村 直樹 <span class="en">Naoki Nishimura</span></a></p>
+      {%- endif %}
+      <p class="role">株式会社リクルート データ推進室 アジリティアナリティクスグループ Staff Data Scientist<br>筑波大学 高野研究室 客員研究員</p>
+      {%- if page.url == '/' %}
+      <p class="contact">E-mail: nishimura [at] r.recruit.co.jp</p>
+      <p class="links">
+        <a href="https://scholar.google.com/citations?user=eL2yJJAAAAAJ">Google Scholar</a>
+        <a href="https://orcid.org/0000-0002-6906-4323">ORCID</a>
+        <a href="https://www.linkedin.com/in/naoki-nishimura/">LinkedIn</a>
+        <a href="https://github.com/nnnnishi">GitHub</a>
+      </p>
+      {%- endif %}
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="サイト内メニュー">
+    <div class="wrap">
+      {%- for n in site.nav %}
+      <a href="{{ n.url | relative_url }}"{% if page.url == n.url %} class="active" aria-current="page"{% endif %}>{{ n.label }}</a>
+      {%- endfor %}
+    </div>
+  </nav>
+
+  <main class="wrap">
+    {%- if page.title %}
+    <h1 class="page-title">{{ page.title }}</h1>
+    {%- endif %}
+    {%- if page.toc %}
+    <p class="page-toc">{% for t in page.toc %}<a href="#{{ t.id }}">{{ t.label }}</a>{% endfor %}</p>
+    {%- endif %}
+{{ content }}
+  </main>
+
+  <footer class="wrap">
+    <p>&copy; 2026 Naoki Nishimura</p>
+  </footer>
+</body>
+</html>

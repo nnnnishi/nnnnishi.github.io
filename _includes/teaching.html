@@ -1,0 +1,9 @@
+    <section id="teaching">
+      <h2>Teaching</h2>
+      <ul class="cv">
+{%- for t in site.data.teaching %}
+        <li><span class="date">{{ t.period }}</span><div>{% include title.html title=t.org url=t.org_url %} {{ t.role }}
+          {%- for c in t.courses %}<br><span class="sub">{{ c.name }}{% for l in c.links %} <a href="{{ l.url }}" class="tag">{{ l.label }}</a>{% endfor %}</span>{% endfor %}</div></li>
+{%- endfor %}
+      </ul>
+    </section>

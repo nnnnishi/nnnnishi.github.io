@@ -1,0 +1,22 @@
+---
+layout: default
+title: Talks
+description: 西村直樹 (Naoki Nishimura) の学会発表・招待講演の一覧。
+toc:
+  - { id: international, label: International }
+  - { id: domestic, label: Domestic }
+  - { id: invited, label: Invited Talks }
+---
+    <p class="note">○ は発表者</p>
+    <section id="international">
+      <h2>International Conferences</h2>
+{% include talks.html kind="international" %}
+    </section>
+    <section id="domestic">
+      <h2>Domestic Conferences</h2>
+{% include talks.html kind="domestic" %}
+    </section>
+    <section id="invited">
+      <h2>Invited Talks</h2>
+{% include talks.html kind="invited" %}
+    </section>

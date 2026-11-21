@@ -83,3 +83,16 @@ a.tag { display: inline-block; font-size: .82rem; border: 1px solid var(--line);
 .theme p { margin: 0 0 .5rem; font-size: .93rem; }
 .theme .works { margin: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
 .theme .works a.tag { margin-left: 0; }
+
+/* multi-page layout */
+.site-header.compact { padding: 1.1rem 0 .9rem; }
+.site-header .site-name { margin: 0 0 .2rem; font-size: 1.25rem; font-weight: 700; }
+.site-header .site-name a { color: var(--fg); }
+.site-header .site-name .en { font-size: .95rem; font-weight: 500; color: var(--muted); margin-left: .3em; }
+.site-header.compact .role { font-size: .88rem; font-weight: 400; color: var(--muted); }
+.toc a.active { color: var(--fg); font-weight: 700; border-bottom: 2px solid var(--accent); padding-bottom: .15rem; }
+.page-title { font-size: 1.6rem; margin: 1.6rem 0 .3rem; }
+.page-toc { display: flex; flex-wrap: wrap; gap: .3rem 1rem; font-size: .88rem; margin: 0 0 .5rem; }
+ul.news > li { grid-template-columns: 7.5em 1fr; }
+.more { margin-top: 1rem; font-size: .92rem; }
+@media (max-width: 600px) { ul.news > li { grid-template-columns: 1fr; } }

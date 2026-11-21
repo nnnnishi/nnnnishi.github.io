@@ -1,0 +1,6 @@
+      <ul class="pubs">
+{%- assign list = site.data.papers | where: "type", include.type %}
+{%- for p in list %}
+        {% include paper_item.html p=p %}
+{%- endfor %}
+      </ul>

@@ -1,0 +1,26 @@
+---
+layout: default
+title: Publications
+description: 西村直樹 (Naoki Nishimura) の論文・記事・書籍・特許の一覧。
+toc:
+  - { id: refereed, label: Refereed }
+  - { id: nonrefereed, label: Non-Refereed }
+  - { id: books, label: Books }
+  - { id: patents, label: Patents }
+---
+    <section id="refereed">
+      <h2>Refereed Journals and Proceedings</h2>
+{% include papers.html type="refereed" %}
+    </section>
+    <section id="nonrefereed">
+      <h2>Non-Refereed Journals and Articles</h2>
+{% include papers.html type="nonrefereed" %}
+    </section>
+    <section id="books">
+      <h2>Books</h2>
+{% include papers.html type="book" %}
+    </section>
+    <section id="patents">
+      <h2>Patents</h2>
+{% include papers.html type="patent" %}
+    </section>

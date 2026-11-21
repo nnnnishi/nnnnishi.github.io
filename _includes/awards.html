@@ -1,0 +1,9 @@
+    <section id="awards">
+      <h2>Awards</h2>
+      <ul class="pubs">
+{%- assign list = site.data.awards | sort: "date" | reverse %}
+{%- for a in list %}
+        <li>{% include authors.html list=a.recipients %}: {% include title.html title=a.award url=a.url %}, {% include date.html date=a.date %}.</li>
+{%- endfor %}
+      </ul>
+    </section>

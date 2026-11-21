@@ -1,6 +1,13 @@
 # GitHub Pages (Jekyll) 設定
 title: "西村 直樹 (Naoki Nishimura)"
 url: "https://nnnnishi.github.io"
+description: "西村直樹 (Naoki Nishimura) のホームページ。株式会社リクルート Staff Data Scientist。数理最適化・機械学習の実務への応用、推薦システム、価格最適化、オフ方策評価などに関心があります。"
+
+nav:
+  - { label: "Home", url: "/" }
+  - { label: "Publications", url: "/publications/" }
+  - { label: "Talks", url: "/talks/" }
+  - { label: "CV", url: "/cv/" }
 
 # 業績リストで太字にする自分の名前の表記
 me: ["西村直樹", "N. Nishimura", "Naoki Nishimura"]

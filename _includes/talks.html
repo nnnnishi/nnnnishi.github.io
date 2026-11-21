@@ -1,0 +1,16 @@
+      <ul class="pubs">
+{%- if include.kind == "invited" %}
+{%- assign list = site.data.presentations | where: "invited", true | sort: "date" | reverse %}
+{%- else %}
+{%- assign list = site.data.presentations | where: "scope", include.kind | where_exp: "p", "p.invited != true" | sort: "date" | reverse %}
+{%- endif %}
+{%- for p in list %}
+{%- if include.kind == "international" %}
+        <li>{% include authors.html list=p.authors presenter=p.presenter %}: “{% include title.html title=p.title url=p.url %},” {{ p.venue }}{% if p.place %}, {{ p.place }}{% endif %}, {% include date.html date=p.date en=true %}.</li>
+{%- elsif include.kind == "invited" %}
+        <li>{% include authors.html list=p.authors %}: {% include title.html title=p.title url=p.url %}，{{ p.venue }}{% if p.place %}，{{ p.place }}{% endif %}，{% include date.html date=p.date %}.</li>
+{%- else %}
+        <li>{% include authors.html list=p.authors presenter=p.presenter %}: {% include title.html title=p.title url=p.url %}，{{ p.venue }}{% if p.place %}，{{ p.place }}{% endif %}，{% include date.html date=p.date %}.</li>
+{%- endif %}
+{%- endfor %}
+      </ul>
