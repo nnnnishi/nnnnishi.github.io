@@ -60,6 +60,7 @@
 
   <nav class="toc" aria-label="目次">
     <div class="wrap">
+      <a href="#research">Research</a>
       <a href="#affiliations">Affiliations</a>
       <a href="#work">Work Experience</a>
       <a href="#teaching">Teaching</a>
@@ -71,6 +72,20 @@
   </nav>
 
   <main class="wrap">
+    <section id="research">
+      <h2>Research Interests</h2>
+      <p class="lead">{{ site.data.research.lead }}<br><span class="sub">{{ site.data.research.lead_en }}</span></p>
+      <div class="themes">
+{%- for t in site.data.research.themes %}
+        <div class="theme">
+          <h3>{{ t.title }} <span class="en">{{ t.en }}</span></h3>
+          <p class="points">{{ t.points | join: "。" }}。</p>
+          <p class="works">{% for w in t.works %}<a href="{{ w.url }}" class="tag">{{ w.label }}</a>{% endfor %}</p>
+        </div>
+{%- endfor %}
+      </div>
+    </section>
+
     <section id="affiliations">
       <h2>Affiliations</h2>
       <ul class="cv">

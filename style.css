@@ -72,3 +72,14 @@ ul.roles li { display: grid; grid-template-columns: 11.5em 1fr; gap: 1rem; font-
 
 .note { color: var(--muted); font-size: .88rem; margin: 0 0 .5rem; }
 a.tag { display: inline-block; font-size: .82rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 .4rem; margin-left: .2rem; line-height: 1.6; }
+
+/* Research Interests */
+.lead { margin: .25rem 0 1rem; }
+.lead .sub { color: var(--muted); font-size: .93rem; }
+.themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .9rem; }
+.theme { border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; }
+.theme h3 { margin: 0 0 .3rem; font-size: 1.02rem; }
+.theme h3 .en { display: block; font-size: .82rem; font-weight: 500; color: var(--muted); }
+.theme p { margin: 0 0 .5rem; font-size: .93rem; }
+.theme .works { margin: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
+.theme .works a.tag { margin-left: 0; }

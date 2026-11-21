@@ -1,0 +1,60 @@
+# Research Interests。上から順に表示。points は関心の例（動機が異なるものを並べる）、works は代表的な成果
+lead: "数理最適化や機械学習を、実際のサービスでの意思決定にどう生かすかに関心があります。特に、推薦・価格設定・販促といったWebサービスの現場の課題を数理モデルとして捉え、実務で使える形にすることに興味を持っています。"
+lead_en: "Interested in bringing mathematical optimization and machine learning into practical decision-making in online services."
+
+themes:
+  - title: "推薦・ランキング"
+    en: "Recommender systems & ranking"
+    points:
+      - "マッチングサービスで、長期的に成立するマッチングを増やす推薦"
+      - "掲載される側にも機会が行き渡る、公平性に配慮したランキング"
+      - "推薦の良し悪しを、ログの偏りに左右されずに評価する指標"
+    works:
+      - { label: "NeurIPS 2026", url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html" }
+      - { label: "OR学会 事例研究賞 2026", url: "https://orsj.org/2025f/wp-content/uploads/sites/25/2025/08/737238e1e0779b4b2295ab59ffdd0db1.pdf" }
+      - { label: "JSAI 2026", url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_5H2OS18a03/_article/-char/ja" }
+      - { label: "KDD 2023 Workshop", url: "https://arxiv.org/abs/2307.10204" }
+
+  - title: "顧客の選択行動の推定"
+    en: "Customer choice modeling"
+    points:
+      - "閲覧履歴などの行動ログから、顧客がどの商品を選ぶかを予測する（博士論文のテーマ）"
+      - "「閲覧が多いほど買われやすい」といった現場の知見をモデルに組み込む"
+      - "検索行動から、利用者が置かれている状況の変化を読み取る"
+    works:
+      - { label: "Information Sciences 2018", url: "https://www.sciencedirect.com/science/article/abs/pii/S002002551632134X" }
+      - { label: "Algorithms 2023", url: "https://doi.org/10.3390/a16090415" }
+      - { label: "NOLTA 2019 Student Paper Award", url: "https://www.ieice.org/nolta/symposium/student_paper/" }
+      - { label: "人工知能学会論文誌 2022", url: "https://www.jstage.jst.go.jp/article/tjsai/37/3/37_37-3_D-L74/_article/-char/ja" }
+
+  - title: "価格・クーポン配布の最適化"
+    en: "Pricing & promotion optimization"
+    points:
+      - "需要の予測を、価格やクーポン配布の意思決定に直接つなげる"
+      - "予測が外れても大きく損をしない、頑健な施策の設計"
+      - "現場の担当者が納得して使える、価格の妥当な範囲の提示"
+    works:
+      - { label: "Oper. Res. Perspect. 2023", url: "https://doi.org/10.1016/j.orp.2023.100290" }
+      - { label: "INFOR 2024", url: "https://doi.org/10.1080/03155986.2024.2386494" }
+      - { label: "EURO J. Comput. Optim. 2025", url: "https://doi.org/10.1016/j.ejco.2025.100114" }
+      - { label: "Rev. Socionetwork Strateg. 2025", url: "https://doi.org/10.1007/s12626-024-00176-0" }
+
+  - title: "オフ方策評価・実験設計"
+    en: "Off-policy evaluation & experimental design"
+    points:
+      - "新しい施策を本番で試す前に、過去のログから効果を見積もる"
+      - "目先の収益を確保しながら、将来の評価に役立つデータを集める"
+      - "オンライン実験（A/Bテスト）を少ないサンプルで精度よく行う"
+    works:
+      - { label: "PRICAI 2024", url: "https://doi.org/10.1007/978-981-96-0125-7_35" }
+      - { label: "PRICAI 2025", url: "https://doi.org/10.1007/978-981-95-7072-0_40" }
+
+  - title: "需要予測と解釈可能な予測モデル"
+    en: "Demand forecasting & interpretable ML"
+    points:
+      - "販売実績のない新商品の需要を予測する"
+      - "現場の担当者が中身を理解して使える予測モデル"
+      - "予測の誤差がその後の意思決定にどう響くかを考慮した学習"
+    works:
+      - { label: "UAI 2026", url: "https://proceedings.mlr.press/v337/yamao26a.html" }
+      - { label: "IEEE BigData 2026", url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html" }
