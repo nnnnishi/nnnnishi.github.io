@@ -2,11 +2,46 @@
 # 新しいものを上に追加する（表示は year の降順で自動ソート）
 
 - type: "refereed"
+  authors: ["Y. Uehara", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Compact representations of impact-based fair-ranking policies"
+  venue: "Proceedings of the 40th Annual Conference on Neural Information Processing Systems (NeurIPS 2026), (2026), in press."
+  year: 2026
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- type: "refereed"
+  authors: ["S. Yamao", "K. Kobayashi", "R. Matsui", "S. Nagai", "N. Nishimura", "K. Nakata"]
+  title: "Robust decision-focused learning via worst-case regret minimization"
+  venue: "Proceedings of the 42nd Conference on Uncertainty in Artificial Intelligence (UAI 2026), PMLR 337 (2026), 7701–7736."
+  year: 2026
+  url: "https://proceedings.mlr.press/v337/yamao26a.html"
+
+- type: "refereed"
+  authors: ["T. Ueshima", "T. Honda", "T. Matsumoto", "N. Nishimura", "S. Ikeda", "N. Sukegawa", "Y. Takano"]
+  title: "Multimodal pre-launch demand forecasting for eyewear products"
+  venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
+  year: 2026
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- type: "refereed"
+  authors: ["H. Suzuki", "S. Ikeda", "N. Nishimura", "Y. Takano"]
+  title: "Interpretable clustering via optimal multi-way decision trees"
+  venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
+  year: 2026
+  url: "https://arxiv.org/abs/2602.13586"
+
+- type: "refereed"
   authors: ["S. Ikeda", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
   title: "Robust personalized pricing under uncertainty of purchase probabilities"
   venue: "EURO Journal on Computational Optimization, 13 (2025), 100114."
   year: 2025
   url: "https://doi.org/10.1016/j.ejco.2025.100114"
+
+- type: "refereed"
+  authors: ["S. Ikeda", "N. Nishimura", "S. Umetani"]
+  title: "Interpretable price bounds estimation with shape constraints in price optimization"
+  venue: "The Review of Socionetwork Strategies, 19 (2025), 49–68."
+  year: 2025
+  url: "https://doi.org/10.1007/s12626-024-00176-0"
 
 - type: "refereed"
   authors: ["H. Momozu", "Y. Uehara", "N. Nishimura", "K. Ohashi", "D. Jobson", "Y. Li", "P. Dinh", "N. Sukegawa", "Y. Takano"]
@@ -37,11 +72,25 @@
   url: "https://link.springer.com/chapter/10.1007/978-981-96-0128-8_18"
 
 - type: "refereed"
+  authors: ["Y. Uehara", "N. Nishimura", "Y. Li", "J. Yang", "D. Jobson", "K. Ohashi", "T. Matsumoto", "N. Sukegawa", "Y. Takano"]
+  title: "Robust portfolio optimization model for electronic coupon allocation"
+  venue: "AAAI 2024 Workshop on Artificial Intelligence for Operations Research, (2024)."
+  year: 2024
+  url: "https://arxiv.org/abs/2405.12865"
+
+- type: "refereed"
   authors: ["K. Ohashi", "S. Sekine", "D. Jobson", "J. Yang", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
   title: "Strategic coupon allocation for increasing providers' sales experiences in two-sided marketplaces"
   venue: "KDD 2024 Workshop on Two-sided Marketplace Optimization: Search, Pricing, Matching & Growth, arXiv preprint, arXiv:2407.14895 (2024)."
   year: 2024
   url: "https://arxiv.org/abs/2407.14895"
+
+- type: "refereed"
+  authors: ["S. Ikeda", "N. Nishimura", "S. Umetani"]
+  title: "Operating range estimation for price optimization"
+  venue: "Proceedings of the 2023 IEEE International Conference on Data Mining Workshops (ICDMW), (2023), 31–36."
+  year: 2023
+  url: "https://doi.org/10.1109/ICDMW60847.2023.00012"
 
 - type: "refereed"
   authors: ["S. Ikeda", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
@@ -177,14 +226,20 @@
   url: "https://orsj.org/wp-content/corsj/or60-2/or60_2_69.pdf"
 
 - type: "book"
-  authors: ["岩永二郎, 石原響太, 西村直樹, 田中一樹"]
-  title: "Pythonではじめる数理最適化: ケーススタディでモデリングのスキルを身につけよう"
-  venue: "オーム社, (2021)."
-  year: 2021
+  authors: ["岩永二郎", "石原響太", "西村直樹", "田中一樹"]
+  title: "Pythonではじめる数理最適化（第2版）: ケーススタディでモデリングのスキルを身につけよう"
+  venue: "オーム社, (2024)."
+  year: 2024
   url: "https://www.ohmsha.co.jp/book/9784274231759/"
 
 - type: "book"
-  authors: ["C. Szepesvári (著), 小山田創哲 (訳者代表), 前田新一, 小山雅典 (監訳), 池田春之介, 大渡勝己, 芝慎太朗, 関根嵩之, 高山晃一, 田中一樹, 西村直樹, 藤田康博, 望月駿一 (訳)"]
+  authors: ["岩永二郎", "石原響太", "西村直樹", "田中一樹"]
+  title: "Pythonではじめる数理最適化: ケーススタディでモデリングのスキルを身につけよう"
+  venue: "オーム社, (2021)."
+  year: 2021
+
+- type: "book"
+  authors: ["C. Szepesvári (著)", "小山田創哲 (訳者代表)", "前田新一", "小山雅典 (監訳)", "池田春之介", "大渡勝己", "芝慎太朗", "関根嵩之", "高山晃一", "田中一樹", "西村直樹", "藤田康博", "望月駿一 (訳)"]
   title: "速習 強化学習―基礎理論とアルゴリズム―"
   venue: "共立出版, (2017)."
   year: 2017
