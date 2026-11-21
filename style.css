@@ -69,3 +69,6 @@ ul.roles li { display: grid; grid-template-columns: 11.5em 1fr; gap: 1rem; font-
   ul.cv > li, ul.roles li { grid-template-columns: 1fr; gap: 0; }
   ul.roles li { margin-bottom: .2rem; }
 }
+
+.note { color: var(--muted); font-size: .88rem; margin: 0 0 .5rem; }
+a.tag { display: inline-block; font-size: .82rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 .4rem; margin-left: .2rem; line-height: 1.6; }

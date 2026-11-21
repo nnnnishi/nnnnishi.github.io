@@ -1,0 +1,5 @@
+{%- for a in include.list -%}
+{%- if forloop.index > 1 %}, {% endif -%}
+{%- if include.presenter and a == include.presenter -%}○{%- endif -%}
+{%- if site.me contains a -%}<strong>{{ a }}</strong>{%- else -%}{{ a }}{%- endif -%}
+{%- endfor -%}

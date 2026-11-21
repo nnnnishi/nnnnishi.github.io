@@ -1,0 +1,50 @@
+# 授業・講義。上から順に表示する（新しいものを上に）
+# courses の links は年度ごとのシラバス等
+
+- period: "2020年8月–現在"
+  org: "筑波大学 理工情報生命学術院 システム情報工学研究群"
+  org_url: "https://www.sie.tsukuba.ac.jp/"
+  role: "非常勤講師"
+  courses:
+    - name: "応用最適化（サービス工学学位プログラム、共同担当）"
+      links:
+        - { label: "2026年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2026/0ALB003/jpn" }
+        - { label: "2025年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2025/0ALB003/jpn" }
+
+- period: "2025年6月"
+  org: "九州大学 大学院数理学府・理学部数学科"
+  org_url: "https://www.math.kyushu-u.ac.jp/"
+  role: "講師（集中講義）"
+  courses:
+    - name: "実務につなげる数理最適化（数理科学特別講義 XIV／数理科学特論14、複数講師による分担）"
+      links:
+        - { label: "2025年度", url: "https://www.math.kyushu-u.ac.jp/activities/13461/" }
+
+- period: "2024年9月"
+  org: "電気通信大学 データアントレプレナーフェロープログラム"
+  org_url: "https://de.uec.ac.jp/"
+  role: "講師"
+  courses:
+    - name: "応用学習Ⅱ-5「データサイエンティストによるモック（MVP）作成」"
+      links:
+        - { label: "2024年度", url: "https://archive.de.uec.ac.jp/mvp_2024/" }
+
+- period: "2021年2月–2024年3月"
+  org: "東京工業大学 情報理工学院"
+  org_url: "https://www.isct.ac.jp/ja/001/about/organizations/school-of-computing"
+  role: "非常勤講師"
+  courses:
+    - name: "応用AI・データサイエンス発展C"
+      links:
+        - { label: "2023年度", url: "https://syllabus.s.isct.ac.jp/courses/2023/4/1-904-340000-120900-0/202331708" }
+        - { label: "2022年度", url: "https://syllabus.s.isct.ac.jp/courses/2022/4/1-904-340000-120900-0/202231708" }
+    - name: "応用AI・データサイエンスC"
+      links:
+        - { label: "2023年度", url: "https://syllabus.s.isct.ac.jp/courses/2023/4/1-904-340000-120900-0/202326766" }
+        - { label: "2022年度", url: "https://syllabus.s.isct.ac.jp/courses/2022/4/1-904-340000-120900-0/202226766" }
+    - name: "実践AI・データサイエンスC"
+      links:
+        - { label: "2021年度", url: "https://syllabus.s.isct.ac.jp/courses/2021/4/1-904-340000-120900-0/202131264" }
+    - name: "実践AI・データサイエンスB"
+      links:
+        - { label: "2020年度", url: "https://syllabus.s.isct.ac.jp/courses/2020/4/1-904-340000-120900-0/202030812" }

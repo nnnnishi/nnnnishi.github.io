@@ -1,0 +1,198 @@
+# 論文・記事・書籍・特許。type: refereed | nonrefereed | book | patent
+# 新しいものを上に追加する（表示は year の降順で自動ソート）
+
+- type: "refereed"
+  authors: ["S. Ikeda", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Robust personalized pricing under uncertainty of purchase probabilities"
+  venue: "EURO Journal on Computational Optimization, 13 (2025), 100114."
+  year: 2025
+  url: "https://doi.org/10.1016/j.ejco.2025.100114"
+
+- type: "refereed"
+  authors: ["H. Momozu", "Y. Uehara", "N. Nishimura", "K. Ohashi", "D. Jobson", "Y. Li", "P. Dinh", "N. Sukegawa", "Y. Takano"]
+  title: "Subset selection for stratified sampling in online controlled experiments"
+  venue: "Proceedings of the 22nd Pacific Rim International Conference on Artificial Intelligence (PRICAI 2025), 2 (2025), 600-613."
+  year: 2025
+  url: "https://link.springer.com/chapter/10.1007/978-981-95-7072-0_40"
+
+- type: "refereed"
+  authors: ["Y. Uehara", "N. Nishimura", "Y. Li", "J. Yang", "D. Jobson", "K. Ohashi", "T. Matsumoto", "N. Sukegawa", "Y. Takano"]
+  title: "Robust portfolio optimization model for electronic coupon allocation"
+  venue: "INFOR: Information Systems and Operational Research, 62 (2024), 646–660."
+  year: 2024
+  url: "https://doi.org/10.1080/03155986.2024.2386494"
+
+- type: "refereed"
+  authors: ["N. Nishimura", "K. Kobayashi", "K. Nakata"]
+  title: "Balancing immediate revenue and future off-policy evaluation in coupon allocation"
+  venue: "Proceedings of the 21st Pacific Rim International Conference on Artificial Intelligence (PRICAI 2024), 4 (2024), 422–428."
+  year: 2024
+  url: "https://doi.org/10.1007/978-981-96-0125-7_35"
+
+- type: "refereed"
+  authors: ["Y. Uehara", "S. Ikeda", "N. Nishimura", "K. Ohashi", "Y. Li", "J. Yang", "D. Jobson", "X. Zha", "T. Matsumoto", "N. Sukegawa", "Y. Takano"]
+  title: "Fast solution to the fair ranking problem using the Sinkhorn algorithm"
+  venue: "Proceedings of the 21st Pacific Rim International Conference on Artificial Intelligence (PRICAI 2024), 5 (2024), 207–215."
+  year: 2024
+  url: "https://link.springer.com/chapter/10.1007/978-981-96-0128-8_18"
+
+- type: "refereed"
+  authors: ["K. Ohashi", "S. Sekine", "D. Jobson", "J. Yang", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Strategic coupon allocation for increasing providers' sales experiences in two-sided marketplaces"
+  venue: "KDD 2024 Workshop on Two-sided Marketplace Optimization: Search, Pricing, Matching & Growth, arXiv preprint, arXiv:2407.14895 (2024)."
+  year: 2024
+  url: "https://arxiv.org/abs/2407.14895"
+
+- type: "refereed"
+  authors: ["S. Ikeda", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Prescriptive price optimization using optimal regression trees"
+  venue: "Operations Research Perspectives, 11 (2023), 100290."
+  year: 2023
+  url: "https://doi.org/10.1016/j.orp.2023.100290"
+
+- type: "refereed"
+  authors: ["N. Nishimura", "N. Sukegawa", "Y. Takano", "J. Iwanaga"]
+  title: "Predicting online item-choice behavior: A shape-restricted regression approach"
+  venue: "Algorithms, 16 (2023), 415."
+  year: 2023
+  url: "https://doi.org/10.3390/a16090415"
+
+- type: "refereed"
+  authors: ["K. Oh", "N. Nishimura", "M. Sung", "K. Kobayashi", "K. Nakata"]
+  title: "An IPW-based unbiased ranking metric in two-sided markets"
+  venue: "Causal Inference and Machine Learning in Practice, Workshop at the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, (2023)."
+  year: 2023
+  url: "https://arxiv.org/abs/2307.10204"
+
+- type: "refereed"
+  authors: ["池田春之介", "朝倉希美", "西村直樹", "高野祐一"]
+  title: "構造的正則化処方分析による旅行パックの価格最適化"
+  venue: "オペレーションズ・リサーチ, 68 (2023), 485–490."
+  year: 2023
+  url: "https://orsj.org/wp-content/corsj/or68-9/or68_9_485.pdf"
+
+- type: "refereed"
+  authors: ["岩永二郎", "西村直樹", "鮏川矩義", "高野祐一"]
+  title: "出産前後の情報検索の分析：数理最適化による検索日の確率分布推定"
+  venue: "人工知能学会論文誌, 37 (2022), D-L74."
+  year: 2022
+  url: "https://www.jstage.jst.go.jp/article/tjsai/37/3/37_37-3_D-L74/_article/-char/ja"
+
+- type: "refereed"
+  authors: ["河上佳太", "西村直樹", "白鳥友風", "工藤晃太", "松岡雄大", "最首大輝", "渡邊彰久", "高野祐一"]
+  title: "時間付加グラフのベクトル表現を用いたタクシー軌跡データの解析"
+  venue: "オペレーションズ・リサーチ, 66 (2021), 246–254."
+  year: 2021
+  url: "https://orsj.org/wp-content/corsj/or66-4/or66_4_246.pdf"
+
+- type: "refereed"
+  authors: ["N. Nishimura", "N. Sukegawa", "Y. Takano", "J. Iwanaga"]
+  title: "Estimating product-choice probabilities from sequences of page views"
+  venue: "International Symposium on Nonlinear Theory and Its Applications (NOLTA2019), (2019), 25–28."
+  year: 2019
+  url: "https://www.ieice.org/nolta/symposium/student_paper/"
+
+- type: "refereed"
+  authors: ["J. Iwanaga", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Improving Collaborative Filtering Recommendations by Estimating User Preferences from Clickstream Data"
+  venue: "Electronic Commerce Research and Applications, 37 (2019), 100877."
+  year: 2019
+  url: "https://linkinghub.elsevier.com/retrieve/pii/S1567422319300547"
+
+- type: "refereed"
+  authors: ["N. Nishimura", "K. Tanahashi", "K. Suganuma", "M. J. Miyama", "M. Ohzeki"]
+  title: "Item Listing Optimization for E-commerce Websites based on Diversity"
+  venue: "Frontiers in Computer Science, 2 (2019), 1–10."
+  year: 2019
+  url: "https://doi.org/10.3389/fcomp.2019.00002"
+
+- type: "refereed"
+  authors: ["西村直樹", "小林健", "吉住宗朔"]
+  title: "制約つき比例ハザードモデルを用いたヘアサロンの再来店状況分析"
+  venue: "オペレーションズ・リサーチ, 64 (2019), 65–72."
+  year: 2019
+  url: "https://orsj.org/wp-content/corsj/or64-2/or64_2_65.pdf"
+
+- type: "refereed"
+  authors: ["N. Nishimura", "N. Sukegawa", "Y. Takano", "J. Iwanaga"]
+  title: "A latent-class model for estimating product-choice probabilities from clickstream data"
+  venue: "Information Sciences, 429 (2018), 406–420."
+  year: 2018
+  url: "https://www.sciencedirect.com/science/article/abs/pii/S002002551632134X"
+
+- type: "refereed"
+  authors: ["J. Iwanaga", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  title: "Estimating product choice probabilities from recency and frequency of page views"
+  venue: "Knowledge-Based Systems, 99 (2016), 157–167."
+  year: 2016
+  url: "https://www.sciencedirect.com/science/article/abs/pii/S0950705116000848"
+
+- type: "refereed"
+  authors: ["西村直樹", "関根琴美", "高野祐一", "村木正昭"]
+  title: "季節性を考慮した協調フィルタリング"
+  venue: "オペレーションズ・リサーチ, 60 (2015), 475–482."
+  year: 2015
+  url: "https://orsj.org/wp-content/corsj/or60-8/or60_8_475.pdf"
+
+- type: "nonrefereed"
+  authors: ["西村直樹", "濱田賢吾"]
+  title: "大阪大学 数理最適化寄附講座教授に聞く、実務における「数理最適化」活用のポイント"
+  venue: "リクルート事例で分かる数理最適化入門. ITmedia, (2022)."
+  year: 2022
+  url: "https://atmarkit.itmedia.co.jp/ait/articles/2211/18/news003.html"
+
+- type: "nonrefereed"
+  authors: ["西村直樹"]
+  title: "数理最適化技術活用のための取り組みと事例 ―RECRUIT TECH MEET UP #4―"
+  venue: "Recruit Data Blog, (2022)."
+  year: 2022
+  url: "https://blog.recruit.co.jp/data/articles/recruit_tech_meetup_4_opt/"
+
+- type: "nonrefereed"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎"]
+  title: "形状制約モデルによる顧客の商品選択行動の予測"
+  venue: "オペレーションズ・リサーチ, 65 (2020), 328–333."
+  year: 2020
+  url: "https://orsj.org/wp-content/corsj/or65-6/or65_6_328.pdf"
+
+- type: "nonrefereed"
+  authors: ["田中宗", "西村直樹", "棚橋耕太郎"]
+  title: "量子アニーリングの応用探索"
+  venue: "数理科学, 57 (2019), 47–53."
+  year: 2019
+  url: "https://www.saiensu.co.jp/search/?isbn=4910054690798&y=2019"
+
+- type: "nonrefereed"
+  authors: ["山根智之", "菅原光太郎", "西村直樹", "小林健", "吉田佑輔", "高野祐一", "中田和秀"]
+  title: "時系列モデルによる商品販促効果の分析"
+  venue: "オペレーションズ・リサーチ, 61 (2016), 65–70."
+  year: 2016
+  url: "https://orsj.org/wp-content/corsj/or61-2/or61_2_65.pdf"
+
+- type: "nonrefereed"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎", "水野眞治"]
+  title: "EC サイトの商品特性を考慮した2次元確率表による購買予測"
+  venue: "オペレーションズ・リサーチ, 60 (2015), 69–74."
+  year: 2015
+  url: "https://orsj.org/wp-content/corsj/or60-2/or60_2_69.pdf"
+
+- type: "book"
+  authors: ["岩永二郎, 石原響太, 西村直樹, 田中一樹"]
+  title: "Pythonではじめる数理最適化: ケーススタディでモデリングのスキルを身につけよう"
+  venue: "オーム社, (2021)."
+  year: 2021
+  url: "https://www.ohmsha.co.jp/book/9784274231759/"
+
+- type: "book"
+  authors: ["C. Szepesvári (著), 小山田創哲 (訳者代表), 前田新一, 小山雅典 (監訳), 池田春之介, 大渡勝己, 芝慎太朗, 関根嵩之, 高山晃一, 田中一樹, 西村直樹, 藤田康博, 望月駿一 (訳)"]
+  title: "速習 強化学習―基礎理論とアルゴリズム―"
+  venue: "共立出版, (2017)."
+  year: 2017
+  url: "https://www.kyoritsu-pub.co.jp/book/b10003874.html"
+
+- type: "patent"
+  authors: ["秋山純", "松本健", "西村直樹"]
+  title: "インセンティブ付与対象決定システム及びプログラム"
+  venue: "日本国特許庁 (JP), 特開2018-13827, (2018)."
+  year: 2018
+  url: "https://www.j-platpat.inpit.go.jp/c1800/PU/JP-2018-013827/0651A31B8679075775B31B15F65682C9975796E2430A6A36E0883017B0358D7F/11/ja"

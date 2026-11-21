@@ -1,0 +1,331 @@
+# 口頭発表・講演。scope: international | domestic、invited: true で「招待講演」に表示
+# presenter: 発表者（○が付く）。date: YYYY-MM（表示は降順で自動ソート）
+
+- title: "Balancing immediate revenue and future off-policy evaluation in coupon allocation"
+  authors: ["Naoki Nishimura", "K. Kobayashi", "K. Nakata"]
+  presenter: "Naoki Nishimura"
+  venue: "Pacific Rim International Conference on Artificial Intelligence (PRICAI2024)"
+  place: "Kyoto University, Kyoto, Japan"
+  date: "2024-11"
+  scope: "international"
+  url: "https://speakerdeck.com/recruitengineers/pricai2024_nishimura"
+
+- title: "Shape constraint selection for non-parametric regression via mixed-integer optimization"
+  authors: ["Naoki Nishimura", "Noriyoshi Sukegawa", "Yuichi Takano", "Jiro Iwanaga"]
+  presenter: "Naoki Nishimura"
+  venue: "The 2020 INFORMS Annual Meeting"
+  place: "Online"
+  date: "2020-11"
+  scope: "international"
+
+- title: "Estimating product-choice probabilities from sequences of page views"
+  authors: ["Naoki Nishimura", "Noriyoshi Sukegawa", "Yuichi Takano", "Jiro Iwanaga"]
+  presenter: "Naoki Nishimura"
+  venue: "International Symposium on Nonlinear Theory and Its Applications (NOLTA2019)"
+  place: "Berjaya Times Square Hotel, Kuala Lumpur, Malaysia"
+  date: "2019-12"
+  scope: "international"
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- title: "Estimating product-choice probabilities from sequences of page views"
+  authors: ["Naoki Nishimura", "Noriyoshi Sukegawa", "Yuichi Takano", "Jiro Iwanaga"]
+  presenter: "Naoki Nishimura"
+  venue: "The 2019 INFORMS Annual Meeting"
+  place: "Washington Convention Center, Seattle, USA"
+  date: "2019-10"
+  scope: "international"
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- title: "Estimating product-choice probabilities from sequences of page views"
+  authors: ["Naoki Nishimura", "Noriyoshi Sukegawa", "Yuichi Takano", "Jiro Iwanaga"]
+  presenter: "Naoki Nishimura"
+  venue: "International Conference on Nonlinear Analysis and Convex Analysis–International Conference on Optimization: Techniques and Applications (NACA-ICOTA2019)"
+  place: "Future University Hakodate, Hakodate, Japan"
+  date: "2019-08"
+  scope: "international"
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- title: "Item listing optimization considering diversity in E-commerce websites"
+  authors: ["Naoki Nishimura", "Kotaro Tanahashi", "Koji Suganuma", "Masamichi J. Miyama", "Masayuki Ohzeki"]
+  presenter: "Naoki Nishimura"
+  venue: "D-Wave user conference Qubits North America 2018"
+  place: "Knoxville, Tennessee, USA"
+  date: "2018-09"
+  scope: "international"
+
+- title: "離反を考慮した状態適応的方策による双方向推薦"
+  authors: ["西村直樹", "小山田創哲"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2026年秋季研究発表会"
+  place: "京都大学"
+  date: "2026-09"
+  scope: "domestic"
+  url: "https://orsj.org/2026f/wp-content/uploads/sites/28/2026/08/675c4e9c2247548911e55870f42348c3.pdf"
+
+- title: "双方向推薦システムにおける長期的マッチング最大化に向けた代理目的関数の設計と実証"
+  authors: ["西村直樹", "小林健", "中田和秀"]
+  presenter: "西村直樹"
+  venue: "2026年度 人工知能学会全国大会"
+  place: "Gメッセ群馬"
+  date: "2026-06"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_5H2OS18a03/_article/-char/ja"
+
+- title: "ウェブマーケティング領域への数理最適化の応用"
+  authors: ["西村直樹"]
+  presenter: "西村直樹"
+  venue: "IBM TechXchange Summit Japan 2025"
+  place: "東京国際フォーラム"
+  date: "2025-12"
+  scope: "domestic"
+  invited: true
+  url: "https://speakerdeck.com/jpspss/20251203datascience-rikuruto-xi-cun-yang-zi-liao"
+
+- title: "双方向推薦システムにおけるコントラスト効果の応用"
+  authors: ["西村直樹", "安藤智弥", "小林健", "中田和秀"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2025年秋季研究発表会"
+  place: "広島大学"
+  date: "2025-09"
+  scope: "domestic"
+  url: "https://orsj.org/2025f/wp-content/uploads/sites/25/2025/08/737238e1e0779b4b2295ab59ffdd0db1.pdf"
+
+- title: "双方向推薦システムにおけるコントラスト効果の応用"
+  authors: ["西村直樹", "安藤智弥", "小林健", "中田和秀"]
+  presenter: "西村直樹"
+  venue: "2025年度 人工知能学会全国大会"
+  place: "大阪国際展示場"
+  date: "2025-05"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2025/0/JSAI2025_4D2OS33b05/_pdf/-char/en"
+
+- title: "短期の収益と将来のオフ方策評価性能を考慮したクーポン割当方策混合比の決定"
+  authors: ["西村直樹", "小林健", "中田和秀"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2024年秋季研究発表会"
+  place: "南山大学"
+  date: "2024-09"
+  scope: "domestic"
+  url: "https://orsj.org/nc2024f/wp-content/uploads/sites/19/2024/08/program_detailed_2024f_v4.pdf"
+
+- title: "リクルートにおける数理最適化の活用事例と産学連携の取り組み"
+  authors: ["西村直樹"]
+  presenter: "西村直樹"
+  venue: "大阪大学大学院 情報科学研究科 数理最適化寄附講座 最終報告シンポジウム"
+  place: "大阪大学中之島センター"
+  date: "2023-09"
+  scope: "domestic"
+  invited: true
+  url: "https://speakerdeck.com/recruitengineers/rikurutoniokerushu-li-zui-shi-hua-no-huo-yong-shi-li-tochan-xue-lian-xi-noqu-rizu-mi"
+
+- title: "リクルートの産学連携でのデータ活用事例紹介"
+  authors: ["西村直樹"]
+  presenter: "西村直樹"
+  venue: "情報処理学会第85回全国大会インダストリアルセッション"
+  place: "電気通信大学"
+  date: "2023-03"
+  scope: "domestic"
+  invited: true
+  url: "https://www.ipsj.or.jp/event/taikai/85/splist-IndustrialSession.html"
+
+- title: "形状制約モデルによる顧客の商品選択行動の予測"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎"]
+  presenter: "西村直樹"
+  venue: "科研費「機械学習システムの社会実装に向けた次世代最適化技法の研究」2021年度シンポジウム"
+  date: "2021-09"
+  scope: "domestic"
+
+- title: "レベニューマネジメントにおける暗黙知を考慮した最適化モデルの自動構成"
+  authors: ["西村直樹", "池田春之介", "木村隆介", "梅谷俊治"]
+  presenter: "西村直樹"
+  venue: "第23回情報論的学習理論ワークショップ (IBIS2020)"
+  place: "オンライン"
+  date: "2020-11"
+  scope: "domestic"
+  url: "https://ibisml.org/ibis2020/list/"
+
+- title: "オンラインサービスでの量子アニーリングの応用"
+  authors: ["西村直樹"]
+  presenter: "西村直樹"
+  venue: "独立行政法人情報処理推進機構（IPA）量子コンピューティング技術シンポジウム"
+  place: "東京ミッドタウンホール"
+  date: "2019-03"
+  scope: "domestic"
+  invited: true
+  url: "https://web.archive.org/web/20190925211021/https://www.ipa.go.jp/jinzai/mitou/2019/quantum_symposium.html"
+
+- title: "閲覧数列の順序関係を考慮した商品選択確率の推定"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2019年春季研究発表会"
+  place: "千葉工業大学"
+  date: "2019-03"
+  scope: "domestic"
+
+- title: "データサイエンスが導くビジネス進化"
+  authors: ["松本健", "西村直樹"]
+  presenter: "西村直樹"
+  venue: "日本IBM Open for Data Summit Autumn"
+  place: "虎ノ門ヒルズ"
+  date: "2016-10"
+  scope: "domestic"
+  invited: true
+
+- title: "潜在クラスを考慮した混合型の商品選択確率表"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2016年春季研究発表会"
+  place: "慶應義塾大学"
+  date: "2016-03"
+  scope: "domestic"
+
+- title: "顧客と商品の類型化に基づく購入確率表の作成"
+  authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎", "水野眞治"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会 2014年秋季研究発表会"
+  place: "北海道科学大学"
+  date: "2014-08"
+  scope: "domestic"
+
+- title: "大規模な推薦商品最適化問題に対する確率的劣勾配法"
+  authors: ["西村直樹", "土谷拓人", "鮏川矩義", "高野祐一", "中田和秀"]
+  presenter: "西村直樹"
+  venue: "日本オペレーションズ・リサーチ学会「最適化の理論と応用」研究部会"
+  place: "筑波大学"
+  date: "2014-05"
+  scope: "domestic"
+
+- title: "Fast solution to the fair ranking problem using the Sinkhorn algorithm"
+  authors: ["Y. Uehara", "S. Ikeda", "N. Nishimura", "N. Sukegawa", "Y. Takano"]
+  presenter: "Y. Uehara"
+  venue: "INFORMS 2024 Annual Meeting"
+  place: "Seattle, U.S.A."
+  date: "2024-10"
+  scope: "international"
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- title: "Robust portfolio optimization model for electronic coupon allocation"
+  authors: ["Y. Uehara", "N. Nishimura", "Y. Li", "J. Yang", "D. Jobson", "K. Ohashi", "T. Matsumoto", "N. Sukegawa", "Y. Takano"]
+  presenter: "Y. Uehara"
+  venue: "AAAI 2024 Workshop on Artificial Intelligence for Operations Research"
+  place: "Vancouver, Canada"
+  date: "2024-02"
+  scope: "international"
+  url: "https://arxiv.org/abs/2405.12865"
+
+- title: "報酬予測値を用いたクリックログからのオフ方策学習"
+  authors: ["坪坂正志", "植田遼太", "金光俊輔", "松岡佑知", "西村直樹"]
+  presenter: "坪坂正志"
+  venue: "第25回情報科学技術フォーラム（FIT2026）"
+  place: "福岡"
+  date: "2026-09"
+  scope: "domestic"
+  url: "https://www.ipsj.or.jp/event/fit/fit2026/abstract/data/html/program/f.html"
+
+- title: "眼鏡新商品のマルチモーダル需要予測"
+  authors: ["上島司", "西村直樹", "本田亜望", "松本健", "池田春之介", "鮏川矩義", "高野祐一"]
+  presenter: "上島司"
+  venue: "第25回情報科学技術フォーラム（FIT2026）"
+  place: "福岡"
+  date: "2026-09"
+  scope: "domestic"
+  url: "https://www.ipsj.or.jp/event/fit/fit2026/abstract/data/html/program/h.html"
+
+- title: "予測精度と解釈性を両立する二層加法リスクモデル"
+  authors: ["山下穂乃果", "西村直樹", "笠原勇布", "金光俊輔", "松岡佑知", "池田春之介", "鮏川矩義", "高野祐一"]
+  presenter: "山下穂乃果"
+  venue: "第25回情報科学技術フォーラム（FIT2026）"
+  place: "福岡"
+  date: "2026-09"
+  scope: "domestic"
+  url: "https://www.ipsj.or.jp/event/fit/fit2026/abstract/data/html/program/f.html"
+
+- title: "営業架電スケジュールの最適化：最小費用流解法と動的シミュレーション評価"
+  authors: ["笠原勇布", "松岡佑知", "西村直樹", "金光俊輔", "池田春之介", "鮏川矩義", "高野祐一"]
+  presenter: "笠原勇布"
+  venue: "2026年度 人工知能学会全国大会"
+  place: "群馬"
+  date: "2026-06"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_1G3OS13a02/_article/-char/ja/"
+
+- title: "眼鏡新商品のマルチモーダル需要予測"
+  authors: ["上島司", "西村直樹", "本田亜望", "松本健", "池田春之介", "鮏川矩義", "高野祐一"]
+  presenter: "上島司"
+  venue: "2026年度 人工知能学会全国大会"
+  place: "群馬"
+  date: "2026-06"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_1G5OS13c02/_article/-char/ja/"
+
+- title: "二層加法リスクモデルを用いた営業架電の成約率予測"
+  authors: ["山下穂乃果", "西村直樹", "笠原勇布", "金光俊輔", "松岡佑知", "池田春之介", "鮏川矩義", "高野祐一"]
+  presenter: "山下穂乃果"
+  venue: "2026年度 人工知能学会全国大会"
+  place: "群馬"
+  date: "2026-06"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_1G5OS13c04/_article/-char/ja/"
+
+- title: "観測誤差と確率分布の不確実性を考慮したロバスト意思決定指向学習"
+  authors: ["山尾奬紀", "松井諒生", "小林健", "西村直樹", "中田和秀"]
+  presenter: "山尾奬紀"
+  venue: "日本オペレーションズ・リサーチ学会 2026年春季研究発表会"
+  place: "千葉"
+  date: "2026-03"
+  scope: "domestic"
+  url: "https://orsj.org/2026s/wp-content/uploads/sites/26/2026/02/2c558afb930843b9e643a8f5c25142ba.pdf"
+
+- title: "多種類クーポンの効果推定と配布最適化"
+  authors: ["伊熊大貴", "池田春之介", "西村直樹", "鮏川矩義", "高野祐一"]
+  presenter: "伊熊大貴"
+  venue: "2025年度 人工知能学会全国大会（第39回）"
+  place: "大阪"
+  date: "2025-05"
+  scope: "domestic"
+  url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2025/0/JSAI2025_4D3OS33c02/_article/-char/ja/"
+
+- title: "最適輸送と深層学習による公平ランキング問題の解法"
+  authors: ["上原祐輝", "西村直樹", "大橋耕也", "鮏川矩義", "高野祐一"]
+  presenter: "上原祐輝"
+  venue: "日本オペレーションズ・リサーチ学会 2025年春季研究発表会"
+  place: "東京"
+  date: "2025-03"
+  scope: "domestic"
+  url: "https://orsj.org/nc2025s/wp-content/uploads/sites/24/2025/02/or2025s_program_detail_v2.pdf"
+
+- title: "長期報酬に対する逐次的オフ方策学習"
+  authors: ["池田春之介", "吉住宗朔", "西村直樹", "齋藤優太"]
+  presenter: "池田春之介"
+  venue: "日本オペレーションズ・リサーチ学会 2024年春季研究発表会"
+  place: "茨城"
+  date: "2024-03"
+  scope: "domestic"
+  url: "https://orsj.org/nc2024s/wp-content/uploads/sites/17/2024/02/program_detailed2024_v10.pdf"
+
+- title: "単一商品の個人別価格設定に対する処方的ロバスト最適化"
+  authors: ["池田春之介", "西村直樹", "鮏川矩義", "高野祐一"]
+  presenter: "池田春之介"
+  venue: "日本オペレーションズ・リサーチ学会 2024年春季研究発表会"
+  place: "茨城"
+  date: "2024-03"
+  scope: "domestic"
+  url: "https://orsj.org/nc2024s/wp-content/uploads/sites/17/2024/02/program_detailed2024_v10.pdf"
+
+- title: "定額のインセンティブ付与における予算制約を考慮したアップリフトモデリング"
+  authors: ["松井諒生", "吉住宗朔", "西村直樹", "小林健", "中田和秀"]
+  presenter: "松井諒生"
+  venue: "日本オペレーションズ・リサーチ学会 2023年春季研究発表会"
+  place: "東京"
+  date: "2023-03"
+  scope: "domestic"
+  url: "https://orsj.org/nc2023s-abstract"
+
+- title: "アイテム推薦における公平性考慮のための二段階最適化"
+  authors: ["濱田賢吾", "西村直樹", "梅谷俊治"]
+  presenter: "濱田賢吾"
+  venue: "日本オペレーションズ・リサーチ学会 2023年春季研究発表会"
+  place: "東京"
+  date: "2023-03"
+  scope: "domestic"
+  url: "https://orsj.org/nc2023s-abstract"

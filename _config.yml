@@ -1,0 +1,9 @@
+# GitHub Pages (Jekyll) 設定
+title: "西村 直樹 (Naoki Nishimura)"
+url: "https://nnnnishi.github.io"
+
+# 業績リストで太字にする自分の名前の表記
+me: ["西村直樹", "N. Nishimura", "Naoki Nishimura"]
+months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+exclude: ["README.md", "Gemfile", "Gemfile.lock", "vendor"]
