@@ -15,8 +15,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 
 ## ローカル確認
 ```sh
-/opt/homebrew/lib/ruby/gems/4.0.0/bin/jekyll serve   # → http://localhost:4000
+./preview.sh   # → http://localhost:4000（ファイルを保存すると自動でリロード）
 ```
-（PATH に `/opt/homebrew/opt/ruby/bin` が必要）
 
 更新したら `sitemap.xml` の `lastmod` も直す。

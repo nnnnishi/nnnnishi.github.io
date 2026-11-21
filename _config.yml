@@ -6,4 +6,4 @@ url: "https://nnnnishi.github.io"
 me: ["西村直樹", "N. Nishimura", "Naoki Nishimura"]
 months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-exclude: ["README.md", "Gemfile", "Gemfile.lock", "vendor"]
+exclude: ["README.md", "preview.sh", "Gemfile", "Gemfile.lock", "vendor"]
