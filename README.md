@@ -5,7 +5,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 ## ページ構成
 | URL | ファイル | 中身 |
 |---|---|---|
-| `/` | `index.html` | Research Interests・News・Selected Publications |
+| `/` | `index.html` | Research Interests・News |
 | `/publications/` | `publications/index.html` | 論文・記事・書籍・特許（全件） |
 | `/talks/` | `talks/index.html` | 学会発表・招待講演（全件） |
 | `/cv/` | `cv/index.html` | 所属・職歴・授業・学歴・受賞 |
@@ -15,7 +15,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 ## 内容を追加・修正する
 | 内容 | ファイル | メモ |
 |---|---|---|
-| 論文・記事・書籍・特許 | `_data/papers.yml` | `type` で分類。上から順に表示されるので新しいものを先頭に。`selected: true` でトップの Selected Publications に載る |
+| 論文・記事・書籍・特許 | `_data/papers.yml` | `type` で分類。上から順に表示されるので新しいものを先頭に |
 | 口頭発表・講演 | `_data/presentations.yml` | 共著も含めてすべて記載。`presenter` に発表者（○）、`scope: international/domestic`、依頼講演は `invited: true`。`date` (YYYY-MM) で自動ソート |
 | 受賞 | `_data/awards.yml` | `date` で自動ソート |
 | 授業 | `_data/teaching.yml` | 上から順に表示。`links` に年度ごとのシラバス |

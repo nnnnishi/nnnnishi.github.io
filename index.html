@@ -10,15 +10,6 @@ layout: default
         <li><span class="date">{% include date.html date=n.date %}</span><div>{{ n.text }}</div></li>
 {%- endfor %}
       </ul>
+      <p class="more"><a href="{{ '/publications/' | relative_url }}">論文・書籍</a> ／ <a href="{{ '/talks/' | relative_url }}">発表・講演</a> ／ <a href="{{ '/cv/' | relative_url }}">経歴・受賞</a></p>
     </section>
 
-    <section id="selected">
-      <h2>Selected Publications</h2>
-      <ul class="pubs">
-{%- assign list = site.data.papers | where: "selected", true %}
-{%- for p in list %}
-        {% include paper_item.html p=p %}
-{%- endfor %}
-      </ul>
-      <p class="more"><a href="{{ '/publications/' | relative_url }}">すべての論文・書籍</a> ／ <a href="{{ '/talks/' | relative_url }}">発表・講演</a> ／ <a href="{{ '/cv/' | relative_url }}">経歴・受賞</a></p>
-    </section>
