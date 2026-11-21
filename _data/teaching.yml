@@ -10,6 +10,12 @@
       links:
         - { label: "2026年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2026/0ALB003/jpn" }
         - { label: "2025年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2025/0ALB003/jpn" }
+    - name: "技術経営（サービス工学学位プログラム、オムニバス講義の1回「数理最適化技術の応用」を担当）"
+      links:
+        - { label: "2024年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2024/0ALB008/jpn" }
+        - { label: "2023年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2023/0ALB008/jpn" }
+        - { label: "2022年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2022/0ALB008/jpn" }
+        - { label: "2020年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2020/0ALB008/jpn" }
 
 - period: "2025年6月"
   org: "九州大学 大学院数理学府・理学部数学科"

@@ -1,6 +1,16 @@
 # 口頭発表・講演。scope: international | domestic、invited: true で「招待講演」に表示
 # presenter: 発表者（○が付く）。date: YYYY-MM（表示は降順で自動ソート）
 
+- title: "双方向推薦システムにおける長期マッチング最大化 ― 経験則の数理モデル化 ―"
+  authors: ["西村直樹"]
+  presenter: "西村直樹"
+  venue: "第38回 RAMP 数理最適化シンポジウム（RAMP 2026）オーガナイズドセッション「OR技術活用の最前線」"
+  place: "金沢商工会議所"
+  date: "2026-11"
+  scope: "domestic"
+  invited: true
+  url: "https://orsj.org/ramp/ramp2026/program"
+
 - title: "Balancing immediate revenue and future off-policy evaluation in coupon allocation"
   authors: ["Naoki Nishimura", "K. Kobayashi", "K. Nakata"]
   presenter: "Naoki Nishimura"
