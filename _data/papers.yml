@@ -16,11 +16,25 @@
   url: "https://proceedings.mlr.press/v337/yamao26a.html"
 
 - type: "refereed"
+  authors: ["R. Ueda", "M. Tsubosaka", "S. Kanemitsu", "Y. Matsuoka", "N. Nishimura", "S. Ikeda", "N. Sukegawa", "Y. Takano"]
+  title: "Off-policy learning from click logs using reward predictors"
+  venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
+  year: 2026
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/papers.html"
+
+- type: "refereed"
   authors: ["T. Ueshima", "T. Honda", "T. Matsumoto", "N. Nishimura", "S. Ikeda", "N. Sukegawa", "Y. Takano"]
   title: "Multimodal pre-launch demand forecasting for eyewear products"
   venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
   year: 2026
   url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- type: "refereed"
+  authors: ["Y. Kasahara", "Y. Matsuoka", "N. Nishimura", "S. Kanemitsu", "S. Ikeda", "N. Sukegawa", "Y. Takano"]
+  title: "Outbound sales-call scheduling: A minimum-cost flow solution with simulation-based evaluation"
+  venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
+  year: 2026
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/papers.html"
 
 - type: "refereed"
   authors: ["H. Suzuki", "S. Ikeda", "N. Nishimura", "Y. Takano"]
