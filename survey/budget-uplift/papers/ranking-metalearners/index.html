@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>処置効果を順位づけるメタ学習器（論文解説）</title>
+<meta name="description" content="Metalearners for Ranking Treatment Effects（arXiv 2024）の非公式の解説。処置効果の推定値ではなく順位を学ぶ目的関数を6種類のメタ学習器に組み込み、AUQC を直接最適化する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = effect estimation: pointwise objective (MSE), the usual predict-then-rank approach
+            --b  (blue)   = effect ranking: pairwise / listwise objectives and the AUQC they target (light blue = pairwise, deep blue = listwise in Table 2)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+/* ---------- tables (this page) ---------- */
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+.tblwrap.wide { max-width: var(--wide); }
+.tbl { border-collapse: collapse; font: 0.9rem/1.5 var(--font-en); font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; vertical-align: top; }
+.tbl thead th { font-weight: 600; color: var(--muted); border-bottom: 1.5px solid var(--ink); font-family: var(--font-ja); }
+.tbl tbody th { text-align: left; font-weight: 600; font-family: var(--font-ja); }
+.tbl small { display: block; font-size: 0.75rem; color: var(--muted); font-family: var(--font-ja); }
+.toy tr.truth td, .toy tr.truth th { background: var(--panel); font-style: italic; }
+.toy td.bad { color: var(--a); font-weight: 600; } .toy td.bad small { color: var(--a); }
+.res td { font-size: 0.82rem; border-left: 4px solid transparent; }
+.res td b { font-weight: 700; }
+.res td.P { border-left-color: var(--a); } .res td.P b { color: var(--a); }
+.res td.R { border-left-color: #93B0F0; } .res td.R b { color: var(--b); }
+.res td.L { border-left-color: var(--b); } .res td.L b { color: var(--b); }
+.tnote { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv 2024</div>
+  <h1>Metalearners for Ranking Treatment Effects</h1>
+  <p class="subtitle">処置効果を順位づけるメタ学習器</p>
+
+  <ul class="authors">
+    <li><b>Toon Vanderschueren</b><span>KU Leuven, University of Antwerp</span></li>
+    <li><b>Wouter Verbeke</b><span>KU Leuven</span></li>
+    <li><b>Felipe Moraes</b><span>Booking.com</span></li>
+    <li><b>Hugo Manuel Proença</b><span>Booking.com</span></li>
+  </ul>
+
+  <p class="lead">処置できる人数が限られるなら、効果の大きい人から順に処置すればよい。従来は<span class="A">効果の値をなるべく正確に推定</span>してから並べていたが、この論文は<span class="B">並び順そのものを学ぶ目的関数</span>を6種類のメタ学習器に組み込む。リストワイズの目的関数は Qini 曲線の下の面積（AUQC）を直接最適化でき、30通りの比較のうち16通りで最も高い AUQC を示した。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/pdf/2405.02183">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2405.02183">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="5つの場面で論文を要約するアニメーション。効果の推定値で並べる従来法、推定誤差が小さくても順位を間違える例、AUQC が NDCG の一種になる仕組み、30通りの比較で各目的関数が最良だった回数、まとめの順に進む。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">AUQC は NDCG の一種</span><span class="d">割引を \(n-i+1\) とした NDCG は AUQC と一致する。そのため LambdaMART 型の目的関数で AUQC を直接最適化できる。</span></li>
+    <li><span class="k">30通り中16通り</span><span class="d">6種類のメタ学習器と5つのデータの組み合わせのうち、リストワイズが最も高い AUQC を示した数。ポイントワイズとペアワイズは7通りずつ。</span></li>
+    <li><span class="k">ペアは1人につき1組</span><span class="d">比較するペアを1人あたり \(k\) 組だけ抜き出し、計算量を \(O(n^2)\) から \(O(kn)\) に下げる。\(k=1\) で良い結果が得られたと報告されている。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>効果を正確に推定できても、並び順を間違えれば処置の割り当ては悪くなる</h2>
+    <p>マーケティングのクーポン、ワクチンの配分、設備の予防保守など、処置できる数に上限がある問題は多い。よく使われるのは、まず各人の処置効果を推定し（予測）、その推定値を最適化問題に入れて誰を処置するか決める（最適化）という2段階の方法である。論文はこれを<strong>予測重視の学習</strong>と呼ぶ。</p>
+    <p>効果の大きい人から処置する問題では、推定値の正確さより並び順の正しさが結果を左右する。下の表は論文の例で、モデル1は推定値が真の値に近いが順位が崩れている。モデル2は値が大きくずれているが、順位は真の順位と一致する。人数が限られるときに先に処置すべき人を正しく選べるのはモデル2である。論文は最適化の結果に合わせて予測モデルを作る<strong>意思決定重視の学習</strong>の立場から、効果を推定する代わりに効果の順位を直接学ぶことを提案する。</p>
+    <div class="tblwrap">
+      <table class="tbl toy">
+        <thead><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>MSE</th><th>順位</th></tr></thead>
+        <tbody>
+          <tr class="truth"><th>真の処置効果</th><td>0.20</td><td>0.17</td><td>0.16</td><td>0.15</td><td>0.11</td><td>0.10</td><td>—</td><td>—</td></tr>
+          <tr><th class="A">モデル1（効果の推定）</th><td>0.22<small>1位</small></td><td class="bad">0.15<small>4位</small></td><td>0.16<small>3位</small></td><td class="bad">0.17<small>2位</small></td><td class="bad">0.10<small>6位</small></td><td class="bad">0.11<small>5位</small></td><td>良い</td><td>悪い</td></tr>
+          <tr><th class="B">モデル2（効果の順位）</th><td>0.25<small>1位</small></td><td>0.22<small>2位</small></td><td>0.20<small>3位</small></td><td>0.15<small>4位</small></td><td>0.10<small>5位</small></td><td>0.05<small>6位</small></td><td>悪い</td><td>良い</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tnote">表1　6人の顧客（列）の真の処置効果と、2つのモデルの推定値。推定値の下の順位は推定値の大きい順に並べたときのもので、橙色は真の順位と食い違う人（論文 Table 2 の数値から解説者が作表。順位は解説者が付記）。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>処置できる人数が事前に分からないなら、効果の大きい順に並べるのが最適で、その良さは AUQC で測れる</h2>
+    <p>各人 \(i\) は特徴量 \(x_i\)、二値の処置 \(t_i \in \{0,1\}\)、成果 \(y_i\) で表され、処置効果は \(\tau_i = Y_i(1) - Y_i(0)\) である。テスト時の \(n\) 人のうち最大 \(B\) 人まで処置できるとき、解くべき問題は次のようになる。</p>
+    <div class="eq">\[ \max_{t}\ \sum_{i=1}^{n} \tau_i(t_i) \quad \text{s.t.} \quad \sum_{i=1}^{n} t_i \le B,\quad t_i \in \{0,1\} \]</div>
+    <p>論文は、正確な予算 \(B\) は分からず、\(B \sim \mathcal{U}(1, n)\) と一様に分布すると仮定する。\(B=1\) なら効果が最大の1人を処置するのが最適であり、予算が一様に分からないなら、全員を \(\tau_i\) の大きい順に並べて上から処置するのが最適になる。この方策の評価には上位 \(k\) 人を処置したときの累積効果を描いた Qini 曲線の下の面積（AUQC）を使う。</p>
+    <div class="eq">\[ \mathrm{AUQC} = \sum_{k=1}^{n} \sum_{i=1}^{k} \tau_{\pi_i} \]</div>
+    <p>ここで \(\tau_{\pi_i}\) は順位 \(i\) の人の効果である。過去のデータはランダム化比較試験から得たものと仮定している。</p>
+  </section>
+
+  <section id="objective">
+    <div class="kicker">目的関数</div>
+    <h2>AUQC は線形の割引をもつ NDCG の一種なので、リストワイズの目的関数で直接最適化できる</h2>
+    <p>論文は3種類の目的関数を比べる。<span class="A">ポイントワイズ</span>は各人の目標値を平均二乗誤差（MSE）で当てにいく従来の方法で、推定値から生じる並び順は考えない。<span class="B">ペアワイズ</span>は RankNet にならい、2人のどちらが上位かを2値分類として学ぶ。<span class="B">リストワイズ</span>は LambdaMART にならい、ペアの損失に「その2人を入れ替えたときの NDCG の変化 \(\Delta\mathrm{NDCG}_{i,j}\)」を重みとしてかける。</p>
+    <p>鍵になるのは、AUQC を順位ごとに足し直すと NDCG の形になることである。</p>
+    <div class="eq">\[ \mathrm{AUQC} = \sum_{k=1}^{n}\sum_{i=1}^{k} \tau_{\pi_i} = \sum_{i=1}^{n} \tau_{\pi_i}\,{\color{#1D4ED8}(n-i+1)} \]</div>
+    <p>利得を \(g_{\pi_i} = \tau_{\pi_i}\)、割引を \(d(i) = n-i+1\) とした NDCG がこれに一致する。リストワイズの目的関数は NDCG を最適化することが示されているので、AUQC も直接最適化できる、というのが論文の主張である。ただしこれは、モデルが処置効果 \(\tau\) そのものを予測する場合の話で、\(\tau\) は観測できないため、次節のメタ学習器が必要になる。</p>
+    <p>ペアを全部使うと計算量は \(O(n^2)\) になり、マーケティングのような大規模データには合わない。そこで1人あたり \(k\) 組のペアを一様に抜き出して勾配を確率的に見積もり、計算量を \(O(kn)\) に抑える。論文は \(k=1\)、つまりポイントワイズと同じ計算量で良い結果が得られたと報告している。</p>
+  </section>
+
+  <section id="metalearners">
+    <div class="kicker">メタ学習器</div>
+    <h2>6種類のメタ学習器の学習に、順位を学ぶ目的関数を組み込む</h2>
+    <p>メタ学習器は任意の機械学習モデルで処置効果を推定するための枠組みである。論文は各メタ学習器の学習で、ポイントワイズの目的関数（回帰や分類）の代わりにペアワイズまたはリストワイズの目的関数を使う。</p>
+    <ul class="def">
+      <li><strong>Z-Learner</strong>：傾向スコアで変換した成果 \(z\)（処置群は \(y/\hat{e}\)、対照群は \(-y/(1-\hat{e})\)）を目標にした最終モデルを、順位の目的関数で学習する。</li>
+      <li><strong>S-Learner</strong>：処置を特徴量に含めた1つのモデルを順位の目的関数で学習し、処置ありとなしのスコアの差を効果の代わりに使う。</li>
+      <li><strong>T-Learner</strong>：処置群と対照群で別々のモデルを順位の目的関数で学習し、スコアの差を使う。</li>
+      <li><strong>X-Learner</strong>：T-Learner で補完した効果を目標にする2つの最終モデルを順位の目的関数で学習し、傾向スコアで重みづけて足し合わせる。最初の段のモデルはポイントワイズのまま。</li>
+      <li><strong>DR-Learner</strong>：T-Learner と傾向スコアから作る二重頑健な擬似成果 \(\phi\) を目標に、最終モデルを学習する。</li>
+      <li><strong>R-Learner</strong>：R-Loss（重みつき MSE）と同じ重みとラベルを使った、重みつきのペアワイズ・リストワイズ目的関数で学習する。</li>
+    </ul>
+    <p>S-Learner と T-Learner は効果 \(\tau\) を直接目標にしないので、前節の理論は当てはまらない。順位づけのスコアは較正されていないため、スコアの差が効果の順位を保つ保証もない。論文はそれでも「よい経験則になりうる」としている。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験</div>
+    <h2>30通りの比較のうち16通りでリストワイズが最も高い AUQC を示したが、最良の目的関数はメタ学習器によって違う</h2>
+    <p>データはいずれもランダム化試験のもので、合成データ（10,000人、特徴量10個）、Criteo（500,000件を抽出）、Hillstrom（女性向け・男性向けメールを別々の二値データとして扱う）、グローバルなオンライン旅行代理店の販促キャンペーンの非公開データ（Promotion）の5つを使う。モデルはすべて LightGBM で、ペアワイズとリストワイズはカスタム目的関数として実装した。5分割交差検証を行い、ハイパーパラメータは10回のランダム探索で調整した。</p>
+    <p>6種類のメタ学習器 × 5データの30通りのうち、最も高い AUQC を示したのはリストワイズが16通り、ポイントワイズとペアワイズが7通りずつだった。リストワイズが有利に見えるのは Z・X・R-Learner で、S-Learner ではペアワイズ、DR-Learner ではポイントワイズが良かった。Promotion データでのみ、ポイントワイズが比較的良い結果を示した。論文はメタ学習器の選び方も目的関数の選び方と同じくらい重要だと述べている。</p>
+    <div class="tblwrap wide">
+      <table class="tbl res">
+        <thead><tr><th>メタ学習器</th><th>Synthetic</th><th>Criteo</th><th>Hillstrom 女性向け</th><th>Hillstrom 男性向け</th><th>Promotion*</th></tr></thead>
+        <tbody>
+          <tr><th>Z</th><td class="L">0.183 / 0.137 / <b>0.242</b></td><td class="L">0.038 / −0.014 / <b>0.048</b></td><td class="L">0.057 / 0.016 / <b>0.092</b></td><td class="L">0.013 / 0.022 / <b>0.027</b></td><td class="L">0.407 / 0.370 / <b>0.593</b></td></tr>
+          <tr><th>S</th><td class="R">0.051 / <b>0.052</b> / 0.037</td><td class="L">0.030 / 0.002 / <b>0.048</b></td><td class="R">0.011 / <b>0.042</b> / 0.039</td><td class="P"><b>0.025</b> / −0.021 / 0.021</td><td class="R">0.370 / <b>0.593</b> / 0.222</td></tr>
+          <tr><th>T</th><td class="L">0.054 / 0.046 / <b>0.058</b></td><td class="P"><b>0.043</b> / −0.015 / 0.039</td><td class="R">−0.004 / <b>0.044</b> / 0.021</td><td class="L">0.015 / −0.017 / <b>0.032</b></td><td class="R">0.333 / <b>0.630</b> / 0.556</td></tr>
+          <tr><th>X</th><td class="L">0.052 / 0.054 / <b>0.061</b></td><td class="L">0.034 / 0.002 / <b>0.036</b></td><td class="L">−0.000 / 0.028 / <b>0.033</b></td><td class="R">−0.028 / <b>0.029</b> / 0.018</td><td class="P"><b>1.000</b> / 0.704 / 0.852</td></tr>
+          <tr><th>DR</th><td class="L">0.055 / 0.048 / <b>0.056</b></td><td class="P"><b>0.044</b> / 0.022 / 0.039</td><td class="R">−0.101 / <b>0.027</b> / 0.005</td><td class="P"><b>0.043</b> / 0.006 / 0.039</td><td class="P"><b>0.667</b> / −0.481 / −0.148</td></tr>
+          <tr><th>R</th><td class="L">0.054 / 0.050 / <b>0.056</b></td><td class="L">0.029 / 0.021 / <b>0.038</b></td><td class="L">−0.034 / 0.036 / <b>0.048</b></td><td class="L">0.033 / 0.012 / <b>0.034</b></td><td class="P"><b>0.593</b> / −0.296 / −0.259</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tnote">表2　各セルは AUQC を「ポイントワイズ / ペアワイズ / リストワイズ」の順に並べ、最も高い値を太字にした。セルの左の線は最良の目的関数を表す（<span class="A">橙</span>＝ポイントワイズ、<span class="B">淡い青</span>＝ペアワイズ、<span class="B">濃い青</span>＝リストワイズ）。*Promotion は機密保持のため、最良の値が 1 になるよう尺度を変えた値。標準誤差は省略した（論文 Table 4 の数値から解説者が作表）。</p>
+    <p class="tnote">本文は「リストワイズがポイントワイズを上回ったのは30通り中20通り」と書いているが、Table 4 の値で解説者が数えると21通りになる。最良の回数（16・7・7）は Table 4 と一致する。</p>
+  </section>
+
+  <section id="analysis">
+    <div class="kicker">分析</div>
+    <h2>合成データでは MSE の小ささは AUQC の高さにつながらず、Kendall τ は AUQC とよく連動した</h2>
+    <p>真の効果が分かる合成データで、3つの指標を比べた。順位の目的関数は MSE がずっと悪い。たとえば Z-Learner の MSE はポイントワイズ 2.474、リストワイズ 6.465、S-Learner ではそれぞれ 37.916 と 562.509 である。それでも Z-Learner の AUQC はポイントワイズ 0.183 に対しリストワイズ 0.242 と高い（論文 Table 5）。論文は、順位づけのスコアが効果の大きさを正確には表していないと述べている。</p>
+    <p>MSE は AUQC の良い予測指標ではなかった。一方、2人ずつの順位の一致度を測る Kendall τ は、どのモデルでも AUQC と正の相関があり（\(\rho > 0\)）、順位の目的関数で学んだモデルでは特に強かった（\(\rho > 0.9\)）。論文はここから、処置の優先順位づけでは点ごとの誤差を最適化する意味は薄く、順位の指標で評価すべきだと述べている。</p>
+    <figure>
+      <img src="assets/fig3_tradeoffs.png" alt="合成データでの3つの散布図。左は MSE と Kendall τ、中央は MSE と AUQC、右は Kendall τ と AUQC。ポイントワイズの点は MSE が小さい左端に集まり、ペアワイズとリストワイズの点は MSE が100から600に散らばる。MSE とほかの指標の関係ははっきりしないが、右の図では Kendall τ と AUQC がほぼ一直線に並ぶ。" loading="lazy">
+      <figcaption>図1　合成データでの MSE・Kendall τ・AUQC の関係。図中の色は論文のもので、緑がポイントワイズ、青がペアワイズ、橙がリストワイズ（このページの色分けとは異なる）。凡例の ρ は各指標の相関（論文 Fig. 3、CC BY 4.0）。</figcaption>
+    </figure>
+    <p>論文はハイパーパラメータの感度も調べている。実験で使った既定の設定（\(k=1\)、\(\sigma=1\)、スコアをシグモイドで \([0,1]\) に正規化）は、目的関数とメタ学習器をまたいでおおむね良かった。正規化した場合は、抜き出すペアを増やしても性能はほとんど上がらなかった。正規化しない場合については、本文は S・T-Learner だけで性能が上がったと書き、付録は多くのメタ学習器で上がったと書いている。論文は、ペアの抽出による確率的なゆらぎが一種の正則化として働く可能性にも触れている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>処置できる人数の上限のもとで、効果 τ の順位を直接学ぶ</h2>
+    <ul class="def">
+      <li><strong>最適化するもの</strong>：処置効果 \(\tau\) の並び順の良さ（AUQC）。予算 \(B\) のもとで効果の合計を最大にする問題を、\(B\) は分からず \(1\) から \(n\) の一様分布に従うという仮定によって「\(\tau\) の大きい順に並べる」問題に置き換えている。</li>
+      <li><strong>予算の数え方</strong>：制約は \(\sum_i t_i \le B\)、つまり処置できる人数の上限である。1人ごとに処置コストが違うことは制約に入っていない。</li>
+      <li><strong>コストの仮定</strong>：コストは成果 \(Y\) の中に差し引く形で入る。合成データでは処置コストを売上の10%（\(C = 0.1R\)）とし、処置して購入した人の成果を \(r-c\)、処置して購入しなかった人の成果を \(-c\) と定義している。Criteo は「コンバージョン − 訪問」、Hillstrom は「売上 − 訪問」を純収益として使う。</li>
+      <li><strong>処置</strong>：二値。Hillstrom の2種類のメールは、対照群を共有する2つの二値データに分けて扱う。複数の処置や連続的な処置は今後の課題とされている。</li>
+      <li><strong>データ</strong>：ランダム化比較試験のデータを仮定し、傾向スコアは処置群の割合で見積もる。交絡のある観察データでの性能は今後の課題とされている。</li>
+    </ul>
+    <p>解説者の研究（2023）のように、購入したときだけ固定額のコストがかかり、予算が金額で決まる設定では、\(\rho = \mathbb{E}[S(1)-S(0)] / (C\,\mathbb{E}[Y(1)])\)、つまり増分の成果を処置したときの期待コストで割った比で並べるのが、緩和したナップサック問題の貪欲解になる。この論文が学ぶのは人数制約のもとでの \(\tau\) の順位なので、そのまま \(\rho\) の順位を学ぶことにはならない。論文は増分の投資収益率のようなより複雑な目的や、より高度な運用上の制約への拡張を今後の課題に挙げている。順位の目的関数を \(\rho\) のような比に当てはめたときの性能は、この論文では検証されていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{vanderschueren2024metalearners,
+  title         = {Metalearners for Ranking Treatment Effects},
+  author        = {Vanderschueren, Toon and Verbeke, Wouter and Moraes, Felipe and Proen{\c{c}}a, Hugo Manuel},
+  year          = {2024},
+  eprint        = {2405.02183},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2405.02183},
+  url           = {https://arxiv.org/abs/2405.02183}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

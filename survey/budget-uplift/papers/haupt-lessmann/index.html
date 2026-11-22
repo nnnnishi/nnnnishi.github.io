@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>反応依存コストのもとでの顧客ターゲティング（論文解説）</title>
+<meta name="description" content="Targeting customers under response-dependent costs（European Journal of Operational Research 2022）の非公式の解説。購入したときだけかかるクーポン代を購入確率で割り引いて、配布の判断に入れる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = response-dependent cost: the coupon cost p(1)·δ paid only on purchase,
+                         and policies that ignore it per customer (CATE ranking, empirical threshold)
+            --b  (blue)   = incremental profit (CATE, treatment effect) and the paper's analytical rule
+                         tau > p(1)·delta + kappa
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">European Journal of Operational Research · 2022</div>
+  <h1>Targeting customers under response-dependent costs</h1>
+  <p class="subtitle">反応に応じて費用が決まる施策での顧客ターゲティング</p>
+
+  <ul class="authors">
+    <li><b>Johannes Haupt</b><span>School of Business and Economics, Humboldt-Universität zu Berlin</span></li>
+    <li><b>Stefan Lessmann</b><span>School of Business and Economics, Humboldt-Universität zu Berlin</span></li>
+  </ul>
+
+  <p class="lead">割引クーポンの費用は、受け取った顧客が購入したときにだけ発生する。この論文は、こうした<span class="A">反応依存コスト</span>があるときに利益を最大にする配布ルールを導き、<span class="B">処置効果</span>に加えて処置を受けたときの購入確率も推定する必要があることを示す。さらに、両方を一度に推定する因果ハードルモデルを提案し、EC サイトのクーポン配布データで評価している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1016/j.ejor.2021.05.045">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2003.06271">arXiv</a>
+    <a class="btn" href="https://github.com/Humboldt-WI/response-dependent-costs">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。従来の処置効果順の配布、購入時だけかかるクーポン代、判定ルール τ > p(1)δ、論文 Table 4 の利益比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\tau_i > p_i(1)\,\delta\)</span><span class="d">接触コストがないとき、配るかどうかは「処置による利益の増分」と「クーポン代を処置下の購入確率で割り引いた期待費用」の比較で決まる。</span></li>
+    <li><span class="k">配布率 100% → 72%</span><span class="d">処置効果を全員同じ（ATE）としたままでも、購入確率を顧客ごとに推定すると、利益は 55,055 から 55,289 ユーロとほぼ変わらず、配る人が減った（Table 2）。</span></li>
+    <li><span class="k">平均 58,950 対 57,621</span><span class="d">6 通りのモデル構成で比べた平均利益（ユーロ）。判定ルールで配る方策が、閾値を学習データから選ぶ方策を約 2% 上回った（Table 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>クーポンの費用は、受け取った顧客が購入したときにだけ発生する</h2>
+    <p>施策の変動費には 2 種類ある。郵送料やコールセンター費用のように、配ると決めた時点で必ずかかる<strong>ターゲティング依存コスト</strong>（論文の記号で \(\kappa\)）と、割引クーポンのように顧客が購入して初めてかかる<span class="A">反応依存コスト</span>（\(\delta\)）である。後者は配る時点では発生するかどうか分からず、期待値でしか見積もれない。</p>
+    <p>既存研究の多くは、配る人数を外から与えて処置効果の大きい順に選ぶか、カタログ送付のように費用が配布時点で確定する場面を扱ってきた。論文は、反応依存コストのもとでの配布判断を方策の問題として分析した研究はこれまでなかったと述べ、この空白を埋めることを目的にしている。</p>
+  </section>
+
+  <section id="decision-rule">
+    <div class="kicker">理論</div>
+    <h2>利益を最大にするには、処置効果に加えて処置下の購入確率も推定する必要がある</h2>
+    <p>顧客 \(i\) の購入を \(C_i\)、購入時の粗利を \(V_i\)、観測される利益を \(Y_i = C_i V_i\) とし、処置したとき・しないときの購入確率を \(p_i(1),\,p_i(0)\) と書く。配ったときの期待利益が配らないときを上回る条件を整理すると、次の判定ルールになる。</p>
+    <div class="eq">\[ \underbrace{p_i(1)V_i(1) - p_i(0)V_i(0)}_{\color{#1D4ED8}{\text{利益の増分（CATE）}}} \;>\; \underbrace{p_i(1)\,\delta}_{\color{#C2410C}{\text{期待クーポン代}}} + \kappa \]</div>
+    <p>左辺は<span class="B">処置効果</span>、右辺の第 1 項はクーポン代 \(\delta\) を購入確率 \(p_i(1)\) で割り引いた<span class="A">期待費用</span>である。このため、処置効果が同じ 2 人なら、<strong>購入しにくい人に配るほうが利益が大きい</strong>。購入しやすい人を選ぶと、因果効果を無視するだけでなく、期待クーポン代も膨らむ。</p>
+    <p>費用の構造によって、推定すべき量が変わる（論文 Table 1）。</p>
+    <ul class="def">
+      <li>反応依存コストがない（カタログなど）：\(Y_i(1)-Y_i(0)\) だけでよい。</li>
+      <li>定額クーポン：\(Y_i(1)-Y_i(0)\) と \(p_i(1)\) が要る。</li>
+      <li>定率クーポン（\(\delta_i = \eta V_i(1)\)）：さらに \(V_i(1)\) も要る。ただし処置が購入額を変えないと仮定すると、条件は \(p_i(1) > p_i(0)/(1-\eta)\) に簡約され、購入額は要らなくなる。</li>
+    </ul>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="横軸が処置下の購入確率、縦軸が利益の増分の模式図。原点を通る傾き10の直線より上の顧客に配る。利益の増分が同じ3ユーロでも、購入確率0.1の顧客Aは直線より上、0.5の顧客Bは下にある。">
+        <polygon points="80,300 504,30 80,30" fill="#E7EEFC"/>
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="24" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="504" y2="30" stroke="#16202E" stroke-width="2.5"/>
+        <text x="420" y="48" font-size="16" fill="#16202E" text-anchor="end">境界 <tspan class="mi">τ</tspan> = <tspan class="mi">p</tspan>(1)·<tspan class="mi">δ</tspan>（<tspan class="mi">δ</tspan> = 10 ユーロ）</text>
+        <text x="96" y="58" font-size="16" font-weight="600" fill="#1D4ED8">配る</text>
+        <text x="590" y="250" font-size="16" font-weight="600" fill="#5B6676" text-anchor="end">配らない</text>
+        <line x1="133" y1="199" x2="345" y2="199" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <circle cx="133" cy="199" r="9" fill="#1D4ED8"/>
+        <circle cx="345" cy="199" r="9" fill="#fff" stroke="#C2410C" stroke-width="3"/>
+        <text x="116" y="205" font-size="17" font-weight="600" fill="#1D4ED8" text-anchor="end">A</text>
+        <text x="362" y="205" font-size="17" font-weight="600" fill="#C2410C">B</text>
+        <text x="96" y="170" font-size="16" fill="#16202E">3 &gt; 0.1 × 10</text>
+        <text x="345" y="232" font-size="16" fill="#16202E" text-anchor="middle">3 &lt; 0.5 × 10</text>
+        <text x="80" y="322" font-size="16" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="345" y="322" font-size="16" fill="#5B6676" text-anchor="middle">0.5</text>
+        <text x="610" y="322" font-size="16" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="345" y="348" font-size="17" fill="#16202E" text-anchor="middle">処置下の購入確率 <tspan class="mi">p</tspan>(1)</text>
+        <text x="70" y="304" font-size="16" fill="#5B6676" text-anchor="end">0</text>
+        <text x="70" y="203" font-size="16" fill="#5B6676" text-anchor="end">3</text>
+        <text transform="translate(26,165) rotate(-90)" font-size="17" fill="#16202E" text-anchor="middle">利益の増分 <tspan class="mi">τ</tspan>（ユーロ）</text>
+      </svg>
+      <figcaption>図1　判定ルール \(\tau_i > p_i(1)\,\delta\)（\(\kappa = 0\)、\(\delta\) = 10 ユーロ）の模式図。利益の増分が同じ 3 ユーロでも、購入確率 0.1 の A は期待クーポン代が 1 ユーロなので配り、0.5 の B は 5 ユーロなので配らない。A と B の値は解説者が置いた例（模式図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="hurdle">
+    <div class="kicker">手法</div>
+    <h2>因果ハードルモデルは「買うか」と「いくら買うか」を分けて推定し、効果と購入確率を同時に得る</h2>
+    <p>判定には処置効果と \(p_i(1)\)（定率クーポンなら \(V_i(1)\) も）が必要になる。それぞれ別のモデルで推定すると、CATE 用の 1〜4 個のモデルに加えて購入確率のモデルが要る。論文はこれを distinct modeling と呼ぶ。</p>
+    <p>提案する因果ハードルモデルは、利益 \(Y_i\) を「購入するか」（第 1 段）と「購入したらいくら払うか」（第 2 段）に分けて推定する。処置の有無ごとの期待利益の差から処置効果を求め、途中で得た購入確率をそのまま費用の見積もりに使う。</p>
+    <div class="eq">\[ \hat\tau(x) = p(C{=}1\mid x, T{=}1)\,\mathbb{E}[V\mid x, T{=}1] \;-\; p(C{=}1\mid x, T{=}0)\,\mathbb{E}[V\mid x, T{=}0] \]</div>
+    <p>実装は 2 通りある。処置フラグを特徴量に入れ、購入確率と購入額のモデルを 1 つずつ作る <strong>single-model</strong>（2 モデル）と、処置群・対照群のそれぞれにハードルモデルを作る <strong>two-model</strong>（4 モデル）である。購入額は購入者だけで学習するので、推定した購入確率で重みづけして選択バイアスを補正する。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="因果ハードルモデルの模式図。顧客の特徴と処置から、第1段の購入確率モデルと第2段の購入額モデルを作り、その積の差が処置効果になる。第1段の処置下の購入確率は期待クーポン代にも使う。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker>
+        <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#C2410C"/></marker></defs>
+        <rect x="14" y="125" width="130" height="80" rx="10" fill="#F2F4F7"/>
+        <text x="79" y="160" font-size="16" fill="#16202E" text-anchor="middle">顧客の特徴 <tspan class="mi">x</tspan></text>
+        <text x="79" y="184" font-size="16" fill="#16202E" text-anchor="middle">処置 <tspan class="mi">t</tspan></text>
+        <rect x="200" y="40" width="200" height="86" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="300" y="70" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">第 1 段：買うか</text>
+        <text x="300" y="100" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">p</tspan>(<tspan class="mi">C</tspan>=1 | <tspan class="mi">x</tspan>, <tspan class="mi">t</tspan>)</text>
+        <rect x="200" y="196" width="200" height="100" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="300" y="224" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">第 2 段：いくら買うか</text>
+        <text x="300" y="252" font-size="16" fill="#16202E" text-anchor="middle">E[<tspan class="mi">V</tspan> | <tspan class="mi">x</tspan>, <tspan class="mi">t</tspan>]</text>
+        <text x="300" y="280" font-size="16" fill="#5B6676" text-anchor="middle">購入者のみ（重みづけ）</text>
+        <rect x="456" y="40" width="172" height="100" rx="10" fill="#E7EEFC"/>
+        <text x="542" y="68" font-size="17" font-weight="600" fill="#1D4ED8" text-anchor="middle">処置効果</text>
+        <text x="542" y="96" font-size="17" fill="#16202E" text-anchor="middle"><tspan class="mi">ŷ</tspan>(<tspan class="mi">x</tspan>,1) − <tspan class="mi">ŷ</tspan>(<tspan class="mi">x</tspan>,0)</text>
+        <text x="542" y="124" font-size="16" fill="#5B6676" text-anchor="middle"><tspan class="mi">ŷ</tspan> = 第 1 段 × 第 2 段</text>
+        <rect x="456" y="196" width="172" height="100" rx="10" fill="#FCEBDF"/>
+        <text x="542" y="226" font-size="17" font-weight="600" fill="#C2410C" text-anchor="middle">期待クーポン代</text>
+        <text x="542" y="256" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">p</tspan>(<tspan class="mi">C</tspan>=1 | <tspan class="mi">x</tspan>, 1)·<tspan class="mi">δ</tspan></text>
+        <path d="M144,150 L198,92" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M144,180 L198,238" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M400,83 L454,88" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M400,240 L454,112" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M380,126 L456,214" stroke="#C2410C" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+      </svg>
+      <figcaption>図2　因果ハードルモデルの模式図（論文 Fig. 1 の構造を解説者が描き直したもの）。第 1 段の処置下の購入確率を、処置効果の計算と期待クーポン代の両方に使う。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>ドイツのファッション EC の実データに、処置効果だけをシミュレーションで加えて評価した</h2>
+    <p>データはドイツのオンラインファッション小売の 119,245 訪問（61 変数）である。各訪問の 5 ページ目を閲覧した時点で、10 ユーロ引きクーポンのバナーを出すかどうかを決める。購入は 8,452 件（購入率 7%）で、購入額の中央値は 73 ユーロである。バナーの機会費用などの接触コストは値が分からないため、\(\kappa = 0\) としている。</p>
+    <p>個人の処置効果は観測できないので、論文は実データに処置効果をシミュレーションで加える。購入確率への効果は平均 5 ポイント、購入額への効果は平均 1 ユーロを中心とし、11 個の共変量の非線形関数として生成した。モデルは勾配ブースティング木（GBT）を基本とし、5 分割交差検証で比べている。</p>
+    <p class="src">以下の数値は arXiv v2（2021 年 8 月 10 日）の本文と表による。EJOR 掲載版の本文は自動取得できなかったため、照合していない。</p>
+  </section>
+
+  <section id="cost">
+    <div class="kicker">実験の結果 1</div>
+    <h2>購入確率を顧客ごとに推定すると、<span style="white-space:nowrap">配る人が</span>減っても利益はほぼ変わらなかった</h2>
+    <p>誰にも配らない場合の利益は 50,668 ユーロである。処置効果を全員同じ（学習データの ATE）とし、購入確率も全体の平均を使うと、判定ルールは全員に配ることを勧め、利益は 55,055 ユーロになった。購入確率だけを GBT で顧客ごとに推定すると、配布率は 72〜74% に下がり、利益はほぼ変わらなかった（single-model 55,289、two-model 54,912 ユーロ）。</p>
+    <p>真の個人効果（オラクル）を使った場合は、平均の購入確率で 60,125 ユーロ、顧客ごとの購入確率で 61,604 ユーロ（single-model）と 61,504 ユーロ（two-model）だった。論文はこの結果から、処置後に購入しやすい顧客は期待クーポン代が高いため、処置への反応がよくても配るのが非効率になりうると述べている。</p>
+    <p>CATE モデルだけを比べた Table 3 では、誤差（RMSE）が最も小さいのは XBCF（2.70）だったが、利益が最も高いのは RMSE が 3.39 と大きい two-model のハードルモデル（58,335 ユーロ）だった。論文は、正確な CATE 推定と利益の出る配布は同じではないと指摘している。</p>
+  </section>
+
+  <section id="policy">
+    <div class="kicker">実験の結果 2</div>
+    <h2>判定ルールで配る相手を決めると、閾値を経験的に選ぶ方法より平均で約 2% 利益が高かった</h2>
+    <p>Table 4 は判定ルールで顧客ごとに決める<span class="B">解析的方策</span>と、学習データ上の利益が最大になるよう CATE の閾値を数値的に選ぶ<span class="A">経験的方策</span>を、6 通りのモデル構成で比べている。平均利益は 58,950 ユーロ対 57,621 ユーロで、論文はこれを約 2% の改善としている。</p>
+    <p>最も利益が高かったのは single-model の因果ハードルモデル（60,152 ユーロ）で、DR（59,117）や XBCF（59,069）を上回った。必要なモデルは 2 つだけで、5 つ要る DR よりかなり保守しやすいはずだと論文は述べる。なお本文は「どの組でも解析的方策が上回る」と書くが、arXiv v2 の Table 4 では One-Stage single-model の組だけ経験的方策が上回っている（58,051 対 57,851）。</p>
+    <p>論文は、シミュレーションした効果の異質性が実際の顧客の反応より強い可能性を否定できないとし、強い異質性は解析的方策に有利に働くと見込んでいる。そのうえで、実地実験で二つの方策を比べることを強く勧め、今後の課題に挙げている。</p>
+    <figure>
+      <svg class="fig" id="fig-policy" viewBox="0 0 640 345" role="img" aria-label="論文 Table 4 のドットプロット。6つのモデル構成について、解析的方策と経験的方策のキャンペーン利益を比べる。One-Stage single-model 以外の5組で解析的方策が高い。最高は Hurdle single-model の解析的方策で60,152ユーロ。"></svg>
+      <figcaption>図3　キャンペーン利益（ユーロ）。<span class="B">●</span> 解析的方策、<span class="A">●</span> 経験的方策。誰にも配らない場合は 50,668 ユーロ（論文 Table 4 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算の上限は置かず、顧客ごとに期待利益が正かどうかで配る</h2>
+    <p>この論文が推定するのは、処置による利益の増分 \(\tau_i\) と処置下の購入確率 \(p_i(1)\)（定率クーポンでは購入額 \(V_i(1)\) も）である。費用は「購入したときにだけ定額 \(\delta\) がかかる」形を中心に、定率割引と接触コスト \(\kappa\) も式に含めている。</p>
+    <p>処置は二値（配る・配らない）で、複数の処置については二値の比較の繰り返しに分解できると述べるにとどまる。評価に使ったのは 1 社の EC データで、処置効果はシミュレーションである。</p>
+    <p>予算制約は扱っていない。配る人数は判定ルールの結果として決まり、総費用に上限を置いた最適化は出てこない。一方、論文が副次的に示す最低 ROAS のしきい値 \(\tau_i / (p_i(1)\delta + \kappa) \ge\) 目標 ROAS は、\(\kappa = 0\) とすると「利益の増分 ÷ 期待コスト」の比になる。これは予算制約つきの割り当て（ナップザック問題の連続緩和）で順位づけに使う比と同じ形である（解説者の注）。ただし論文はこの比を予算のもとでの順位づけには使っておらず、管理上の最低効率を満たすためのしきい値として示している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{haupt2022targeting,
+  title   = {Targeting customers under response-dependent costs},
+  author  = {Haupt, Johannes and Lessmann, Stefan},
+  journal = {European Journal of Operational Research},
+  volume  = {297},
+  number  = {1},
+  pages   = {369--379},
+  year    = {2022},
+  doi     = {10.1016/j.ejor.2021.05.045}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 3: Table 4 of the paper (arXiv v2), campaign profit in EUR ----------
+(function () {
+  var svg = document.getElementById('fig-policy'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var rows = [
+    ['Hurdle / Single-Model', 60152, 57177], ['Hurdle / Two-Model', 58967, 58121],
+    ['One-Stage / Single-Model', 57851, 58051], ['One-Stage / Two-Model', 58542, 57535],
+    ['One-Stage / DR', 59117, 57414], ['One-Stage / XBCF', 59069, 57432]
+  ];
+  var X0 = 228, X1 = 612, LO = 57000, HI = 60500, Y0 = 62, DY = 42;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [57000, 58000, 59000, 60000].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 5 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 5 + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v.toLocaleString('en-US'));
+  });
+  el('circle', { cx: X0 + 6, cy: 20, r: 7, fill: '#1D4ED8' }); el('text', { x: X0 + 20, y: 25, 'font-size': 15, fill: '#16202E' }, '解析的方策');
+  el('circle', { cx: X0 + 136, cy: 20, r: 7, fill: '#C2410C' }); el('text', { x: X0 + 150, y: 25, 'font-size': 15, fill: '#16202E' }, '経験的方策');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 14, y: y + 5, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(r[1]), x2: px(r[2]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+    el('circle', { cx: px(r[2]), cy: y, r: 8, fill: '#C2410C' });
+    el('circle', { cx: px(r[1]), cy: y, r: 8, fill: '#1D4ED8' });
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 5 + 66, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'キャンペーン利益（ユーロ）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

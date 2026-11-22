@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROI を直接学習する資源配分（論文解説）</title>
+<meta name="description" content="Direct Heterogeneous Causal Learning for Resource Allocation Problems in Marketing（AAAI 2023）の非公式の解説。並べ替えだけで割当てが決まる量（ROI や限界 ROI）を、凸な損失で直接学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER EXPLAINER — Zhou et al., AAAI 2023 (DRP / DPM)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = two-phase methods (TPM): predict revenue and cost uplift separately,
+                  then divide / optimise — where prediction errors get amplified
+            --b  (blue)   = direct learning of the decision factor (ROI for DRP, marginal ROI for DPM)
+                  — the quantity the optimiser only sorts or compares
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- this page: inline SVG figures and the loss lab ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.9rem; }
+svg.fig text, svg.plot text { font-family: var(--font-ja); }
+svg.plot { display: block; width: 100%; height: auto; }
+.lab { grid-template-columns: 1fr; }
+@media (min-width: 761px) { .lab { grid-template-columns: minmax(13rem, 16rem) 1fr; } }
+.readout { font-size: 0.92rem; line-height: 1.6; border-left: 3px solid var(--b); padding: 0.3rem 0 0.3rem 0.8rem; }
+.readout.bad { border-left-color: var(--a); color: var(--a); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AAAI 2023</div>
+  <h1>Direct Heterogeneous Causal Learning for Resource Allocation Problems in Marketing</h1>
+  <p class="subtitle">マーケティングの資源配分問題のための、異質な因果効果の直接学習</p>
+
+  <ul class="authors">
+    <li><b>Hao Zhou</b><span>Meituan, China</span></li>
+    <li><b>Shaoming Li</b><span>Meituan, China</span></li>
+    <li><b>Guibin Jiang</b><span>Meituan, China</span></li>
+    <li><b>Jiaqi Zheng</b><span>State Key Laboratory for Novel Software Technology, Nanjing University, China</span></li>
+    <li><b>Dong Wang</b><span>Meituan, China</span></li>
+  </ul>
+
+  <p class="lead">予算の範囲で誰に施策を配るかを決めるとき、<span class="A">従来の二段階の方法</span>は売上とコストへの効果を別々に予測し、その結果を割り算や最適化にかける。そのため予測の誤差が後段で膨らみやすく、予測精度を上げても割当てが良くなるとは限らない。この論文は並べ替えるだけで割当てが決まる量（決定因子）を最適化の側から取り出し、<span class="B">その量を損失関数で直接学習する</span>。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1609/aaai.v37i4.25677">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2211.15728">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="論文を40秒で紹介するアニメーション。二段階の方法、割り算による誤差の拡大、DRP の損失の最小点、実験結果、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">AUCC 0.7666</span><span class="d">コストを考える二値の問題で、Marketing data での DRP の値。二段階の TPM-SL は 0.7153、Direct Rank は 0.7414 だった。</span></li>
+    <li><span class="k">MT-AUCC 0.7860</span><span class="d">多値の処置で限界 ROI を学習する DPM の値。TPM-SL は 0.7250、TPM-CF は 0.7395 だった。</span></li>
+    <li><span class="k">増分注文数 +14.3%</span><span class="d">Meituan の31万店舗で4週間行ったオンライン A/B テストで、TPM-CF と比べた平均の伸び。GMV は +13.6% と報告されている。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>二段階の方法では、予測を改善しても割当てが良くなるとは限らない</h2>
+    <p>マーケティングでは、値引きやクーポンのような施策が売上を増やす一方で、予算も消費する。そのため施策を配れる相手は一部に限られ、誰に配るかは資源配分問題として定式化される。既存研究の多くはこれを<span class="A">二段階の方法</span>（two-phase methods）で解く。まず機械学習（ML）で処置ごとの反応やその増分を予測し、次にその予測を入力としてオペレーションズ・リサーチ（OR）の組合せ最適化を解く。</p>
+    <p>論文はこの方法の欠点を2つ挙げる。1つ目は予測結果に複数の量の組合せや複雑な演算を施してから解を得るので、予測パラメータの精度が上がっても最終的な解が良くなるとは限らないこと。2つ目は予測の誤差が OR の側で考慮されず、演算を重ねるうちに誤差が蓄積することである。論文によれば、このため理論上は最適な OR のアルゴリズムが実際には最適にならず、場面によってはヒューリスティックな方策にも劣る。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 312" role="img" aria-label="模式図。上段は二段階の方法で、売上の増分とコストの増分を別々に予測し、割り算や最適化を経て割当てを決める。下段は ROI を1つのモデルで予測し、並べ替えるだけで割当てを決める。">
+        <defs>
+          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#C2410C"/></marker>
+          <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker>
+        </defs>
+        <g font-size="18" text-anchor="middle">
+          <text x="0" y="24" text-anchor="start" font-weight="700" fill="#C2410C">二段階の方法（TPM）</text>
+          <rect x="2" y="40" width="206" height="44" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="1.5"/>
+          <text x="105" y="68">売上の増分を予測</text>
+          <rect x="2" y="96" width="206" height="44" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="1.5"/>
+          <text x="105" y="124">コストの増分を予測</text>
+          <path d="M210,62 L250,86 M210,118 L250,94" stroke="#C2410C" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+          <rect x="256" y="68" width="170" height="44" rx="8" fill="#fff" stroke="#C2410C" stroke-width="1.5"/>
+          <text x="341" y="96">割り算・最適化</text>
+          <text x="341" y="138" font-size="16" fill="#C2410C">誤差がここで膨らむ</text>
+          <path d="M428,90 L462,90" stroke="#C2410C" stroke-width="2" marker-end="url(#arA)"/>
+          <rect x="468" y="68" width="170" height="44" rx="8" fill="#F2F4F7" stroke="#5B6676" stroke-width="1.2"/>
+          <text x="553" y="96">割当て</text>
+
+          <text x="0" y="198" text-anchor="start" font-weight="700" fill="#1D4ED8">決定因子の直接学習（DRP など）</text>
+          <rect x="2" y="214" width="206" height="72" rx="8" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="105" y="244">ROI を1つの</text>
+          <text x="105" y="270">モデルで予測</text>
+          <path d="M210,250 L250,250" stroke="#1D4ED8" stroke-width="2" marker-end="url(#arB)"/>
+          <rect x="256" y="228" width="170" height="44" rx="8" fill="#fff" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="341" y="256">並べ替えるだけ</text>
+          <path d="M428,250 L462,250" stroke="#1D4ED8" stroke-width="2" marker-end="url(#arB)"/>
+          <rect x="468" y="228" width="170" height="44" rx="8" fill="#F2F4F7" stroke="#5B6676" stroke-width="1.2"/>
+          <text x="553" y="256">割当て</text>
+        </g>
+      </svg>
+      <figcaption>図1　二段階の方法（上）と、決定因子を直接学習する方法（下）。論文の説明をもとに解説者が描いた模式図。</figcaption>
+    </figure>
+  </section>
+
+  <section id="decision-factor">
+    <div class="kicker">考え方</div>
+    <h2>並べ替えだけで解が決まる量を、そのまま学習の目標にする</h2>
+    <p>論文は、組合せ最適化のアルゴリズムが<strong>並べ替えか比較だけ</strong>で最終的な解を出せるとき、その基準となる量を<span class="B">決定因子</span>（decision factor）と呼ぶ。決定因子を ML の学習目標にすれば、OR の側で予測結果に演算を重ねずに済む。モデルが決定因子をどれだけ正しく順位づけるかがそのまま解の質を決めるので、モデルを改善すれば解も改善される。</p>
+    <p>二値の処置で具体的に見る。個人 \(i\) の特徴を \(x_i\) とし、処置による売上 \(Y^r\) とコスト \(Y^c\) の条件付き平均処置効果（CATE）を次のように書く。</p>
+    <div class="eq">\[ \tau^{*}(x_i) = E\bigl[\,Y^{*}(1) - Y^{*}(0) \mid X = x_i\,\bigr], \qquad * \in \{r, c\} \]</div>
+    <p>多くの施策は反応を増やすとして、論文は \(\tau^r(x_i) > 0,\ \tau^c(x_i) > 0\) とおく。予算 \(B\) のもとで売上の増分の合計を最大にする問題（BTAP）は次のとおりである。</p>
+    <div class="eq">\[ \max_{z}\ \sum_i z_i\,\tau^r(x_i) \quad \text{s.t.}\ \ \sum_i z_i\,\tau^c(x_i) \le B,\ \ z_i \in \{0,1\} \]</div>
+    <p>これは0/1ナップサック問題と同値で NP 困難だが、\(\tau^r(x_i)/\tau^c(x_i)\) の大きい順に並べ、予算を超えるまで配る貪欲法（論文の Algorithm 1）で良い近似解が得られる。この貪欲法の決定因子が個人の <span class="B">ROI</span>、つまり \(\tau^r(x_i)/\tau^c(x_i)\) である。処置コストがないか全員で同じ場合（例：プッシュ通知）は、決定因子は \(\tau^r(x_i)\) だけになる。</p>
+  </section>
+
+  <section id="drp">
+    <div class="kicker">手法</div>
+    <h2>DRP の損失は凸で、収束点では出力が \(\tau^r/\tau^c\) に一致する</h2>
+    <p>ROI は2つの量の比なので、既存研究の多くは<span class="A">2つのモデルの予測を組み合わせて</span>求める。論文は組合せの演算で誤差が拡大しうると指摘し、<span class="B">ROI を1つのモデルで直接予測する DRP</span>（Direct ROI Prediction）を提案する。RCT で集めたデータ \((x_i, t_i, y^r_i, y^c_i)\) を使い、処置群と対照群の件数を \(N_1, N_0\) とする。任意の ML モデルの出力 \(s_i = \hbar(x_i)\) をシグモイドに通した \(q_i = \sigma(s_i)\) について、損失を次のように置く。</p>
+    <div class="eq">\[ \begin{aligned} L(s) = -\Bigl[ &\frac{1}{N_1}\sum_{i \mid t_i = 1}\Bigl(y^r_i \ln\frac{q_i}{1-q_i} + y^c_i \ln(1-q_i)\Bigr) \\ - &\frac{1}{N_0}\sum_{i \mid t_i = 0}\Bigl(y^r_i \ln\frac{q_i}{1-q_i} + y^c_i \ln(1-q_i)\Bigr)\Bigr] \end{aligned} \]</div>
+    <p>RCT では処置の割当てが潜在的結果と独立なので、この損失は \(-\frac{1}{N}\sum_i\bigl[\tau^r(x_i)\ln\frac{q_i}{1-q_i} + \tau^c(x_i)\ln(1-q_i)\bigr]\) と書き直せる（論文 Appendix B）。\(s_i\) での1階微分は \(-\frac{1}{N}\bigl(\tau^r(x_i) - q_i\,\tau^c(x_i)\bigr)\)、2階微分は \(\frac{1}{N}q_i(1-q_i)\,\tau^c(x_i) > 0\) なので損失は凸であり、微分が0になる点で \(q_i = \tau^r(x_i)/\tau^c(x_i)\) となる。\(\sigma\) は単調増加なので、\(s_i\) の順位がそのまま ROI の順位になる。</p>
+    <p>\(q_i\) は (0,1) の値しかとらないので、ROI もこの範囲になければ最小点は存在しない。論文は、割り算で ROI の分散が大きくなりやすい（特に \(\tau^c\) が小さいとき）ことも理由に挙げ、\(Y^r\) か \(Y^c\) をスケーリングと切り詰めで調整して ROI を (0,1) に収める。下の図で \(\tau^r\) と \(\tau^c\) を動かすと、最小点の位置が \(\tau^r/\tau^c\) に沿って動くことと、\(\tau^r \ge \tau^c\) では最小点が消えることを確かめられる。</p>
+    <figure>
+      <div class="lab" id="lab">
+        <div class="ctrl">
+          <label><span class="row"><span>売上の増分 \(\tau^r\)</span><output id="o-r">0.030</output></span>
+            <input type="range" id="s-r" min="0.005" max="0.1" step="0.005" value="0.03"></label>
+          <label><span class="row"><span>コストの増分 \(\tau^c\)</span><output id="o-c">0.050</output></span>
+            <input type="range" id="s-c" min="0.005" max="0.1" step="0.005" value="0.05"></label>
+          <div class="readout" id="readout"></div>
+        </div>
+        <svg id="lossplot" class="plot" viewBox="0 0 520 320" role="img" aria-label="1人分の DRP の損失を q の関数として描いた曲線と、その最小点。"></svg>
+      </div>
+      <figcaption>図2　1人分の DRP の損失 \(-\bigl[\tau^r\ln\frac{q}{1-q} + \tau^c\ln(1-q)\bigr]\) を \(q\) の関数として描いたもの。縦軸は表示範囲の最小値を0にそろえた。値は仮のもので、論文 Appendix B の式から解説者が作図した。</figcaption>
+    </figure>
+    <p>コストを考えない場合についても、論文は同じ考え方で \(\tau^r(x_i)\) を直接学習する DUM（direct uplift modeling）を提案している。こちらはソフトマックスで正規化した \(q_i\) を使い、収束点で \(q_i = \tau^r(x_i)/\sum_j \tau^r(x_j)\) となる。また、ROI の順位を直接学習する既存手法 Direct Rank（Du et al., 2019）について、論文は Appendix E で、収束したと仮定するとすべての個人の ROI が等しくなければならないことを導き、その損失が安定な極値点に収束しないことを示している。</p>
+  </section>
+
+  <section id="multi">
+    <div class="kicker">多値の処置</div>
+    <h2>多値の処置では、ラグランジュ乗数を含まない限界 ROI を学習する</h2>
+    <p>次に、値引き額のように段階のある処置 \(j \in \{1, \dots, L\}\) から1人に1つを選ぶ問題（MTBAP）を考える。個人 \(i\) が処置 \(j\) を受けたときの売上とコストを \(r_{ij}, c_{ij}\) とし、段階が上がるほど両方とも大きくなるとする。</p>
+    <div class="eq">\[ \begin{aligned} &\max_{z}\ \sum_{ij} z_{ij}\,r_{ij} \\ &\text{s.t.}\ \ \sum_{ij} z_{ij}\,c_{ij} \le B,\ \ \sum_j z_{ij} = 1,\ \ z_{ij} \in \{0,1\} \end{aligned} \]</div>
+    <p>これは多重選択ナップサック問題で、既存研究はラグランジュ双対で解くことが多い。最適な乗数 \(\alpha^*\) が決まれば、各個人に \(r_{ij} - \alpha^* c_{ij}\) が最大になる処置を選ぶ。この \(r_{ij} - \alpha^* c_{ij}\) も決定因子だが、\(\alpha^*\) は予算 \(B\) に依存し、学習データに一度も現れていない値が将来の施策で使われる可能性がある。論文は、あらゆる \(\alpha^*\) について直接予測するのは難しく現実的でないとして、これを学習目標にしない。</p>
+    <p>代わりに論文は限界効用逓減の法則（仮定1）のもとで、\(\alpha\) を含まない<span class="B">限界 ROI</span> を使う。</p>
+    <div class="eq">\[ \ell_{ij} = \frac{r_{i,j+1} - r_{ij}}{c_{i,j+1} - c_{ij}}, \qquad \ell_{ij} \le \ell_{i,j-1} \]</div>
+    <p>双対法で選ばれる処置 \(j^*\) は \(\ell_{ij^*} \le \alpha \le \ell_{i,j^*-1}\) を満たすので、\(\ell_{ij}\) と \(\alpha\) を比べるだけで同じ解が得られる（Algorithm 2、定理3）。\(\ell_{ij}\) を直接学習する損失も示されており、収束点では \(q_{ij} = \ell_{ij}/2\) となる（Appendix D）。この \(\ell_{ij}\) の予測と Algorithm 2 を組み合わせた方法が <span class="B">DPM</span> である。評価のために論文は AUCC を多値の処置に広げた指標 MT-AUCC も提案している。モデルの曲線の下の面積 \(A_M\) とランダムな基準の面積 \(A_R\) から \(A_M/2A_R\) と定義し、値を (0,1] に収める。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="模式図。ある個人の処置ごとのコストと売上の点を結ぶ上に凸の折れ線と、傾き alpha の直線。直線が接する3番目の点が選ばれる処置になる。">
+        <g font-size="17">
+          <line x1="60" y1="300" x2="620" y2="300" stroke="#5B6676" stroke-width="1.2"/>
+          <line x1="60" y1="300" x2="60" y2="20" stroke="#5B6676" stroke-width="1.2"/>
+          <text x="620" y="328" text-anchor="end" fill="#5B6676">コスト <tspan class="mi">c</tspan><tspan font-size="12" dy="4" class="mi">ij</tspan></text>
+          <text x="70" y="30" fill="#5B6676">売上 <tspan class="mi">r</tspan><tspan font-size="12" dy="4" class="mi">ij</tspan></text>
+          <line x1="130" y1="190" x2="600" y2="40" stroke="#16202E" stroke-width="1.6" stroke-dasharray="7 5"/>
+          <text x="600" y="26" text-anchor="end" fill="#16202E">傾き <tspan class="mi">α</tspan> の直線</text>
+          <polyline points="110,270 240,170 370,115 500,92" fill="none" stroke="#1D4ED8" stroke-width="2.4"/>
+          <text x="150" y="208" fill="#1D4ED8"><tspan class="mi">ℓ</tspan><tspan font-size="12" dy="4" class="mi">i</tspan><tspan font-size="12">1</tspan></text>
+          <text x="306" y="168" fill="#1D4ED8"><tspan class="mi">ℓ</tspan><tspan font-size="12" dy="4" class="mi">i</tspan><tspan font-size="12">2</tspan></text>
+          <text x="430" y="124" fill="#1D4ED8"><tspan class="mi">ℓ</tspan><tspan font-size="12" dy="4" class="mi">i</tspan><tspan font-size="12">3</tspan></text>
+          <circle cx="110" cy="270" r="6" fill="#fff" stroke="#1D4ED8" stroke-width="2"/>
+          <circle cx="240" cy="170" r="6" fill="#fff" stroke="#1D4ED8" stroke-width="2"/>
+          <circle cx="370" cy="115" r="8" fill="#1D4ED8"/>
+          <circle cx="500" cy="92" r="6" fill="#fff" stroke="#1D4ED8" stroke-width="2"/>
+          <text x="110" y="292" text-anchor="middle" fill="#5B6676" font-size="15"><tspan class="mi">j</tspan>=1</text>
+          <text x="240" y="192" text-anchor="middle" fill="#5B6676" font-size="15"><tspan class="mi">j</tspan>=2</text>
+          <text x="370" y="148" text-anchor="middle" fill="#1D4ED8" font-size="15" font-weight="600"><tspan class="mi">j</tspan>* = 3</text>
+          <text x="500" y="122" text-anchor="middle" fill="#5B6676" font-size="15"><tspan class="mi">j</tspan>=4</text>
+          <text x="340" y="262" fill="#5B6676" font-size="15">区間の傾き <tspan class="mi">ℓ</tspan> は右へ行くほど小さい</text>
+        </g>
+      </svg>
+      <figcaption>図3　ある個人の点 \((c_{ij}, r_{ij})\) を結んだ折れ線と、傾き \(\alpha\) の直線（解説者が描いた模式図）。各区間の傾きが限界 ROI \(\ell_{ij}\) で、限界効用逓減のもとでは右へ行くほど小さくなる。傾き \(\alpha\) の直線が上から接する点が、\(r_{ij} - \alpha c_{ij}\) を最大にする処置 \(j^*\) である。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験</div>
+    <h2>オフライン実験でも A/B テストでも、提案法が比較手法を上回った</h2>
+    <p>オフライン実験では2つの RCT データを使う。CRITEO-UPLIFT v2（1390万件、特徴量12個）では、ROI を比べるために訪問ラベルをコスト、コンバージョンラベルを売上とみなす。Marketing data は Meituan の値引き施策 Money Off で4週間行った RCT（410万件、特徴量75個）で、処置は値引き額 \(T \in \{0, 1, \dots, 6\}\)、応答は日次のコストと注文数である。二値の問題では \(T = 0\) を対照群、\(T > 0\) を処置群とする。各データ点は20回の実行から計算されている。</p>
+    <p>コストを考える二値の問題（AUCC）では、DRP が両方のデータで TPM-SL と Direct Rank を上回った。多値の問題（MT-AUCC）では、DPM が TPM-SL と TPM-CF を上回った。論文は提案モデルのばらつきが小さいことも挙げ、直接学習によって安定な極値点に収束するためだと説明している。コストを考えない問題でも、DUM の AUUC は CRITEO-UPLIFT v2 で 0.8749、Marketing data で 0.8077 となり、S-Learner、X-Learner、Causal Forest を上回った。</p>
+    <figure>
+      <svg class="fig" id="chart" viewBox="0 0 640 470" role="img" aria-label="論文 arXiv 版付録 Table 1 の AUCC と MT-AUCC を横棒で比べたグラフ。3つの比較のすべてで提案法の青い棒が最も長く、ばらつきも最も小さい。"></svg>
+      <figcaption>図4　コストを考える二値の問題（AUCC）と多値の問題（MT-AUCC）の比較。棒は Table 1 の平均値、ひげは ± の後の値。横軸は 0.70 から始まる。橙は二段階の方法、灰は Direct Rank、青は論文の提案法（論文 arXiv 版付録 Table 1 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p>オンラインでは Meituan の Money Off で DPM を4週間運用した。31万店舗を G-DPM、G-TPM（TPM-CF）、G-Control（値引きなし）の3群にランダムに分け、群分けは毎週やり直した。予算の範囲で各店舗の値引き額を毎日決め、注文数と GMV の最大化を目指す。G-Control に対する増分で比べると、DPM は毎週 TPM-CF より増分注文数が多く、増分 GMV でも劣らなかった。平均すると増分注文数は14.3%、GMV は13.6%伸びたと報告されている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>DRP は、増分コストが人ごとに違う二値の処置で、ROI の順位を1つのモデルで学習する</h2>
+    <ul class="def">
+      <li>推定するもの：売上の増分とコストの増分の比 \(\tau^r(x)/\tau^c(x)\)。順位は \(s_i\) から、値は \(q_i\) から得る（値は ROI を (0,1) に収めたあとの尺度）。</li>
+      <li>コストの仮定：コストは処置ごとの定数ではなく、結果として観測される \(Y^c\) で、その増分 \(\tau^c(x)\) は人ごとに違ってよい。\(\tau^r > 0,\ \tau^c > 0\) を仮定し、ROI を (0,1) に収める前処理が要る。</li>
+      <li>処置：二値（DRP、コストを考えない場合は DUM）と、段階に順序がある多値（DPM）。多値では限界効用逓減を仮定する。</li>
+      <li>データ：RCT データを前提とする。損失の書き換えは割当てと潜在的結果の独立性と SUTVA に依存している。観察データで傾向スコアを使う拡張は、論文では扱っていない。</li>
+      <li>割当て：二値では ROI の順に配る貪欲法、多値では \(\ell_{ij}\) と \(\alpha\) を比べる二分探索（Algorithm 2）を使う。</li>
+    </ul>
+    <p>購買したときだけ定額 \(C\) の報酬を払う施策に当てはめると、次のようになる（解説者による対応づけで、論文はこの設定を扱っていない）。対照群のコストは0なので \(\tau^c(x) = C\cdot E[Y(1) \mid x]\) となり、DRP の決定因子 \(\tau^r/\tau^c\) は \(E[S(1) - S(0) \mid x]\,/\,(C\cdot E[Y(1) \mid x])\) と同じ順位の基準になる。\(Y^c\) として「処置群で購買したら \(C\)、それ以外は0」を与えれば、DRP の損失の形はそのまま使える。ただし論文の実験はこの設定を含まず、ROI を (0,1) に収める調整も別に必要になる。</p>
+  </section>
+
+  <section id="takeaways">
+    <div class="kicker">まとめ</div>
+    <h2>最適化が並べ替えに使う量を学習すれば、予測の改善が割当ての改善につながる</h2>
+    <p>論文は、資源配分の解が並べ替えや比較だけで決まる量（決定因子）を最適化の側から取り出し、それを学習目標にする方法を提案した。二値の処置では ROI を直接学習する DRP、多値の処置では限界 ROI を直接学習して Algorithm 2 で配る DPM を示し、大規模なオフライン実験とオンライン A/B テストで有効性を確かめている。今後の課題として論文は、複数の施策が同時に行われて互いに影響し合う場面を挙げ、そこで決定因子を導いて直接学習するのはより難しいと述べている。</p>
+    <p>読むときの注意を2つ挙げる。まず、このページの数値と証明は arXiv v2 による。本文は証明と Table 1 の参照先を arXiv 版の付録としている。次に、オンライン実験の段落は図の参照先を Fig. 5–6 と書き、正規化の基準を「1週目の TPM-SL」としているが、実験群は G-DPM と G-TPM（TPM-CF）である。このページでは、この段落からは本文の数値（14.3% と 13.6%）だけを引用した。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhou2023direct,
+  title     = {Direct Heterogeneous Causal Learning for Resource Allocation Problems in Marketing},
+  author    = {Zhou, Hao and Li, Shaoming and Jiang, Guibin and Zheng, Jiaqi and Wang, Dong},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {37},
+  number    = {4},
+  pages     = {5446--5454},
+  year      = {2023},
+  doi       = {10.1609/aaai.v37i4.25677}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+<script>
+// ---------- Fig. 2: DRP loss for one individual (Appendix B) ----------
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('lossplot'); if (!svg) return;
+  var sr = document.getElementById('s-r'), sc = document.getElementById('s-c');
+  var or = document.getElementById('o-r'), oc = document.getElementById('o-c'), ro = document.getElementById('readout');
+  function el(tag, a, p) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  var X0 = 56, X1 = 500, Y0 = 270, Y1 = 24;
+  el('line', { x1: X0, y1: Y0, x2: X1, y2: Y0, stroke: '#5B6676', 'stroke-width': 1.2 });
+  el('line', { x1: X0, y1: Y0, x2: X0, y2: Y1, stroke: '#5B6676', 'stroke-width': 1.2 });
+  [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+    var x = X0 + v * (X1 - X0);
+    el('line', { x1: x, y1: Y0, x2: x, y2: Y0 + 6, stroke: '#5B6676' });
+    el('text', { x: x, y: Y0 + 26, 'font-size': 17, 'text-anchor': 'middle', fill: '#5B6676' }).textContent = v;
+  });
+  var xl = el('text', { x: X1, y: Y0 + 48, 'font-size': 17, 'text-anchor': 'end', fill: '#5B6676' });
+  xl.innerHTML = '<tspan class="mi">q</tspan> = σ(<tspan class="mi">s</tspan>)';
+  el('text', { x: X0 + 8, y: Y1 + 4, 'font-size': 17, fill: '#5B6676' }).textContent = '損失';
+  var vline = el('line', { y1: Y1, y2: Y0, stroke: '#1D4ED8', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' });
+  var path = el('path', { fill: 'none', stroke: '#1D4ED8', 'stroke-width': 3 });
+  var dot = el('circle', { r: 7, fill: '#1D4ED8' });
+  var lab = el('text', { 'font-size': 17, 'font-weight': 600, fill: '#1D4ED8' });
+  function L(q, r, c) { return -(r * Math.log(q / (1 - q)) + c * Math.log(1 - q)); }
+  function draw() {
+    var r = +sr.value, c = +sc.value;
+    or.textContent = r.toFixed(3); oc.textContent = c.toFixed(3);
+    var n = 120, qs = [], ls = [];
+    for (var k = 0; k <= n; k++) { var q = 0.01 + 0.98 * k / n; qs.push(q); ls.push(L(q, r, c)); }
+    var lo = Math.min.apply(null, ls), span = 0.12;   // fixed vertical span so curvature stays comparable
+    var d = '';
+    qs.forEach(function (q, k) {
+      var v = (ls[k] - lo) / span; if (v > 1.05) v = 1.05;
+      var x = X0 + q * (X1 - X0), y = Y0 - v * (Y0 - Y1);
+      d += (k ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+    });
+    path.setAttribute('d', d);
+    var ok = r < c;
+    path.setAttribute('stroke', ok ? '#1D4ED8' : '#C2410C');
+    [vline, dot, lab].forEach(function (e) { e.style.display = ok ? '' : 'none'; });
+    if (ok) {
+      var qs_ = r / c, x = X0 + qs_ * (X1 - X0), y = Y0 - ((L(qs_, r, c) - lo) / span) * (Y0 - Y1);
+      vline.setAttribute('x1', x); vline.setAttribute('x2', x);
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+      lab.setAttribute('x', qs_ > 0.6 ? x - 12 : x + 12); lab.setAttribute('text-anchor', qs_ > 0.6 ? 'end' : 'start');
+      lab.setAttribute('y', Y1 + 50);
+      lab.textContent = '最小点 q = ' + qs_.toFixed(2);
+      ro.className = 'readout';
+      ro.innerHTML = '最小点 <b>q = ' + qs_.toFixed(2) + '</b><br>= τ<sup>r</sup> / τ<sup>c</sup> = ' + r.toFixed(3) + ' / ' + c.toFixed(3);
+    } else {
+      ro.className = 'readout bad';
+      ro.innerHTML = 'τ<sup>r</sup> ≥ τ<sup>c</sup> なので、損失は q → 1 で下がり続け、(0,1) の中に最小点がない。論文はスケーリングと切り詰めで ROI を (0,1) に収める。';
+    }
+  }
+  sr.addEventListener('input', draw); sc.addEventListener('input', draw); draw();
+})();
+
+// ---------- Fig. 4: arXiv appendix Table 1 (AUCC / MT-AUCC) ----------
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('chart'); if (!svg) return;
+  function el(tag, a, p) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  var A = '#C2410C', B = '#1D4ED8', G = '#8A94A3';
+  var groups = [
+    { t: 'AUCC：CRITEO-UPLIFT v2', rows: [['TPM-SL', 0.7561, 0.0113, A], ['Direct Rank', 0.7562, 0.0131, G], ['DRP', 0.7739, 0.0002, B]] },
+    { t: 'AUCC：Marketing data', rows: [['TPM-SL', 0.7153, 0.0142, A], ['Direct Rank', 0.7414, 0.0101, G], ['DRP', 0.7666, 0.0003, B]] },
+    { t: 'MT-AUCC：Marketing data', rows: [['TPM-SL', 0.7250, 0.0143, A], ['TPM-CF', 0.7395, 0.0159, A], ['DPM', 0.7860, 0.0007, B]] }
+  ];
+  var X0 = 130, X1 = 560, lo = 0.70, hi = 0.80;
+  function X(v) { return X0 + (v - lo) / (hi - lo) * (X1 - X0); }
+  var top = 10, gh = 138, axisY = top + 3 * gh + 4;
+  for (var v = 0.70; v <= 0.8001; v += 0.02) {
+    el('line', { x1: X(v), y1: top + 24, x2: X(v), y2: axisY, stroke: '#E3E7ED' });
+    el('text', { x: X(v), y: axisY + 24, 'font-size': 16, 'text-anchor': 'middle', fill: '#5B6676' }).textContent = v.toFixed(2);
+  }
+  el('line', { x1: X0, y1: axisY, x2: X1, y2: axisY, stroke: '#5B6676' });
+  groups.forEach(function (g, gi) {
+    var y0 = top + gi * gh;
+    el('text', { x: 0, y: y0 + 22, 'font-size': 17, 'font-weight': 700, fill: '#16202E' }).textContent = g.t;
+    g.rows.forEach(function (r, k) {
+      var y = y0 + 36 + k * 32, h = 24;
+      el('text', { x: X0 - 10, y: y + 18, 'font-size': 16, 'text-anchor': 'end', fill: r[3] === B ? B : '#16202E', 'font-weight': r[3] === B ? 700 : 400 }).textContent = r[0];
+      el('rect', { x: X0, y: y, width: X(r[1]) - X0, height: h, rx: 3, fill: r[3] });
+      var e0 = X(r[1] - r[2]), e1 = X(r[1] + r[2]), cy = y + h / 2;
+      el('line', { x1: e0, y1: cy, x2: e1, y2: cy, stroke: '#16202E', 'stroke-width': 1.5 });
+      el('line', { x1: e0, y1: cy - 6, x2: e0, y2: cy + 6, stroke: '#16202E', 'stroke-width': 1.5 });
+      el('line', { x1: e1, y1: cy - 6, x2: e1, y2: cy + 6, stroke: '#16202E', 'stroke-width': 1.5 });
+      el('text', { x: Math.max(e1, X(r[1])) + 8, y: y + 18, 'font-size': 16, fill: r[3] === B ? B : '#16202E', 'font-weight': r[3] === B ? 700 : 400 }).textContent = r[1].toFixed(4);
+    });
+  });
+})();
+</script>
+</body>
+</html>

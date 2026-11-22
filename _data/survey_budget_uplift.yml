@@ -9,6 +9,8 @@ categories_note: "論文の表の「系統」は主な貢献で1つに決めて�
 
 papers_note: "「処置」は扱う処置の種類（二値・多値・連続）、「コスト」はコストがいつ・どう発生するかです。会議名とリンクは arXiv や出版社のページで確認できたものだけを載せています。"
 
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。"
+
 datasets_note: "予算制約やコストを考慮した実験に使える公開データです。売上額まで公開されている RCT データは Hillstrom だけで、ほかは結果が0/1です。"
 
 metrics_note: "どの指標も優先度の高い順に処置したときの利得を、処置する量の関数として描いた曲線にもとづきます。予算制約がある場合は、横軸をコストにした曲線が実際の意思決定に対応します。"
@@ -119,6 +121,7 @@ papers:
     year: 2022
     venue: "EJOR"
     url: "https://arxiv.org/abs/2003.06271"
+    explainer: haupt-lessmann
     code: "https://github.com/Humboldt-WI/response-dependent-costs"
     category: two-stage
     treatment: 二値
@@ -198,6 +201,7 @@ papers:
     year: 2023
     venue: "AAAI 2023"
     url: "https://arxiv.org/abs/2211.15728"
+    explainer: drp
     code: ""
     category: direct-ratio
     treatment: 二値・多値
@@ -209,6 +213,7 @@ papers:
     year: 2023
     venue: "KDD 2023 WS"
     url: "https://arxiv.org/abs/2306.13759"
+    explainer: ipc
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -255,6 +260,7 @@ papers:
     year: 2024
     venue: "arXiv"
     url: "https://arxiv.org/abs/2405.02183"
+    explainer: ranking-metalearners
     code: ""
     category: ranking
     treatment: 二値
@@ -277,6 +283,7 @@ papers:
     year: 2026
     venue: "ICML 2026"
     url: "https://arxiv.org/abs/2602.03517"
+    explainer: rank-learner
     code: "https://github.com/henriarnoUG/rank-learner"
     category: ranking
     treatment: 二値
@@ -312,6 +319,7 @@ papers:
     year: 2024
     venue: "KDD 2024"
     url: "https://arxiv.org/abs/2407.13664"
+    explainer: dfcl
     code: ""
     category: decision-focused
     treatment: 多値
@@ -323,6 +331,7 @@ papers:
     year: 2024
     venue: "RecSys 2024"
     url: "https://arxiv.org/abs/2408.11623"
+    explainer: e3ir
     code: ""
     category: decision-focused
     treatment: 多値
@@ -334,6 +343,7 @@ papers:
     year: 2025
     venue: "NeurIPS 2025"
     url: "https://arxiv.org/abs/2510.19517"
+    explainer: bi-dfcl
     code: ""
     category: decision-focused
     treatment: 多値
@@ -358,6 +368,7 @@ papers:
     year: 2022
     venue: "WWW 2022"
     url: "https://arxiv.org/abs/2201.12585"
+    explainer: lbcf
     code: "https://github.com/www2022paper/WWW-2022-PAPER-SUPPLEMENTARY-MATERIALS"
     category: tree
     treatment: 多値
@@ -685,6 +696,7 @@ papers:
     year: 2025
     venue: "JASA"
     url: "https://arxiv.org/abs/2111.07966"
+    explainer: rate
     code: "https://github.com/grf-labs/grf"
     category: evaluation
     treatment: 二値

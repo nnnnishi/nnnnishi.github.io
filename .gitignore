@@ -1,2 +1,4 @@
 _site/
 .jekyll-cache/
+.yomiyasu/
+.DS_Store

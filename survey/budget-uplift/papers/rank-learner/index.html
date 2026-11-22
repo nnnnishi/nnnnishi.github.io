@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rank-Learner：処置効果の順位を直交な損失で学習する（論文解説）</title>
+<meta name="description" content="Rank-Learner: Orthogonal Ranking of Treatment Effects（ICML 2026）の非公式の解説。処置効果の大きさを推定せず、ネイマン直交なペアの損失で効果の順位を直接学習する二段階学習器を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the existing way: estimate effect magnitudes first (CATE, plug-in targets)
+                            and rank by them; in charts, the non-orthogonal plug-in ranker.
+            --b  (blue)   = Rank-learner: learn the ordering directly from pairs with orthogonal
+                            (doubly-robust-corrected) pseudo labels.
+            T-/DR-learner in charts are grey.
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.nw { white-space: nowrap; }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figure.narrow { max-width: 26rem; }
+figure .chart { border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; max-width: 46rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure: kappa -> soft target and correction weight ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 17rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .stat { font-size: 0.9rem; line-height: 1.6; color: var(--muted); }
+.ctrl .stat b { color: var(--b); font-family: var(--font-mono); }
+.lab svg { width: 100%; height: auto; display: block; }
+.lab .note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; max-width: none; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .eq { font-size: 0.86rem; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2026 · PMLR 306</div>
+  <h1>Rank-Learner: Orthogonal Ranking of Treatment Effects</h1>
+  <p class="subtitle">Rank-Learner：処置効果の順位を直交な損失で学習する</p>
+
+  <ul class="authors">
+    <li><b>Henri Arno</b><span>Ghent University - imec</span></li>
+    <li><b>Dennis Frauen</b><span>LMU Munich; Munich Center for Machine Learning (MCML)</span></li>
+    <li><b>Emil Javurek</b><span>LMU Munich; Munich Center for Machine Learning (MCML)</span></li>
+    <li><b>Thomas Demeester</b><span>Ghent University - imec</span></li>
+    <li><b>Stefan Feuerriegel</b><span>LMU Munich; Munich Center for Machine Learning (MCML)</span></li>
+  </ul>
+
+  <p class="lead">限られた資源を誰に振り向けるかを決めるには、処置効果の大きさまでは要らず、順位が分かれば足りる。それでも既存の研究の多くは、まず<span class="A">効果の大きさを推定してから並べて</span>おり、必要以上に難しい問題を解いていた。この論文の <span class="B">Rank-learner</span> は、ペアの大小を教師とする損失をネイマン直交になるよう補正し、効果の順位を直接学習する。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v306/arno26a.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2602.03517">arXiv</a>
+    <a class="btn" href="https://github.com/henriarnoUG/rank-learner">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の概要アニメーション。効果の大きさを推定して並べる従来の方法、推定誤差で近いペアの順序が入れ替わる問題、κ に応じた補正の重み、合成データでの AUTOC、タイトルの順に表示する。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">順位だけを学習する</span><span class="d">損失を最小にする関数は \(g(x)=\tau(x)/\kappa+c\) の形になる。並べる関数の順序は効果 \(\tau\) の順序と一致し、効果の大きさそのものを当てる必要はない。</span></li>
+    <li><span class="k">ネイマン直交な損失</span><span class="d">傾向スコアや応答曲面の推定誤差が、学習の勾配に1次の範囲では影響しない。著者らによれば、効果の順位を学習する直交な二段階学習器はこれが初めてである。</span></li>
+    <li><span class="k">AUTOC 1.00 対 0.69</span><span class="d">合成データで学習データが \(n=100\) のときの平均値（Rank-learner 対プラグイン順位学習器、真の効果で並べた場合は 1.40）。論文 Table 3。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>資源が限られた場面で必要なのは、効果の大きさではなく効果の順位である</h2>
+    <p>集中治療の枠が足りないときに誰を優先するか。どの顧客に引き留めのオファーやコストのかかる広告を出すか。どの人を政策の対象にするか。論文が挙げるこれらの例では、処置の効果が大きい人から順に資源を割り当てる。決め手になるのは効果の相対的な順序で、正確な値ではない。</p>
+    <p>ところが、観察データから効果の順位を直接学習する研究は少ない。情報検索で使われる learning-to-rank は、教師として正しい順序を必要とする。しかし個人の処置効果は観測できないため、そのままでは使えない。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>CATE を推定してから並べる方法は、順位付けに必要な以上に難しい問題を解いている</h2>
+    <p>データは共変量 \(X\)、二値の処置 \(T\in\{0,1\}\)、結果 \(Y\) からなる。条件付き平均処置効果（CATE）は \(\tau(x)=\mathbb{E}[Y(1)-Y(0)\mid X=x]\) で、一致性・正値性・無交絡の仮定のもとで \(\tau(x)=\mu_1(x)-\mu_0(x)\) と書ける。ここで \(\mu_t(x)=\mathbb{E}[Y\mid T=t,X=x]\) は応答曲面、\(e(x)=P(T=1\mid X=x)\) は傾向スコアである。この3つをまとめて局外関数 \(\eta=(\mu_1,\mu_0,e)\) と呼ぶ。</p>
+    <p><span class="A">素朴な方法</span>は CATE の二乗誤差 \(\mathcal{L}^{\text{cate}}=\mathbb{E}[(g(X)-\tau(X))^2]\) を最小にする。その解は \(g=\tau\) だけで、効果の関数を形まで丸ごと当てる必要がある。一方、ペアの大小 \(\mathbf{I}\{\tau(X)>\tau(X')\}\) を教師とする二値交差エントロピー \(\mathcal{L}^{\text{bin}}\) では、\(\tau\) を任意の狭義単調増加関数 \(h\) で変換した \(h(\tau(x))\) がすべて最適解（下限に限りなく近づく解）になる。順位付けには制約の弱い後者で足りる。</p>
+    <figure>
+      <img src="assets/fig1_overview.png" alt="左に交絡のある観察データ（効果 τ(x) は観測されない）、中央に1段目の局外関数の推定（μ̂1、μ̂0、ê）、右に2段目の目的を2種類並べた図。Rank-learner は個人を τ の順に並べるだけで、CATE 推定は τ(x) の曲線全体を当てにいく。" loading="lazy">
+      <figcaption>図1　効果の順位を学習する二段階学習器の全体像。1段目で局外関数を推定し、2段目で Rank-learner は効果の順序を、従来の CATE 推定は効果の大きさを目標にする（論文 Fig. 1、CC BY 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="orthogonal">
+    <div class="kicker">課題</div>
+    <h2>推定した効果をそのまま教師にすると、局外関数の推定誤差が順位の学習に入り込む</h2>
+    <p>\(\tau\) は観測できないので、応答曲面の推定値から作った \(\hat\tau=\hat\mu_1-\hat\mu_0\) で教師を作ることになる。これが<span class="A">プラグイン順位学習器</span>である。この方法では、局外関数の推定誤差が損失に直接入り、学習した関数 \(g\) にまで及ぶ（プラグインバイアス）。</p>
+    <p>対策として知られているのが、損失をネイマン直交にすることである。真の局外関数 \(\eta^0\) と最小解 \(g^0\) で、次の交差微分が任意の方向 \(\Delta g,\Delta\eta\) について0になればよい。</p>
+    <div class="eq">\[ D_{\eta}D_{g}\,\mathcal{L}^{\text{corr}}(g^0,\eta^0)[\Delta g,\Delta\eta]=0 \]</div>
+    <p>直観的には、\(g\) についての勾配が局外関数の推定誤差に1次の範囲では動かない、という性質である。直交化には影響関数による補正を使うが、そのためには損失が \(\tau\) に滑らかに依存していなければならない。指示関数の教師はこの条件を満たさないので、論文は次のソフトな教師に置き換える。</p>
+    <div class="eq">\[ t_\tau(X,X')=\sigma\!\left(\frac{\tau(X)-\tau(X')}{\kappa}\right),\qquad \kappa>0 \]</div>
+    <p>\(\kappa\) を小さくすると教師は0か1に近づき、大きくすると0.5に近づく。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>順位が曖昧なペアほど、二重頑健スコアによる補正を強くかける</h2>
+    <p>影響関数でソフトな損失を補正すると、補正分はすべて教師ラベルの中に収まる。<span class="B">Rank-learner</span> の損失は通常の二値交差エントロピーの教師を次の擬似ラベルに置き換えたものである（論文 Theorem 5.1）。</p>
+    <div class="eq">\[ \color{#1D4ED8}{\tilde t_\eta(W,W')} = t_\tau(X,X') + \omega_\tau(X,X')\,\Delta_\eta(W,W') \]</div>
+    <div class="eq">\[ \omega_\tau=\frac{1}{\kappa}\,t_\tau\,(1-t_\tau) \]</div>
+    <div class="eq">\[ \Delta_\eta=\bigl(\phi_\eta(W)-\tau(X)\bigr)-\bigl(\phi_\eta(W')-\tau(X')\bigr) \]</div>
+    <p>\(\phi_\eta\) は CATE の二重頑健スコア \(\frac{T}{e(X)}(Y-\mu_1(X))-\frac{1-T}{1-e(X)}(Y-\mu_0(X))+\mu_1(X)-\mu_0(X)\) で、\(p_g(X,X')=\sigma(g(X)-g(X'))\) が「\(X\) を \(X'\) より上に置く」確率にあたる。論文はこの損失がネイマン直交であることを証明した。さらに、真の局外関数のもとでの最小解が \(g(x)=\tau^0(x)/\kappa+c\) となり、効果の順序を復元することも示している（Theorem 5.2）。</p>
+    <p>補正の重み \(\omega_\tau\) は、ソフトな教師が0.5に近いペア、つまり順序が曖昧なペアで大きくなる。\(\kappa\) を小さくすると、補正のかかるペアは減るが、残ったペアには強くかかる。論文は \(\kappa\) の選び方をバイアスと分散のトレードオフとして説明している。\(\kappa\) が小さいほど純粋な順位付けに近づくが、有限の標本では擬似ラベルのばらつきが大きくなる。下の図で \(\kappa\) を動かすと、この関係を確かめられる。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label>
+          <span class="row"><span>滑らかさ \(\kappa\)</span><output id="kOut">1</output></span>
+          <input type="range" id="k" min="0" max="4" step="1" value="2" aria-label="kappa">
+        </label>
+        <p class="stat">補正の重みの最大値 \(\max\omega=1/(4\kappa)\)：<b id="wOut">0.25</b><br>重みが最大値の半分以上になる差の幅：<b id="hOut">±1.76</b></p>
+        <p class="stat">候補は論文の実験で使った \(\kappa\in\{0.25,0.5,1,1.5,3\}\)。</p>
+      </div>
+      <svg id="labsvg" viewBox="0 0 560 300" role="img" aria-label="横軸は効果の差、上の曲線はソフトな教師 t、下の曲線は補正の重み ω。κ を小さくすると t は階段に近づき、ω は0の近くに鋭く高い山になる。"></svg>
+      <p class="note">横軸は2人の効果の差 \(\tau(x)-\tau(x')\)。灰色の線はソフトな教師 \(t_\tau\)（左の目盛り）、青い線は補正の重み \(\omega_\tau\)（右の目盛り）。論文の式から解説者が作図した模式図で、実験の値ではない。</p>
+    </div>
+  </section>
+
+  <section id="pipeline">
+    <div class="kicker">手順</div>
+    <h2>学習はペアを間引いて行い、推論は1人ずつのスコアだけで済む</h2>
+    <p>手順は3段階に分かれる。(1) 局外関数 \(\hat\eta=(\hat\mu_1,\hat\mu_0,\hat e)\) をクロスフィッティングで推定する。(2) 学習ペアを一様に抜き出し、擬似ラベルを作って、ペアの二値交差エントロピーを最小化する。(3) 学習したスコア \(\hat g(x)\) で全員を並べる。1段目と2段目のどちらにも任意の機械学習モデルを使える。直交性は擬似ラベルの作り方にしか現れないので、2段目は普通のペア単位の learning-to-rank と同じ形で学習できる。</p>
+    <p>\(n\) 人のデータからはペアが \(n^2\) 組できる。論文はエポックごとにその一部だけを抜き出して学習する。\(n=1{,}000\) の合成データでは、およそ1%のペアを使うだけで、到達できる AUTOC の大半が得られ、それ以上増やしても改善は小さかった。\(\kappa\) などのハイパーパラメータは、検証データで AUTOC の近似値が最大になるように選ぶ。補正後の擬似ラベルは \((0,1)\) からはみ出すことがあるため、実験では \((0,1)\) に切り詰めている。</p>
+    <figure class="narrow">
+      <img src="assets/fig2_flowchart.png" alt="3段の流れ図。1 局外関数をクロスフィッティングで推定、2 学習ペアを一様に抜き出し、擬似ラベルを作り、ペアの損失を最小化、3 全員を ĝ(x) で並べる。" loading="lazy">
+      <figcaption>図2　Rank-learner の手順（論文 Fig. 2、CC BY 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験</div>
+    <h2>合成・半合成・Criteo のすべてで、<span class="nw">Rank-learner</span> の平均値が比較手法の中で最も高かった</h2>
+    <p>比較相手は CATE を推定して並べる T-learner と DR-learner（後者はネイマン直交）、それに直交化しない<span class="A">プラグイン順位学習器</span>である。すべての方法で隠れ層1層の同じニューラルネットを使う。合成データと半合成データでは、真の効果で計算した AUTOC で評価した。AUTOC は、効果が大きいと予測された順に処置したときの利得を、処置する割合すべてについて平均した指標である。</p>
+    <p>合成データ（論文 Table 3）では、どの \(n\) でも <span class="B">Rank-learner</span> の平均が最も高く、差は \(n\) が小さい範囲で大きかった。\(n\) が増えると局外関数の推定が改善し、差は縮まる。MovieLens・MIMIC-III・CPS の共変量を使った半合成データ（\(n=1{,}000\)、Table 4）でも平均は最も高かった（それぞれ 1.35・1.18・0.95。DR-learner は 1.34・1.17・0.92）。広告の実データ Criteo では、学習データに人工的に交絡を入れ、無作為化されたテストデータの AUUC で評価した（Table 5）。ここでも平均は最も高かった。ただしテストデータ5万件では 5.19 ± 1.87（×10<sup>−3</sup>）と、標準偏差が大きい。</p>
+    <p>局外関数をあえて線形モデルで誤って指定した \(n=250\) の実験（付録 Table 11）では、すべての方法で性能が落ちた。落ち幅は直交でない方法（T-learner 0.96→0.76、プラグイン順位学習器 0.95→0.66）のほうが、直交な方法（DR-learner 1.16→1.09、<span class="nw">Rank-learner</span> 1.28→1.19）より大きかった。</p>
+    <figure>
+      <div class="chart">
+<svg viewBox="0 0 720 400" role="img" aria-label="合成データでの AUTOC の平均と学習データの大きさ n の関係。n が小さい範囲で Rank-learner と他の方法の差が大きく、n=2000 では 1.36〜1.37 にそろう。" style="width:100%;height:auto;display:block">
+<line x1="80" y1="340.0" x2="600" y2="340.0" stroke="#E6E9EE"/>
+<text x="68" y="345.0" font-size="14" text-anchor="end" fill="#5B6676">0.6</text>
+<line x1="80" y1="267.1" x2="600" y2="267.1" stroke="#E6E9EE"/>
+<text x="68" y="272.1" font-size="14" text-anchor="end" fill="#5B6676">0.8</text>
+<line x1="80" y1="194.1" x2="600" y2="194.1" stroke="#E6E9EE"/>
+<text x="68" y="199.1" font-size="14" text-anchor="end" fill="#5B6676">1.0</text>
+<line x1="80" y1="121.2" x2="600" y2="121.2" stroke="#E6E9EE"/>
+<text x="68" y="126.2" font-size="14" text-anchor="end" fill="#5B6676">1.2</text>
+<line x1="80" y1="48.2" x2="600" y2="48.2" stroke="#E6E9EE"/>
+<text x="68" y="53.2" font-size="14" text-anchor="end" fill="#5B6676">1.4</text>
+<text x="80.0" y="366" font-size="14" text-anchor="middle" fill="#5B6676">100</text>
+<text x="210.0" y="366" font-size="14" text-anchor="middle" fill="#5B6676">250</text>
+<text x="340.0" y="366" font-size="14" text-anchor="middle" fill="#5B6676">500</text>
+<text x="470.0" y="366" font-size="14" text-anchor="middle" fill="#5B6676">1,000</text>
+<text x="600.0" y="366" font-size="14" text-anchor="middle" fill="#5B6676">2,000</text>
+<text x="340.0" y="392" font-size="14" text-anchor="middle" fill="#5B6676">学習データの大きさ n（等間隔に配置）</text>
+<text x="68" y="18" font-size="14" text-anchor="end" fill="#5B6676">AUTOC</text>
+<line x1="80" y1="48.2" x2="600" y2="48.2" stroke="#16202E" stroke-dasharray="3 3"/>
+<text x="608" y="53.2" font-size="14" fill="#16202E">oracle 1.40</text>
+<polyline points="80.0,237.9 210.0,208.7 340.0,106.6 470.0,77.4 600.0,62.8" fill="none" stroke="#8A94A3" stroke-width="2" stroke-dasharray="6 4"/>
+<circle cx="80.0" cy="237.9" r="4" fill="#8A94A3"/>
+<circle cx="210.0" cy="208.7" r="4" fill="#8A94A3"/>
+<circle cx="340.0" cy="106.6" r="4" fill="#8A94A3"/>
+<circle cx="470.0" cy="77.4" r="4" fill="#8A94A3"/>
+<circle cx="600.0" cy="62.8" r="4" fill="#8A94A3"/>
+<polyline points="80.0,267.1 210.0,135.8 340.0,92.0 470.0,73.8 600.0,62.8" fill="none" stroke="#8A94A3" stroke-width="2" stroke-dasharray="2 4"/>
+<circle cx="80.0" cy="267.1" r="4" fill="#8A94A3"/>
+<circle cx="210.0" cy="135.8" r="4" fill="#8A94A3"/>
+<circle cx="340.0" cy="92.0" r="4" fill="#8A94A3"/>
+<circle cx="470.0" cy="73.8" r="4" fill="#8A94A3"/>
+<circle cx="600.0" cy="62.8" r="4" fill="#8A94A3"/>
+<polyline points="80.0,307.2 210.0,212.4 340.0,106.6 470.0,81.1 600.0,62.8" fill="none" stroke="#C2410C" stroke-width="3"/>
+<circle cx="80.0" cy="307.2" r="4" fill="#C2410C"/>
+<circle cx="210.0" cy="212.4" r="4" fill="#C2410C"/>
+<circle cx="340.0" cy="106.6" r="4" fill="#C2410C"/>
+<circle cx="470.0" cy="81.1" r="4" fill="#C2410C"/>
+<circle cx="600.0" cy="62.8" r="4" fill="#C2410C"/>
+<polyline points="80.0,194.1 210.0,92.0 340.0,81.1 470.0,70.1 600.0,59.2" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+<circle cx="80.0" cy="194.1" r="4" fill="#1D4ED8"/>
+<circle cx="210.0" cy="92.0" r="4" fill="#1D4ED8"/>
+<circle cx="340.0" cy="81.1" r="4" fill="#1D4ED8"/>
+<circle cx="470.0" cy="70.1" r="4" fill="#1D4ED8"/>
+<circle cx="600.0" cy="59.2" r="4" fill="#1D4ED8"/>
+<line x1="300" y1="215" x2="334" y2="215" stroke="#8A94A3" stroke-width="3" stroke-dasharray="6 4"/>
+<text x="344" y="220" font-size="15" fill="#16202E" font-weight="400">T-learner（n=100 で 0.88）</text>
+<line x1="300" y1="241" x2="334" y2="241" stroke="#8A94A3" stroke-width="3" stroke-dasharray="2 4"/>
+<text x="344" y="246" font-size="15" fill="#16202E" font-weight="400">DR-learner（n=100 で 0.80）</text>
+<line x1="300" y1="267" x2="334" y2="267" stroke="#C2410C" stroke-width="3"/>
+<text x="344" y="272" font-size="15" fill="#C2410C" font-weight="600">プラグイン順位学習器（n=100 で 0.69）</text>
+<line x1="300" y1="293" x2="334" y2="293" stroke="#1D4ED8" stroke-width="3"/>
+<text x="344" y="298" font-size="15" fill="#1D4ED8" font-weight="600">Rank-learner（n=100 で 1.00）</text>
+</svg>
+      </div>
+      <figcaption>図3　合成データでのテスト AUTOC の平均（5つのシード）。破線は真の効果で並べた場合の値。論文の表には標準偏差も載っているが、図では省いた。\(n=100\) では Rank-learner が ± 0.19、プラグイン順位学習器が ± 0.32 と大きい（論文 Table 3 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2><span class="nw">Rank-learner</span> は二値の処置で効果の順位を学習する方法で、コストと予算は目的に含めない</h2>
+    <ul class="def">
+      <li><b>最適化するもの</b>　1種類の結果 \(Y\) についての CATE \(\tau(x)\) の順序。評価に使う AUTOC と AUUC は処置する割合（予算）を1つに決めず、すべての割合で平均した指標である。</li>
+      <li><b>コストの仮定</b>　処置のコストは扱わない。そのため、人によってコストが違う場合や、コストが処置後の行動で決まる場合も扱っていない。予算や容量の制約については、付録 A で次のように述べている。順位を学習しておけば、予算が変わっても学習し直さずに方策を作れる。ただし、効果がしきい値を超えるかで決める判断には、順位だけでなく効果の大きさが必要になる。</li>
+      <li><b>処置の種類</b>　二値の処置 \(T\in\{0,1\}\) のみ。多値の処置は関連研究で触れるだけである。</li>
+      <li><b>データ</b>　無交絡と正値性を仮定した観察データ。理論の設定では結果は連続値だが、Criteo の実験では「サイトを訪れたか」の二値の結果を使っている。</li>
+    </ul>
+    <p>解説者の補足として、文献リストの他の研究との関係を書いておく。全員の処置コストが等しければ、予算内の人数を効果の大きい順に選べばよい。この場合は効果の順位がそのまま割当ての順になる。一方、購入したときだけ定額の特典費用がかかる設定（西村らの 2023 年の研究）では、1人あたりの期待コストが \(C\cdot\mathbb{E}[Y(1)]\) となって人ごとに違う。そのため、並べる量は \(\mathbb{E}[S(1)-S(0)]/(C\cdot\mathbb{E}[Y(1)])\) のような比になる。このような比の順位に同じ直交化の作り方を使えるかどうかは、論文では検討されていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@InProceedings{pmlr-v306-arno26a,
+  title     = {Rank-Learner: Orthogonal Ranking of Treatment Effects},
+  author    = {Arno, Henri and Frauen, Dennis and Javurek, Emil and Demeester, Thomas and Feuerriegel, Stefan},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning},
+  pages     = {3600--3632},
+  year      = {2026},
+  volume    = {306},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v306/arno26a.html}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- interactive figure: soft target t and correction weight omega as functions of the effect gap ----------
+(function () {
+  var KS = [0.25, 0.5, 1, 1.5, 3];
+  var NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('labsvg');
+  function el(tag, a, p) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  var X0 = 60, X1 = 500, Y0 = 250, Y1 = 30, D = 3, WMAX = 1.0;   // d in [-3, 3]; omega axis 0..1 (max is 1/(4*0.25) = 1)
+  function xd(d) { return X0 + (d + D) / (2 * D) * (X1 - X0); }
+  function yt(v) { return Y0 - v * (Y0 - Y1); }                 // t in [0, 1]
+  function yw(v) { return Y0 - v / WMAX * (Y0 - Y1); }
+  [0, 0.5, 1].forEach(function (v) {
+    el('line', { x1: X0, y1: yt(v), x2: X1, y2: yt(v), stroke: '#E6E9EE' });
+    el('text', { x: X0 - 8, y: yt(v) + 5, 'font-size': 13, 'text-anchor': 'end', fill: '#5B6676' }).textContent = v;
+    el('text', { x: X1 + 8, y: yw(v * WMAX) + 5, 'font-size': 13, fill: '#1D4ED8' }).textContent = (v * WMAX).toFixed(1);
+  });
+  [-3, -2, -1, 0, 1, 2, 3].forEach(function (d) {
+    el('text', { x: xd(d), y: Y0 + 20, 'font-size': 13, 'text-anchor': 'middle', fill: '#5B6676' }).textContent = d;
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + 42, 'font-size': 13, 'text-anchor': 'middle', fill: '#5B6676' }).textContent = '効果の差 τ(x) − τ(x′)';
+  el('text', { x: X0 - 8, y: Y1 - 12, 'font-size': 13, 'text-anchor': 'end', fill: '#5B6676' }).textContent = 't';
+  el('text', { x: X1 + 8, y: Y1 - 12, 'font-size': 13, fill: '#1D4ED8' }).textContent = 'ω';
+  var tl = el('path', { fill: 'none', stroke: '#8A94A3', 'stroke-width': 2.5 });
+  var wl = el('path', { fill: '#1D4ED8', 'fill-opacity': 0.12, stroke: '#1D4ED8', 'stroke-width': 3 });
+  var kIn = document.getElementById('k');
+  function sig(z) { return 1 / (1 + Math.exp(-z)); }
+  function draw() {
+    var k = KS[+kIn.value], pt = [], pw = [];
+    for (var i = 0; i <= 240; i++) {
+      var d = -D + 2 * D * i / 240, t = sig(d / k), w = t * (1 - t) / k;
+      pt.push((i ? 'L' : 'M') + xd(d).toFixed(1) + ',' + yt(t).toFixed(1));
+      pw.push('L' + xd(d).toFixed(1) + ',' + yw(Math.min(w, WMAX)).toFixed(1));
+    }
+    tl.setAttribute('d', pt.join(''));
+    wl.setAttribute('d', 'M' + xd(-D) + ',' + Y0 + pw.join('') + 'L' + xd(D) + ',' + Y0 + 'Z');
+    document.getElementById('kOut').textContent = k;
+    document.getElementById('wOut').textContent = (1 / (4 * k)).toFixed(2);
+    // omega >= max/2  <=>  t(1-t) >= 1/8  <=>  |d| <= kappa * ln(3 + 2*sqrt(2))
+    document.getElementById('hOut').textContent = '±' + (k * Math.log(3 + 2 * Math.SQRT2)).toFixed(2);
+  }
+  kIn.addEventListener('input', draw); draw();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -136,6 +136,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
     <section id="papers">
       <h2>論文<span class="count" id="paper-count"></span></h2>
       <p class="note prose">{{ d.papers_note }}</p>
+      <p class="note prose">{{ d.explainer_note }}</p>
       <div class="filters" role="group" aria-label="系統で絞り込む">
         <button type="button" data-cat="all" aria-pressed="true">すべて</button>
         {%- for c in d.categories %}
@@ -144,7 +145,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
       </div>
       <div class="table-wrap">
         <table id="paper-table">
-          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>処置</th><th>コスト</th><th>実験データ</th><th>コード</th></tr></thead>
+          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>処置</th><th>コスト</th><th>実験データ</th><th>コード</th><th>解説</th></tr></thead>
           <tbody>
           {%- assign papers = d.papers | sort: "year" | reverse %}
           {%- for p in papers %}
@@ -158,6 +159,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
               <td class="mid">{{ p.cost }}</td>
               <td class="mid">{{ p.data }}</td>
               <td class="nowrap">{% if p.code and p.code != "" %}<a href="{{ p.code }}">code</a>{% endif %}</td>
+              <td class="nowrap">{% if p.explainer %}<a href="papers/{{ p.explainer }}/">解説</a>{% endif %}</td>
             </tr>
           {%- endfor %}
           </tbody>

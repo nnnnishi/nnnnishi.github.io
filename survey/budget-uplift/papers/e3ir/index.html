@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E3IR：予算制約つきインセンティブ推薦のエンドツーエンド学習（論文解説）</title>
+<meta name="description" content="End-to-End Cost-Effective Incentive Recommendation under Budget Constraint with Uplift Modeling（RecSys 2024）の非公式の解説。単調なアップリフト予測と微分可能な整数計画による配分を一緒に学習する E3IR を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   EXPLAINER — E3IR (Sun et al., RecSys 2024)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the two-stage pipeline (predict uplift, then solve the MCKP in a separate step) and what goes wrong with it
+            --b  (blue)   = E3IR: non-negative increments, the differentiable ILP layer and the gradient sent back to the predictor
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- self-drawn figures and tables ---------- */
+svg.fig { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; max-width: 46rem; }
+svg.fig text { font-family: var(--font-ja); }
+.tbl { max-width: var(--wide); overflow-x: auto; }
+.tbl table { border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl caption { caption-side: bottom; text-align: left; font-size: 0.9rem; color: var(--muted); padding-top: 0.6rem; white-space: normal; }
+.tbl th, .tbl td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--hair); text-align: right; }
+.tbl th { font-weight: 600; color: var(--muted); text-align: center; }
+.tbl td:first-child { text-align: left; font-weight: 600; }
+.tbl tr.me td { background: var(--b-soft); color: var(--b); }
+p.small { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">RecSys 2024</div>
+  <h1>End-to-End Cost-Effective Incentive Recommendation under Budget Constraint with Uplift Modeling</h1>
+  <p class="subtitle">予算制約のもとで費用対効果の高いインセンティブを推薦する：アップリフトモデリングによるエンドツーエンド学習</p>
+
+  <ul class="authors">
+    <li><b>Zexu Sun</b><span>Gaoling School of Artificial Intelligence, Renmin University of China</span></li>
+    <li><b>Hao Yang</b><span>Gaoling School of Artificial Intelligence, Renmin University of China</span></li>
+    <li><b>Dugang Liu</b><span>Guangdong Laboratory of Artificial Intelligence and Digital Economy (SZ)</span></li>
+    <li><b>Yunpeng Weng</b><span>FiT, Tencent</span></li>
+    <li><b>Xing Tang</b><span>FiT, Tencent</span></li>
+    <li><b>Xiuqiang He</b><span>FiT, Tencent</span></li>
+  </ul>
+
+  <p class="lead">予算の範囲でクーポンなどのインセンティブを配る問題は、これまで<span class="A">処置効果の予測と配分の最適化を別々の段階で</span>解くことが多かった。E3IR は、応答曲線が単調になるように作った予測モジュールと、多肢選択ナップザック問題を解く<span class="B">微分可能な整数計画層</span>をつなぎ、両者を一緒に学習する。論文は、公開データと動画プラットフォームのデータで二段階の手法より良い配分が得られたと報告している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3640457.3688147">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2408.11623">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="E3IR の要旨を5つの場面で示すアニメーション。二段階法、単調でない応答曲線、非負の増分の積み上げと勾配の逆伝播、論文 Table 2 の EOM、タイトル。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">単調性を構造で保証</span><span class="d">隣り合う処置のあいだの増分を非負の値として予測し、足し上げて各処置の応答を出す。インセンティブを大きくすると応答が下がるという予測は出ない。</span></li>
+    <li><span class="k">整数計画の層を微分</span><span class="d">多肢選択ナップザック問題を解く層から、予測した応答とコストの増分へ勾配を返す。配分の良し悪しが予測モデルの学習に届く。</span></li>
+    <li><span class="k">EOM 44.51 対 36.65</span><span class="d">動画プラットフォームのデータ（4処置、予算5万）で、E3IR の EOM は 44.5087、次点の DRM は 36.6544（論文 Table 2、5シード）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景と問題</div>
+    <h2>予測と配分を別々に解く二段階法には、応答曲線の形と目的のずれという二つの弱点がある。</h2>
+    <p>クーポンの額面のように選べるインセンティブが複数あり、各ユーザーに一つを選んで、増えるコストの合計を予算 \(B\) 以内に収めたい。論文はこれを多肢選択ナップザック問題（MCKP）として書く。\(\tau^r_{ik}\) はユーザー \(i\) に処置 \(k\) を与えたときの応答（売上など）の増分、\(\tau^c_{ik}\) はコストの増分、\(z_{ik}\) は割り当てるかどうかを表す 0/1 変数である。</p>
+    <div class="eq">\[ \begin{aligned} \max_{z}\ & \sum_{i}\sum_{k} \tau^r_{ik}\, z_{ik} \\ \text{s.t.}\ & \sum_{i}\sum_{k} \tau^c_{ik}\, z_{ik} \le B, \\ & \textstyle\sum_{k} z_{ik} = 1,\quad z_{ik}\in\{0,1\} \end{aligned} \]</div>
+    <p>既存研究の多くは<span class="A">二段階</span>で解く。まずアップリフトモデルで \(\tau^r\) と \(\tau^c\) を予測し、次に整数計画やラグランジュ双対で配分を決める。論文はこのやり方に二つの弱点を挙げる。一つ目は、予測した応答曲線がマーケティングの常識に合わないことである。額面が大きいほど応答も大きいはずなのに、予測が途中で下がったり（単調でない）、隣の水準と大きく跳ねたり（滑らかでない）すると、間違った処置水準を最適と判断してしまう。二つ目は、二つの段階の目的が違うことである。予算がとても少ないときは、インセンティブに敏感な一部のユーザーだけを選べばよい。全ユーザーの平均で精度の高いモデルでも、その一部で予測を外せば配分の成績は悪くなりうる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="模式図。上段は二段階法で、予測モデルの出力を MCKP ソルバーに渡すが勾配は戻らない。下段は E3IR で、微分可能な整数計画層から予測モジュールへ勾配が戻る。">
+        <defs>
+          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#C2410C"/></marker>
+          <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1D4ED8"/></marker>
+        </defs>
+        <text x="16" y="30" font-size="18" font-weight="700" fill="#C2410C">二段階法</text>
+        <rect x="16" y="46" width="180" height="62" rx="10" fill="#FCEBDF" stroke="#C2410C"/>
+        <text x="106" y="73" font-size="17" text-anchor="middle" fill="#16202E">アップリフト予測</text>
+        <text x="106" y="96" font-size="15" text-anchor="middle" fill="#5B6676">予測の損失だけで学習</text>
+        <line x1="198" y1="77" x2="268" y2="77" stroke="#C2410C" stroke-width="2.5" marker-end="url(#arA)"/>
+        <rect x="272" y="46" width="170" height="62" rx="10" fill="#fff" stroke="#C2410C"/>
+        <text x="357" y="73" font-size="17" text-anchor="middle" fill="#16202E">MCKP ソルバー</text>
+        <text x="357" y="96" font-size="15" text-anchor="middle" fill="#5B6676">別の段階で解く</text>
+        <line x1="444" y1="77" x2="514" y2="77" stroke="#C2410C" stroke-width="2.5" marker-end="url(#arA)"/>
+        <rect x="518" y="46" width="106" height="62" rx="10" fill="#fff" stroke="#C2410C"/>
+        <text x="571" y="84" font-size="17" text-anchor="middle" fill="#16202E">配分 z</text>
+        <path d="M357,112 C357,140 106,140 106,114" fill="none" stroke="#C2410C" stroke-width="2" stroke-dasharray="5 5"/>
+        <text x="231" y="160" font-size="15" text-anchor="middle" fill="#C2410C">配分の結果は予測の学習に戻らない</text>
+        <line x1="16" y1="182" x2="624" y2="182" stroke="#D9DEE6"/>
+        <text x="16" y="214" font-size="18" font-weight="700" fill="#1D4ED8">E3IR</text>
+        <rect x="16" y="230" width="180" height="62" rx="10" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <text x="106" y="257" font-size="17" text-anchor="middle" fill="#16202E">予測モジュール</text>
+        <text x="106" y="280" font-size="15" text-anchor="middle" fill="#5B6676">単調・滑らか</text>
+        <line x1="198" y1="261" x2="268" y2="261" stroke="#1D4ED8" stroke-width="2.5" marker-end="url(#arB)"/>
+        <rect x="272" y="230" width="170" height="62" rx="10" fill="#fff" stroke="#1D4ED8"/>
+        <text x="357" y="257" font-size="17" text-anchor="middle" fill="#16202E">微分可能な</text>
+        <text x="357" y="280" font-size="17" text-anchor="middle" fill="#16202E">整数計画層</text>
+        <line x1="444" y1="261" x2="514" y2="261" stroke="#1D4ED8" stroke-width="2.5" marker-end="url(#arB)"/>
+        <rect x="518" y="230" width="106" height="62" rx="10" fill="#fff" stroke="#1D4ED8"/>
+        <text x="571" y="268" font-size="17" text-anchor="middle" fill="#16202E">配分 z</text>
+        <path d="M357,296 C357,322 106,322 106,298" fill="none" stroke="#1D4ED8" stroke-width="2.5" marker-end="url(#arB)"/>
+        <text x="380" y="322" font-size="15" fill="#1D4ED8">勾配を戻す</text>
+      </svg>
+      <figcaption>図1　二段階法（上）と E3IR（下）の違い。E3IR では配分層から予測モジュールへ勾配が戻る（模式図、論文 Fig. 2 の構成をもとに解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="uplift">
+    <div class="kicker">手法 1　予測モジュール</div>
+    <h2>隣り合う処置のあいだの増分を非負で予測して足し上げると、応答曲線は必ず単調になる。</h2>
+    <p>予測モジュールはユーザーの特徴 \(x\) から共通の表現 \(\Phi\) を作る共有層と、処置ごとの予測ヘッドからなる。ヘッドには \(\Phi\) と処置 \(k\) の埋め込みをつないだものを入れ、処置 \(k-1\) から \(k\) に上げたときの増分 \(\hat\vartheta_k\) を出す。処置 \(t\) のもとでの応答は処置なしの予測 \(\hat y_0\) に増分を足し上げて求める。コストも同じ形で予測する。</p>
+    <div class="eq">\[ \hat y_t = \hat y_0 + \sum_{k=1}^{t} {\color{#1D4ED8}\hat\vartheta_k},\qquad {\color{#1D4ED8}\hat\vartheta_k \ge 0} \]</div>
+    <p>増分を非負にするには、ヘッドの最後の出力を二乗するか指数関数に通せばよい。これで処置水準を上げても予測が下がることはなくなる。滑らかさについては二つの工夫を入れる。応答のヘッドどうし、コストのヘッドどうしで重みを共有すること（Siamese ネットワークに着想）と、ヘッドにリプシッツ正則化 \(\mathcal L_{\mathrm{Lip}}=\prod_j \mathrm{softplus}(c_j)\) をかけることである。予測モジュールの損失は応答とコストの予測誤差に \(\alpha\,\mathcal L_{\mathrm{Lip}}\) を加えたものになる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="模式図。左は増分の符号に制約がない予測で、処置水準2で応答が下がる。右は非負の増分を積み上げた予測で、応答は処置水準とともに増え続ける。">
+        <text x="20" y="30" font-size="17" font-weight="700" fill="#C2410C">制約なし：途中で下がりうる</text>
+        <line x1="40" y1="250" x2="300" y2="250" stroke="#5B6676"/>
+        <rect x="56" y="200" width="36" height="50" fill="#FCEBDF" stroke="#C2410C"/>
+        <rect x="106" y="140" width="36" height="110" fill="#FCEBDF" stroke="#C2410C"/>
+        <rect x="156" y="175" width="36" height="75" fill="#C2410C"/>
+        <rect x="206" y="110" width="36" height="140" fill="#FCEBDF" stroke="#C2410C"/>
+        <rect x="256" y="95" width="36" height="155" fill="#FCEBDF" stroke="#C2410C"/>
+        <text x="174" y="166" font-size="15" text-anchor="middle" fill="#C2410C">下がる</text>
+        <g font-size="15" fill="#5B6676" text-anchor="middle"><text x="74" y="272">0</text><text x="124" y="272">1</text><text x="174" y="272">2</text><text x="224" y="272">3</text><text x="274" y="272">4</text></g>
+        <text x="170" y="294" font-size="15" text-anchor="middle" fill="#5B6676">処置水準 t</text>
+        <text x="340" y="30" font-size="17" font-weight="700" fill="#1D4ED8">E3IR：非負の増分を積み上げる</text>
+        <line x1="360" y1="250" x2="620" y2="250" stroke="#5B6676"/>
+        <rect x="376" y="200" width="36" height="50" fill="#CBD2DC"/>
+        <rect x="426" y="200" width="36" height="50" fill="#CBD2DC"/><rect x="426" y="160" width="36" height="40" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <rect x="476" y="200" width="36" height="50" fill="#CBD2DC"/><rect x="476" y="160" width="36" height="40" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="476" y="135" width="36" height="25" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <rect x="526" y="200" width="36" height="50" fill="#CBD2DC"/><rect x="526" y="160" width="36" height="40" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="526" y="135" width="36" height="25" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="526" y="120" width="36" height="15" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <rect x="576" y="200" width="36" height="50" fill="#CBD2DC"/><rect x="576" y="160" width="36" height="40" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="576" y="135" width="36" height="25" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="576" y="120" width="36" height="15" fill="#E7EEFC" stroke="#1D4ED8"/><rect x="576" y="110" width="36" height="10" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <text x="394" y="192" font-size="15" text-anchor="middle" fill="#5B6676">ŷ₀</text>
+        <text x="444" y="152" font-size="15" text-anchor="middle" fill="#1D4ED8">+ϑ₁</text>
+        <g font-size="15" fill="#5B6676" text-anchor="middle"><text x="394" y="272">0</text><text x="444" y="272">1</text><text x="494" y="272">2</text><text x="544" y="272">3</text><text x="594" y="272">4</text></g>
+        <text x="490" y="294" font-size="15" text-anchor="middle" fill="#5B6676">処置水準 t</text>
+      </svg>
+      <figcaption>図2　応答曲線の作り方の違い（模式図。高さは説明用で、データではない）。論文 Fig. 1 は単調でない曲線や滑らかでない曲線で最適な処置水準を取り違える例を示している。</figcaption>
+    </figure>
+  </section>
+
+  <section id="allocation">
+    <div class="kicker">手法 2　微分可能な配分モジュール</div>
+    <h2>整数計画の解は飛び飛びにしか動かないので、目標の変化を整数の方向に分解してから勾配を作る。</h2>
+    <p>配分モジュールは予測した \(\tau^r\) と \(\tau^c\) を目的関数と制約に入れた整数線形計画（ILP）を解き、配分 \(z\) を出す。学習には \(\partial\mathcal L/\partial\tau^r\) と \(\partial\mathcal L/\partial\tau^c\) が要るが、ILP の解は整数点に限られるので、後ろの層から来た勾配 \(\mathrm dz\) の方向へ解を少しだけ動かすことができない。そこで CombOptNet（Paulus ら）の考え方を借り、\(\mathrm dz\) を \(\{-1,0,1\}\) の値をとる方向 \(\Delta_j\) の非負結合に分解する。</p>
+    <div class="eq">\[ \mathrm d z = \sum_{j} \lambda_j \Delta_j,\qquad \lambda_j \ge 0,\quad \Delta_j \in \{-1,0,1\}^n \]</div>
+    <p>\(\Delta_j\) は \(|\mathrm dz|\) の大きい座標から順に \(j\) 個の符号を並べたもので、\(\lambda_j\) は隣り合う \(|\mathrm dz|\) の差である。論文はこの分解が成り立つことを命題として証明している。各整数点 \(z'_j=z-\Delta_j\) について、応答の側は \(\tau^r\cdot(z'_j - z)\) の形の不一致関数を、コストの側は制約の超平面までの距離にもとづく不一致関数を微分し、\(\lambda_j\) で重みをつけて足し合わせる。予算 \(B\) は定数なので更新しない。多処置の場合は、各ユーザーの \(z_i\) が「どれか一つの処置が1」になるように値の範囲を変える。</p>
+    <p>配分モジュールの損失 \(\mathcal L_{\mathrm{allocation}}\) は、論文の記述では観測された処置 \(t\) と配分 \(z_i\) の交差エントロピーで、EOM（期待アウトカム指標）に着想を得たとされる。全体の損失は次の式で、\(\beta\) は二つの損失の比重を決めるハイパーパラメータである。</p>
+    <div class="eq">\[ \mathcal L_{\mathrm{E^3IR}} = \mathcal L_{\mathrm{predict}} + \beta\, {\color{#1D4ED8}\mathcal L_{\mathrm{allocation}}} \]</div>
+  </section>
+
+  <section id="binary">
+    <div class="kicker">実験 1　二値の処置</div>
+    <h2>二値の処置では、E3IR は AUUC と QINI で両データとも最良だったが、AUCC と KENDALL は一方のデータで DRP に及ばなかった。</h2>
+    <p>Hillstrom のメール配信データ（64,000人）から、男性向けメールと配信なしを組み合わせた Hillstrom-Men と、女性向けメールと配信なしを組み合わせた Hillstrom-Women を作る。応答は購入額（spend）、コストは来訪（visit）である。予算はどちらも 400 とした。比較手法はコストを考えない S-Learner、X-Learner、Causal Forest、CFRNet、DragonNet、EUEN と、コストを考える TPM-SL、Direct Rank、DRP である。結果は5つの乱数シードでの値 ± 幅として報告されている。</p>
+    <div class="tbl">
+      <table>
+        <caption>表1　論文 Table 1 からの抜粋（コストを考える手法と、コストを考えない手法で最も良かった DragonNet）。太字は列の最良。</caption>
+        <thead>
+          <tr><th rowspan="2">手法</th><th colspan="4">Hillstrom-Men</th><th colspan="4">Hillstrom-Women</th></tr>
+          <tr><th>AUUC</th><th>QINI</th><th>KENDALL</th><th>AUCC</th><th>AUUC</th><th>QINI</th><th>KENDALL</th><th>AUCC</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DragonNet</td><td>0.5640</td><td>0.0670</td><td>0.6804</td><td>—</td><td>0.5921</td><td>0.0623</td><td>0.6597</td><td>—</td></tr>
+          <tr><td>TPM-SL</td><td>0.4665</td><td>0.0315</td><td>0.5902</td><td>0.0476</td><td>0.4725</td><td>0.0310</td><td>0.5108</td><td>0.0502</td></tr>
+          <tr><td>Direct Rank</td><td>0.5810</td><td>0.0683</td><td>0.6406</td><td>0.0498</td><td>0.6022</td><td>0.0671</td><td>0.6441</td><td>0.0519</td></tr>
+          <tr><td>DRP</td><td>0.5783</td><td>0.0667</td><td>0.6811</td><td><b>0.0545</b></td><td>0.6211</td><td>0.0669</td><td><b>0.6802</b></td><td>0.0531</td></tr>
+          <tr class="me"><td>E3IR</td><td><b>0.5928</b></td><td><b>0.0717</b></td><td><b>0.7033</b></td><td>0.0502</td><td><b>0.6466</b></td><td><b>0.0760</b></td><td>0.67f54*</td><td><b>0.0587</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">* 論文の表にこのとおり印字されている（誤植とみられる）。表の中では2番目の値として下線がついている。± の幅は省略した。</p>
+    <p>論文は、QINI で特に差が出た理由の一つとして、全手法のハイパーパラメータを QINI を基準に調整したことを挙げている。コストを考える手法との差については、微分可能な配分モジュールが ROI の順位づけを良くしたためと解釈している。</p>
+  </section>
+
+  <section id="multi">
+    <div class="kicker">実験 2　多値の処置</div>
+    <h2>多値の処置では、二つのデータセットとも E3IR の MT-AUUC と EOM が比較手法を上回った。</h2>
+    <p>多値の処置は2つのデータで調べた。一つは Hillstrom の3群（男性向け・女性向け・配信なし）で、予算は 500 である。もう一つは中国の大手ショート動画プラットフォームで2週間行ったランダム化実験のデータで、予算は5万である。この実験では動画の鮮明化を3段階（\(T=1,2,3\)）かけ、通常の動画（\(T=0\)）を対照とした。応答は再生時間、コストは帯域コストである。データは800万人超のユーザーと108個の特徴量を含む。比較手法は二段階の Multi-TPM-SL と、decision factor を学習するモジュールをもつ DRM である。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="論文 Table 2 の EOM を横棒で示した図。Hillstrom では Multi-TPM-SL 21.98、DRM 26.57、E3IR 29.92。Production では Multi-TPM-SL 27.66、DRM 36.65、E3IR 44.51。どちらも E3IR が最大。" id="fig-eom">
+        <text x="20" y="28" font-size="17" font-weight="700" fill="#16202E">Hillstrom（3処置、予算 500）</text>
+        <text x="150" y="62" font-size="16" text-anchor="end" fill="#16202E">Multi-TPM-SL</text>
+        <rect x="160" y="44" width="158.2" height="24" rx="3" fill="#CBD2DC"/>
+        <text x="326.2" y="62" font-size="16" fill="#16202E">21.98<tspan fill="#5B6676" font-weight="400">（0.0645）</tspan></text>
+        <text x="150" y="98" font-size="16" text-anchor="end" fill="#16202E">DRM</text>
+        <rect x="160" y="80" width="191.3" height="24" rx="3" fill="#CBD2DC"/>
+        <text x="359.3" y="98" font-size="16" fill="#16202E">26.57<tspan fill="#5B6676" font-weight="400">（0.0726）</tspan></text>
+        <text x="150" y="134" font-size="16" text-anchor="end" fill="#1D4ED8" font-weight="700">E3IR</text>
+        <rect x="160" y="116" width="215.4" height="24" rx="3" fill="#1D4ED8"/>
+        <text x="383.4" y="134" font-size="16" fill="#1D4ED8" font-weight="700">29.92<tspan fill="#5B6676" font-weight="400">（0.0803）</tspan></text>
+        <text x="20" y="172" font-size="17" font-weight="700" fill="#16202E">Production（4処置、予算5万）</text>
+        <text x="150" y="206" font-size="16" text-anchor="end" fill="#16202E">Multi-TPM-SL</text>
+        <rect x="160" y="188" width="199.1" height="24" rx="3" fill="#CBD2DC"/>
+        <text x="367.1" y="206" font-size="16" fill="#16202E">27.66<tspan fill="#5B6676" font-weight="400">（0.3907）</tspan></text>
+        <text x="150" y="242" font-size="16" text-anchor="end" fill="#16202E">DRM</text>
+        <rect x="160" y="224" width="263.9" height="24" rx="3" fill="#CBD2DC"/>
+        <text x="431.9" y="242" font-size="16" fill="#16202E">36.65<tspan fill="#5B6676" font-weight="400">（0.3601）</tspan></text>
+        <text x="150" y="278" font-size="16" text-anchor="end" fill="#1D4ED8" font-weight="700">E3IR</text>
+        <rect x="160" y="260" width="320.5" height="24" rx="3" fill="#1D4ED8"/>
+        <text x="488.5" y="278" font-size="16" fill="#1D4ED8" font-weight="700">44.51<tspan fill="#5B6676" font-weight="400">（0.4639）</tspan></text>
+        <line x1="160" y1="40" x2="160" y2="290" stroke="#5B6676"/>
+      </svg>
+      <figcaption>図3　多値の処置での EOM（論文 Table 2 の数値から解説者が作図）。棒の右の括弧内は MT-AUUC。EOM は最小最大正規化した応答で計算され、Production の値は論文の表記で \(e^4\) で割ってある。DRM は本文の比較手法一覧では DPM と書かれている。</figcaption>
+    </figure>
+    <p>予算を変えたときのコスト曲線と EOM（論文 Fig. 5、Fig. 6）でも、E3IR が最も良かったと報告されている。モジュールを一つずつ外したアブレーション（論文 Fig. 4）では、単調性の制約、滑らかさの制約、微分可能な配分モジュールのどれを外しても、全データ・全指標で性能が下がった。論文は、配分モジュールの寄与が特に大きいと述べている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>E3IR は、コストの増分を予測し、多値の処置の配分を学習の中で解く決定重視型の手法である。</h2>
+    <ul class="def">
+      <li><b>推定するもの</b>　処置ごとの応答の増分 \(\tau^r_{ik}\) とコストの増分 \(\tau^c_{ik}\)。ROI のような比を直接は推定せず、二つの増分を MCKP の目的関数と制約に入れる。</li>
+      <li><b>コストの仮定</b>　クーポンの額面を固定のコストとみなす定式化では、行動の変化が生む増分を捉えられない、と論文は述べる。そのためコストも結果変数として扱い、その増分を推定する（Hillstrom では来訪、動画データでは帯域コスト）。予測モジュールは処置水準を上げると応答もコストも減らないと仮定する。</li>
+      <li><b>処置</b>　二値と多値の両方を扱う。二値は 0-1 ナップザック問題、多値は MCKP として書く。</li>
+      <li><b>データ</b>　ランダム化実験のデータ（Hillstrom と、動画プラットフォームで行った2週間の実験）。論文は予測にランダム化実験のデータを使うと書いており、観察データの交絡には触れていない。</li>
+    </ul>
+    <p>固定額のクーポンで、購入したときだけコストがかかる設定と比べてみる。処置なしのコストが0なら、コストの増分は「額面 × 処置したときの購入確率」になる。したがってこの設定は、E3IR の定式化に含まれる特殊な場合とみなせる（解説者の整理）。二値の処置で LP 緩和の最適解を与えるのは、応答の増分をコストの増分で割った比の大きい順に配る貪欲な割当てである。E3IR はこの比で順位をつけるのではなく、整数計画を解く層を通して予測モデルを学習する。ただし論文には、比による順位づけと E3IR を同じ条件で比べた理論的な結果はない。比を直接学習する手法として実験に含まれた Direct Rank と DRP に対しては、二値の4指標のうち多くで上回ったが、すべてではなかった（表1）。</p>
+  </section>
+
+  <section id="takeaways">
+    <div class="kicker">まとめ</div>
+    <h2>E3IR は、単調で滑らかな予測と微分可能な整数計画を一緒に学習することで、二段階法のずれを小さくしようとする。</h2>
+    <p>論文は予算制約つきのオンラインマーケティングを「予測 + 最適化」の問題として書き直し、マーケティングの知識を入れた予測モジュールと、ILP を微分可能にした配分モジュールを組み合わせた。公開データと動画プラットフォームのデータで、多くの指標で既存手法を上回ったと報告している。今後の課題として、配分モジュールの計算時間を減らすことと、より複雑な実際のマーケティング場面に適用することを挙げている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{sun2024e3ir,
+  title     = {End-to-End Cost-Effective Incentive Recommendation under Budget Constraint with Uplift Modeling},
+  author    = {Sun, Zexu and Yang, Hao and Liu, Dugang and Weng, Yunpeng and Tang, Xing and He, Xiuqiang},
+  booktitle = {18th ACM Conference on Recommender Systems (RecSys '24)},
+  pages     = {560--569},
+  year      = {2024},
+  publisher = {ACM},
+  address   = {New York, NY, USA},
+  doi       = {10.1145/3640457.3688147},
+  isbn      = {979-8-4007-0505-2}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<!-- data for charts/teaser, e.g. <script src="assets/results.js"></script> (window.RESULTS = {...}) -->
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

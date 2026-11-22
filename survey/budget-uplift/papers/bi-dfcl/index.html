@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bi-DFCL（論文解説）</title>
+<meta name="description" content="Bi-Level Decision-Focused Causal Learning for Large-Scale Marketing Optimization（NeurIPS 2025）の非公式の解説。RCT データで推定した予算内の配分の質を使って、観察データでの学習を補正する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = observational (OBS) data side: abundant but biased; the prediction loss on it (lower level)
+            --b  (blue)   = RCT data side: scarce but unbiased; the decision loss on it (upper level), teacher and bridge nets
+            Bi-DFCL bars in charts are ink (dark), other methods grey, so the accents keep their data meaning.
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- page-specific: affiliations, self-drawn SVG figures ---------- */
+.byline { display: flex; flex-direction: column; gap: 0.5rem; }
+.authors sup, .affil sup { font-size: 0.7em; font-weight: 500; margin-left: 0.1em; }
+.affil { font-size: 0.875rem; color: var(--muted); line-height: 1.55; max-width: none; }
+.svgfig { border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+.svgfig svg { display: block; width: 100%; max-width: 760px; height: auto; margin: 0 auto; }
+.svgfig svg.narrow { max-width: 560px; }
+@media (max-width: 760px) { .svgfig.scroll { overflow-x: auto; } .svgfig.scroll svg { min-width: 600px; } }
+.svgfig text { font-family: var(--font-ja); }
+.svgfig .sb { font-size: 17px; font-weight: 650; }
+.svgfig .ss { font-size: 14px; fill: var(--muted); }
+.svgfig .ft { font-size: 16px; font-weight: 650; fill: var(--ink); }
+.svgfig .fl { font-size: 15px; fill: var(--muted); }
+.svgfig .fv { font-size: 15px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.svgfig .fo { fill: var(--ink); font-weight: 650; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">NeurIPS 2025</div>
+  <h1>Bi-Level Decision-Focused Causal Learning for Large-Scale Marketing Optimization: Bridging Observational and Experimental Data</h1>
+  <p class="subtitle">大規模マーケティング最適化のための二段階の決定重視因果学習：観察データと実験データの橋渡し</p>
+
+  <div class="byline">
+    <ul class="authors">
+      <li><b>Shuli Zhang<sup>1</sup></b></li>
+      <li><b>Hao Zhou<sup>1,2</sup></b></li>
+      <li><b>Jiaqi Zheng<sup>1</sup></b></li>
+      <li><b>Guibin Jiang<sup>2</sup></b></li>
+      <li><b>Bing Cheng<sup>2</sup></b></li>
+      <li><b>Wei Lin<sup>2</sup></b></li>
+      <li><b>Guihai Chen<sup>1</sup></b></li>
+    </ul>
+    <p class="affil"><sup>1</sup>State Key Laboratory for Novel Software Technology, Nanjing University, Nanjing, China<br><sup>2</sup>Meituan, Beijing, China</p>
+  </div>
+
+  <p class="lead">クーポンや割引の配分を学習するとき、<span class="A">観察データ</span>は大量にあるが偏っており、<span class="B">RCT データ</span>は偏りがないが少ない。Bi-DFCL は RCT データで推定した「予算内での配分の質」を使って、観察データでの学習の向きを補正する。これにより、両方のデータを一つのモデルの学習に使える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.neurips.cc/paper_files/paper/2025/hash/93427bc08aef8f9d6d5366d70284f571-Abstract-Conference.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2510.19517">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="Bi-DFCL を5つの場面で説明するアニメーション。観察データと RCT データの違い、既存手法が RCT データしか使えないこと、重み w による疑似ラベルの作り方、オンライン A/B テストの結果、まとめ。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">決定の質を RCT で不偏に推定</span><span class="d">予算 \(B\) のもとでの配分の質を RCT データから不偏に推定し、二つの代理損失（PPL と PIFD）にして学習に使う。</span></li>
+    <li><span class="k">観察データも学習に使う</span><span class="d">二段階最適化で、観察データでの予測の学習を、RCT データで測った決定の質が補正する。</span></li>
+    <li><span class="k">オンラインで +3.22%</span><span class="d">美団の割引施策で4週間、79万店舗を対象に行った A/B テストで、TSM-SL に対する注文数の改善は 3.22%（Bi-DFCL-PIFD）だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予測してから最適化する二段階法には、予測と決定のずれ、偏りと分散のジレンマという二つの課題がある</h2>
+    <p>論文が扱うのは、\(N\) 人（または店舗）それぞれに \(M\) 種類の施策のどれか一つを割り当てる問題である。個人 \(i\) に施策 \(j\) を割り当てたときの売上を \(r_{ij}\)、コストを \(c_{ij}\) とし、総コストを予算 \(B\) 以内に抑えながら総売上を最大にする。論文はこれを MTBAP（Multi-Treatment Budget Allocation Problem）と呼ぶ。</p>
+    <div class="eq">\[ \max_{z}\ \sum_{i}\sum_{j} z_{ij}\, r_{ij} \quad \text{s.t.}\ \ \sum_{i}\sum_{j} z_{ij}\, c_{ij} \le B,\ \ \sum_{j} z_{ij} = 1,\ \ z_{ij}\in\{0,1\} \]</div>
+    <p>これは NP 困難な多選択ナップサック問題（MCKP）であり、ラグランジュ緩和で近似的に解く。二分探索で乗数 \(\lambda^*\) を決め、各人に \(\hat r_{ij} - \lambda^* \hat c_{ij}\) が最大の施策を割り当てる。</p>
+    <div class="eq">\[ z^*_{ij} = \mathbb{1}\Bigl\{\, j = \arg\max_{j'} \bigl[\hat r_{ij'} - \lambda^* \hat c_{ij'}\bigr] \Bigr\} \]</div>
+    <p>従来の二段階法はまず機械学習で \(\hat r, \hat c\) を予測し、次にこの最適化で配分を決める。論文はここに二つの課題を挙げる。一つは予測の精度が上がっても配分の質が上がるとは限らないこと（予測と決定のずれ）であり、もう一つは、<span class="A">観察データ</span>は多いが偏り（高バイアス・低分散）、<span class="B">RCT データ</span>は偏りがないが少ない（低バイアス・高分散）ことである。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>既存の決定重視学習は決定損失を偏りのない RCT データでしか計算できず、豊富な観察データを捨てている</h2>
+    <p>予測と決定のずれに対処する方法として、配分の質そのものを損失にして学習する決定重視学習（DFL）がある。マーケティング向けには DHCL と <a href="../dfcl/">DFCL</a> が提案されている。ただし、反実仮想（実際には割り当てなかった施策での結果）は観測できないため、決定損失を偏りなく推定できるのは RCT データだけである。その結果、これらの手法は少ない RCT データでしか学習できず、過学習しやすい（低バイアスだが高分散）。</p>
+    <p>論文は DFCL の不足をさらに二つ指摘する。一つは予測損失と決定損失の重み \(\alpha\) を手で調整する必要があることであり、もう一つは、DFCL の双対の決定損失があらゆる予算での配分の質を評価するのに対し、実際の予算は狭い範囲か、いくつかの候補値に限られることである。</p>
+  </section>
+
+  <section id="decision-loss">
+    <div class="kicker">手法 1：決定損失</div>
+    <h2>RCT データなら、<span style="white-space:nowrap">予算 B</span> のもとでの配分の質を不偏に推定でき、微分できる代理損失に置き換えられる</h2>
+    <p>RCT では施策が無作為に割り当てられるので、実際に受けた施策 \(t_i\) の結果だけを使い、各施策の人数 \(N_{t_i}\) で重み付けすれば、決定損失（配分の売上の符号を反転したもの）を不偏に推定できる（論文 Appendix A.2 に証明がある）。</p>
+    <div class="eq">\[ \mathcal{L}_{\mathrm{DL}}(\theta; \mathcal{D}_{\mathrm{RCT}}) = -\,\mathbb{E}_{i}\Bigl[\, \frac{N}{N_{t_i}}\; z^*_{it_i}\bigl(\hat r(\theta), \hat c(\theta)\bigr)\; r_{it_i} \Bigr] \]</div>
+    <p>ただし \(z^*\) は argmax の指示関数なので、そのままでは \(\theta\) で微分できない。論文は二つの代理損失を用意する。<strong>PPL</strong>（primal policy learning）は、指示関数を softmax で緩めた方策の期待売上を最大にする。</p>
+    <div class="eq">\[ \mathcal{L}_{\mathrm{PPL}} = -\,\mathbb{E}_{i}\Biggl[\, \frac{N}{N_{t_i}} \cdot \frac{\exp[\hat r_{it_i} - \lambda^* \hat c_{it_i}]}{\sum_{j} \exp[\hat r_{ij} - \lambda^* \hat c_{ij}]} \cdot r_{it_i} \Biggr] \]</div>
+    <p><strong>PIFD</strong>（primal improved finite difference）は、決定損失を少しずらしたときの変化から勾配を直接見積もる。緩和をしないので、元の最適化の形を保てる。どちらも二分探索で求めた実際の予算 \(B\) に対応する \(\lambda^*\) を使う。この点がすべての予算を評価する DFCL の双対の損失との違いである。</p>
+  </section>
+
+  <section id="bilevel">
+    <div class="kicker">手法 2：二段階最適化</div>
+    <h2>下位問題で観察データの予測損失を、上位問題で RCT データの決定損失を最小化し、ブリッジネットワークが両者をつなぐ</h2>
+    <p>論文によれば、決定損失を偏った観察データで最小化すると、偏りが大きく増幅される。一方、予測損失は汎化を良くするためのもので、大量で分散の小さい観察データで使うと効果が大きい。そこで論文は二つの損失を役割で分け、入れ子の二段階最適化にする。</p>
+    <div class="eq">\[ \phi^* = \arg\min_{\phi}\ \mathcal{L}_{\mathrm{DL}}\bigl(\theta^*(\phi); \mathcal{D}_{\mathrm{RCT}}\bigr) \quad \text{s.t.}\quad \theta^*(\phi) = \arg\min_{\theta}\ \mathcal{L}_{\mathrm{PL}}(\phi, \theta; \mathcal{D}_{\mathrm{OBS}}) \]</div>
+    <p>\(\theta\) は最終的に使うターゲットネットワーク、\(\phi\) はブリッジネットワークのパラメータである。ブリッジネットワークは個人と施策の組ごとに重み \(w \in (0,1)\) を出し、観察データで観測されていない施策について疑似ラベルを作る。疑似ラベルは RCT データで事前学習して固定した教師ネットワーク \(\psi\) の予測と、ターゲットネットワークの予測を \(w\) で混ぜたものである（コスト \(c\) についても同じ）。</p>
+    <div class="eq">\[ r^{\mathrm{cf}}_{ij} = \hat r^{\mathrm{pre}}_{ij}(\psi)\, w^{r}_{ij} + \hat r_{ij}(\theta)\,\bigl(1 - w^{r}_{ij}\bigr), \qquad w^{r}_{ij} = \operatorname{sigmoid}\bigl(\mathcal{G}^{r}_{\phi}(i,j)\bigr) \]</div>
+    <p>下位問題の予測損失は、観測された施策では実際の結果との二乗誤差、それ以外の施策では疑似ラベルとの二乗誤差である。上位問題はこうして学習したターゲットネットワークの配分の質を RCT データで測り、それが良くなるように \(w\) の出し方を変える。予測損失と決定損失の釣り合いもデータから決まるので、DFCL の \(\alpha\) を手で調整する必要がなくなる。</p>
+    <figure>
+      <div class="svgfig scroll">
+        <svg viewBox="0 0 760 420" role="img" aria-label="Bi-DFCL の構成の模式図。観察データからターゲットネットワークを学習する下位問題と、RCT データで決定損失を測りブリッジネットワークを更新する上位問題が、疑似ラベルでつながる。">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker>
+            <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker>
+          </defs>
+          <!-- row 1: data -->
+          <rect x="20" y="20" width="220" height="60" rx="10" fill="#FCEBDF" stroke="#C2410C" stroke-width="1.5"/>
+          <text x="130" y="45" text-anchor="middle" class="sb" fill="#C2410C">観察データ</text>
+          <text x="130" y="67" text-anchor="middle" class="ss">多い・偏りあり</text>
+          <rect x="520" y="20" width="220" height="60" rx="10" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="630" y="45" text-anchor="middle" class="sb" fill="#1D4ED8">RCT データ</text>
+          <text x="630" y="67" text-anchor="middle" class="ss">少ない・偏りなし</text>
+          <!-- row 2: networks -->
+          <rect x="20" y="130" width="220" height="60" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+          <text x="130" y="155" text-anchor="middle" class="sb" fill="#16202E">ターゲット θ</text>
+          <text x="130" y="177" text-anchor="middle" class="ss">最終的に使うモデル</text>
+          <rect x="270" y="130" width="220" height="60" rx="10" fill="#fff" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="380" y="155" text-anchor="middle" class="sb" fill="#16202E">教師 ψ</text>
+          <text x="380" y="177" text-anchor="middle" class="ss">RCT で事前学習・固定</text>
+          <rect x="520" y="130" width="220" height="60" rx="10" fill="#fff" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="630" y="155" text-anchor="middle" class="sb" fill="#16202E">ブリッジ φ</text>
+          <text x="630" y="177" text-anchor="middle" class="ss">重み w を出す</text>
+          <!-- row 3: losses -->
+          <rect x="20" y="250" width="220" height="70" rx="10" fill="#FCEBDF" stroke="#C2410C" stroke-width="1.5"/>
+          <text x="130" y="278" text-anchor="middle" class="sb" fill="#C2410C">下位：予測損失</text>
+          <text x="130" y="301" text-anchor="middle" class="ss">観察データで θ を更新</text>
+          <rect x="270" y="250" width="220" height="70" rx="10" fill="#F2F4F7" stroke="#5B6676" stroke-width="1.2"/>
+          <text x="380" y="278" text-anchor="middle" class="sb" fill="#16202E">疑似ラベル</text>
+          <text x="380" y="301" text-anchor="middle" class="ss">w·教師 ＋ (1−w)·ターゲット</text>
+          <rect x="520" y="250" width="220" height="70" rx="10" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.5"/>
+          <text x="630" y="278" text-anchor="middle" class="sb" fill="#1D4ED8">上位：決定損失</text>
+          <text x="630" y="301" text-anchor="middle" class="ss">RCT データで φ を更新</text>
+          <!-- arrows -->
+          <line x1="130" y1="80" x2="130" y2="127" stroke="#5B6676" stroke-width="1.6" marker-end="url(#ar)"/>
+          <line x1="130" y1="190" x2="130" y2="247" stroke="#5B6676" stroke-width="1.6" marker-end="url(#ar)"/>
+          <line x1="540" y1="80" x2="430" y2="128" stroke="#1D4ED8" stroke-width="1.6" marker-end="url(#arb)"/>
+          <line x1="380" y1="190" x2="380" y2="247" stroke="#5B6676" stroke-width="1.6" marker-end="url(#ar)"/>
+          <line x1="560" y1="190" x2="470" y2="248" stroke="#5B6676" stroke-width="1.6" marker-end="url(#ar)"/>
+          <text x="526" y="226" class="ss">w</text>
+          <line x1="270" y1="285" x2="243" y2="285" stroke="#5B6676" stroke-width="1.6" marker-end="url(#ar)"/>
+          <path d="M740,50 H752 V285 H743" fill="none" stroke="#1D4ED8" stroke-width="1.6" marker-end="url(#arb)"/>
+          <line x1="630" y1="250" x2="630" y2="193" stroke="#1D4ED8" stroke-width="1.6" marker-end="url(#arb)"/>
+          <text x="638" y="227" class="ss" style="fill:#1D4ED8">陰関数微分</text>
+          <path d="M130,320 V372 H630 V323" fill="none" stroke="#5B6676" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="380" y="398" text-anchor="middle" class="ss">下位の解 θ*(φ) の配分を RCT データで評価する</text>
+        </svg>
+      </div>
+      <figcaption>図1　Bi-DFCL の構成（模式図。論文 Fig. 2 と本文の式をもとに解説者が作図）。橙は観察データの側、青は RCT データの側を表す。</figcaption>
+    </figure>
+  </section>
+
+  <section id="implicit">
+    <div class="kicker">手法 3：学習アルゴリズム</div>
+    <h2>上位問題の勾配は下位問題の最適性条件を微分する陰関数微分と共役勾配法で、ヘッセ行列の逆行列を作らずに求める</h2>
+    <p>ブリッジネットワークを更新するには、\(\phi\) を変えたときに下位問題の解 \(\theta^*(\phi)\) がどう動くか（ヤコビ行列）が必要である。勾配降下の1ステップを通して微分する方法（陽な微分）もあるが、論文によれば、最適化の経路に依存し、決定損失と組み合わせると勾配が消えやすい。そこで、\(\theta^*(\phi)\) が満たす一階条件を \(\phi\) で微分する。</p>
+    <div class="eq">\[ \frac{\partial^2 \mathcal{L}_{\mathrm{PL}}}{\partial \theta^2}\Big|_{\theta^*(\phi)} \cdot \frac{\partial \theta^*(\phi)}{\partial \phi} = -\,\frac{\partial^2 \mathcal{L}_{\mathrm{PL}}}{\partial \phi\, \partial \theta}\Big|_{\theta^*(\phi)} \]</div>
+    <p>この線形方程式を、ヘッセ行列とベクトルの積だけを使う共役勾配法で解く。実装では \(k\) バッチに1回（既定値 \(k=5\)）上位問題を解き、そのときは \(k\) ステップの仮の更新で \(\theta^*(\phi)\) を近似する。共役勾配法の反復回数の既定値は 50 である。</p>
+    <p>代わりに学習時間は増える。Marketing Data II での学習時間は、Bi-DFCL-PPL が 265.263 分、Bi-DFCL-PIFD が 294.927 分で、両方のデータで学習した TSM-SL の約 6〜7 倍だった（論文 Table 8）。陰関数微分を使わないと学習時間はさらに長く、それぞれ 345.132 分と 427.515 分だった。推論ではターゲットネットワークだけを使うので、推論時間は単純な因果モデルと変わらない。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験</div>
+    <h2>公開データ、美団の2種類のデータ、4週間のオンライン A/B テストのすべてで、<span style="white-space:nowrap">Bi-DFCL</span> は比較手法を上回った</h2>
+    <p>オフライン実験には3つのデータセットを使う。CRITEO-UPLIFT v2 は RCT データの一部を、模擬した施策方針で観察データに作り替えたもので、処置は2値である。Marketing Data I は美団の値引き施策（8段階）、Marketing Data II は割引施策（5段階）で、それぞれ RCT データと観察データを含む。比較手法は RCT データだけ、観察データだけ、両方で学習する3群に分かれる。評価指標は2値の処置では AUCC、多値の処置では EOM（RCT データから配分の期待売上を不偏に推定する指標）である。</p>
+    <figure>
+      <div class="svgfig">
+<svg class="narrow" viewBox="0 0 560 610" role="img" aria-label="Table 2 の改善率の棒グラフ">
+<text x="20" y="28" class="ft">CRITEO-UPLIFT v2 (Hybrid)・AUCC</text>
+<text x="180" y="61" text-anchor="end" class="fl">RCT のみ：DFCL-DIFD</text>
+<rect x="190" y="46" width="112.6" height="20" rx="3" fill="#CBD2DC"/>
+<text x="310.6" y="61" class="fv">+4.17%</text>
+<text x="180" y="91" text-anchor="end" class="fl">観察のみ：DragonNet</text>
+<rect x="190" y="76" width="131.2" height="20" rx="3" fill="#CBD2DC"/>
+<text x="329.2" y="91" class="fv">+4.86%</text>
+<text x="180" y="121" text-anchor="end" class="fl">両方：LTD-DR</text>
+<rect x="190" y="106" width="147.4" height="20" rx="3" fill="#CBD2DC"/>
+<text x="345.4" y="121" class="fv">+5.46%</text>
+<text x="180" y="151" text-anchor="end" class="fl fo">Bi-DFCL-PPL</text>
+<rect x="190" y="136" width="247.3" height="20" rx="3" fill="#16202E"/>
+<text x="445.3" y="151" class="fv fo">+9.16%</text>
+<text x="180" y="181" text-anchor="end" class="fl fo">Bi-DFCL-PIFD</text>
+<rect x="190" y="166" width="253.0" height="20" rx="3" fill="#16202E"/>
+<text x="451.0" y="181" class="fv fo">+9.37%</text>
+<text x="20" y="228" class="ft">Marketing Data I・EOM</text>
+<text x="180" y="261" text-anchor="end" class="fl">RCT のみ：DFCL-DIFD</text>
+<rect x="190" y="246" width="116.5" height="20" rx="3" fill="#CBD2DC"/>
+<text x="314.5" y="261" class="fv">+1.51%</text>
+<text x="180" y="291" text-anchor="end" class="fl">観察のみ：DR-JT</text>
+<rect x="190" y="276" width="78.7" height="20" rx="3" fill="#CBD2DC"/>
+<text x="276.7" y="291" class="fv">+1.02%</text>
+<text x="180" y="321" text-anchor="end" class="fl">両方：AutoDebias</text>
+<rect x="190" y="306" width="135.0" height="20" rx="3" fill="#CBD2DC"/>
+<text x="333.0" y="321" class="fv">+1.75%</text>
+<text x="180" y="351" text-anchor="end" class="fl fo">Bi-DFCL-PPL</text>
+<rect x="190" y="336" width="213.7" height="20" rx="3" fill="#16202E"/>
+<text x="411.7" y="351" class="fv fo">+2.77%</text>
+<text x="180" y="381" text-anchor="end" class="fl fo">Bi-DFCL-PIFD</text>
+<rect x="190" y="366" width="229.1" height="20" rx="3" fill="#16202E"/>
+<text x="427.1" y="381" class="fv fo">+2.97%</text>
+<text x="20" y="428" class="ft">Marketing Data II・EOM</text>
+<text x="180" y="461" text-anchor="end" class="fl">RCT のみ：DFCL-DIFD</text>
+<rect x="190" y="446" width="84.9" height="20" rx="3" fill="#CBD2DC"/>
+<text x="282.9" y="461" class="fv">+1.10%</text>
+<text x="180" y="491" text-anchor="end" class="fl">観察のみ：DR-JT</text>
+<rect x="190" y="476" width="41.7" height="20" rx="3" fill="#CBD2DC"/>
+<text x="239.7" y="491" class="fv">+0.54%</text>
+<text x="180" y="521" text-anchor="end" class="fl">両方：LTD-DR</text>
+<rect x="190" y="506" width="51.7" height="20" rx="3" fill="#CBD2DC"/>
+<text x="249.7" y="521" class="fv">+0.67%</text>
+<text x="180" y="551" text-anchor="end" class="fl fo">Bi-DFCL-PPL</text>
+<rect x="190" y="536" width="194.4" height="20" rx="3" fill="#16202E"/>
+<text x="392.4" y="551" class="fv fo">+2.52%</text>
+<text x="180" y="581" text-anchor="end" class="fl fo">Bi-DFCL-PIFD</text>
+<rect x="190" y="566" width="192.1" height="20" rx="3" fill="#16202E"/>
+<text x="390.1" y="581" class="fv fo">+2.49%</text>
+</svg>
+      </div>
+      <figcaption>図2　RCT データで学習した TSM-SL に対する改善率。上の3本は各群で最良の既存手法、下の2本が Bi-DFCL（論文 Table 2 の数値から解説者が作図）。著者らが RCT データ用に新しく提案した DFCL-PPL と DFCL-PIFD は除いた。目盛りの幅はデータセットごとに異なる。数値は 20 回の試行の平均である。</figcaption>
+    </figure>
+    <p>Bi-DFCL は3つのデータセットすべてで最良だった。要素を一つずつ加えるアブレーション（論文 Table 3）では、Marketing Data I の改善率が、決定損失（PPL）で 1.67%、二段階最適化を加えて 2.40%、疑似ラベルを加えて 2.48%、陰関数微分を加えて 2.77% と段階的に上がった。Marketing Data I の観察データ 22,201,405 件に組み合わせる RCT データを 222,000 件、1,100,000 件、2,220,781 件と増やすと、改善率は 1.90%、2.58%、2.77% だった（論文 Table 6）。</p>
+    <p>オンラインでは、美団の割引施策（割引率 0・5・10・15・20%）で、日ごとにわずかに変わる予算のもとで注文数を最大にする設定の A/B テストを4週間行った。79万店舗を毎日5群に無作為に分けて比較した結果、TSM-SL に対する改善率は LTD-DR が 0.91%、DFCL-PIFD が 1.80%、Bi-DFCL-PPL が 3.00%、Bi-DFCL-PIFD が 3.22% だった（論文 Table 4）。論文によれば、Bi-DFCL は美団の複数のマーケティング施策ですでに運用されている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2><span style="white-space:nowrap">Bi-DFCL</span> は処置ごとの売上とコストを予測するモデルを、予算内の配分の質が上がるように RCT と観察データの両方で学習する</h2>
+    <ul class="def">
+      <li><strong>何を推定するか</strong>：アップリフト（差）そのものではなく、個人 \(i\) と施策 \(j\) の組ごとの売上 \(\hat r_{ij}\) とコスト \(\hat c_{ij}\) を予測する。配分は \(\hat r_{ij} - \lambda^* \hat c_{ij}\) が最大の施策を選んで決める。</li>
+      <li><strong>コストの扱い</strong>：コスト \(c_{ij}\) も売上と同じく観測される結果として扱い、データから予測する。美団のデータでは日ごとのコスト、CRITEO では visit をコストとみなしている。費用の発生の仕組み（たとえば購入したときだけかかる）を式に組み込むことはしていない。</li>
+      <li><strong>予算制約</strong>：予算 \(B\) は1つの合計コストの制約であり、RCT データでの1人あたりの推定コストが \(B/N\) に合うように \(\lambda^*\) を二分探索で決める。決定損失はこの \(B\) での配分の質を対象にする。付録では、10通りの予算でも Bi-DFCL の EOM が高いことを示している（論文 Fig. 3）。</li>
+      <li><strong>処置の数</strong>：多値の処置（各人にどれか一つ）を前提とし、実験では2値（CRITEO）、5値、8値を扱う。</li>
+      <li><strong>必要なデータ</strong>：RCT データと観察データの両方を使う。教師ネットワークの事前学習と上位問題の決定損失は RCT データに頼るので、RCT データが全くない状況は想定していない。</li>
+    </ul>
+    <p>解説者の補足として、2値の処置で施策を受けたときの増分コストが正なら、\(r_{i1} - \lambda c_{i1} > r_{i0} - \lambda c_{i0}\) は「増分コストあたりの増分売上が \(\lambda\) を超える人に配る」ことと同じである。この点で、増分売上を期待コストで割った比で順位づける方法（たとえば西村らの 2023 年の研究の \(\rho = \mathbb{E}[S(1) - S(0)] / (C \cdot \mathbb{E}[Y(1)])\)）と同じ形の配分規則になる。ただし、論文はこうした手法とは比較していない。</p>
+  </section>
+
+  <section id="summary">
+    <div class="kicker">まとめ</div>
+    <h2>観察データの量と RCT データの偏りのなさを、配分の質を基準に組み合わせる方法である</h2>
+    <p>Bi-DFCL は RCT データで不偏に推定した決定損失を上位問題に、観察データでの予測損失を下位問題に置き、ブリッジネットワークの疑似ラベルで両者をつなぐ。論文はオフライン実験とオンライン A/B テストのどちらでも既存手法を上回ったと報告している。一方で、学習時間は単純な二段階法の数倍かかる。論文は今後の課題として、計算効率の改善と、他の意思決定の分野への応用を挙げている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhang2025bidfcl,
+  title     = {Bi-Level Decision-Focused Causal Learning for Large-Scale Marketing Optimization: Bridging Observational and Experimental Data},
+  author    = {Zhang, Shuli and Zhou, Hao and Zheng, Jiaqi and Jiang, Guibin and Cheng, Bing and Lin, Wei and Chen, Guihai},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {38},
+  publisher = {Curran Associates, Inc.},
+  year      = {2025},
+  doi       = {10.52202/085713-3406}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

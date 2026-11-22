@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LBCF：大規模データ向けの予算制約つき因果フォレスト（論文解説）</title>
+<meta name="description" content="LBCF: A Large-Scale Budget-Constrained Causal Forest Algorithm（WWW 2022）の非公式の解説。1つの因果フォレストで多値処置の効果を推定し、予算制約をラグランジュ双対の二分探索で解く。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = existing approach: ROI-greedy selection, per-treatment binary forests (MBCF)
+            --b  (blue)   = LBCF: one unified forest (UDCF), budget-optimal choice via DGB, PMG
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+/* ---------- this page: toy table, inline figures, lambda lab ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.toy { border-collapse: collapse; font-size: 0.95rem; min-width: 34rem; }
+table.toy th, table.toy td { padding: 0.4rem 0.7rem; text-align: center; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+table.toy thead th { font-weight: 600; color: var(--muted); font-size: 0.88rem; }
+table.toy tfoot td { font-weight: 600; border-bottom: 0; }
+table.toy td.ga { background: var(--a-soft); }
+table.toy td.gb { background: var(--b-soft); }
+table.toy td.gab { background: linear-gradient(135deg, var(--a-soft) 50%, var(--b-soft) 50%); }
+.figscroll { max-width: var(--wide); overflow-x: auto; }
+@media (max-width: 760px) { svg.fig.wide { width: 640px; max-width: none; } }
+svg.fig { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; }
+.lab2 { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.2rem; display: grid; grid-template-columns: 1fr; gap: 1.2rem; margin-top: 0.6rem; }
+.lab2 .ctrl { display: flex; flex-direction: column; gap: 0.9rem; }
+.lab2 label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.lab2 .row { display: flex; justify-content: space-between; align-items: baseline; }
+.lab2 output { font: 600 0.95rem var(--font-mono); }
+.lab2 input[type=range] { width: 100%; accent-color: var(--b); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.stats div { border: 1px solid var(--hair); border-radius: 10px; padding: 0.5rem 0.7rem; display: flex; flex-direction: column; }
+.stats .sl { font-size: 0.8rem; color: var(--muted); }
+.stats .sv { font: 600 1.1rem var(--font-mono); }
+.stats .sv.over { color: var(--a); }
+.lab2 .note { font-size: 0.9rem; color: var(--muted); }
+.picks { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.88rem; }
+.pk { display: grid; grid-template-columns: 5.5rem 1fr 1fr; gap: 0.4rem; align-items: center; }
+.pu { font-weight: 600; }
+.pc { border: 1px solid var(--hair); border-radius: 8px; padding: 0.3rem 0.5rem; font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
+.pc .pl { display: block; font-family: var(--font-ja); font-size: 0.74rem; font-weight: 600; }
+.pc.on { border-color: var(--b); background: var(--b-soft); color: var(--ink); font-weight: 600; }
+.labcap { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+@media (min-width: 761px) { .lab2 { grid-template-columns: minmax(15rem, 18rem) 1fr; } }
+
+@media (max-width: 760px) {
+  .pk { grid-template-columns: 4.6rem 1fr 1fr; } .pc { font-size: 0.78rem; padding: 0.3rem 0.4rem; }
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">WWW 2022 · The ACM Web Conference</div>
+  <h1>LBCF: A Large-Scale Budget-Constrained Causal Forest Algorithm</h1>
+  <p class="subtitle">LBCF：大規模データ向けの予算制約つき因果フォレスト</p>
+
+  <ul class="authors">
+    <li><b>Meng Ai</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Biao Li</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Heyang Gong</b><span>Kuaishou Inc., China; University of Science and Technology of China, China</span></li>
+    <li><b>Qingwei Yu</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Shengjie Xue</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Yuan Zhang</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Yunzhou Zhang</b><span>Kuaishou Inc., China</span></li>
+    <li><b>Peng Jiang</b><span>Kuaishou Inc., China</span></li>
+  </ul>
+
+  <p class="lead">予算内で効果の合計が最大になるようにユーザーごとにボーナスの額を選ぶ問題で、既存の木モデルは<span class="A">処置ごとに別のフォレストで効果を推定したり、効果の大きい処置を貪欲に選んだり</span>していた。LBCF は<span class="B">1つの因果フォレストで全処置の効果を推定し、予算制約をラグランジュ双対の二分探索で解く</span>ことで、分散計算の環境で大規模なデータを扱えるようにした。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3485447.3512103">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2201.12585">arXiv</a>
+    <a class="btn" href="https://github.com/www2022paper/WWW-2022-PAPER-SUPPLEMENTARY-MATERIALS">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="論文 Table 1 の6人の例で、ROI 貪欲方策が予算6で合計92、別の選び方なら98になること、λの二分探索で98の選び方に届くこと、オンラインA/Bテスト最終日の伸び率（LBCF 7.79%、CT.ST 6.87%、CF.DT 5.31%）を順に示すアニメーション"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">1つのフォレストで全処置</span><span class="d">全処置を同じ分割規則で分けるので、処置ごとの効果を同じ特徴空間で推定できる。分割ではノード内の処置間の差も見る。</span></li>
+    <li><span class="k">λ を二分探索</span><span class="d">予算制約つきの最適化を双対にすると、λ ひとつの凸関数の最小化になる。計算量は O(NK) で、学習率の調整も要らず、ユーザーごとに並列に計算できる。</span></li>
+    <li><span class="k">最終日 7.79%</span><span class="d">同じ予算で15日以上続けたオンライン A/B テストの最終日、参加時間の伸び率は LBCF が 7.79%、CT.ST が 6.87%、CF.DT が 5.31% だった。</span></li>
+  </ul>
+
+  <section id="problem">
+    <div class="kicker">背景と問題点①</div>
+    <h2>効果の大きい処置を貪欲に選ぶやり方は、予算のもとでは最適とは限らない</h2>
+    <p>論文は予算 \(B\) のもとでユーザー \(i\) ごとに \(K\) 種類の処置（ボーナスの額など）から1つを選ぶか、何も出さないかを決める問題を<strong>予算制約つき処置選択（BTS）問題</strong>と呼ぶ。処置 \(j\) の効果は条件付き平均処置効果（CATE）で表し、処置 \(j\) をユーザー \(i\) に出すコスト \(c_{ij}\) は事前にわかっているとする。処置を出さなければコストはかからない。</p>
+    <div class="eq">\[ \theta_{ij}(\mathbf{x}_i)=\mathbb{E}\bigl[\,Y_i(j)-Y_i(0)\mid \mathbf{X}_i=\mathbf{x}_i\,\bigr] \]</div>
+    <p>アップリフトフォレストの多くは、ユーザーごとに効果が最大の処置を選ぶ。論文はその一例として <span class="A">ROI 貪欲方策</span>を取り上げる。各ユーザーで \(\mathrm{ROI}_{ij}=\theta_{ij}/c_{ij}\) が最大の処置を選び、その ROI の高い順に予算が尽きるまで配る方法である。下の6人の例では、予算 6 で効果の合計は <span class="A">92</span> にとどまる。ユーザー1に処置2を出し、ユーザー4には出さなければ、同じ予算 6 で合計は <span class="B">98</span> になる。</p>
+    <figure>
+      <div class="tblwrap">
+        <table class="toy">
+          <thead>
+            <tr><th rowspan="2">ユーザー</th><th colspan="3">処置1</th><th colspan="3">処置2</th><th rowspan="2">ROI 貪欲</th><th rowspan="2">よりよい例</th></tr>
+            <tr><th>\(\theta_{i1}\)</th><th>\(c_{i1}\)</th><th>ROI</th><th>\(\theta_{i2}\)</th><th>\(c_{i2}\)</th><th>ROI</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td class="ga">20</td><td class="ga">1</td><td class="ga">20</td><td class="gb">30</td><td class="gb">2</td><td class="gb">15</td><td class="A">処置1</td><td class="B">処置2</td></tr>
+            <tr><td>2</td><td>15</td><td>1</td><td>15</td><td class="gab">36</td><td class="gab">2</td><td class="gab">18</td><td class="A">処置2</td><td class="B">処置2</td></tr>
+            <tr><td>3</td><td>15</td><td>1</td><td>15</td><td class="gab">32</td><td class="gab">2</td><td class="gab">16</td><td class="A">処置2</td><td class="B">処置2</td></tr>
+            <tr><td>4</td><td class="ga">4</td><td class="ga">1</td><td class="ga">4</td><td>2</td><td>2</td><td>1</td><td class="A">処置1</td><td class="B">なし</td></tr>
+            <tr><td>5</td><td>3</td><td>1</td><td>3</td><td>6</td><td>2</td><td>3</td><td>なし</td><td>なし</td></tr>
+            <tr><td>6</td><td>2</td><td>1</td><td>2</td><td>2</td><td>2</td><td>1</td><td>なし</td><td>なし</td></tr>
+          </tbody>
+          <tfoot>
+            <tr><td colspan="7">使った予算 ／ 効果の合計</td><td class="A">6 ／ 92</td><td class="B">6 ／ 98</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <figcaption>図1　ROI 貪欲方策（オレンジ）と、同じ予算でよりよい選び方（青）。色の付いたセルが選ばれた処置（論文 Table 1 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="mbcf">
+    <div class="kicker">問題点②</div>
+    <h2>処置ごとに別のフォレストを学習すると、処置間の効果を同じ特徴空間で比べられない</h2>
+    <p>もう一つの既存手法は Tu ら（WWW 2021）の最適処置選択アルゴリズムである。多値処置の効果を推定するために、処置ごとに「処置 \(j\) 対 対照群」の二値の因果フォレストを別々に学習する（論文はこれを <span class="A">MBCF</span> と呼ぶ）。論文はこのやり方の限界を二つ挙げる。一つは多数のフォレストの学習と運用に手間がかかることで、もう一つは同じユーザーがフォレストごとに別の葉に入ることである。論文の例では、年齢 30、収入 55k のユーザーが \(\mathrm{BCF}_1\) では \(\mathrm{Leaf}_{11}\)、\(\mathrm{BCF}_3\) では \(\mathrm{Leaf}_{31}\) に入り、二つの葉は異なる特徴の範囲に対応する。</p>
+    <p>そのため、処置ごとの効果は異なる特徴空間で推定されたものになり、CATE の定義（同じ \(\mathbf{x}_i\) で条件付ける）と合わず、処置間で厳密には比べられない、と論文は述べる。さらに Tu らは、大規模データでは線形計画のソルバーが足りないため、ユーザー単位ではなくコホート単位で最適化することを勧めていた。</p>
+    <figure>
+      <div class="figscroll"><svg class="fig wide" viewBox="0 0 960 330" role="img" aria-label="模式図。左に処置ごとの二値フォレスト2本があり、同じユーザーが別々の分割条件で異なる葉に入る。右に1本の統合フォレストがあり、ユーザーは1つの葉に入り、その葉に対照群と全処置のサンプルが含まれる。">
+        <g font-size="16" fill="#16202E">
+          <text x="30" y="30" font-weight="600" fill="#C2410C">MBCF：処置ごとに別のフォレスト</text>
+          <!-- BCF1 -->
+          <text x="40" y="66" font-weight="600">BCF₁（T₀ 対 T₁）</text>
+          <rect x="70" y="84" width="150" height="34" rx="8" fill="#fff" stroke="#16202E"/>
+          <text x="145" y="106" text-anchor="middle">年齢 &lt; 35 ?</text>
+          <line x1="110" y1="118" x2="80" y2="170" stroke="#16202E"/><line x1="180" y1="118" x2="210" y2="170" stroke="#16202E"/>
+          <rect x="30" y="170" width="100" height="34" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="2"/>
+          <text x="80" y="192" text-anchor="middle">Leaf₁₁</text>
+          <rect x="160" y="170" width="100" height="34" rx="8" fill="#fff" stroke="#CBD2DC"/>
+          <text x="210" y="192" text-anchor="middle" fill="#5B6676">Leaf₁₂</text>
+          <!-- BCF3 -->
+          <text x="300" y="66" font-weight="600">BCF₃（T₀ 対 T₃）</text>
+          <rect x="320" y="84" width="170" height="34" rx="8" fill="#fff" stroke="#16202E"/>
+          <text x="405" y="106" text-anchor="middle">収入 &lt; 50k ?</text>
+          <line x1="370" y1="118" x2="340" y2="170" stroke="#16202E"/><line x1="440" y1="118" x2="470" y2="170" stroke="#16202E"/>
+          <rect x="290" y="170" width="100" height="34" rx="8" fill="#fff" stroke="#CBD2DC"/>
+          <text x="340" y="192" text-anchor="middle" fill="#5B6676">Leaf₃₂</text>
+          <rect x="420" y="170" width="100" height="34" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="2"/>
+          <text x="470" y="192" text-anchor="middle">Leaf₃₁</text>
+          <text x="30" y="250" fill="#5B6676">年齢 30・収入 55k のユーザーは、</text>
+          <text x="30" y="276" fill="#5B6676">フォレストごとに範囲の違う葉に入る</text>
+          <line x1="575" y1="40" x2="575" y2="300" stroke="#D9DEE6"/>
+          <!-- UDCF -->
+          <text x="610" y="30" font-weight="600" fill="#1D4ED8">LBCF（UDCF）：1つのフォレスト</text>
+          <rect x="680" y="84" width="170" height="34" rx="8" fill="#fff" stroke="#16202E"/>
+          <text x="765" y="106" text-anchor="middle">年齢 &lt; 35 ?</text>
+          <line x1="730" y1="118" x2="690" y2="170" stroke="#16202E"/><line x1="800" y1="118" x2="840" y2="170" stroke="#16202E"/>
+          <rect x="610" y="170" width="160" height="34" rx="8" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+          <text x="690" y="192" text-anchor="middle">葉：T₀, T₁, T₂, T₃</text>
+          <rect x="800" y="170" width="90" height="34" rx="8" fill="#fff" stroke="#CBD2DC"/>
+          <text x="845" y="192" text-anchor="middle" fill="#5B6676">…</text>
+          <text x="610" y="250" fill="#5B6676">同じ葉の中で全処置の効果を推定する</text>
+          <text x="610" y="276" fill="#5B6676">（分割条件は解説者の例）</text>
+        </g>
+      </svg></div>
+      <figcaption>図2　処置ごとの二値フォレスト（MBCF）と、全処置を1つのフォレストで分ける UDCF の違い（模式図。論文 Fig. 2 の説明をもとに解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="udcf">
+    <div class="kicker">手法①　効果の推定</div>
+    <h2>LBCF は1つのフォレストで全処置をまとめて分割し、ノード内の処置間の差も大きくなる分割を選ぶ</h2>
+    <p>LBCF は二段階で問題を解く。第一段階で、1つのモデルを使ってユーザー単位の CATE \(\theta_{ij}\) を推定する。第二段階で、推定した効果をもとに制約付き最適化を解いて処置を選ぶ。第一段階のモデルを、論文は <span class="B">UDCF（Unified Discriminative Causal Forest）</span>と呼ぶ。二値の因果フォレスト（BCF）を書き換えたもので、性質は次の二つである。</p>
+    <ul class="def">
+      <li><strong>Unified</strong>：フォレストは1つだけで、全処置が同じ分割規則に従う。</li>
+      <li><strong>Discriminative</strong>：ノード間の効果の違い（inter）と、ノード内での処置間の効果の違い（intra）の両方を見分ける。</li>
+    </ul>
+    <p>分割の評価には二つの基準を使う。Inter 分割は BCF の疑似アウトカム \(\rho_i\) を長さ \(K\) のベクトルに広げ、子ノード間の効果の違いを測る。\(\rho_{ij}\) は親ノードで一度計算すればよいので速い。Intra 分割は子ノードの中で処置ごとの推定効果 \(\hat\theta^{(j)}_{\phi_l}\) が平均 \(\bar\theta_{\phi_l}\) からどれだけ離れているかを測る。こちらは候補の分割ごとに推定をやり直すので重い。</p>
+    <div class="eq">\[ \tilde\Delta_{\text{inter}}(\phi_1,\phi_2)=\sum_{l=1}^{2}\frac{1}{\lvert\{i:\mathbf{x}_i\in\phi_l\}\rvert}\sum_{j=1}^{K}\Bigl(\sum_{\{i:\mathbf{x}_i\in\phi_l\}}\rho_{ij}\Bigr)^{2} \]</div>
+    <div class="eq">\[ \tilde\Delta_{\text{intra}}(\phi_1,\phi_2)=\sum_{l=1}^{2}\sum_{j=1}^{K}\bigl(\hat\theta^{(j)}_{\phi_l}-\bar\theta_{\phi_l}\bigr)^{2} \]</div>
+    <p>そこで UDCF はまず Inter 基準で全候補から上位 \(m\) 個の分割を残し、その中から Intra 基準で最良の分割を選ぶ。Intra を入れる理由として論文は、処置間で効果が異なるユーザーがいるなら（仮定2）、処置間の差を見分けられないモデルでは予算内の最適な処置を選べない、と述べる。木を止める規則は BCF と同じで、効果は類似度で重み付けした最小二乗で推定する。</p>
+  </section>
+
+  <section id="dgb">
+    <div class="kicker">手法②　予算内の処置選択</div>
+    <h2>予算制約つきの最適化はラグランジュ双対で λ ひとつの凸関数の最小化になり、二分探索で並列に解ける</h2>
+    <p>推定した \(\theta_{ij}\) を使い、予算内で効果の合計を最大にする処置の組を選ぶ。各ユーザーに処置は高々1つという制約があるので、これは多肢選択ナップサック問題（MCKP）になる。</p>
+    <div class="eq">\[ \max_{\mathbf{z}}\ \sum_{i=1}^{N}\sum_{j=1}^{K}\theta_{ij}z_{ij}\quad \text{s.t.}\quad \sum_{j=1}^{K}z_{ij}\le 1,\quad \sum_{i=1}^{N}\sum_{j=1}^{K}c_{ij}z_{ij}\le B,\quad z_{ij}\in\{0,1\} \]</div>
+    <p>論文は数億人のユーザーを並列に処理するため、線形緩和と双対でこれを独立な部分問題に分ける。双対関数 \(L(\lambda)\) は λ について凸で、最適な \(\lambda^*\) は区間 \([0,\max_{i,j}\theta_{ij}/c_{ij}]\) にある（予算が全員に最大コストの処置を出す額より小さいという仮定のもと）。そこで、微分 \(L'(\lambda)\) の符号を見て区間を半分にしていく <span class="B">DGB（Dual Gradient Bisection）</span>で \(\lambda^*\) を求める。</p>
+    <div class="eq">\[ \min_{\lambda\ge 0}\ L(\lambda)=\sum_{i=1}^{N}\max\Bigl(0,\ \max_{1\le j\le K}\bigl(\theta_{ij}-\lambda c_{ij}\bigr)\Bigr)+\lambda B \]</div>
+    <div class="eq">\[ j^*_i=\begin{cases}0 & \max_j(\theta_{ij}-\lambda^* c_{ij})\le 0\\[2pt] \arg\max_j(\theta_{ij}-\lambda^* c_{ij}) & \text{otherwise}\end{cases} \]</div>
+    <p>\(L'(\lambda)\) を一度計算する手間は \(O(NK)\) で、反復回数は \(\lfloor\log_2(\max_{i,j}(\theta_{ij}/c_{ij})/\epsilon)\rfloor+1\) 回以下なので、全体も \(O(NK)\) になる。論文によれば、双対の勾配降下法と違って初期の学習率を選ぶ必要がなく、Dyer–Zemel 法など従来の近似解法と同じ \(O(N)\) の計算量で、分散計算の環境に載せやすい。各ユーザーの選択は \(\lambda\) さえ決まれば独立に計算できる。</p>
+    <div class="lab2" id="lab">
+      <div class="ctrl">
+        <label for="lam"><span class="row"><span>λ（ラグランジュ乗数）</span><output id="lamOut">8.0</output></span>
+          <input type="range" id="lam" min="0" max="20" step="0.25" value="8"></label>
+        <div class="stats">
+          <div><span class="sl">使った予算</span><span class="sv" id="cost">6 / 6</span></div>
+          <div><span class="sl">効果の合計</span><span class="sv" id="val">98</span></div>
+          <div><span class="sl">\(L(\lambda)\)</span><span class="sv" id="Lv">98</span></div>
+        </div>
+        <p class="note" id="msg">予算ちょうどで、ROI 貪欲方策の 92 を上回る。</p>
+      </div>
+      <div class="picks" id="picks" aria-live="polite"></div>
+    </div>
+    <p class="labcap">図3　図1の6人（予算 6）に選択規則 \(j^*_i\) を当てはめた計算。λ を動かすと各ユーザーの処置が変わる。λ が 4 より大きく 10 より小さい範囲では予算ちょうど 6 を使い、効果の合計は 98、\(L(\lambda)\) の最小値も 98 になる（論文 Table 1 の数値と論文の式から解説者が計算。論文自体はこの例に DGB を当てはめていない）。</p>
+  </section>
+
+  <section id="pmg">
+    <div class="kicker">評価法</div>
+    <h2>オフライン評価では、方策と RCT の割り当てが一致したユーザーの平均を使い、RCT 参加者全員の平均を推定する</h2>
+    <p>BTS 問題の解を RCT データで評価するとき、論文は既存の二つの方法に限界があるという。AUUC や Qini 曲線を多値処置に広げる方法は、ユーザーを「予測効果が最大の処置」のスコアで並べる。しかし、評価したい方策が最大の処置を選ぶとは限らない。Zhao ら（2017）の Expected Outcome は、評価に使うユーザーが RCT 参加者全員ではないので、方策によって消費予算が変わり、消費予算の異なる方策どうしは比べられない。</p>
+    <p>そこで論文は <span class="B">PMG（Percentage Mean Gain）</span>を提案する。方策が処置 \(j\) を割り当てたユーザーの集合を \(A(j)\)、そのうち RCT でも処置 \(j\) に割り当てられていたユーザーの集合を \(S(j)\) とする。RCT の無作為化により \(S(j)\) は \(A(j)\) からの無作為な部分集合とみなせるので、\(S(j)\) の平均 \(\bar y(j)\) は \(A(j)\) の平均の不偏推定量になる。これを \(|A(j)|\) で重み付けして足し合わせ、対照群の平均 \(\hat\mu_0\) との比をとる。</p>
+    <div class="eq">\[ \mathrm{PMG}=\frac{\frac{1}{N}\sum_{j=0}^{K}\lvert A(j)\rvert\,\bar y(j)-\hat\mu_0}{\hat\mu_0} \]</div>
+    <p>論文はこれを \(\mathbb{E}[Y(\pi_B)-Y(0)]/\mathbb{E}[Y(0)]\) のプラグイン推定量と位置づけている。</p>
+    <figure>
+      <div class="figscroll"><svg class="fig wide" viewBox="0 0 960 300" role="img" aria-label="模式図。左は RCT で無作為に割り当てられた処置番号、右は同じユーザーに方策が割り当てた処置番号。両者が一致したユーザーが青で塗られ、重なり部分集合 S(j) を表す。">
+        <g font-size="16" fill="#16202E" id="pmgfig"></g>
+      </svg></div>
+      <figcaption>図4　RCT の割り当て（左）と方策の割り当て（右）。数字は処置番号。青く塗ったユーザーが重なり部分集合 \(S(j)\)、右側の同じ数字の集まりが方策部分集合 \(A(j)\)（模式図。論文 Fig. 3 の定義をもとに解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験</div>
+    <h2>シミュレーション、オフライン、オンラインのいずれでも LBCF が比較手法を上回ったと論文は報告している</h2>
+    <p><strong>シミュレーション</strong>：Tu らと同じ方法で、8万サンプル・3処置の合成 RCT データを作り、不確実性の重みでノイズの大きさを変えた。指標は Tu らと同じく、選んだ処置の個別効果の平均を対照群の平均結果で割った値である。比較手法は CausalML のアップリフトフォレスト（ED、Chi、CTS）と、Tu らが推奨する上位2手法（CT.ST、CF.DT）である。論文は、どの不確実性の重みでも LBCF が他の手法を上回ったと報告している。結果は図でのみ示され、本文に数値はない。</p>
+    <p><strong>オフライン</strong>：動画アプリのトラフィックの 0.1% を2週間 RCT に割り当て、10万件を超えるアプリ訪問のデータを集めた。結果はキャンペーンへの参加時間、処置はボーナスポイントで、序論によれば7つの処置群がある。PMG で予算を変えて比べると、どの予算でも LBCF の PMG が最大だった（こちらも図のみ）。</p>
+    <p><strong>オンライン A/B テスト</strong>：同じ動画アプリで15日以上、同じ予算 \(B\) のもと、ボーナスなしの対照群に対する参加時間の伸び率を比べた。実装と公開のコストが高いため、比較は CT.ST と CF.DT に絞った。CF.DT の線形計画ソルバーは大規模データを扱えないので DGB に置き換えており、CF.DT は MBCF に DGB を組み合わせたものと同じになる。最初の数日を過ぎると LBCF は一貫して高い伸び率を示した、と論文は述べる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 960 250" role="img" aria-label="オンラインA/Bテスト最終日の参加時間の伸び率の横棒グラフ。LBCF 7.79%、CT.ST 6.87%、CF.DT 5.31%。">
+        <g font-size="17" fill="#16202E">
+          <line x1="250" y1="30" x2="250" y2="200" stroke="#16202E" stroke-width="1.5"/>
+          <text x="236" y="66" text-anchor="end" font-weight="600" fill="#1D4ED8">LBCF（UDCF.DGB）</text>
+          <rect x="250" y="44" width="623" height="32" fill="#1D4ED8" rx="3"/>
+          <text x="883" y="67" font-weight="600">7.79%</text>
+          <text x="236" y="121" text-anchor="end">CT.ST</text>
+          <rect x="250" y="99" width="550" height="32" fill="#CBD2DC" rx="3"/>
+          <text x="810" y="122" font-weight="600">6.87%</text>
+          <text x="236" y="176" text-anchor="end" fill="#C2410C">CF.DT（MBCF.DGB）</text>
+          <rect x="250" y="154" width="425" height="32" fill="#C2410C" rx="3"/>
+          <text x="685" y="177" font-weight="600">5.31%</text>
+          <text x="250" y="232" font-size="15" fill="#5B6676">0%</text>
+          <text x="890" y="232" font-size="15" fill="#5B6676" text-anchor="end">対照群に対する参加時間の伸び率（最終日）</text>
+        </g>
+      </svg>
+      <figcaption>図5　オンライン A/B テスト最終日の伸び率（論文 5.3 節本文の数値から解説者が作図。日ごとの推移は論文 Fig. 6 にある）。数値は arXiv 版 v2（2022年2月18日）による。</figcaption>
+    </figure>
+    <p>序論で論文は「同じ予算で比較手法を有意に、少なくとも 0.9% 上回る」と書いている。最終日の LBCF と CT.ST の差は 0.92 ポイントで、これに当たるとみられる。有意性の検定方法は本文に書かれていない。現在、LBCF は数億人を超えるユーザーに使われている、と論文は述べる。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>LBCF は事前にわかる固定コストのもとで多値処置の CATE を推定し、MCKP として配布先を決める</h2>
+    <p><strong>推定するもの</strong>：処置ごとの結果の CATE \(\theta_{ij}\) だけを推定する。実データの結果はキャンペーン参加時間である。処置によってコストが変わる効果（コストのアップリフト）は、本文の定式化には入っていない。</p>
+    <p><strong>コストの仮定</strong>：コスト \(c_{ij}\) は処置とユーザーごとに事前に既知で、対照群のコストは 0 とする。購入したときだけ値引き額がかかる固定額クーポンのように、反応によってコストが決まる設定は本文では扱っていない。なお付録の合成データでは、コストも処置や特徴量から生成される結果変数になっている。そこから \(c_{ij}\) をどう得たかは本文に書かれていない。</p>
+    <p><strong>単一処置との関係（解説者の注）</strong>：\(K=1\) なら選択規則は「\(\theta_i/c_i>\lambda^*\) のユーザーに配る」になり、\(\theta/c\) の大きい順に予算まで配る緩和問題の貪欲解と同じになる。購入時だけコストがかかる場合の \(\rho=\mathbb{E}[S(1)-S(0)]/(C\cdot\mathbb{E}[Y(1)])\) による並べ替えは、\(c_i\) を期待コスト \(C\cdot\mathbb{E}[Y_i(1)]\) に置き換えたものに当たる。ただし、その期待コストの推定法を LBCF は示していない。図1の例で ROI 貪欲が最適からずれたのは、1人に複数の処置の候補があるためである。</p>
+    <p><strong>データと評価</strong>：学習には RCT データを前提とし、交絡がないことと SUTVA を仮定する。考察で論文は、ユーザーどうしが処置の情報を共有しうるので、SUTVA のうちユニットの独立性は厳密には成り立たないと認めている。オフライン評価は予算ごとに PMG で比べる。PMG は結果の伸びを測る指標で、消費したコストの実績を評価する指標は本文にはない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{ai2022lbcf,
+  author    = {Ai, Meng and Li, Biao and Gong, Heyang and Yu, Qingwei and
+               Xue, Shengjie and Zhang, Yuan and Zhang, Yunzhou and Jiang, Peng},
+  title     = {{LBCF}: A Large-Scale Budget-Constrained Causal Forest Algorithm},
+  booktitle = {Proceedings of the ACM Web Conference 2022},
+  pages     = {2310--2319},
+  year      = {2022},
+  publisher = {ACM},
+  doi       = {10.1145/3485447.3512103}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- figure 3: selection rule on the six users of the paper's Table 1 ----------
+(function () {
+  var U = [[20, 1, 30, 2], [15, 1, 36, 2], [15, 1, 32, 2], [4, 1, 2, 2], [3, 1, 6, 2], [2, 1, 2, 2]], B = 6;
+  var lam = document.getElementById('lam'), box = document.getElementById('picks');
+  var rows = U.map(function (u, i) {
+    var r = document.createElement('div'); r.className = 'pk';
+    r.innerHTML = '<span class="pu">ユーザー' + (i + 1) + '</span><span class="pc" data-j="1"></span><span class="pc" data-j="2"></span>';
+    box.appendChild(r); return r;
+  });
+  function upd() {
+    var l = +lam.value, cost = 0, val = 0, L = l * B;
+    document.getElementById('lamOut').textContent = l.toFixed(2);
+    U.forEach(function (u, i) {
+      var v1 = u[0] - l * u[1], v2 = u[2] - l * u[3], m = Math.max(v1, v2), j = 0;
+      if (m > 0) j = v1 >= v2 ? 1 : 2;
+      L += Math.max(0, m);
+      if (j) { cost += u[2 * j - 1]; val += u[2 * j - 2]; }
+      var cs = rows[i].querySelectorAll('.pc');
+      cs[0].innerHTML = '<span class="pl">処置1</span>θ−λc = ' + (+v1.toFixed(2));
+      cs[1].innerHTML = '<span class="pl">処置2</span>θ−λc = ' + (+v2.toFixed(2));
+      cs[0].classList.toggle('on', j === 1); cs[1].classList.toggle('on', j === 2);
+    });
+    document.getElementById('cost').textContent = cost + ' / ' + B;
+    document.getElementById('cost').classList.toggle('over', cost > B);
+    document.getElementById('val').textContent = val;
+    document.getElementById('Lv').textContent = +L.toFixed(2);
+    document.getElementById('msg').textContent = cost > B ? '予算を超える。λ を上げる（L′(λ) < 0）。'
+      : cost === B ? '予算ちょうどで、ROI 貪欲方策の 92 を上回る。'
+      : '予算が余る。λ を下げる（L′(λ) > 0）。';
+  }
+  lam.addEventListener('input', upd); upd();
+})();
+
+// ---------- figure 4: overlap schematic (fixed toy assignment) ----------
+(function () {
+  var g = document.getElementById('pmgfig'), NS = 'http://www.w3.org/2000/svg';
+  function el(t, a) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); g.appendChild(e); return e; }
+  var rct = [0, 1, 2, 2, 0, 1, 1, 0, 2, 1, 0, 2, 2, 1, 0, 0, 1, 2];
+  var pol = [0, 1, 1, 2, 2, 1, 0, 0, 2, 2, 0, 1, 2, 1, 1, 0, 2, 2];
+  function panel(x0, title, lab, fillFn) {
+    var t = el('text', { x: x0, y: 30, 'font-weight': 600 }); t.textContent = title;
+    lab.forEach(function (v, i) {
+      var cx = x0 + 30 + (i % 6) * 62, cy = 80 + Math.floor(i / 6) * 70;
+      el('circle', { cx: cx, cy: cy, r: 22, fill: fillFn(i), stroke: fillFn(i) === '#fff' ? '#5B6676' : '#1D4ED8', 'stroke-width': 2 });
+      var n = el('text', { x: cx, y: cy + 6, 'text-anchor': 'middle', 'font-weight': 600, fill: fillFn(i) === '#1D4ED8' ? '#fff' : '#16202E' }); n.textContent = v;
+    });
+  }
+  panel(30, 'RCT の割り当て（無作為）', rct, function () { return '#fff'; });
+  panel(520, '方策の割り当て', pol, function (i) { return pol[i] === rct[i] ? '#1D4ED8' : '#fff'; });
+  el('path', { d: 'M440 150 L490 150 M480 142 L490 150 L480 158', stroke: '#16202E', 'stroke-width': 2, fill: 'none' });
+  var t = el('text', { x: 520, y: 290, fill: '#5B6676', 'font-size': 15 }); t.textContent = '青：両方で同じ処置（S(j)）。方策の結果を観測できる';
+})();
+
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
