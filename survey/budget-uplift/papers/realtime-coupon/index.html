@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オンラインプラットフォームでのリアルタイム・クーポン配分（論文解説）</title>
+<meta name="description" content="Data-Driven Real-time Coupon Allocation in the Online Platform（arXiv 2024）の非公式の解説。予算制約をラグランジュ乗数に置き換え、来訪した顧客ごとに 50 ミリ秒以内でクーポン額を決め、乗数を PID 制御で調整する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the previous Offline-IP system: coupon values solved the day before,
+                         in a batch, at group level, and stored
+            --b  (blue)   = the paper's real-time Lagrangian-dual method (LDM / LDM-IR): per-customer
+                         choice j*(lambda) on arrival, lambda tuned by PID
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2024</div>
+  <h1>Data-Driven Real-time Coupon Allocation in the Online Platform</h1>
+  <p class="subtitle">オンラインプラットフォームでのデータ駆動型リアルタイム・クーポン配分</p>
+
+  <ul class="authors">
+    <li><b>Jinglong Dai</b><span>Meituan</span></li>
+    <li><b>Hanwei Li</b><span>City University of Hong Kong</span></li>
+    <li><b>Weiming Zhu</b><span>The University of Hong Kong</span></li>
+    <li><b>Jianfeng Lin</b><span>Meituan</span></li>
+    <li><b>Binqiang Huang</b><span>Meituan</span></li>
+  </ul>
+
+  <p class="lead">Meituan のシェアサイクル事業は、月額プランのクーポン額を前日に<span class="A">整数計画でまとめて決めて保存し</span>、翌日に配っていた。この論文は予算制約を<span class="B">ラグランジュ乗数 λ</span> に置き換え、来訪した顧客ごとに 50 ミリ秒以内で額を決める仕組みを作った。λ は当日の配布結果を見ながら PID 制御で調整する。論文によると、2 都市の A/B テストでは従来の方式より購買率もユーザーあたりの売上も高かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2406.05987">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。前日にまとめて解く整数計画、メモリ不足と計算時間、乗数 λ による額の選択、論文 Table 5 の A/B テストの売上比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">1 人 50 ミリ秒以内</span><span class="d">来訪した顧客 1 人ごとに、数段階の額を \(v_{ij}-\lambda\hat q_{ij}(p_b-p_j)\) に入れて比べるだけで額が決まる。全員分の額を前日に保存しておく必要がない。</span></li>
+    <li><span class="k">83.42 秒 → 0.28 秒</span><span class="d">約 633 万人の都市 C を 2,029 グループにまとめて解いた時間。従来の整数計画と LDM-IR の目的関数値はほぼ同じだった（Table 3）。</span></li>
+    <li><span class="k">売上 +2.8%</span><span class="d">都市 B の A/B テストで、露出ユーザー 1 人あたりの月額プランの売上を従来の Offline-IP と比べた値（Table 5）。論文は露出ユーザー 1 億人あたり月 600 万元の増収に当たるとしている。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>前日にまとめて決めた額を配る方式では、来訪の予測が外れると予算からずれ、顧客をグループにまとめた分だけ最適からも離れる</h2>
+    <p>Meituan Bike はシェアサイクルの利用者に週・月・四半期の定額プランを販売している。多くの都市で売上の 9 割超を占める月額プランについて、販促期間中に数千万人へ割引クーポンを配る。論文が扱うのは、この 1 商品についての額の決め方である。</p>
+    <p>従来の <span class="A">Offline-IP</span> は XGBoost などで顧客ごとの来訪確率と額ごとの購買率（CVR）を予測し、整数計画で翌日の額を決めて保存しておく。論文はこの方式の欠点を 3 つ挙げる。当日 \(T\) の額を前日 \(T-1\) に決めるので当日の情報を使えず、来訪の予測誤差で予算を超えたり最適からずれたりする。全員分の整数計画は解けないので、似た顧客をグループにまとめてグループ単位で額を決めることになる。6 億人を超える登録者全員の額を保存するにはメモリも要る。</p>
+    <p>リアルタイムにすると、別の難しさが出る。Meituan では、来訪した顧客に額を返すまでの制限時間が 50 ミリ秒しかない。混合整数計画や動的計画法をその場で解く時間はなく、変動する来訪のもとで予算も守らなければならない。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>予算は総額ではなく、クーポン適用後の平均価格が下限 \(p_b\) を下回らないという制約で表す</h2>
+    <p>顧客 \(i\) に \(j\) 段目の額 \(c_j\) を出すと、価格は \(p_j = p_0 - c_j\)（\(p_0\) は定価）になり、購買率は \(\hat q_{ij}\) と予測される。\(x_{ij}\in\{0,1\}\) は額 \(j\) を出すかどうか、\(v_{ij}\) は最大化したい値で、実験では売上 \(v_{ij} = p_j\hat q_{ij}\) を使う。</p>
+    <p>割引の総額に上限を置くと、事前に想定しなかった来訪者（市外からの旅行者など）に配る余地がなくなる。そこで Meituan は、購入された分の平均価格が下限 \(p_b\) を下回らないことを予算制約としてきた。\(p_b\) はマーケティング部門が予算や運営コストから外生的に決める。</p>
+    <div class="eq">\[ \max_{x}\ \sum_{i\in \hat I}\sum_{j\in J} v_{ij}x_{ij} \quad \text{s.t.}\quad \frac{\sum_{i\in \hat I}\sum_{j\in J} p_j\,\hat q_{ij}\,x_{ij}}{\sum_{i\in \hat I}\sum_{j\in J}\hat q_{ij}\,x_{ij}} \ge p_b,\qquad \sum_{j\in J}x_{ij}=1 \]</div>
+    <p>各顧客に額を 1 つずつ選ぶので、多選択ナップザック問題（MCKP）の一種になる。Offline-IP は登録者全体 \(I_0\) を対象に、来訪確率 \(\hat s_i\) をかけた形でこの問題を解いていた。提案法は過去 \(T_0\) 日の来訪者から作った推定集団 \(\hat I\) を使い、来訪確率の推定をなくしている。</p>
+    <figure>
+      <img src="assets/fig1_system_overview.png" alt="System diagram of the proposed allocation. Offline, a CVR model is trained on treatment and user feature data, and a lambda model is initialised from transaction data. Online, real-time user features go through prediction and isotonic-regression calibration; the predicted CVR goes to a PID controller and a Lagrangian-decomposition step, which returns a coupon value to the user within 50 milliseconds." loading="lazy">
+      <figcaption>図1　提案するクーポン配分システムの全体像。購買率モデルと \(\lambda\) の初期値は事前に用意し、来訪時には予測、単調回帰による補正、PID 制御と \(\lambda\) による額の選択を経て 50 ミリ秒以内に額を返す。論文ではこの図の題が「Offline-IP のシステムの概要」となっているが、本文の説明では提案システムの図である（論文 Fig. 2、CC BY-NC-ND 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="cvr">
+    <div class="kicker">手法 1：購買率の予測</div>
+    <h2>額ごとの購買率を XGBoost で予測し、単調回帰で「割引が大きいほど購買率が下がらない」形に直す</h2>
+    <p>購買率のモデル \(\tilde q_{ij} = f(\mathbf X_i, p_j)\) は、利用者の属性、乗車履歴、過去のクーポン利用など 200 を超える特徴量と価格を入力にした XGBoost である。予測の部分は交換できる部品として作られており、ほかの機械学習モデルにも差し替えられる。</p>
+    <p>予測した購買率は、割引を大きくすると下がるという単調でない形になることがある。論文は 10 万人のシミュレーションで、価格をすべてランダムに出した場合でも 2.34% の顧客で単調性が崩れ、購買意欲の低い顧客だけに安い価格を出す別の販促が重なると、その割合が増えることを示した（対象 10.35% で 6.84%、25.03% で 10.95%、71.90% で 69.95%。Table 1）。Meituan では部署ごとの販促が同時に行われることが多いため、予測のあとに単調回帰（isotonic regression）をかけ、価格が上がると購買率が上がらない形 \(\hat q_{ij}\) に補正する。</p>
+    <p>評価には額を等確率で配るランダム群（約 100 都市の流量の 20%）の 300 万件を使い、8 割で学習し 2 割で検証した。AUC は補正の前後とも 0.891 で、予測購買率の合計を実際の購入数で割った PCOC は 0.971 から 0.982 になり、1 に近づいた。</p>
+    <figure>
+      <img src="assets/fig2_isotonic.png" alt="Three panels for users 1 to 3: predicted conversion rate (red dots) against price from 12 to 20 yuan, and the isotonic-regression-adjusted rate (blue line), which removes the local increases so that the rate does not rise with price." loading="lazy">
+      <figcaption>図2　3 人の利用者について、価格ごとの予測購買率（赤い点）と単調回帰で補正した購買率（青い線）。補正は、単調性が崩れた点を一方に合わせるのではなく、二乗誤差が最小になる値に置き直す。図中の色は論文のもので、このページの色分けとは対応しない（論文 Fig. 3、CC BY-NC-ND 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ldm">
+    <div class="kicker">手法 2：ラグランジュ双対法（LDM）</div>
+    <h2>予算制約を乗数 λ に置き換えると、来訪した顧客ごとに数段階の額を比べるだけで額が決まる</h2>
+    <p>平均価格の制約は \(\sum_i\sum_j \hat q_{ij}x_{ij}(p_b-p_j)\le 0\) と書き直せる。整数条件を外して線形計画に緩和し、この制約に乗数 \(\lambda\ge 0\) をかけて目的関数に入れると、問題は顧客ごとに分かれる。\(\lambda\) を固定すれば、顧客 \(i\) に出す額は次の式で決まる。</p>
+    <div class="eq">\[ j^*(\lambda) = \operatorname*{argmax}_{j\in J}\ \Big( \color{#1D4ED8}{v_{ij}} - \lambda\,\hat q_{ij}\,(p_b - p_j) \Big) \]</div>
+    <p>\(\hat q_{ij}(p_b-p_j)\) は、その額が平均価格の制約をどれだけ使うかを表す。\(p_b\) より安い価格は正になって予算を使い、高い価格は負になって予算に余裕を残す。\(\lambda\) はこの予算の使い方にかける重みである。スコアが同じ額が複数あるときは、割引の小さいほうを選ぶ。額の段数は少ないので、来訪した顧客の特徴から購買率を予測し、各段のスコアを比べれば 50 ミリ秒以内に答えが出る。全員分の最適化を解き直す必要はない。</p>
+    <p>\(\lambda\) の初期値 \(\hat\lambda\) は、前日に推定集団 \(\hat I\) で求める。双対関数は \(\lambda\) について区分線形で凹なので、三分探索で最大点を探す（Algorithm 1）。</p>
+    <figure>
+      <div style="display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;max-width:40rem;margin-bottom:0.6rem;font-size:0.95rem">
+        <label for="lam" style="font-weight:600">乗数 \(\lambda\)</label>
+        <input id="lam" type="range" min="0" max="3" step="0.05" value="1.2" style="flex:1;min-width:10rem;accent-color:var(--b)">
+        <output id="lam-out" style="font:600 0.95rem var(--font-mono)">1.20</output>
+      </div>
+      <svg class="fig" id="fig-lambda" viewBox="0 0 640 340" role="img" aria-label="Schematic: one arriving customer, five price levels from 12 to 20 yuan with explainer-chosen conversion rates. Bars show the score v minus lambda times q times (p_b minus p); the longest bar is the price offered. As lambda grows, the chosen price moves from 12 to 20 yuan.">
+<text x="20" y="34" font-size="15" font-weight="600" fill="#5B6676">価格 <tspan class="mi">p</tspan></text>
+<text x="100" y="34" font-size="15" font-weight="600" fill="#5B6676">購買率 <tspan class="mi">q</tspan></text>
+<text x="200" y="34" font-size="15" font-weight="600" fill="#5B6676"><tspan class="mi">v</tspan> = <tspan class="mi">pq</tspan></text>
+<text x="300" y="34" font-size="15" font-weight="600" fill="#5B6676">スコア <tspan class="mi">v</tspan> − <tspan class="mi">λq</tspan>(<tspan class="mi">p</tspan><tspan font-size="11">b</tspan> − <tspan class="mi">p</tspan>)</text>
+<text x="20" y="80" font-size="16" fill="#16202E">12 元</text>
+<text x="100" y="80" font-size="16" fill="#16202E">0.20</text>
+<text x="200" y="80" font-size="16" fill="#16202E">2.40</text>
+<rect class="lb" x="300" y="63" width="0" height="22" rx="4" fill="#CBD2DC"/>
+<text class="lv" x="306" y="80" font-size="15" fill="#16202E"></text>
+<text x="20" y="126" font-size="16" fill="#16202E">14 元</text>
+<text x="100" y="126" font-size="16" fill="#16202E">0.16</text>
+<text x="200" y="126" font-size="16" fill="#16202E">2.24</text>
+<rect class="lb" x="300" y="109" width="0" height="22" rx="4" fill="#CBD2DC"/>
+<text class="lv" x="306" y="126" font-size="15" fill="#16202E"></text>
+<text x="20" y="172" font-size="16" fill="#16202E">16 元</text>
+<text x="100" y="172" font-size="16" fill="#16202E">0.12</text>
+<text x="200" y="172" font-size="16" fill="#16202E">1.92</text>
+<rect class="lb" x="300" y="155" width="0" height="22" rx="4" fill="#CBD2DC"/>
+<text class="lv" x="306" y="172" font-size="15" fill="#16202E"></text>
+<text x="20" y="218" font-size="16" fill="#16202E">18 元</text>
+<text x="100" y="218" font-size="16" fill="#16202E">0.09</text>
+<text x="200" y="218" font-size="16" fill="#16202E">1.62</text>
+<rect class="lb" x="300" y="201" width="0" height="22" rx="4" fill="#CBD2DC"/>
+<text class="lv" x="306" y="218" font-size="15" fill="#16202E"></text>
+<text x="20" y="264" font-size="16" fill="#16202E">20 元</text>
+<text x="100" y="264" font-size="16" fill="#16202E">0.07</text>
+<text x="200" y="264" font-size="16" fill="#16202E">1.40</text>
+<rect class="lb" x="300" y="247" width="0" height="22" rx="4" fill="#CBD2DC"/>
+<text class="lv" x="306" y="264" font-size="15" fill="#16202E"></text>
+<line x1="300" x2="300" y1="52" y2="290" stroke="#16202E" stroke-width="1.5"/>
+<text x="20" y="322" font-size="15" fill="#5B6676">目標の平均価格 <tspan class="mi">p</tspan><tspan font-size="11">b</tspan> = 16 元。<tspan class="mi">p</tspan><tspan font-size="11">b</tspan> より安い価格は予算を使い、高い価格は予算に余裕を残す。</text>
+</svg>
+      <p class="src" id="lam-pick" style="margin-top:0.5rem">選ぶ価格：16 元</p>
+      <figcaption>図3　1 人の顧客に対する額の選び方の模式図。価格のはしご、購買率、\(p_b\) = 16 元は解説者が置いた例で、論文の値ではない。棒はスコア \(v_{ij}-\lambda\hat q_{ij}(p_b-p_j)\) で、<span class="B">青い棒</span>が選ばれる価格。\(\lambda\) を大きくすると、選ぶ価格は 12 元から 20 元へ上がっていく（論文の命題 2 と同じ向き）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="control">
+    <div class="kicker">理論と制御</div>
+    <h2>λ は前日のデータで初期化し、当日は PID 制御で平均価格を目標に近づける</h2>
+    <p>論文は LDM について 3 つの命題を示す。顧客が毎日正の確率で来訪するという仮定のもとで、登録者数が無限に大きくなると \(\hat\lambda\) は真の \(\lambda^*\) に収束し、選ぶ額も一致する（命題 1）。\(\hat\lambda\) が大きいほど提示価格は下がらず、\(\hat\lambda<\lambda^*\) なら真の来訪者に対する予算制約は満たされず、\(\hat\lambda>\lambda^*\) なら制約に余裕が残る（命題 2）。購買率と \(v_{ij}\) が連続分布から出るという仮定のもとでは、線形緩和に分数解が高々 1 組しかない最適解がある（命題 3）。数値実験では、緩和解に分数解は現れなかった。</p>
+    <p>なお、命題 2 の直後の本文は「\(\hat\lambda\) を過大に見積もると割引が大きくなり予算を超えうる」と説明しており、命題 2 の向きとは逆になっている。</p>
+    <p>実際には、休日と平日で来訪者が違うなど、命題 1 の仮定は崩れる。そこで、その時点までに購入された分の平均価格 \(p_t\) と目標の差 \(e(t)=p_b-p_t\) を使い、PID 制御で \(\lambda\) を更新する。</p>
+    <div class="eq">\[ u(t) = K_p\,e(t) + K_i \int_{t-T}^{t} e(\tau)\,d\tau + K_d\,\frac{d}{dt}e(t),\qquad \lambda(t+\Delta t) = \lambda(t) + u(t),\quad \lambda(t_0)=\hat\lambda \]</div>
+    <p>毎朝 6 時に \(\lambda\) を \(\hat\lambda\) に戻し、そこから制御を始める。重み \(K_p, K_i, K_d\) は都市ごとに手で調整する。論文の実例（図4）では、制御した \(p_t\) と \(p_b\) の差は平均 1% だった。制御しない場合は平均価格が 3% 高くなり、予算が余って購買率も下がりうるとしている。</p>
+    <p>都市 E と都市 F の履歴データで、\(\lambda^*\) を -2.4% と -7.7% ずらした場合も調べている（Table 2）。最適と違う価格を出された顧客の割合は、都市 E で 4.18% から 3.52%、都市 F で 9.86% から 3.06% に PID で減り、目的関数値と平均価格の真の解からのずれはどちらも 0.05% 以下になった。</p>
+    <figure>
+      <img src="assets/fig4_pid.png" alt="Average offered price over one day, 0:00 to 24:00. The target p_b drops at about 6 AM. With PID control (blue) the running average settles close to the target; without PID (red) it stays above the target for the rest of the day." loading="lazy">
+      <figcaption>図4　1 日の平均提示価格 \(p_t\) の推移。青が PID あり、赤が PID なし、黒が目標 \(p_b\)。目標は 6 時ごろに更新される。縦軸の値と色は論文の図のまま（論文 Fig. 4、CC BY-NC-ND 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="offline">
+    <div class="kicker">実験の結果 1：履歴データ</div>
+    <h2>グループ単位で比べると LDM-IR は約 300 倍速く、個人単位で解くと目的関数値も上がった</h2>
+    <p>4 都市の推定購買率データで、Offline-IP と LDM-IR（単調回帰で補正した購買率を使う LDM）を比べた。計算機は 2.6 GHz の 6 コア Intel Core i7 である。個人単位の Offline-IP は都市 C（6,329,069 人）でも都市 E（487,351 人）でもメモリ不足で解けなかった。</p>
+    <p>そこで Meituan の運用にならって顧客をグループにまとめると、都市 C（2,029 グループ）では Offline-IP が 83.42 秒、LDM-IR が 0.28 秒で、目的関数値は 583,676.17 と 583,674.40 だった（Table 3）。都市 D（1,773 グループ）も 61.95 秒と 0.25 秒である。</p>
+    <p>LDM-IR は個人単位でも解ける。都市 E では 30.18 秒で目的関数値が 70,902.23 となり、グループ単位の Offline-IP（71.28 秒、63,638.27）を上回った。都市 F では 36.35 秒で 105,539.58 となり、Offline-IP は 48.79 秒で 86,759.31 だった（Table 4）。論文は、個人単位で最適化すると提示価格の分布が広がり、顧客の多様な特徴に細かく応じられることが、目的関数値が上がった理由だとしている。</p>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2：A/B テスト</div>
+    <h2>2 都市の 1 か月の A/B テストで、LDM-IR は購買率もユーザーあたりの売上も最も高かった</h2>
+    <p>2024 年 2〜3 月に、都市 A で Random、Manual、LDM、LDM-IR を、都市 B で Random、Manual、Offline-IP、LDM-IR を 1 か月ずつ比べた。目的は月額プランの売上の最大化で、利用者は購入ページを開いたときにどれか 1 群に割り当てられ、期間中は同じ群にとどまる。</p>
+    <p>LDM-IR の購買率は両都市で Random と Manual より高かった（ボンフェローニ補正後も \(p<0.001\)）。都市 B では <span class="A">Offline-IP</span> よりも高く（\(z=-6.30\)）、都市 A の LDM との差は有意でなかった（\(p=0.057\)）。月額プランの売上を表す「平均価格 × 購買率」では、LDM-IR が両都市で最も高い。論文は、都市 B で Offline-IP を LDM-IR に替えると露出ユーザーあたりの売上が 2.8% 増えるとしている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 400" role="img" aria-label="Bar chart from Table 5 of the paper: average price times conversion rate per exposed user. City A: Random 2.31, Manual 2.42, LDM 2.47, LDM-IR 2.54. City B: Random 2.01, Manual 2.06, Offline-IP 2.09, LDM-IR 2.15. LDM-IR is highest in both cities.">
+<line x1="400.0" x2="400.0" y1="40" y2="372" stroke="#D9DEE6"/>
+<text x="20" y="28" font-size="16" font-weight="600" fill="#16202E">都市 A（<tspan class="mi">p</tspan><tspan font-size="11">b</tspan> = 17.84 元）</text>
+<text x="140" y="67" font-size="15" fill="#16202E" text-anchor="end">Random</text>
+<rect x="150" y="52" width="288.8" height="22" rx="3" fill="#CBD2DC"/>
+<text x="446.8" y="68" font-size="15" fill="#16202E"><tspan font-weight="600">2.31</tspan>（CVR 12.93%）</text>
+<text x="140" y="103" font-size="15" fill="#16202E" text-anchor="end">Manual</text>
+<rect x="150" y="88" width="302.5" height="22" rx="3" fill="#CBD2DC"/>
+<text x="460.5" y="104" font-size="15" fill="#16202E"><tspan font-weight="600">2.42</tspan>（CVR 13.59%）</text>
+<text x="140" y="139" font-size="15" fill="#16202E" text-anchor="end">LDM</text>
+<rect x="150" y="124" width="308.8" height="22" rx="3" fill="#fff" stroke="#1D4ED8" stroke-width="2"/>
+<text x="466.8" y="140" font-size="15" fill="#16202E"><tspan font-weight="600">2.47</tspan>（CVR 14.34%）</text>
+<text x="140" y="175" font-size="15" fill="#16202E" text-anchor="end">LDM-IR</text>
+<rect x="150" y="160" width="317.5" height="22" rx="3" fill="#1D4ED8"/>
+<text x="475.5" y="176" font-size="15" fill="#16202E"><tspan font-weight="600">2.54</tspan>（CVR 14.49%）</text>
+<text x="20" y="212" font-size="16" font-weight="600" fill="#16202E">都市 B（<tspan class="mi">p</tspan><tspan font-size="11">b</tspan> = 17.06 元）</text>
+<text x="140" y="251" font-size="15" fill="#16202E" text-anchor="end">Random</text>
+<rect x="150" y="236" width="251.2" height="22" rx="3" fill="#CBD2DC"/>
+<text x="409.2" y="252" font-size="15" fill="#16202E"><tspan font-weight="600">2.01</tspan>（CVR 11.29%）</text>
+<text x="140" y="287" font-size="15" fill="#16202E" text-anchor="end">Manual</text>
+<rect x="150" y="272" width="257.5" height="22" rx="3" fill="#CBD2DC"/>
+<text x="415.5" y="288" font-size="15" fill="#16202E"><tspan font-weight="600">2.06</tspan>（CVR 12.10%）</text>
+<text x="140" y="323" font-size="15" fill="#16202E" text-anchor="end">Offline-IP</text>
+<rect x="150" y="308" width="261.2" height="22" rx="3" fill="#C2410C"/>
+<text x="419.2" y="324" font-size="15" fill="#16202E"><tspan font-weight="600">2.09</tspan>（CVR 12.56%）</text>
+<text x="140" y="359" font-size="15" fill="#16202E" text-anchor="end">LDM-IR</text>
+<rect x="150" y="344" width="268.8" height="22" rx="3" fill="#1D4ED8"/>
+<text x="426.8" y="360" font-size="15" fill="#16202E"><tspan font-weight="600">2.15</tspan>（CVR 12.93%）</text>
+<line x1="150" x2="150" y1="40" y2="370" stroke="#16202E" stroke-width="1.5"/>
+<text x="150" y="392" font-size="14" fill="#5B6676">0</text>
+<text x="400.0" y="392" font-size="14" fill="#5B6676" text-anchor="middle">2.0</text>
+</svg>
+      <figcaption>図5　露出ユーザーあたりの「平均価格 × 購買率」（元）。<span class="B">■</span> LDM-IR、<span class="B">□</span> LDM、<span class="A">■</span> Offline-IP、灰色は Random と Manual。論文 Table 5 の数値から解説者が作図。</figcaption>
+    </figure>
+    <p>平均価格は、Manual では担当者が毎日調整するため \(p_b\) にほぼ一致した（17.84 元と 17.06 元）。LDM-IR は 17.51 元と 16.64 元で、両都市とも \(p_b\) をわずかに下回った。都市 B の顧客層別では、LDM-IR の購買率は Offline-IP に比べて離反ユーザーで +8.03%、新規ユーザーで +10.72%、高頻度ユーザーで +5.28% と伸び、中頻度ユーザーでは +0.16%、低頻度ユーザーでは -1.48% だった（Table 6）。</p>
+    <p>2024 年 5 月の時点で、Meituan Bike は 110 を超える都市の 1 億人超にこの仕組みでクーポンを配っている。論文は、従来の Offline-IP と比べて売上が 0.7% 増え、年 800 万元の利益増になったと報告している。論文が挙げる限界は、ほかの購買率予測や PID 以外の制御を試していないことと、複数のプランの間での食い合いを考えていないことである。</p>
+    <p class="src">このページの数値は arXiv v3（2024 年 6 月 17 日）の本文と表による。2026 年 11 月の時点で、出版版は確認できなかった。参加者数は第 6.3 節では計 3,867,738 人、Table 5 の露出ユーザー数の合計では 3,868,738 人、序論では 340 万人超となっている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は平均価格の下限として扱い、乗数 λ が割引による予算の消費と売上を比べるしきい値になる</h2>
+    <p>この論文が推定するのは、額ごとの購買率 \(\hat q_{ij}\) である。処置効果（アップリフト）を明示的には推定しておらず、価格を特徴量に入れた 1 つのモデルで各段の購買率を予測する。学習には額を等確率で配ったランダム群のデータを使い、段の間の購買率の差が額を変えたときの効果に当たる（解説者の注）。</p>
+    <p>コストは割引額 \(p_0-p_j\) で、購入したときにだけかかる。処置は月額プランという 1 商品に対する多段階の額で、どの顧客にも必ずどれか 1 つの額を出す（定価に当たる \(c_j=0\) も段に含めうる）。</p>
+    <p>予算制約は扱っているが、総額の上限ではなく「平均価格 \(\ge p_b\)」という比の形である。来訪数が読めないために会社が採用した定義で、線形にすると \(\sum_i\sum_j \hat q_{ij}x_{ij}(p_b-p_j)\le 0\) になる。\(p_b\) より高い価格で買う顧客が生む余裕を、安い価格で買う顧客が使う構造である。</p>
+    <p>式 \(j^*(\lambda)\) は MCKP の線形緩和をラグランジュ緩和したものである。2 つの段を比べると、割引の大きいほうに移るのは「\(v\) の増分 ÷ 予算消費 \(\hat q(p_b-p)\) の増分」が \(\lambda\) を超えるときで、ROI の高い順に割り当てるナップザック問題の連続緩和を、多段の額に広げた形になっている。命題 3 の「分数解は高々 1 組」も、連続緩和で途中まで詰める品目が 1 つになることに対応する（解説者の注）。論文自身は ROI 順という言い方はしていない。論文が詳しく扱うのは、\(\lambda\) を前日の三分探索で求め、当日は PID 制御で動かす部分である。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{dai2024datadriven,
+  title         = {Data-Driven Real-time Coupon Allocation in the Online Platform},
+  author        = {Dai, Jinglong and Li, Hanwei and Zhu, Weiming and Lin, Jianfeng and Huang, Binqiang},
+  year          = {2024},
+  eprint        = {2406.05987},
+  archivePrefix = {arXiv},
+  primaryClass  = {econ.EM}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 3: toy example of j*(lambda); explainer-chosen ladder, p_b = 16 ----------
+(function () {
+  var svg = document.getElementById('fig-lambda'); if (!svg) return;
+  var P = [12, 14, 16, 18, 20], Q = [0.20, 0.16, 0.12, 0.09, 0.07], PB = 16, X0 = 300, K = 120;
+  var bars = svg.querySelectorAll('.lb'), labs = svg.querySelectorAll('.lv');
+  var inp = document.getElementById('lam'), out = document.getElementById('lam-out'), pick = document.getElementById('lam-pick');
+  function upd() {
+    var lam = +inp.value, best = 0, bs = -1e9, sc = [];
+    P.forEach(function (p, j) {
+      var s = p * Q[j] - lam * Q[j] * (PB - p); sc.push(s);
+      if (s >= bs - 1e-9) { bs = s; best = j; }   // ties: the higher price (smaller coupon)
+    });
+    sc.forEach(function (s, j) {
+      var w = Math.max(0, s) * K;
+      bars[j].setAttribute('width', w.toFixed(1));
+      bars[j].setAttribute('fill', j === best ? '#1D4ED8' : '#CBD2DC');
+      labs[j].setAttribute('x', (X0 + w + 6).toFixed(1));
+      labs[j].textContent = s.toFixed(2);
+      labs[j].setAttribute('font-weight', j === best ? 600 : 400);
+    });
+    out.textContent = lam.toFixed(2);
+    pick.textContent = '選ぶ価格：' + P[best] + ' 元';
+  }
+  inp.addEventListener('input', upd); upd();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

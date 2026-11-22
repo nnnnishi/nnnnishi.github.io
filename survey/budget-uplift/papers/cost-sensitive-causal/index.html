@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>個別処置効果の推定値を使う、費用を考慮した因果分類（論文解説）</title>
+<meta name="description" content="To do or not to do? Cost-sensitive causal classification with individual treatment effect estimates（European Journal of Operational Research 2023）の非公式の解説。処置するかどうかを、推定 ITE と処置したときの陽性確率、費用・便益から計算した期待因果利益で決める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = cost-insensitive causal classification: ranking by the estimated ITE alone,
+                         the horizontal boundary t = 0 (or t = t_c under a quota)
+            --b  (blue)   = expected causal profit: the cost-sensitive boundary t = gamma + delta*P11
+                         and the expected causal profit (ECP) ranker
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">European Journal of Operational Research · 2023</div>
+  <h1>To do or not to do? Cost-sensitive causal classification with individual treatment effect estimates</h1>
+  <p class="subtitle">個別処置効果の推定値を使う、費用を考慮した因果分類</p>
+
+  <ul class="authors">
+    <li><b>Wouter Verbeke</b><span>Faculty of Economics and Business, KU Leuven</span></li>
+    <li><b>Diego Olaya</b><span>Solvay Business School, Vrije Universiteit Brussel</span></li>
+    <li><b>Marie-Anne Guerry</b><span>Solvay Business School, Vrije Universiteit Brussel</span></li>
+    <li><b>Jente Van Belle</b><span>Solvay Business School, Vrije Universiteit Brussel</span></li>
+  </ul>
+
+  <p class="lead">アップリフトモデルで処置の対象を選ぶときは、推定した処置効果（ITE）の<span class="A">大きい順に並べる</span>のが普通である。この論文は処置の費用と結果の便益を入れて「処置した場合と処置しない場合の期待利益の差」を定義し、それが正になる範囲の境界を ITE と処置したときの陽性確率の一次式で表す。処置できる数が限られるときは、この<span class="B">期待因果利益</span>の大きい順に選ぶ ECP ランカーを提案している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1016/j.ejor.2022.03.049">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2101.01407">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ITE の大きい順に処置する従来の方法、ITE が同じでも期待因果利益が違う2人、決定境界 t = γ + δP11 による並べ替え、論文 Table 3 の平均因果利益、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(t > \gamma + \delta P_{11}\)</span><span class="d">処置すべきかどうかの境界は、推定 ITE \(t\) と処置したときの陽性確率 \(P_{11}\) の一次式になる。切片と傾きは費用と便益だけで決まる。</span></li>
+    <li><span class="k">24 組中 24 組</span><span class="d">処置すると陽性時の便益が 1.2 倍になる設定で、ECP ランカーの平均因果利益が ITE ランカーを上回った組合せの数（Table 3）。</span></li>
+    <li><span class="k">24 組中 7 組</span><span class="d">便益の大小を逆にした設定では、ECP が上回ったのは 7 組にとどまった。論文は、処置群の選び方に偏りがあり確率の推定が較正されていないためと推測している。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>ITE の大きい順に処置する方法は、処置の費用も結果の便益も見ていない</h2>
+    <p>論文は、処置 \(W\) と結果 \(Y\) がともに二値の場合（double binary causal classification）を扱う。顧客ごとに割引を出すか、引き止めキャンペーンの対象にするかを決める場面である。因果分類モデルは処置したとき・しないときの陽性確率 \(P_{11} = P(Y{=}1\mid x, W{=}1)\) と \(P_{10} = P(Y{=}1\mid x, W{=}0)\) を推定し、その差 \(t = P_{11} - P_{10}\) を推定 ITE とする。</p>
+    <p>費用を考えなければ、陽性の割合を最大にするには \(t > 0\) の全員を処置すればよい。処置できる数に上限があるときは、<span class="A">\(t\) の大きい順</span>に並べて上から選ぶ。Qini 曲線などの評価指標もこの並べ方を前提にしている。論文は、ITE の推定法は数多く提案されてきた一方、処置の費用と結果の便益を入れて処置を決める一般的な枠組みは定式化されていないと述べ、その枠組みを作ることを目的にしている。</p>
+  </section>
+
+  <section id="profit">
+    <div class="kicker">定式化</div>
+    <h2>処置した場合と処置しない場合の期待利益の差を「期待因果利益」と呼ぶ</h2>
+    <p>費用と便益は 2 つの表で与える。結果 \(i\) と処置 \(j\) の組合せごとの便益 \(b_{ij}\) と費用 \(c_{ij}\) である。費用と便益はクラスごとに一定で、個人ごとには変わらないと仮定している。処置 \(w\) を選んだときの期待利益は次のとおりである。</p>
+    <div class="eq">\[ E[P\mid x, w] = P_{1w}\,(b_{1w}-c_{1w}) + (1-P_{1w})\,(b_{0w}-c_{0w}) \]</div>
+    <p><span class="B">期待因果利益</span>はその差 \(E[\dot P\mid x] = E[P\mid x,1] - E[P\mid x,0]\) で、これが正の対象者を処置する。論文によると、同じ式はそれまで Provost と Fawcett の教科書（第 11 章）に顧客維持の例として一度出てくるだけだった。論文はこの期待値の枠組みと Elkan の費用考慮型分類を、因果分類へ広げている。</p>
+    <p>分析を簡単にするため、論文は処置しない場合の費用と陰性の便益をゼロとおく（\(c_{00}=c_{10}=b_{00}=b_{01}=0\)）。残るのは、処置しないで陽性のときの便益 \(b_{10}\)、処置して陽性のときの便益 \(b_{11}\)、処置の費用 \(c_{01}, c_{11}\) である。</p>
+  </section>
+
+  <section id="boundary">
+    <div class="kicker">理論</div>
+    <h2>処置すべき範囲の境界は、推定 ITE と処置したときの陽性確率の一次式になる</h2>
+    <p>期待因果利益がゼロになる条件を整理すると、決定境界は \(P_{11}\) の一次式になる。簡単にした設定での切片 \(\gamma'\) と傾き \(\delta'\) は次のとおりである。</p>
+    <div class="eq">\[ \color{#1D4ED8}{t > \tau^*_{cs} = \gamma' + \delta' P_{11}}, \qquad \gamma' = \frac{c_{01}}{b_{10}}, \qquad \delta' = \frac{b_{10} - b_{11} + c_{11} - c_{01}}{b_{10}} \]</div>
+    <p>費用も便益もゼロにすると境界は \(t > 0\) に戻る（命題 1）。処置しても陽性確率が変わらない通常の分類（\(t = 0\)）に当てはめると、Elkan の費用考慮型の閾値と一致する（定理 1）。論文はこれを、通常の分類が因果分類の特別な場合であることの裏づけとしている。</p>
+    <p>境界の形から、論文は 2 つの条件を導いている。</p>
+    <ul class="def">
+      <li><strong>因果的な採算条件</strong>：処置すべき対象者がいるのは \(c_{11} < b_{11}\) のとき、かつそのときに限る（定理 2）。陽性になっても処置の費用が便益を上回るなら、誰も処置しない。</li>
+      <li><strong>因果的なボーナス条件</strong>：\(c_{11} < b_{11} - b_{10}\) のとき、かつそのときに限り、推定 ITE が負の対象者も処置すべき範囲に入る（定理 3）。処置すると陽性時の便益が費用以上に増えるなら、陽性確率が少し下がっても処置したほうが得になりうる。便益が処置によらない（\(b_{11}=b_{10}\)）多くの場面では、この条件は成り立たない。</li>
+    </ul>
+    <figure>
+      <svg class="fig" id="fig-boundary" viewBox="0 0 640 380" role="img" aria-label="横軸が処置したときの陽性確率 P11、縦軸が推定 ITE t の2つのパネル。灰色の平行四辺形が取りうる範囲。左は便益が処置で増える設定1で、境界 t = 0.1 − 0.2 P11 は右下がりになり、P11 が大きいと t が負でも処置する範囲に入る。右は便益が処置で減る設定2で、境界 t = 0.083 + 0.167 P11 は右上がりになる。破線は費用を考えない境界 t = 0。"></svg>
+      <figcaption>図1　論文の実験の 2 つの設定での決定境界（<span class="B">実線</span>）。青い範囲が処置すべき対象者、灰色が取りうる \((P_{11}, t)\) の範囲（縦軸は −0.5 から 0.5 までを表示）、<span class="A">破線</span>は費用を考えない境界 \(t = 0\)。左は \(b_{11}=120,\ b_{10}=100\)、右は \(b_{11}=100,\ b_{10}=120\)、どちらも \(c_{01}=c_{11}=10\)。左ではボーナス条件（\(c_{11} = 10 < b_{11} - b_{10} = 20\)）が成り立つので、\(P_{11}\) が 0.5 を超えると \(t\) が負でも処置する範囲に入る。論文 Fig. 2 と同じ見方の図を、上の式から解説者が作図した。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ranker">
+    <div class="kicker">手法</div>
+    <h2>処置できる数が限られるときは、期待因果利益の大きい順に選ぶ</h2>
+    <p>予算や人手の都合で処置できる数に上限があると、境界より上の全員は処置できない。論文は境界の傾きを保ったまま切片を上げ、上限の人数に収まるまで絞り込む方法を考える。これは境界からの符号つき距離で並べることにあたる。</p>
+    <div class="eq">\[ d(x_i) = \frac{t(x_i) - \delta P_{11,i} - \gamma}{\sqrt{\delta^2 + 1}} \]</div>
+    <p>論文は、この距離が期待因果利益に比例することを示し（命題 3）、距離の順に並べる方法を <span class="B">ECP（expected causal profit）ランカー</span>、従来の並べ方を <span class="A">ITE ランカー</span>と呼ぶ。処置できる数が \(r\) なら、ECP ランカーの上位 \(r\) 人を選べばよい。なお arXiv v1 の証明では、期待因果利益を \(t - \delta P_{11} - \gamma\) と等式で書いているが、展開すると \(\gamma, \delta\) の分母（簡単にした設定では \(b_{10}\)）が掛かった形になる。比例するという結論は変わらない。</p>
+    <p>上限が金額で与えられる場合について、論文は次の問題も示している。ECP の順に並べた対象者（期待因果利益が正の人だけ）を上から \(T\) 人選ぶとき、期待される費用 \(\sum_{j\le T} \bigl[(1-P_{11,j})\,c_{01} + P_{11,j}\,c_{11}\bigr]\) が予算 \(m\) 以内に収まる最大の \(T\) を求める。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>合成データ 1 つとマーケティング施策のデータ 3 つで、2 通りの費用・便益の設定を比べた</h2>
+    <p>データは causalml で生成した合成データ（10,000 件、処置群と対照群が半々）、Criteo の広告データから抜き出した 11,647 件、金融機関の解約防止キャンペーン（Bank、10,043 件、変数 160 個）、Hillstrom のメール施策データから抜き出した 14,232 件である。Bank では解約しないことを陽性としている。</p>
+    <p>費用・便益は 2 通り置いた。設定 1 は処置して陽性のときの便益を処置しないで陽性のときの 1.2 倍とし（\(b_{11}=120,\ b_{10}=100\)）、設定 2 は逆にする（\(b_{11}=100,\ b_{10}=120\)）。処置の費用は結果によらず \(c_{01}=c_{11}=10\) である。ITE の推定には T-learner、S-learner、causal forest を使い、基本モデルにロジスティック回帰（LR）と XGBoost を組み合わせた。評価指標は Qini 係数、平均因果利益（すべての処置割合で平均した 1 人あたりの因果利益）、最大因果利益で、5 分割交差検証で比べている。</p>
+    <p class="src">以下の数値は arXiv v1（2021 年 1 月 5 日、題名 “To do or not to do: cost-sensitive causal decision-making”）の本文と表による。EJOR 掲載版の本文は自動取得できなかったため照合していない。掲載版とは題名と著者の順番が異なり、内容も改訂されている可能性がある。所属は arXiv v1 の表記である。</p>
+    <p class="src">arXiv v1 の Table 1 と本文では、一部の数値が食い違っている。Criteo について本文は対照群の陽性率を 37%、処置群を 41%、全体の効果を 4% とするが、表では対照群 0.04、全体の効果 0.37 となっている。Bank について本文は解約率を対照群 25%、処置群 13% とするが、表ではこれが陽性（解約しない）の割合の行に載っている。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>便益が処置で増える設定では、ECP ランカーが 24 組すべてで平均因果利益を上げた</h2>
+    <p>設定 1 では、データ・ITE の推定法・基本モデルの 24 組すべてで、<span class="B">ECP ランカー</span>の平均因果利益が <span class="A">ITE ランカー</span>を上回った（Table 3）。たとえば Bank の T-learner + XGBoost では 1 人あたり 9.96 から 12.45 に、S-learner + XGBoost では 2.03 から 10.00 に上がった。論文はこれを特筆すべき結果としている。</p>
+    <p>設定 2 では、ECP が上回ったのは合成データの 6 組と Hillstrom の S-learner + XGBoost の計 7 組で、マーケティングの 3 データでは残りすべてで ITE ランカーが上回った。論文自身も、これは予想外の結果だと述べている。最大因果利益（Table 4）もおおむね同じ傾向だった。</p>
+    <p>費用を見ない指標である Qini 係数でも、設定 1 のマーケティング 3 データではほぼ一貫して ECP ランカーが上回り、設定 2 では ITE ランカーが上回った（Table 2）。合成データでは、両方の設定でほぼ一貫して ITE ランカーの Qini 係数が高かった。論文は、平均因果利益の差の大きさは任意に置いた費用・便益の値によると注意している。</p>
+    <figure>
+      <div class="links" id="fig-results-ctl" role="group" aria-label="費用・便益の設定">
+        <button type="button" class="btn primary" data-s="0" aria-pressed="true">設定 1（\(b_{11} > b_{10}\)）</button>
+        <button type="button" class="btn" data-s="1" aria-pressed="false">設定 2（\(b_{11} < b_{10}\)）</button>
+      </div>
+      <svg class="fig" id="fig-results" viewBox="0 0 640 760" role="img" aria-label="論文 Table 3 の平均因果利益のドットプロット。4つのデータごとに、ITE の推定法と基本モデルの6つの組合せについて、ITE ランカーと ECP ランカーの値を線で結ぶ。設定1では24組すべてで ECP ランカーが右（高い）にある。設定2では合成データの6組と Hillstrom の1組だけで ECP ランカーが高い。" style="margin-top:0.8rem"></svg>
+      <figcaption>図2　平均因果利益（1 人あたり）。<span class="B">●</span> ECP ランカー、<span class="A">●</span> ITE ランカー。横軸の範囲はデータごとに異なる。論文 Table 3（arXiv v1）の数値から解説者が作図した。arXiv v1 の Table 3 では、Bank の T-learner + LR と S-learner + LR が両方の設定で同じ値になっている。</figcaption>
+    </figure>
+  </section>
+
+  <section id="discussion">
+    <div class="kicker">考察</div>
+    <h2>ECP ランカーが働くには、処置したときの陽性確率がきちんと較正されている必要がある</h2>
+    <p>設定 2 で効果が出なかった理由を、論文は次のように分析している。費用を無視して近似すると、因果利益は「処置群のうち選ばれた陽性者の割合 × \(b_{11}\)」から「対照群のうち選ばれた陽性者の割合 × \(b_{10}\)」を引いた形になる。ECP ランカーは、設定 1 では \(P_{11}\) の大きい人を、設定 2 では小さい人を優先する。処置群と対照群が無作為に分かれていれば、選ばれる陽性者は両群でほぼ同じだけ増減するはずで、設定 1 では \(b_{11}\) が大きいぶん、設定 2 では \(b_{10}\) が大きいぶん、利益が上がる。</p>
+    <p>ところが Bank では、ECP ランカーによる陽性者の増え方（設定 1）も減り方（設定 2）も、処置群のほうが対照群より大きかった。そのため設定 1 では利益が予想以上に上がり、設定 2 では逆に下がった。論文はこの原因を選択バイアスと推測し、3 つの根拠を挙げる。第一に、Bank の処置群と対照群で \(P_{11}\) の推定値の分布が大きく異なる（図3）。第二に、その分布から、陽性になりやすい顧客を優先して処置群に選んだ形跡がうかがえる。第三に、無作為化されている合成データでは、両群の陽性者の増え方がほぼ同じだった。</p>
+    <p>論文は、\(P_{11}\) と \(t\) の推定値が較正されていることが ECP ランカーの前提だと結論づけている。そのうえで、選択バイアスに対処できる推定法や、推定値を事後に較正する方法の検討を今後の課題に挙げている。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig4_bank_p11_lr.png" alt="Bank データで、処置群（青）と対照群（緑）の P11 推定値の分布（ロジスティック回帰）。どちらも 0.6 から 1.0 に集中するが、処置群は 1.0 付近に鋭い山があり、対照群は 0.9 付近に山がある。" loading="lazy">
+      </figure>
+      <figure>
+        <img src="assets/fig4_bank_p11_xgb.png" alt="Bank データで、処置群と対照群の P11 推定値の分布（XGBoost）。処置群と対照群で分布の形が異なる。" loading="lazy">
+      </figure>
+    </div>
+    <p style="font-size:0.9rem;color:var(--muted)">図3　Bank データの処置群と対照群での \(P_{11}\) 推定値の分布。左がロジスティック回帰、右が XGBoost（論文 Fig. 4、arXiv v1、CC BY 4.0）。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は処置できる数の上限として扱い、期待因果利益の順に上から選ぶ</h2>
+    <p>この論文が推定に使うのは、推定 ITE \(t\) と処置したときの陽性確率 \(P_{11}\) である。どちらも既存の因果分類モデル（T-learner など）の出力をそのまま使い、費用と便益は後処理として入れる二段階の構成になっている。処置と結果はともに二値で、費用と便益はクラスごとに一定である。処置の費用は結果によって変えられる（\(c_{01}\) と \(c_{11}\)）ので、陽性になったときだけかかる費用も表せる。</p>
+    <p>予算制約は処置できる数の上限 \(r\) か、期待費用の上限 \(m\) として扱う。どちらの場合も、期待因果利益の大きい順に並べて上から選ぶ。予算の上限による割り当て自体は最適化問題として解いておらず、実験でも予算を固定した比較はしていない。評価は平均因果利益と最大因果利益（すべての処置割合での平均と最大）による。</p>
+    <p>ROI 順の割り当て（ナップザック問題の連続緩和）との関係は次のとおりである（解説者の注）。論文の実験のように \(c_{01} = c_{11}\) なら、1 人あたりの期待費用は全員同じなので、期待因果利益の順と「期待因果利益 ÷ 期待費用」の順は一致する。\(c_{01} \ne c_{11}\) のときは期待費用 \((1-P_{11})\,c_{01} + P_{11}\,c_{11}\) が人によって変わるため、期待費用の上限 \(m\) のもとでは、ECP の順と ROI の順で選ばれる人が異なりうる。論文はこの違いには触れていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{verbeke2023todo,
+  title   = {To do or not to do? Cost-sensitive causal classification with individual treatment effect estimates},
+  author  = {Verbeke, Wouter and Olaya, Diego and Guerry, Marie-Anne and Van Belle, Jente},
+  journal = {European Journal of Operational Research},
+  volume  = {305},
+  number  = {2},
+  pages   = {838--852},
+  year    = {2023},
+  doi     = {10.1016/j.ejor.2022.03.049}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg, tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.innerHTML = txt; svg.appendChild(e); return e; }
+
+// ---------- figure 1: decision boundary t = gamma' + delta' P11 for the two scenarios of the paper ----------
+(function () {
+  var svg = document.getElementById('fig-boundary'); if (!svg) return;
+  var MI = 'class="mi"';
+  var P11 = '<tspan ' + MI + '>P</tspan><tspan font-size="0.7em" dy="4">11</tspan>';
+  var panels = [
+    { x: 70, b11: 120, b10: 100, c: 10, ja: '設定 1：<tspan ' + MI + '>b</tspan><tspan font-size="0.7em" dy="4">11</tspan><tspan dy="-4"> = 120、</tspan><tspan ' + MI + '>b</tspan><tspan font-size="0.7em" dy="4">10</tspan><tspan dy="-4"> = 100</tspan>' },
+    { x: 380, b11: 100, b10: 120, c: 10, ja: '設定 2：<tspan ' + MI + '>b</tspan><tspan font-size="0.7em" dy="4">11</tspan><tspan dy="-4"> = 100、</tspan><tspan ' + MI + '>b</tspan><tspan font-size="0.7em" dy="4">10</tspan><tspan dy="-4"> = 120</tspan>' }
+  ];
+  var W = 230, Y0 = 84, Y1 = 320, TLO = -0.5, THI = 0.5;
+  // clip a polygon to the half-plane f(q) >= 0 (f linear)
+  function clip(poly, f) {
+    var out = [];
+    for (var i = 0; i < poly.length; i++) {
+      var A = poly[i], B = poly[(i + 1) % poly.length], fa = f(A), fb = f(B);
+      if (fa >= 0) out.push(A);
+      if ((fa >= 0) !== (fb >= 0)) { var s = fa / (fa - fb); out.push([A[0] + s * (B[0] - A[0]), A[1] + s * (B[1] - A[1])]); }
+    }
+    return out;
+  }
+  panels.forEach(function (P) {
+    var g = P.c / P.b10, d = (P.b10 - P.b11) / P.b10;   // c01 = c11, so delta' = (b10 - b11) / b10
+    function X(p) { return P.x + p * W; }
+    function Y(t) { return Y0 + (THI - t) / (THI - TLO) * (Y1 - Y0); }
+    function pts(poly) { return poly.map(function (q) { return X(q[0]).toFixed(1) + ',' + Y(q[1]).toFixed(1); }).join(' '); }
+    var feas = clip(clip([[0, 0], [1, 1], [1, 0], [0, -1]], function (q) { return THI - q[1]; }), function (q) { return q[1] - TLO; });
+    mk(svg, 'polygon', { points: pts(feas), fill: '#EEF0F3' });
+    mk(svg, 'polygon', { points: pts(clip(feas, function (q) { return q[1] - (g + d * q[0]); })), fill: '#D6E2FA' });
+    mk(svg, 'line', { x1: X(0), x2: X(1) + 8, y1: Y(0), y2: Y(0), stroke: '#16202E', 'stroke-width': 1.2 });
+    mk(svg, 'line', { x1: X(0), x2: X(0), y1: Y1, y2: Y0 - 6, stroke: '#16202E', 'stroke-width': 1.2 });
+    mk(svg, 'line', { x1: X(0), x2: X(1), y1: Y(0), y2: Y(0), stroke: '#C2410C', 'stroke-width': 2.5, 'stroke-dasharray': '7 5' });
+    mk(svg, 'line', { x1: X(0), x2: X(1), y1: Y(g), y2: Y(g + d), stroke: '#1D4ED8', 'stroke-width': 3 });
+    mk(svg, 'text', { x: P.x + W / 2, y: 26, 'font-size': 15, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, P.ja);
+    var lab = '境界 <tspan ' + MI + '>t</tspan> = ' + (g === 0.1 ? '0.1' : '0.083') + (d < 0 ? ' − ' : ' + ') + (d === -0.2 ? '0.2' : '0.167') + ' ';
+    mk(svg, 'text', { x: P.x + W / 2, y: 52, 'font-size': 15, fill: '#1D4ED8', 'text-anchor': 'middle', 'font-weight': 600 }, lab + P11);
+    mk(svg, 'text', { x: X(1), y: Y1 + 24, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, '1');
+    mk(svg, 'text', { x: X(0), y: Y1 + 24, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, '0');
+    mk(svg, 'text', { x: X(0.5), y: Y1 + 46, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, P11);
+    [[0.5, '0.5'], [0, '0'], [-0.5, '−0.5']].forEach(function (q) { mk(svg, 'text', { x: X(0) - 8, y: Y(q[0]) + 5, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, q[1]); });
+    mk(svg, 'text', { x: X(0) + 8, y: Y0 - 2, 'font-size': 16, fill: '#16202E' }, '<tspan ' + MI + '>t</tspan>');
+    mk(svg, 'text', { x: X(0.66), y: Y(0.36), 'font-size': 15, 'font-weight': 600, fill: '#1D4ED8', 'text-anchor': 'middle' }, '処置する');
+    mk(svg, 'text', { x: X(0.3), y: Y(-0.3), 'font-size': 15, 'font-weight': 600, fill: '#5B6676', 'text-anchor': 'middle' }, '処置しない');
+  });
+})();
+
+// ---------- figure 2: Table 3 of the paper (arXiv v1), average causal profit per instance ----------
+(function () {
+  var svg = document.getElementById('fig-results'); if (!svg) return;
+  var combos = ['CF / LR', 'CF / XGBoost', 'T / LR', 'T / XGBoost', 'S / LR', 'S / XGBoost'];
+  // [dataset, [ [ITE, ECP] x 6 ] for scenario 1, same for scenario 2]
+  var D = [
+    ['Synthetic', [[4.55, 6.34], [4.66, 6.42], [3.95, 6.28], [3.93, 6.52], [2.56, 4.38], [3.36, 6.41]],
+                  [[-1.33, -0.14], [-1.16, -0.02], [0.63, 0.70], [0.25, 0.58], [-2.75, -1.47], [0.21, 0.23]], [-4, 8]],
+    ['Bank',      [[-6.22, -2.82], [3.17, 9.76], [7.44, 9.21], [9.96, 12.45], [7.44, 9.21], [2.03, 10.00]],
+                  [[-20.40, -21.25], [-11.66, -14.16], [-7.37, -8.63], [-4.33, -6.05], [-7.37, -8.63], [-11.46, -13.28]], [-25, 15]],
+    ['Criteo',    [[27.83, 28.29], [27.28, 28.59], [26.75, 29.98], [20.39, 21.71], [30.59, 31.03], [25.32, 27.78]],
+                  [[22.24, 19.47], [21.80, 19.00], [21.34, 18.32], [16.21, 14.68], [24.35, 22.77], [20.16, 16.62]], [10, 35]],
+    ['Hillstrom', [[-1.98, -1.62], [-2.26, -1.86], [-1.82, -1.52], [-2.03, -1.73], [-2.10, -1.92], [-1.95, -1.47]],
+                  [[-3.68, -3.82], [-3.91, -4.03], [-3.55, -3.71], [-3.61, -3.70], [-3.56, -3.71], [-3.65, -3.62]], [-4.5, -1]]
+  ];
+  var X0 = 150, X1 = 610, RH = 24, PH = 6 * RH + 64;
+  function draw(s) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var wins = 0;
+    D.forEach(function (ds, k) {
+      var top = 10 + k * (PH + 4), lo = ds[3][0], hi = ds[3][1];
+      function px(v) { return X0 + (v - lo) / (hi - lo) * (X1 - X0); }
+      mk(svg, 'text', { x: 20, y: top + 20, 'font-size': 16, 'font-weight': 600, fill: '#16202E' }, ds[0]);
+      var step = (hi - lo) > 20 ? 10 : (hi - lo) > 6 ? 2 : 1;
+      for (var v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
+        mk(svg, 'line', { x1: px(v), x2: px(v), y1: top + 30, y2: top + 30 + 6 * RH, stroke: v === 0 ? '#9AA3B0' : '#D9DEE6' });
+        mk(svg, 'text', { x: px(v), y: top + 30 + 6 * RH + 18, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' }, String(v).replace('-', '−'));
+      }
+      ds[1 + s].forEach(function (r, i) {
+        var y = top + 30 + RH * i + RH / 2;
+        if (r[1] > r[0]) wins++;
+        mk(svg, 'text', { x: X0 - 12, y: y + 5, 'font-size': 13, fill: '#16202E', 'text-anchor': 'end' }, combos[i]);
+        mk(svg, 'line', { x1: px(r[0]), x2: px(r[1]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+        mk(svg, 'circle', { cx: px(r[0]), cy: y, r: 6.5, fill: '#C2410C' });
+        mk(svg, 'circle', { cx: px(r[1]), cy: y, r: 6.5, fill: '#1D4ED8' });
+      });
+    });
+    mk(svg, 'text', { x: 610, y: 30, 'font-size': 14, fill: '#1D4ED8', 'text-anchor': 'end', 'font-weight': 600 }, 'ECP が上回った組：' + wins + ' / 24');
+  }
+  draw(0);
+  var btns = document.querySelectorAll('#fig-results-ctl button');
+  Array.prototype.forEach.call(btns, function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(btns, function (o) { o.classList.toggle('primary', o === b); o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      draw(+b.getAttribute('data-s'));
+    });
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

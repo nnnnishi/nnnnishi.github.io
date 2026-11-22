@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算制約つき因果バンディット（論文解説）</title>
+<meta name="description" content="Budget-Constrained Causal Bandits: Bridging Uplift Modeling and Sequential Decision-Making（arXiv 2026）の非公式の解説。過去データなしで、処置効果の学習、探索、予算のペース配分を 1 人ずつの判断にまとめる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the existing approaches BCCB is compared with: the offline two-stage
+                         pipeline (uplift model trained on historical data, then optimisation) and,
+                         in the online comparison, the strongest baseline (Uplifting Bandits)
+            --b  (blue)   = BCCB: learning the treatment effect while spending the budget,
+                         one user at a time, and the users it treats
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv 2026</div>
+  <h1>Budget-Constrained Causal Bandits: Bridging Uplift Modeling and Sequential Decision-Making</h1>
+  <p class="subtitle">予算制約つき因果バンディット：アップリフトモデリングと逐次意思決定をつなぐ</p>
+
+  <ul class="authors">
+    <li><b>Abhirami Pillai</b></li>
+  </ul>
+
+  <p class="lead">予算つきの広告配信では、過去のランダム化実験のデータでアップリフトモデルを学習し、そのあと予算内で配る相手を最適化する<span class="A">2 段階のオフライン手順</span>が標準である。この論文は過去データのない立ち上げ期にも使えるよう、効果の学習、探索、予算のペース配分を 1 人ずつの判断にまとめた<span class="B">BCCB</span>を提案する。Criteo の実験では、過去データが 7,500 件未満のあいだはオフライン手順の平均が BCCB を上回らず、7,500 件以上になると有意に上回った。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/pdf/2604.26169">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2604.26169">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。過去データを前提とする2段階のオフライン手順、1ドルあたりの効果としきい値で決める判定ルール、1人ずつ判断するBCCBの流れ、論文 Table 2 の過去データ件数ごとの比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">過去データ 7,500 件</span><span class="d">オフライン手順の転換数が BCCB を統計的に上回り始める件数（片側の対応のある t 検定で p = 0.043）。件数が増えるほど差は広がり、50,000 件では約 2.2 倍になった（Table 2）。</span></li>
+    <li><span class="k">63.5 対 35.7</span><span class="d">予算 8,000 ドルでの転換数（20 シードの平均）。予算のペース配分を加えた Uplifting Bandits を 78% 上回った。5 つの予算すべてで、4 つのオンライン手法を上回った（p &lt; 0.001、Table 1）。</span></li>
+    <li><span class="k">標準偏差 16.2 対 37.8〜58.7</span><span class="d">予算 5,000 ドルでの、シード間の転換数のばらつき。BCCB の標準偏差は過去データの件数を変えたオフライン手順の 2.3〜3.6 分の 1 だった（Table 5）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予算つきの配布は過去データで学習してから最適化するのが標準だが、立ち上げ期にはそのデータがない</h2>
+    <p>広告を見せたときの反応は人によって違う。広告を見て購入する気になる人もいれば、広告がなくても購入する人や、広告の影響を受けない人もいる。そこで、一人ひとりへの処置効果（アップリフト）を推定し、予算の範囲で効果の大きい人に配る。標準的なのは、過去のランダム化実験のデータでアップリフトモデルを学習し、その推定値を多選択ナップザック問題などの最適化に入れる<span class="A">2 段階のオフライン手順</span>である。予測と最適化の目的がずれるという弱点に対しては、E3IR、Bi-DFCL、DHCL、LBCF のような手法が提案されてきた。</p>
+    <p>論文は、これらの手法がどれも十分な過去データを前提にしていると指摘する。新しいキャンペーン、新しい市場や顧客層では過去データがないか、あっても配信先の集団を代表しない。一方、予算つきのバンディットは 1 回ずつ判断しながら学ぶが、利用者ごとの因果効果の違いはモデルに入れていない。この論文は両者をつなぎ、過去データなしで効果を学びながら予算を使う方法を提案する。</p>
+  </section>
+
+  <section id="rule">
+    <div class="kicker">問題設定</div>
+    <h2>予算を期待値の制約に緩めると、最適な方策は<span style="white-space:nowrap">「1 ドルあたりの</span>効果がしきい値を超えたら配る」になる</h2>
+    <p>利用者は 1 人ずつ \(T\) 回やってくる。時刻 \(t\) には特徴 \(\mathbf{x}_t\) と、その人に広告を出す費用 \(c_t > 0\) が分かり、広告を出す（\(a_t = 1\)）か出さないか（\(a_t = 0\)）を決める。結果 \(Y_t\) は購入の有無（0 か 1）で、処置効果は \(\tau(\mathbf{x}_t) = \mathbb{E}[Y_t(1) - Y_t(0) \mid \mathbf{x}_t]\) である。広告を出さなくても起きる購入は方策によらないので、目的は広告が生んだ増分の購入を予算の範囲で最大にすることになる。</p>
+    <div class="eq">\[ \max_{\pi}\ \mathbb{E}\Big[\sum_{t=1}^{T} a_t\,\tau(\mathbf{x}_t)\Big] \quad \text{s.t.} \quad \sum_{t=1}^{T} a_t\,c_t \le B \]</div>
+    <p>予算制約に双対変数 \(\lambda \ge 0\) を置いてラグランジュ緩和すると、目的は時刻ごとに分かれ、各時刻の判断は次のしきい値ルールになる。\(\lambda\) は予算 1 ドルの「影の価格」にあたる。</p>
+    <div class="eq">\[ a_t^{*}(\lambda) = \mathbb{I}\Big[\,\frac{\tau(\mathbf{x}_t)}{c_t} > \lambda\,\Big] \]</div>
+    <p>Proposition 1 は、利用者が i.i.d. に到着し、無交絡と正値性が成り立つとき、予算を期待値の制約 \(\mathbb{E}[\sum_t a_t c_t] \le B\) に緩めた問題では、このルールを最適な \(\lambda^{*}\) で使う方策が最適になることを示す。どの実現でも予算を超えないという本来の制約は、残り予算より高い人には配らない、という別のチェックで守る。論文は、有限の期間で本来の制約のもとでもこの方策が最適だとは主張していない。</p>
+    <p>実際には \(\tau\) も \(\lambda^{*}\) も分からない。過去データがないので \(\tau\) は配りながら学ぶ必要があり、探索にも予算がかかる（論文の P1）。\(\lambda^{*}\) は \(\tau\) と \(c\) の分布で決まるので、キャンペーン中に推定し続ける必要がある。低すぎれば予算を早く使い切り、高すぎれば予算を余らせる（P2）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="横軸が広告の費用、縦軸が処置効果の模式図。原点を通る直線より上の利用者に配る。予算を使いすぎているときは直線の傾きが大きくなり、配る相手が減る。">
+        <polygon points="80,300 80,30 600,30 600,96" fill="#E7EEFC"/>
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="24" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="600" y2="96" stroke="#16202E" stroke-width="2.5"/>
+        <line x1="80" y1="300" x2="330" y2="30" stroke="#5B6676" stroke-width="2" stroke-dasharray="7 5"/>
+        <text x="590" y="88" font-size="16" fill="#16202E" text-anchor="end"><tspan class="mi">τ</tspan> = <tspan class="mi">λ̂</tspan> <tspan class="mi">c</tspan>（予算に余裕があるとき）</text>
+        <text x="342" y="48" font-size="16" fill="#5B6676">使いすぎのとき <tspan class="mi">λ̂</tspan> が上がる</text>
+        <text x="96" y="58" font-size="16" font-weight="600" fill="#1D4ED8">配る</text>
+        <text x="590" y="270" font-size="16" font-weight="600" fill="#5B6676" text-anchor="end">配らない</text>
+        <circle cx="140" cy="150" r="8" fill="#1D4ED8"/>
+        <circle cx="200" cy="120" r="8" fill="#1D4ED8"/>
+        <circle cx="250" cy="200" r="8" fill="#1D4ED8"/>
+        <circle cx="330" cy="150" r="8" fill="#1D4ED8"/>
+        <circle cx="430" cy="140" r="8" fill="#1D4ED8"/>
+        <circle cx="520" cy="110" r="8" fill="#1D4ED8"/>
+        <circle cx="300" cy="250" r="8" fill="#CBD2DC"/>
+        <circle cx="400" cy="230" r="8" fill="#CBD2DC"/>
+        <circle cx="480" cy="200" r="8" fill="#CBD2DC"/>
+        <circle cx="550" cy="250" r="8" fill="#CBD2DC"/>
+        <circle cx="180" cy="280" r="8" fill="#CBD2DC"/>
+        <text x="80" y="322" font-size="16" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="345" y="348" font-size="17" fill="#16202E" text-anchor="middle">広告の費用 <tspan class="mi">c</tspan>（ドル）</text>
+        <text x="70" y="304" font-size="16" fill="#5B6676" text-anchor="end">0</text>
+        <text transform="translate(40,165) rotate(-90)" font-size="17" fill="#16202E" text-anchor="middle">処置効果 <tspan class="mi">τ</tspan></text>
+      </svg>
+      <figcaption>図1　判定ルール \(\tau/c > \hat\lambda\) の模式図。直線より上（1 ドルあたりの効果がしきい値を超える人）に配る。効果が同じなら費用の安い人が先に選ばれる。点は架空の利用者で、解説者が置いた例（模式図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>BCCB は効果の推定値に探索のゆらぎを足し、残り予算に応じて動かすしきい値と比べる</h2>
+    <p>BCCB（Budget-Constrained Causal Bandits）は、次の 3 つを 1 つの判定ルールにまとめる。</p>
+    <ul class="def">
+      <li><strong>効果のオンライン推定（P1）</strong>：広告を出した人の購入確率 \(\hat f_1(\mathbf{x})\) と出さなかった人の購入確率 \(\hat f_0(\mathbf{x})\) を、2 つのロジスティック回帰で別々に推定し（two-model）、確率的勾配法で逐次更新する。効果の推定値は \(\hat\tau(\mathbf{x}_t) = \hat f_1(\mathbf{x}_t) - \hat f_0(\mathbf{x}_t)\)。処置群と対照群の観測がそれぞれ \(W = 50\) 件たまるまでは、小さな正の値 \(\hat\tau_0 = 0.002\) を使い、初めのうちは配る判断になりやすくして探索を促す。</li>
+      <li><strong>探索のゆらぎ</strong>：処置群と対照群の全体の購入率にベータ事後分布を置き、毎回それぞれから \(\theta_t,\ \theta_t^{(c)}\) を抜き出して \(b_t = \eta\,(\theta_t - \theta_t^{(c)})\) を足す。これは個人の効果の事後サンプルではなく、集団全体の不確かさに応じたゆらぎで、事後分布が絞られるにつれて小さくなる。論文は \(\eta = 0.1\) を使う。</li>
+      <li><strong>予算のペース配分（P2）</strong>：残り予算の割合を残り時間の割合で割った \(\mathrm{pace}_t\) を計算し、しきい値を \(\hat\lambda_t = \lambda / \max(\mathrm{pace}_t,\ 0.1)\) とする。予算が余り気味（\(\mathrm{pace}_t > 1\)）ならしきい値が下がって多く配り、使いすぎ（\(\mathrm{pace}_t < 1\)）なら上がって絞る。基準値は \(\lambda = 10^{-3}\)。</li>
+    </ul>
+    <div class="eq">\[ \mathrm{pace}_t = \frac{B_t / B_0}{\max\{(T-t)/T,\ 0.01\}}, \qquad a_t = \mathbb{I}\Big[\,\frac{\hat\tau(\mathbf{x}_t) + b_t}{c_t} > \hat\lambda_t\,\Big] \]</div>
+    <p>費用 \(c_t\) が残り予算 \(B_t\) を超える人には配らない。配った人の結果は \(\hat f_1\) と処置群の事後分布の更新に、配らなかった人の結果は \(\hat f_0\) と対照群の事後分布の更新に使う。</p>
+    <p>論文はこのペース配分を双対変数の乗法的な更新に「定性的に似ている」と位置づける。ただし双対上昇法として導いたものではなく、\(\lambda^{*}\) への収束やリグレットの保証もない、と明記している。予算を超えないことは、上の費用のチェックだけで保証される。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>Criteo のランダム化実験のデータに架空の配信費用を加え、リプレイ法で評価した</h2>
+    <p>データは Criteo Uplift データセット（v2.1）の 10% を抜き出した 1,397,959 件で、特徴量は 12 個、処置群と対照群の比は 85 対 15 である。購入率は処置群 0.31%、対照群 0.20% で、平均処置効果は 0.12% と小さい。データに配信費用は含まれないので、対数正規分布（\(\mu = -0.5,\ \sigma = 0.7\)）から費用を生成し、0.05〜5 ドルに切り詰めた。平均は 0.77 ドルで、結果とは独立に生成している。</p>
+    <p>評価はバンディットのリプレイ法による。利用者をランダムな順に流し、手法の判断が元の実験での割り当てと一致したときだけ実際の結果を観測して学習させ、一致しなければその利用者を飛ばす。オンライン手法の比較は 100,000 人の流れで予算 1,000〜8,000 ドル、オフライン手順との比較は同じ 100,000 人の流れに予算 5,000 ドルを固定し、オフライン手順に与える過去データを 500〜50,000 件で変える。BCCB には過去データを与えない。オフライン手順は過去データでロジスティック回帰のアップリフトモデルを学習し、費用対効果のしきい値で配る。主な結果は 20 シードの平均で、手法間の比較にはシードを対にした検定を使う。</p>
+    <p>主な評価指標は広告を出した人の購入数 \(\sum_t a_t Y_t(1)\) である。最適化の目的（増分の購入）とは対照群でも起きる購入の分だけ違うが、論文は、このデータでは差が小さく順位は変わらないと述べている。</p>
+    <p class="src">以下の数値は arXiv v2（2026 年 8 月 28 日）の本文と表による。2026 年 11 月の時点で、出版版は確認できなかった。</p>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 1</div>
+    <h2>5 つの予算すべてで、BCCB の転換数は 4 つのオンライン手法を上回った</h2>
+    <p>比較相手は効果の個人差を考えずに処置群と対照群の購入率だけで判断する Thompson Sampling（TS）、それに予算とペース配分を加えた Budgeted TS、BCCB と同じ効果の推定を使うが探索もペース配分もせず推定値が正なら配る HTE Greedy、そして利用者ごとの効果を UCB 型の信頼上限で推定する Uplifting Bandits（UB）である。UB には BCCB と同じペース配分を加え、探索の方式（UCB とトンプソン抽出）だけが違うようにしている。</p>
+    <p>BCCB はすべての予算で平均転換数が最も多く、各手法との差はどれも p &lt; 0.001 だった（Table 1）。<span class="A">UB</span> との差は予算 1,000 ドルの +7.0 件から 8,000 ドルの +27.9 件に広がり、8,000 ドルでは 63.5 件対 35.7 件（+78%）である。TS と Budgeted TS はほぼ同じで、論文は効果の推定なしにペース配分だけ加えても得るものは少ないと読む。HTE Greedy は同じ推定器を使いながら最も弱く、探索しないため早い段階で悪い方策に落ち着くと論文は説明している。一方、BCCB のシード間の標準偏差（6.0〜13.7）は UB（1.5〜4.9）より大きい。</p>
+    <figure>
+      <svg class="fig" id="fig-online" viewBox="0 0 640 385" role="img" aria-label="論文 Table 1 のドットプロット。5つの予算ごとに5手法の平均転換数を示す。どの予算でもBCCBが最も右にあり、8,000ドルでは63.5件、次がUplifting Banditsの35.7件。"></svg>
+      <figcaption>図2　予算ごとの平均転換数（20 シード）。<span class="B">●</span> BCCB、<span class="A">●</span> Uplifting Bandits、灰色の記号はほかの 3 手法（論文 Table 1 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="crossover">
+    <div class="kicker">実験の結果 2</div>
+    <h2>過去データが 7,500 件以上になると、オフライン手順の転換数が BCCB を有意に上回った</h2>
+    <p>予算 5,000 ドルで、オフライン手順に与える過去データの件数 \(n\) を変えた（Table 2）。論文は「オフラインの平均が BCCB を上回り、片側の対応のある t 検定で p &lt; 0.05 となり、それより大きい \(n\) でもずっと上回る最小の \(n\)」を交差点と定義し、それが \(n = 7{,}500\)（p = 0.043）だったと報告する。</p>
+    <ul class="def">
+      <li><strong>\(n \le 1{,}000\)</strong>：<span class="A">オフライン手順</span>は 4.7 件と 7.0 件で、BCCB の 49.4 件を大きく下回った。対照群に購入が 1 件もない学習データではモデルを当てはめられず、多くのシードで転換数が 0 になる。</li>
+      <li><strong>\(2{,}000 \le n \le 5{,}000\)</strong>：平均は 39.0〜46.9 件で BCCB に近いが、標準偏差が 42.7〜58.7 と大きく、差は有意でない（p ≥ 0.6）。</li>
+      <li><strong>\(n \ge 7{,}500\)</strong>：オフライン手順が上回り、差は \(n\) とともに広がる。50,000 件では 107.0 件で、BCCB の約 2.2 倍になった。</li>
+    </ul>
+    <p>BCCB の標準偏差 16.2 はどの \(n\) でもオフライン手順の 2.3〜3.6 分の 1 である（Table 5）。論文はここから、代表的な過去データが約 7,500 件に満たないうちは BCCB を、それを超えたらオフライン手順を使う、という使い分けを提案している。なお、\(n = 7{,}500\) での差の 95% 信頼区間は \([-0.1,\ +45.7]\) と 0 をわずかに含む。</p>
+    <figure>
+      <svg class="fig" id="fig-cross" viewBox="0 0 640 360" role="img" aria-label="論文 Table 2 の折れ線グラフ。横軸は過去データの件数（対数目盛）、縦軸は平均転換数。BCCBは過去データを使わず49.4件で一定。オフライン手順は500件で4.7件、5,000件で46.9件、7,500件で71.1件とBCCBを超え、50,000件で107.0件。"></svg>
+      <figcaption>図3　過去データの件数と平均転換数（予算 5,000 ドル、20 シード）。<span class="A">●</span> オフライン手順、<span class="B">―</span> BCCB（過去データなし）。横軸は対数目盛（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="caveats">
+    <div class="kicker">感度と注意点</div>
+    <h2>大きく効くハイパーパラメータは探索の重み η と基準しきい値 λ で、評価の仕組みにも限界がある</h2>
+    <p>予算 5,000 ドル、10 シードで 1 つずつ値を変えると、\(\eta\) を 0.001 から 0.1 に上げたとき転換数は 22.5 件から 43.9 件に増えた（Table 3）。\(\lambda\) は \(10^{-3}\) で最も高く、\(10^{-2}\) では 17.4 件に下がる。\(\varepsilon_{\mathrm{pace}}\) とウォームアップ \(W\) はほとんど効かなかった。\(\hat\tau_0\) は 0.001 のとき 51.4 件で、既定の 0.002（43.9 件）より高い。論文は \(\eta \in [0.05, 0.1]\)、\(\lambda \in [5\cdot10^{-4}, 10^{-3}]\) を推奨範囲としている。本文の要約は「5 つのうち 4 つに頑健で、注意して選ぶ必要があるのは \(\eta\) だけ」となっているが、Table 3 の変動係数は \(\lambda\)（0.36）のほうが \(\eta\)（0.32）より大きい。</p>
+    <p>評価の仕組みについて、論文は次の限界を挙げている。</p>
+    <ul class="def">
+      <li><strong>有効サンプル数</strong>：元の実験は処置群が 85% なので、リプレイで残る判断の数が手法によって違う。BCCB は 100,000 人のうち約 25%、TS は約 8% しか残らない（Table 4）。転換数はこの違いで補正していない。ただし、有効サンプル数が近い HTE Greedy と Budgeted TS の転換数は 13.30 件と 20.80 件で、BCCB の 45.65 件より少ない。</li>
+      <li><strong>架空の費用</strong>：費用は結果と独立に生成している。実際の入札価格が利用者の価値と相関すれば、1 ドルあたりの効果が変わりうる。</li>
+      <li><strong>モデルと理論</strong>：効果の推定は線形のモデルで、リグレットの上界は示していない。実システムでの検証は今後の課題とされている。</li>
+    </ul>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>金額の予算のもとで、<span style="white-space:nowrap">1 ドルあたりの</span>効果としきい値の比較をオンラインで行う</h2>
+    <ul class="def">
+      <li><strong>推定するもの</strong>：二値の結果（購入）についての CATE \(\tau(\mathbf{x}) = P(Y{=}1 \mid \mathbf{x}, a{=}1) - P(Y{=}1 \mid \mathbf{x}, a{=}0)\)。2 つのロジスティック回帰をオンラインで学習する。</li>
+      <li><strong>コストの扱い</strong>：利用者ごとの配信費用 \(c_t\) は判断の時点で分かり、特徴を条件として結果と独立だと仮定する。購入したときだけかかるコストのように、反応によって決まるコストは扱わない。実験の費用は対数正規分布で生成した架空の値である。</li>
+      <li><strong>処置</strong>：二値（広告を出すか出さないか）。</li>
+      <li><strong>予算制約</strong>：総費用 \(\sum_t a_t c_t \le B\)。理論（Proposition 1）は期待値の制約に緩めた問題を扱い、実際の判断では残り予算のチェックで本来の制約を守る。しきい値は残り予算と残り時間の比で動かす経験的なルールで、収束の保証はない。</li>
+    </ul>
+    <p>判定ルール \(\tau(\mathbf{x}_t)/c_t > \lambda\) は、論文自身が予算つきの資源配分でよく知られた費用対効果のしきい値ルールだと述べている。ナップザック問題の連続緩和では、\(\tau/c\)（ROI）の大きい順に予算が尽きるまで配るのが最適で、これは最後に配る人の比をしきい値 \(\lambda\) にしたルールと同じになる。BCCB はこの ROI 順の割当てを、\(\tau\) も \(\lambda\) も分からない逐次の設定で近似するものと読める（解説者の注）。ただし ROI の分母は判断の時点で分かる配信費用で、処置後の反応で決まる期待コストではない。また、探索のゆらぎ \(b_t\) は同じ時刻の全員に共通で、個人の不確かさは反映しない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{pillai2026bccb,
+  title         = {Budget-Constrained Causal Bandits: Bridging Uplift Modeling and Sequential Decision-Making},
+  author        = {Pillai, Abhirami},
+  year          = {2026},
+  eprint        = {2604.26169},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2604.26169},
+  url           = {https://arxiv.org/abs/2604.26169}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 2: Table 1 of the paper (arXiv v2), mean treated conversions over 20 seeds ----------
+(function () {
+  var svg = document.getElementById('fig-online'); if (!svg) return;
+  var el = mk(svg);
+  // budget, TS, Budgeted TS, HTE Greedy, UB, BCCB
+  var rows = [
+    ['$1,000', 4.2, 4.2, 4.8, 5.1, 12.2], ['$2,000', 8.6, 8.4, 8.2, 9.8, 24.5],
+    ['$3,000', 12.8, 12.0, 10.1, 14.3, 33.8], ['$5,000', 19.9, 20.8, 13.3, 23.4, 45.6],
+    ['$8,000', 31.4, 33.5, 15.0, 35.7, 63.5]
+  ];
+  var X0 = 110, X1 = 610, HI = 70, Y0 = 110, DY = 46;
+  function px(v) { return X0 + v / HI * (X1 - X0); }
+  function shape(k, x, y) {
+    var g = '#8A94A3';
+    if (k === 0) return el('circle', { cx: x, cy: y, r: 6, fill: '#fff', stroke: g, 'stroke-width': 2 });
+    if (k === 1) return el('rect', { x: x - 6, y: y - 6, width: 12, height: 12, fill: '#fff', stroke: g, 'stroke-width': 2 });
+    return el('path', { d: 'M' + x + ',' + (y - 7) + ' L' + (x + 7) + ',' + (y + 6) + ' L' + (x - 7) + ',' + (y + 6) + ' z', fill: '#fff', stroke: g, 'stroke-width': 2 });
+  }
+  [0, 10, 20, 30, 40, 50, 60, 70].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 4 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 4 + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, String(v));
+  });
+  // legend
+  el('circle', { cx: 30, cy: 22, r: 7, fill: '#1D4ED8' }); el('text', { x: 44, y: 27, 'font-size': 15, fill: '#16202E' }, 'BCCB');
+  el('circle', { cx: 112, cy: 22, r: 7, fill: '#C2410C' }); el('text', { x: 126, y: 27, 'font-size': 15, fill: '#16202E' }, 'UB');
+  shape(0, 178, 22); el('text', { x: 192, y: 27, 'font-size': 15, fill: '#16202E' }, 'TS');
+  shape(1, 238, 22); el('text', { x: 252, y: 27, 'font-size': 15, fill: '#16202E' }, 'Budgeted TS');
+  shape(2, 368, 22); el('text', { x: 382, y: 27, 'font-size': 15, fill: '#16202E' }, 'HTE Greedy');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 16, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(Math.min(r[1], r[2], r[3], r[4])), x2: px(r[5]), y1: y, y2: y, stroke: '#E3E7ED', 'stroke-width': 3 });
+    shape(2, px(r[3]), y); shape(1, px(r[2]), y); shape(0, px(r[1]), y);
+    el('circle', { cx: px(r[4]), cy: y, r: 7, fill: '#C2410C' });
+    el('circle', { cx: px(r[5]), cy: y, r: 8, fill: '#1D4ED8' });
+    el('text', { x: px(r[5]) + 13, y: y + 5, 'font-size': 14, fill: '#1D4ED8', 'font-weight': 600 }, r[5].toFixed(1));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 4 + 68, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '平均転換数（件）');
+})();
+
+// ---------- figure 3: Table 2 of the paper (arXiv v2), $5,000 budget, 20 seeds ----------
+(function () {
+  var svg = document.getElementById('fig-cross'); if (!svg) return;
+  var el = mk(svg);
+  var pts = [[500, 4.7], [1000, 7.0], [2000, 39.0], [3000, 45.8], [5000, 46.9], [7500, 71.1], [10000, 76.6], [15000, 85.0], [25000, 95.7], [50000, 107.0]];
+  var BCCB = 49.4;
+  var X0 = 80, X1 = 610, Y0 = 300, Y1 = 30, LO = Math.log(400), HI = Math.log(60000), YMAX = 120;
+  function px(n) { return X0 + (Math.log(n) - LO) / (HI - LO) * (X1 - X0); }
+  function py(v) { return Y0 - v / YMAX * (Y0 - Y1); }
+  [0, 20, 40, 60, 80, 100, 120].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: '#EEF0F3' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, String(v));
+  });
+  el('line', { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.5 });
+  [[500, '500'], [1000, '1,000'], [5000, '5,000'], [10000, '10,000'], [50000, '50,000']].forEach(function (k) {
+    el('line', { x1: px(k[0]), x2: px(k[0]), y1: Y0, y2: Y0 + 6, stroke: '#16202E' });
+    el('text', { x: px(k[0]), y: Y0 + 24, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, k[1]);
+  });
+  el('line', { x1: px(7500), x2: px(7500), y1: Y1, y2: Y0, stroke: '#5B6676', 'stroke-width': 1.2, 'stroke-dasharray': '5 4' });
+  el('text', { x: px(7500) - 8, y: Y1 + 14, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, '交差点 n = 7,500');
+  el('line', { x1: X0, x2: X1, y1: py(BCCB), y2: py(BCCB), stroke: '#1D4ED8', 'stroke-width': 3 });
+  el('text', { x: X0 + 8, y: py(BCCB) - 9, 'font-size': 15, fill: '#1D4ED8', 'font-weight': 600 }, 'BCCB 49.4（過去データなし）');
+  el('polyline', { points: pts.map(function (p) { return px(p[0]) + ',' + py(p[1]); }).join(' '), fill: 'none', stroke: '#C2410C', 'stroke-width': 2 });
+  pts.forEach(function (p) { el('circle', { cx: px(p[0]), cy: py(p[1]), r: 6, fill: '#C2410C' }); });
+  [[500, 4.7, -14, 0], [5000, 46.9, 0, 24], [7500, 71.1, -10, -12], [50000, 107.0, -10, -12]].forEach(function (p) {
+    el('text', { x: px(p[0]) + p[2], y: py(p[1]) + p[3], 'font-size': 14, fill: '#C2410C', 'font-weight': 600, 'text-anchor': p[2] < 0 ? 'end' : 'middle' }, p[1].toFixed(1));
+  });
+  el('text', { x: 606, y: py(62), 'font-size': 15, fill: '#C2410C', 'font-weight': 600, 'text-anchor': 'end' }, 'オフライン手順');
+  el('text', { x: (X0 + X1) / 2, y: Y0 + 50, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'オフライン手順に与えた過去データの件数 n（対数目盛）');
+  el('text', { transform: 'translate(22,165) rotate(-90)', 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '平均転換数（件）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

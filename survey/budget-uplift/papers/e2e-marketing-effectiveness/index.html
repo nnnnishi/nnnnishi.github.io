@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算制約下のマーケティング効果を直接最適化するエンドツーエンド学習（論文解説）</title>
+<meta name="description" content="An End-to-End Framework for Marketing Effectiveness Optimization under Budget Constraint（arXiv 2023）の非公式の解説。予算内で得られる1人あたりの反応を RCT データから推定して正則化項にし、勾配を有限差分か NES で推定して学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the two-stage paradigm (TSM-SL): predictions trained only on the
+                         prediction loss L_SL, then fed into the MCKP
+            --b  (blue)   = the marketing goal Q(v,c) (per-capita response at the budget, estimated by EOM)
+                         and the paper's end-to-end method (Ours-FD / Ours-NES)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2023</div>
+  <h1>An End-to-End Framework for Marketing Effectiveness Optimization under Budget Constraint</h1>
+  <p class="subtitle">予算制約のもとでマーケティング効果を最適化するエンドツーエンドの枠組み</p>
+
+  <ul class="authors">
+    <li><b>Ziang Yan</b><span>Kuaishou Inc</span></li>
+    <li><b>Shusen Wang</b><span>Kuaishou Inc</span></li>
+    <li><b>Guorui Zhou</b><span>Kuaishou Inc</span></li>
+    <li><b>Jingjian Lin</b><span>Kuaishou Inc</span></li>
+    <li><b>Peng Jiang</b><span>Kuaishou Inc</span></li>
+  </ul>
+
+  <p class="lead">報酬の配分では、処置効果を予測してから整数計画で配り方を決める<span class="A">二段階法</span>が広く使われている。ただし、二つの段階は目的が違う。この論文は予算内で得られる1人あたりの反応 <span class="B">\(Q\)</span> を RCT データから推定して学習の正則化項に加え、微分できない \(Q\) の勾配を有限差分か自然進化戦略（NES）で推定する。公開データと短尺動画アプリ快手（Kuaishou）のオンライン実験で、二段階法を上回ったと報告している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/pdf/2302.04477">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2302.04477">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。二段階法の流れ、予算が少ないときに起きるずれ、予算内の1人あたり反応Qの求め方、論文 Table 1 の AUCC とオンライン実験の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">AUCC 0.7904</span><span class="d">CRITEO-UPLIFT v2 で、有限差分で勾配を推定する提案法が最も高かった。DRP は 0.7739、二段階法は 0.7561（Table 1）。</span></li>
+    <li><span class="k">反応 +1.24%</span><span class="d">快手のオンライン A/B テスト（1,420 万人、1 週間）で、二段階法と比べて1人あたりの反応が 1.24% 増え、1人あたりのコストは 0.369% 減った。</span></li>
+    <li><span class="k">\(\lambda \le 200\) で改善</span><span class="d">オフライン実験では、正則化の重み \(\lambda\) を 200 まで上げるほど1人あたりの反応が増え、500 以上では二段階法を下回った。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>二段階法では効果の予測と予算の配分を別々の目的で解く</h2>
+    <p>オンラインのサービスは現金ボーナスや割引クーポンで利用者の行動を促す。施策の費用には総額の上限があることが多く、人によって報酬への反応が違うので、誰にどれだけ配るかを一人ずつ決める必要がある。</p>
+    <p>近年の多くの方法は二段階で解く。第 1 段で因果推論のモデルが処置ごとの反応を予測し、第 2 段でその予測を係数にして整数計画を解く。論文によると、二つの段階の目的は根本的に違い、著者らは実務でも両者が完全には一致しないのを観察している。たとえば予算がごく少ないときに配るべきなのは、報酬にとくに敏感な少数の人だけである。そのため、全員の平均では精度が上がったモデルでも、その少数で外れていれば<span class="A">配分の成果はかえって下がりうる</span>。</p>
+    <p>論文はこれを解消するため、予算内の事業目標そのものを学習の目的に入れる。同じ問題意識をもつ決定志向（decision-focused）の手法として、論文は DRP（<a href="../drp/">解説</a>）を比較対象にしている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="二段階法と提案法の模式図。RCT データで学習した予測モデルが反応とコストを予測し、多肢選択ナップザック問題で配分を決める。二段階法は予測の損失だけで学習する。提案法は配分の結果から予算内の1人あたり反応 Q を推定し、その勾配を有限差分か NES で求めて予測モデルの学習に戻す。">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker>
+          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#C2410C"/></marker>
+          <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker>
+        </defs>
+        <text x="190" y="34" font-size="15" fill="#C2410C" text-anchor="middle">予測の損失 <tspan class="mi">L</tspan><tspan font-size="11" dy="4">SL</tspan></text>
+        <path d="M150,44 C150,62 230,62 230,80" stroke="#C2410C" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+        <rect x="14" y="96" width="110" height="78" rx="10" fill="#F2F4F7"/>
+        <text x="69" y="130" font-size="16" fill="#16202E" text-anchor="middle">RCT</text>
+        <text x="69" y="154" font-size="16" fill="#16202E" text-anchor="middle">データ</text>
+        <rect x="150" y="86" width="150" height="98" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="225" y="122" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">予測モデル</text>
+        <text x="225" y="148" font-size="14" fill="#5B6676" text-anchor="middle">DNN の S-Learner</text>
+        <text x="225" y="168" font-size="14" fill="#5B6676" text-anchor="middle">（処置ごとに 2 出力）</text>
+        <rect x="330" y="96" width="110" height="78" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="385" y="128" font-size="15" fill="#16202E" text-anchor="middle">反応 <tspan class="mi">v</tspan></text>
+        <text x="385" y="154" font-size="15" fill="#16202E" text-anchor="middle">コスト <tspan class="mi">c</tspan></text>
+        <rect x="470" y="86" width="156" height="98" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="548" y="118" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">MCKP を解く</text>
+        <text x="548" y="144" font-size="14" fill="#5B6676" text-anchor="middle">予算のもとで</text>
+        <text x="548" y="164" font-size="14" fill="#5B6676" text-anchor="middle">処置を 1 つずつ割当て</text>
+        <path d="M124,135 L148,135" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M300,135 L328,135" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M440,135 L468,135" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="470" y="214" width="156" height="66" rx="10" fill="#E7EEFC"/>
+        <text x="548" y="242" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">予算内の反応 <tspan class="mi">Q</tspan></text>
+        <text x="548" y="266" font-size="14" fill="#16202E" text-anchor="middle">EOM で推定</text>
+        <path d="M548,184 L548,212" stroke="#1D4ED8" stroke-width="2" fill="none" marker-end="url(#arB)"/>
+        <path d="M470,247 L225,247 L225,188" stroke="#1D4ED8" stroke-width="2" fill="none" marker-end="url(#arB)"/>
+        <text x="350" y="276" font-size="14" fill="#1D4ED8" text-anchor="middle">勾配を有限差分か NES で推定し、</text>
+        <text x="350" y="298" font-size="14" fill="#1D4ED8" text-anchor="middle">−<tspan class="mi">λQ</tspan> として学習に戻す（提案法）</text>
+        <text x="626" y="322" font-size="13" fill="#5B6676" text-anchor="end">模式図</text>
+      </svg>
+      <figcaption>図1　二段階法と提案法の違い（論文の記述をもとに解説者が描いた模式図）。<span class="A">二段階法</span>は予測モデルを予測の損失だけで学習する。<span class="B">提案法</span>は配分の結果から求めた \(Q\) の勾配も学習に戻す。</figcaption>
+    </figure>
+  </section>
+
+  <section id="mckp">
+    <div class="kicker">定式化</div>
+    <h2>予算配分は多肢選択ナップザック<span style="white-space:nowrap">問題になり、</span>双対変数 α を 1 つ決めれば配分が決まる</h2>
+    <p>処置は \(K\) 種類の報酬額で、利用者 \(i\) に処置 \(j\) を与えたときの反応（例：動画を投稿するか）の確率を \(v_{ij}\)、期待コストを \(c_{ij}\) とする。予測モデルは利用者の特徴から \(K\) 個の反応と \(K\) 個のコストを出力する DNN の S-Learner である。総予算 \(T\) のもとで \(M\) 人に処置を 1 つずつ割り当てる問題は、多肢選択ナップザック問題（MCKP）になる。</p>
+    <div class="eq">\[ \max_{x\in\{0,1\}^{M\times K}} \sum_{i=1}^{M}\sum_{j=1}^{K} v_{ij}x_{ij} \quad \text{s.t.}\quad \sum_{i,j} c_{ij}x_{ij} \le T,\qquad \sum_{j} x_{ij} = 1 \;\;(i=1,\dots,M) \]</div>
+    <p>MCKP は NP 困難だが、論文は先行研究（LBCF、<a href="../lbcf/">解説</a>）や DRP にならい、整数条件を外した線形緩和の双対問題を解く。双対問題の変数は \(\alpha \ge 0\) の 1 つだけで、二分探索などで求まる。\(\alpha\) が決まれば、各人には「反応 − α × コスト」が最大になる処置を割り当てる。</p>
+    <div class="eq">\[ \min_{\alpha\ge 0}\; \alpha T + \sum_{i=1}^{M}\max_j\,(v_{ij} - \alpha c_{ij}), \qquad x^*_{ij} = 1 \iff j = \arg\max_k\,(v_{ik} - \alpha^* c_{ik}) \]</div>
+    <p>二段階法は予測モデルを反応とコストの当てはまり（交差エントロピーなどの損失 \(L_{\mathrm{SL}}\)）だけで学習し、その予測をこの式に入れる。</p>
+  </section>
+
+  <section id="regularizer">
+    <div class="kicker">手法 1</div>
+    <h2>予算内で得られる1人あたりの反応 Q を RCT データから推定し、学習の正則化項にする</h2>
+    <p>\(\alpha\) を 1 つ決めると上の規則で配分 \(x\) が決まる。相補性条件から、この \(x\) は総予算を \(\sum c_{ij}x_{ij}\) とした MCKP の最適解でもある。つまり、\(\alpha\) を動かすことは予算を動かすことに当たる。</p>
+    <p>配分の成果は Expected Outcome Metric（EOM）という方法で RCT データから推定する。RCT で実際に受けた処置 \(t_i\) が、モデルの配分と一致した人の集合を \(\mathcal S_\alpha\) とし、その人たちの観測値を平均して1人あたりの反応とコストを求める。</p>
+    <div class="eq">\[ V(v,c,\alpha) = \frac{1}{|\mathcal S_\alpha|}\sum_{i\in\mathcal S_\alpha} y_i, \qquad C(v,c,\alpha) = \frac{1}{|\mathcal S_\alpha|}\sum_{i\in\mathcal S_\alpha} z_i \]</div>
+    <p>\(\alpha\) を 0 から大きくすると予算が減り、\(C\) と \(V\) の組が図2のような曲線を描く。論文の Algorithm 1 は、\(C\) が1人あたりの予算 \(T/B\) に一致する \(\alpha\) を二分探索で探し、そのときの \(V\) を <span class="B">\(Q(v,c)\)</span> とする。\(Q\) は、与えられた予算で予測モデルの配分がどれだけの反応を生むかの推定値である。</p>
+    <p>学習では、1 回に \(B = 10{,}000\) 人の RCT データを使い、予測の損失から \(\lambda\) 倍の \(Q\) を引いた目的を最小にする。\(\lambda = 0\) なら二段階法の学習と同じになる。</p>
+    <div class="eq">\[ L_R(\theta) = {\color{#C2410C}{L_{\mathrm{SL}}(\theta)}} \;-\; \lambda\cdot {\color{#1D4ED8}{Q(v,c)}} \]</div>
+    <figure style="max-width:28rem">
+      <img src="assets/fig1_cost_curve.png" alt="Example sensitivity curve from marketing data: x-axis is the empirical per-capita cost C(v, c, alpha) from 0.8 to 2.0, y-axis the empirical per-capita business goal V(v, c, alpha) from 0.60 to 0.90. The curve rises steeply from about cost 1.0 and flattens toward cost 1.8, showing diminishing returns. The alpha symbol is missing from the axis labels in the original figure." loading="lazy">
+      <figcaption>図2　マーケティングデータでの1人あたりコスト（横軸）と1人あたりの事業目標（縦軸）の曲線の例（論文 Fig. 1、CC BY-NC-SA 4.0）。軸の記号 \(V(v,c,\alpha)\)、\(C(v,c,\alpha)\) の \(\alpha\) は、論文の図では表示されていない。論文の脚注によると、推定にノイズがあるため曲線は厳密に単調とは限らない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="gradient">
+    <div class="kicker">手法 2</div>
+    <h2>Q は微分できないので、勾配を有限差分か NES で推定し、代理損失で逆伝播する</h2>
+    <p>\(Q\) の計算には二分探索、argmax、集合の選び出しが入るので、自動微分では正しい勾配が得られない。論文は \(Q\) をブラックボックス関数として扱い、予測値 \(v\)（と \(c\)）についての勾配を 2 通りの方法で推定する。</p>
+    <ul class="def">
+      <li><b>有限差分（Ours-FD）</b>：予測行列の 1 成分を \(\pm h\) だけ動かして \(Q\) の差を取る。全 \(B\times K\) 成分を計算すると \(Q\) を \(2BK\) 回評価することになるので、毎回 \(F'\) 個の成分だけを無作為に選び、残りは 0 とする。</li>
+      <li><b>自然進化戦略（Ours-NES）</b>：正規分布の乱数方向 \(\delta_i\) に予測を動かし、\(\tfrac{1}{\sigma N'}\sum_i \delta_i\,Q(v+\sigma\delta_i, c)\) で勾配を推定する。符号を反転した方向を対にして（antithetic sampling）分散を減らす。計算は軽いが、推定した勾配にはノイズが乗る。</li>
+    </ul>
+    <p>得られるのは \(v, c\) についての勾配で、モデルのパラメータ \(\theta\) についての勾配ではない。そこで論文は推定した勾配を定数として扱う代理損失を作る。</p>
+    <div class="eq">\[ L_S(\theta) = L_{\mathrm{SL}}(\theta) - \lambda\,\mathrm{Tr}\!\left[v^{\top}\,\mathrm{sg}\!\left(\tfrac{\partial Q}{\partial v}\right)\right] - \lambda\,\mathrm{Tr}\!\left[c^{\top}\,\mathrm{sg}\!\left(\tfrac{\partial Q}{\partial c}\right)\right] \]</div>
+    <p>\(\mathrm{sg}\) は勾配を止める操作である。第 2 項と第 3 項は出力 \(v, c\) の線形結合なので、通常の逆伝播で \(\theta\) まで勾配を流せる。論文は、\(L_S\) と \(L_R\) の \(\theta\) についての 1 次の勾配が一致すると述べている。なお論文の式では、\(L_S\) の第 1 項は \(L_{\mathrm{SL}}\) ではなく \(L_{\mathrm{CE}}\) と書かれている。</p>
+    <p>（解説者の注）EOM を損失とみなして有限差分で勾配を推定する考え方は、DFCL（<a href="../dfcl/">解説</a>）の改良有限差分（DFCL-IFD）にも出てくる。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>合成データ、CRITEO-UPLIFT v2、快手の報酬データの 3 つで評価した</h2>
+    <ul class="def">
+      <li><b>合成データ</b>：RCT の利用者 10,000 人、処置 4 種類（コストは処置 \(j\) で \(j\)）。特徴量はなく、勾配の推定と EOM の働きを確かめるために使う。予測モデルは学習せず、予測行列 \(v\) を直接 Adam で 100 ステップ動かして \(Q\) を大きくする。1人あたりの予算は 2.0。</li>
+      <li><b>CRITEO-UPLIFT v2</b>：広告の RCT データ（1,390 万件、特徴量 12 個）。処置は広告を出すかどうかの二値で、DRP の論文にならい訪問をコスト、コンバージョンを価値とする。7:3 に分け、AUCC で比べる。比較手法の値は DRP の論文から引用し、提案法は 20 回実行している。</li>
+      <li><b>KUAISHOU-PRODUCE-COIN</b>：投稿者に「24 時間以内に動画を投稿すればコインをもらえる」課題を出す施策の、1 週間の RCT データ（8,240 万件）。コインは 30 段階で（\(K = 30\)）、反応は課題を達成したかどうか、コストは達成したときに実際に渡したコイン数である。数値は正規化して報告されている。</li>
+    </ul>
+    <p>Criteo と快手の実験では、ベースの MLP（512-256-128-64）の上に処置ごとの出力を載せた同じ構成を使い、\(Q\) を評価する1人あたり予算は学習のステップごとに一定の範囲から無作為に選ぶ。主な比較相手は同じ DNN の S-Learner を予測の損失だけで学習する二段階法 TSM-SL である。</p>
+    <p class="src">このページの数値は arXiv v1（2023 年 2 月 9 日）の本文、表、図のキャプションによる。2026 年 11 月の時点で、出版版は確認できなかった。論文はコードを公開予定としているが、公開先は確認できなかった。</p>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">実験の結果 1</div>
+    <h2>合成データでは推定した勾配で <span style="white-space:nowrap">Q を 0.1996 から</span> 0.2141 に上げられた</h2>
+    <p>真の反応確率と真のコストを使った場合の \(Q\) は 0.2123 である。無作為に作った初期の予測行列では \(Q = 0.1996\) で、NES で推定した勾配を Adam に入れて 100 ステップ更新すると 0.2141 になった。論文は NES のサンプル方向の数 \(N'\) を増やすほど、推定した勾配と正確な勾配（有限差分で全成分を計算したもの）のコサイン類似度が高くなることも図で示している。</p>
+    <p>更新後の値は真の値を使った場合の 0.2123 を上回っている。論文は、データが 10,000 件しかないので Adam が学習データに強く過学習しうると述べ、予算 2.0 の付近に山ができる可能性を指摘している。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig2a_synthetic_initial.png" alt="Synthetic data, initial v: per-capita value (y, 0 to 0.4) against per-capita cost (x, 1 to 4). A smooth increasing curve from about 0.05 at cost 1 to about 0.35 at cost 4." loading="lazy">
+        <figcaption>図3a　初期の予測行列での1人あたりコストと1人あたりの価値（論文 Fig. 2(c)、CC BY-NC-SA 4.0）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig2b_synthetic_optimized.png" alt="Synthetic data, optimized v after 100 gradient ascent steps: the same axes. The curve is nearly identical to the initial one except for a small bump around per-capita cost 2.0, the budget used in Q." loading="lazy">
+        <figcaption>図3b　100 ステップ更新したあとの同じ曲線（論文 Fig. 2(d)、CC BY-NC-SA 4.0）。\(Q\) を評価する予算 2.0 の付近だけが持ち上がっている。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="criteo">
+    <div class="kicker">実験の結果 2</div>
+    <h2>CRITEO-UPLIFT v2 では提案法の AUCC が DRP と二段階法を上回った</h2>
+    <p>Table 1 の AUCC は、有限差分版（Ours-FD）が 0.7904 ± 0.0096、NES 版（Ours-NES）が 0.7849 ± 0.0167 で、DRP の 0.7739 ± 0.0002、Direct Rank の 0.7562 ± 0.0131、TSM-SL の 0.7561 ± 0.0113 を上回った。論文は 20 回の実行の平均と分散を報告するとしている。</p>
+    <p>有限差分版のほうが AUCC は高いが、\(Q\) を評価する回数が多いため学習に時間がかかり、NVIDIA Tesla T4 GPU で 17.6 時間と、NES 版の 4.3 時間の約 4 倍だった。なお本文では、20 回の実行でばらつきが最も大きいのは Ours-FD だとし、その理由を NES の勾配のノイズで説明しているが、表で ± の値が最も大きいのは Ours-NES となっている。</p>
+    <figure>
+      <svg class="fig" id="fig-aucc" viewBox="0 0 640 300" role="img" aria-label="論文 Table 1 の横棒グラフ。CRITEO-UPLIFT v2 の AUCC。TSM-SL 0.7561、Direct Rank 0.7562、DRP 0.7739、Ours-NES 0.7849、Ours-FD 0.7904。横軸は 0.74 から 0.80。"></svg>
+      <figcaption>図4　CRITEO-UPLIFT v2 の AUCC（論文 Table 1 の数値から解説者が作図）。棒は平均値で、横軸は 0.74 から始まる。<span class="A">橙</span>は二段階法、灰は他の比較手法、<span class="B">青</span>は提案法。</figcaption>
+    </figure>
+  </section>
+
+  <section id="kuaishou">
+    <div class="kicker">実験の結果 3</div>
+    <h2>快手のオンライン A/B テストではコストを増やさずに1人あたりの反応が 1.24% 増えた</h2>
+    <p>オフライン実験では利用者を 8:2 に分け、1人あたりコストが 1.2 のときの1人あたり反応を EOM と二分探索で求めて比べた。\(\lambda\) を 0 から 5000 まで 13 通りに変え、各値で 4 回学習した平均を図5に示す。論文によると、\(\lambda \le 200\) では \(\lambda\) とともに反応が増え、\(\lambda \ge 500\) では学習が不安定になって TSM-SL より悪くなった。\(\lambda\) が大きすぎると正則化項が目的を支配し、予測値が真の値から離れるためだと論文は説明している。</p>
+    <p>オンライン実験では、全データで学習し直した Ours-FD（\(\lambda = 200\)）と TSM-SL を、学習データと重ならない 1,420 万人を半分ずつに分けて 1 週間比べた。この比較では EOM を使わず、各群 710 万人の実績から1人あたりの値を計算している。TSM-SL と比べて、1人あたりの反応は 1.24% 高く、1人あたりのコストは 0.369% 低かった。論文はこの改善を大きいと評価し、提案法が数億人の予算配分に使われていると述べている。</p>
+    <figure style="max-width:28rem">
+      <img src="assets/fig3_lambda.png" alt="Offline result on KUAISHOU-PRODUCE-COIN: per-capita response (y, about 0.748 to 0.785) against lambda on a log scale from 1 to 5000. The curve is flat near 0.7795 for small lambda, rises to a peak of about 0.784 at lambda 200, then falls steeply to about 0.748 at lambda 5000." loading="lazy">
+      <figcaption>図5　正則化の重み \(\lambda\)（対数軸）と、1人あたりコスト 1.2 のときの1人あたり反応（論文 Fig. 3、CC BY-NC-SA 4.0）。\(\lambda = 0\)（TSM-SL と同じ）は対数軸に載らないため図にない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は MCKP の制約として明示し、その予算内の成果を学習の目的に入れる</h2>
+    <p>この論文が推定するのは、処置ごとの反応の確率 \(v_{ij}\) と期待コスト \(c_{ij}\) で、どちらも 1 つの DNN の S-Learner が出力する。処置の効果は \(v_{ij}\) どうしの差として間接的に表される。コストは処置によって変わり、利用者ごとにも推定する。快手のデータでは課題を達成したときにだけコインを渡すので、コストは反応に依存する。Criteo では訪問をコストとしている。</p>
+    <p>処置は多値（快手では 30 段階のコイン）で、Criteo の実験だけが二値である。学習には RCT データを使い、観察データの利用は今後の課題としている。</p>
+    <p>予算制約は総額の上限として MCKP に明示する。配分は線形緩和の双対で求め、双対変数 \(\alpha\) を二分探索で決めて、1人あたりのコストを予算に合わせる。学習のステップごとに、\(Q\) を評価する予算を一定の範囲から無作為に選んでいる。</p>
+    <p>（解説者の注）処置が二値なら、規則「\(v - \alpha c\) が最大の処置を選ぶ」は、増分の比 \(\Delta v / \Delta c\) が \(\alpha\) を上回る人に配ることと同じで、ROI の高い順に予算が尽きるまで配る割当て（ナップザック問題の連続緩和）に当たる。多値の場合も \(\alpha\) はコスト 1 単位あたりの価格として働く。この論文はこの割当ての規則そのものは変えず、規則に入れる予測 \(v, c\) を、予算内の成果 \(Q\) が大きくなるように学習する。比を直接学習する DRP（<a href="../drp/">解説</a>）とは、そこが違う。同じ決定志向の系統の解説として、ほかに <a href="../dfcl/">DFCL</a>、<a href="../e3ir/">E3IR</a>、<a href="../bi-dfcl/">Bi-DFCL</a> がある。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{yan2023endtoend,
+  title         = {An End-to-End Framework for Marketing Effectiveness Optimization under Budget Constraint},
+  author        = {Yan, Ziang and Wang, Shusen and Zhou, Guorui and Lin, Jingjian and Jiang, Peng},
+  year          = {2023},
+  eprint        = {2302.04477},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2302.04477},
+  url           = {https://arxiv.org/abs/2302.04477}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 4: Table 1 of the paper (arXiv v1), AUCC on CRITEO-UPLIFT v2 ----------
+(function () {
+  var svg = document.getElementById('fig-aucc'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var rows = [
+    ['TSM-SL', 0.7561, '#C2410C'], ['Direct Rank', 0.7562, '#CBD2DC'], ['DRP', 0.7739, '#CBD2DC'],
+    ['Ours-NES', 0.7849, '#1D4ED8'], ['Ours-FD', 0.7904, '#1D4ED8']
+  ];
+  var X0 = 140, X1 = 560, LO = 0.74, HI = 0.80, Y0 = 30, DY = 44;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [0.74, 0.76, 0.78, 0.80].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 12, y2: Y0 + DY * 5 - 4, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 5 + 16, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v.toFixed(2));
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 12, y: y + 17, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('rect', { x: X0, y: y, width: px(r[1]) - X0, height: 26, rx: 4, fill: r[2] });
+    el('text', { x: px(r[1]) + 8, y: y + 18, 'font-size': 15, fill: '#16202E' }, r[1].toFixed(4));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 5 + 42, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'AUCC（20 回の平均）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

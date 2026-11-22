@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UpliftBench：アップリフト評価における指標のずれ（論文解説）</title>
+<meta name="description" content="UpliftBench: Revealing Outcome-Regime and Objective Mismatch in Uplift Evaluation（arXiv 2026）の非公式の解説。どのアップリフトモデルが勝つかは、評価指標の選び方で入れ替わる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the proxy ranking metrics a practitioner selects by (Qini above all) and
+                         rank-only selection that ignores the score level
+            --b  (blue)   = the reference objective (effect accuracy -sqrt(PEHE), policy risk / value)
+                         and what tracks it (AUUC on IHDP, direct policy-risk selection, calibrated threshold)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+/* ---------- tables (this page) ---------- */
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+.tblwrap.wide { max-width: var(--wide); }
+.tbl { border-collapse: collapse; font: 0.9rem/1.5 var(--font-en); font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; vertical-align: top; }
+.tbl thead th { font-weight: 600; color: var(--muted); border-bottom: 1.5px solid var(--ink); font-family: var(--font-ja); }
+.tbl tbody th { text-align: left; font-weight: 600; font-family: var(--font-ja); }
+.tbl small { display: block; font-size: 0.75rem; color: var(--muted); font-family: var(--font-ja); }
+.tnote { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+.tbl td.A { color: var(--a); font-weight: 600; } .tbl td.B { color: var(--b); font-weight: 600; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv 2026</div>
+  <h1>UpliftBench: Revealing Outcome-Regime and Objective Mismatch in Uplift Evaluation</h1>
+  <p class="subtitle">UpliftBench：アップリフト評価における、アウトカムの型と目的のずれを明らかにする</p>
+
+  <ul class="authors">
+    <li><b>Binshuang Li</b><span>Independent Researcher, USA</span></li>
+  </ul>
+
+  <p class="lead">アップリフトモデルを選ぶときは、反実仮想が観測できないため、<span class="A">Qini や AUUC などの代理指標</span>で候補を並べる。この論文は 12 の推定量を 7 系統のデータで同時に採点し、代理指標が<span class="B">効果推定の正確さや方策の価値</span>からずれる場面が 2 種類あることを示す。一つは連続アウトカムの IHDP で Qini の順位が効果推定の正確さとほぼ無関係になること、もう一つは符号で配る方策を選ぶとき順位だけを見る指標では足りないことである。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/pdf/2608.00915">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2608.00915">arXiv</a>
+    <a class="btn" href="https://github.com/binshuangli/uplift-bench">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。Qini でモデルを選ぶ従来のやり方、IHDP での指標と効果推定の正確さの順位相関、スコアをずらすと符号で配る相手が変わる模式図、Jobs でのモデル選択の改善量、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">+0.07 対 +0.56</span><span class="d">IHDP の 100 実現値で、効果推定の正確さ（\(-\sqrt{\mathrm{PEHE}}\)）との順位相関の平均。Qini は 95% 区間 [−0.03, +0.16] で 0 と区別できず、AUUC との差は +0.49 [+0.40, +0.59]。</span></li>
+    <li><span class="k">後悔 14〜15%</span><span class="d">Jobs で Qini・AUUC・uplift@k によってモデルを選んだときの方策リスクの後悔（最良候補のリスクに対する割合）。ランダムに選んだ場合と区別できなかった。</span></li>
+    <li><span class="k">閾値の較正で 81% 減</span><span class="d">0 で区切る代わりに選択用のデータで閾値を較正すると、Qini で選んだときの後悔が 0.0253 から 0.0049 に下がった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>反実仮想が観測できないので、アップリフトモデルは Qini や AUUC などの代理指標で選ばれている</h2>
+    <p>小売のデータ分析チームがキャンペーンに使うアップリフトモデルを選ぶ場面を考える。どの顧客についても、処置したときとしないときの両方の結果は観測できない。そこで実験データから計算できる<span class="A">代理指標</span>、多くは Qini 係数か uplift 曲線の下の面積（AUUC）で候補を並べる。代理指標で高く評価されたモデルは実際の目的にも合う、という暗黙の前提がある。</p>
+    <p>論文は、公開されているアップリフトのベンチマークどうしで最良の推定量が食い違うのは、モデルよりも<strong>指標</strong>の違いによるところが大きいと主張する。指標は「効果の推定値の正確さ」「顧客の並び順の良さ」「その順位で配ったときの価値」のどれを問うかを暗に決めていて、アウトカムの型や運用の目的に合わない指標を使うと、これらの問いの答えが食い違う。</p>
+  </section>
+
+  <section id="benchmark">
+    <div class="kicker">ベンチマークの設計</div>
+    <h2>12 の推定量を 7 系統 25 インスタンスのデータで、6 つの指標によって同じ手順で採点する</h2>
+    <p>推定量はメタ学習器 5 つ（S/T/X/R/DR）、クラス変換系 3 つ（ClassTrans、TwoModel、SoloModel）、uplift フォレスト 3 つ（KL/ED/\(\chi^2\)）、因果フォレストの計 12 である。メタ学習器とクラス変換系は LightGBM を共通の基本学習器として使い、頑健性の確認では XGBoost に差し替えている。</p>
+    <p>データは 7 系統 25 インスタンスからなる（論文 Table 1）。効果の真値が分かるのは、二値アウトカムの自作合成データと、連続アウトカムの IHDP（10 実現値）である。Jobs（LaLonde の職業訓練実験に PSID の観察データの対照群を合わせたデータの 10 通りの再分割、二値）では、ランダム化された実験部分で方策の価値を推定できる。Hillstrom・Lenta・X5・MegaFon の 4 つはマーケティングの RCT で、二値アウトカムだが反実仮想はない。Criteo は 25 インスタンスの集計の外の補足として扱われている。</p>
+    <p>指標は次の 6 つで、真値が必要な 2 つは使えるデータでだけ計算する。比べやすいように、誤差やリスクは符号を反転して「大きいほど良い」向きにそろえる。</p>
+    <ul class="def">
+      <li><strong>順位の指標</strong>：Qini（正規化しない）、AUUC、uplift@\(k\)（\(k = 0.3\)）。</li>
+      <li><strong>予算つき方策の指標</strong>：上位 \(k = 0.3\) の割合に処置したときの方策価値 PolicyValue@\(k\)。</li>
+      <li><strong>参照目的</strong>：\(\sqrt{\mathrm{PEHE}}\)（CATE 推定値の RMSE、合成データと IHDP）と、方策リスク \(R_{\mathrm{policy}}\)（Jobs）。</li>
+    </ul>
+    <p>方策リスクは推定値の符号で配る方策 \(\pi(x) = \mathbb{1}[\hat\tau(x) \ge 0]\) について、ランダム化された実験部分の逆確率重みづけで \(R_{\mathrm{policy}} = 1 - \widehat{\mathbb{E}}[Y(\pi)]\) と定める。PolicyValue@\(k\) は予算で上位を選ぶ方策の価値で、二つは別の量である。前処理・傾向スコアの推定・ハイパーパラメータ調整はすべて訓練用の分割の中で行う（3 分割交差検証を 3 つのシードで繰り返す。内側の調整での傾向スコアの扱いに一部例外があることは論文が開示している）。ただし内側の調整の目的はどのデータでも検証用の Qini で、論文はこの点を限界として明記している。</p>
+  </section>
+
+  <section id="f1">
+    <div class="kicker">発見 1（F1）</div>
+    <h2>連続アウトカムの IHDP では、Qini の順位が効果推定の正確さとほぼ無関係だった</h2>
+    <p>IHDP は実在の共変量に潜在アウトカムを模擬で付けたデータで、個人の処置効果が分かる。全 100 実現値で、モデル間の順位相関（スピアマン）を \(-\sqrt{\mathrm{PEHE}}\) と比べると、<span class="A">Qini は +0.07</span>（95% 区間 [−0.03, +0.16]）で、0 と区別できなかった。一方 <span class="B">AUUC は +0.56</span>、uplift@\(k\) は +0.64 だった。同じ実現値で対にした AUUC と Qini の差は +0.49 [+0.40, +0.59] で、100 実現値のうち 80 で正だった。モデルの組ごとに「指標が \(-\sqrt{\mathrm{PEHE}}\) と同じ向きに並べるか」を数えても、Qini は 1,500 組中 0.52 [0.49, 0.56] で偶然と区別できず、AUUC は 0.73 [0.69, 0.76] だった。</p>
+    <p>同じ IHDP で AUUC と uplift@\(k\) は効果推定の正確さと相関するので、論文はこの孤立を、順位の指標と効果推定の一般的なずれではなく Qini に特有の現象とみる。二値アウトカムでは Qini も普通の順位の指標として振る舞い、AUUC との順位相関は Jobs で 0.90、マーケティングで 0.72 だった。論文は、causalml が連続アウトカムでも警告なしに Qini を計算すること、売上のような連続アウトカムがアップリフトで実際に使われていることを挙げ、気づかれにくい問題だとしている。</p>
+    <figure>
+      <img src="assets/fig1_metric_agreement.png" alt="Three heatmaps of mean Spearman rank correlation between metrics across models. (a) On the 10 IHDP continuous instances, Qini barely correlates with AUUC, uplift-at-k or negative root PEHE, while AUUC and uplift-at-k correlate with each other and with negative root PEHE. (b) On 15 binary instances, the ranking metrics agree strongly with each other. (c) On the 10 Jobs splits, every ranking metric correlates negatively with negative policy risk." loading="lazy">
+      <figcaption>図1　指標どうしの順位相関の平均（論文 Fig. 1）。(a) IHDP の 10 実現値、(b) 二値アウトカムの 15 インスタンス、(c) Jobs の 10 分割。相関はインスタンスごとにモデル間で計算し、インスタンスについて平均している。</figcaption>
+    </figure>
+    <p>Qini と AUUC の関係は式で書ける。予測した効果の大きい順に並べ、上位 \(k\) 人までの処置群・対照群の人数を \(T_k, C_k\) とする。Qini が積分する累積の和 \(g(k)\) と、AUUC が積分する平均の差 \(u(k)\) のあいだには、次の恒等式が成り立つ（論文の Lemma 5.1）。</p>
+    <div class="eq">\[ g(k) = \sum_{i \le k} y_i t_i - \frac{T_k}{C_k}\sum_{i \le k} y_i (1 - t_i) = T_k\, u(k) \]</div>
+    <p>Qini は AUUC の対比を処置群の累積人数 \(T_k\) で重みづけしたものにあたる。さらにベースラインを引くと、モデルの並びが処置群と対照群をどう混ぜるかに依存する項が加わる。論文はこれを F1 が起こりうる経路として示すが、IHDP での Qini と AUUC の食い違いを完全に説明するものではないとしている。手で確かめられる 12 人の例（論文 Table 9）では、対照群に一人だけ大きな結果（\(y = 40\)）があるだけで、Qini は真値に近いモデル B（\(\sqrt{\mathrm{PEHE}} = 0.06\)）より、ほぼでたらめなモデル A（1.24）を高く評価する（\(Q_A = -1.18\)、\(Q_B = -1.63\)）。この一人の結果を 0 にすると、Qini は B を選ぶようになる（\(-1.54\) 対 \(+1.13\)）。</p>
+    <p class="src">IHDP の主な 10 実現値では、Table 6 は Qini +0.02、AUUC +0.65、差 +0.63 [+0.35, +0.91] としている。一方、Fig. 1 の説明文と 5.1 節の本文は Qini −0.15、AUUC +0.68 となっている。このページの数値はすべて arXiv v1（2026 年 8 月 2 日）による。</p>
+  </section>
+
+  <section id="f1-boundary">
+    <div class="kicker">F1 の範囲</div>
+    <h2>ただし F1 は 3 つの連続系統のうち IHDP でしか現れず、裾の重さでは説明できない</h2>
+    <p>論文は、効果の真値が分かる連続アウトカムの系統を 2 つ加えて F1 の範囲を確かめた。ACIC 2016（18 インスタンス）と、対数正規の支出に乗法的な効果を持たせた Revenue-Synthetic（10 実現値）である。どちらでも Qini は効果推定の正確さとそれなりに相関し、AUUC との差は 0 と区別できなかった。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>系統</th><th>Qini \(\rho\)</th><th>AUUC \(\rho\)</th><th>差 \(\Delta\)（AUUC − Qini）</th><th>超過尖度</th></tr></thead>
+        <tbody>
+          <tr><th>IHDP<small>100 実現値</small></th><td class="A">+0.07<small>[−0.03, +0.16]</small></td><td>+0.56</td><td>+0.49<small>[+0.40, +0.59]</small></td><td>0.3<small>中央値</small></td></tr>
+          <tr><th>ACIC 2016<small>18 インスタンス</small></th><td>+0.48<small>[+0.25, +0.68]</small></td><td>+0.55<small>[+0.34, +0.73]</small></td><td>+0.11<small>[−0.03, +0.25]</small></td><td>≈0.4</td></tr>
+          <tr><th>Revenue-Synthetic<small>10 実現値</small></th><td>+0.39<small>[+0.00, +0.73]</small></td><td>+0.37<small>[−0.01, +0.70]</small></td><td>−0.02<small>[−0.19, +0.17]</small></td><td>44<small>中央値（19〜109）</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tnote">\(\rho\) は \(-\sqrt{\mathrm{PEHE}}\) との順位相関の平均、角括弧は 95% 区間。超過尖度は観測されたアウトカムのもの（IHDP の主な 10 実現値では中央値 −0.4）。論文 5.3 節と付録の数値から解説者が表にまとめた。</p>
+    <p>F1 が現れた IHDP はむしろ裾が軽く、裾の最も重い Revenue-Synthetic では Qini は効果推定の正確さと相関した。論文はここから、裾の重さは F1 の必要条件でも十分条件でもないと結論している。アウトカムの分布だけを変える統制実験でも、裾が重くなると Qini と AUUC は<strong>そろって</strong>悪化し、Qini だけが孤立する現象は再現しなかった。アウトカムを正の定数倍したり定数を足したりしても、どの指標の順位も変わらないことは証明されている（論文の Prop. D.1）。</p>
+    <p>F1 は分析上の選択にも左右されなかった。ハイパーパラメータ調整を止めても差は +0.55 [+0.33, +0.77]、内側の調整の目的を AUUC に替えても +0.56 [+0.34, +0.78] で、DR 学習器や R 学習器を除いても、XGBoost に替えても差は正のままで、causalml 付属の Qini で計算し直しても結果は変わらなかった。一方、F1 がなぜ IHDP でだけ起きるのかは分かっていない。論文は「Qini は IHDP では役に立たないが、それは裾が重いからではなく、理由はまだ言えない」と書き、新しいデータで Qini を検証なしに信頼すべきでない根拠としている。</p>
+  </section>
+
+  <section id="f2">
+    <div class="kicker">発見 2（F2）</div>
+    <h2>推定値の符号で配る方策を選ぶとき、順位だけを見る指標はスコアの水準を捨てるので足りない</h2>
+    <p>順位だけに依存する指標は、スコアに一律に定数を足しても値が変わらない。一方、\(\hat\tau(x) \ge 0\) なら処置する方策は、定数を足すと処置する相手が変わる。したがって、並び順が同じでスコアの水準だけが違う 2 つのモデルを、順位の指標は区別できない（論文の Prop. 5.3）。符号で配るときに最良のモデルを選ぶには、スコアの水準（較正や明示的な閾値）が要る。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="模式図。8人のスコアを数直線上に並べる。モデルBはモデルAのスコアを一律に0.6だけ小さくしたもので、並び順は同じ。0の閾値で区切ると、Aは6人、Bは3人に処置する。順位の指標は2つのモデルに同じ値を与える。">
+        <line x1="60" y1="110" x2="600" y2="110" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="60" y1="220" x2="600" y2="220" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="330" y1="40" x2="330" y2="262" stroke="#16202E" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="330" y="30" font-size="15" fill="#16202E" text-anchor="middle">閾値 <tspan class="mi">τ̂</tspan> = 0</text>
+        <text x="60" y="76" font-size="16" font-weight="600" fill="#16202E">モデル A</text>
+        <text x="60" y="186" font-size="16" font-weight="600" fill="#16202E">モデル B = A − 0.6</text>
+        <g id="dotsA"></g>
+        <text x="600" y="76" font-size="15" fill="#1D4ED8" text-anchor="end">6 人に処置</text>
+        <text x="600" y="186" font-size="15" fill="#1D4ED8" text-anchor="end">3 人に処置</text>
+        <text x="320" y="290" font-size="15" fill="#5B6676" text-anchor="middle">並び順は同じなので、Qini・AUUC・uplift@<tspan class="mi">k</tspan> は等しい</text>
+      </svg>
+      <figcaption>図2　順位の指標がスコアの水準を見ないことの模式図（論文の Prop. 5.3 を解説者が図にしたもの）。スコアの値とずらす量 0.6 は解説者が置いた例。<span class="B">●</span> 処置する、<span style="color:#9AA5B4">●</span> 処置しない。</figcaption>
+    </figure>
+    <p>Jobs はこの違いが実際に現れたデータである。2 つの繰り返しシードで選び、残り 1 つのシードで評価する回し方で、ランダムに選ぶ場合と比べた方策リスクの減り方を測った。<span class="B">方策リスクそのもので選ぶ</span>と 0.0209（95% 区間 [0.0071, 0.0358]）減り、区間は 0 を含まなかった。<span class="A">Qini・AUUC・uplift@\(k\) で選ぶ</span>と減り方は −0.0070、−0.0070、−0.0050（負はリスクが増えたことを表す）で、どれも 0 と区別できなかった。Jobs には方策を選ぶための信号があるのに、順位の指標はそれを拾えていないことになる。</p>
+    <p>順位の指標で選んだモデルの後悔（参照で選んだ最良候補とのリスクの差）は 0.026〜0.028 で、最良候補のリスクの 14〜15% にあたる。0 で区切る代わりに、選択用のデータで方策リスクが最小になる閾値をモデルごとに選ぶと、Qini で選んだときの後悔は 0.0253 [0.0064, 0.0437] から 0.0049 [−0.0082, 0.0198] に 81% 減った。論文はこれを最も直接に使える提言としている。符号で配るなら、順位の指標と、較正した閾値を組み合わせる。</p>
+    <p>論文自身はこの証拠を「控えめ」と評価している。Jobs の 10 インスタンスは同じ標本の再分割で、選択・較正・評価が同じ観測を使う。逆確率重みづけのリスクは標準誤差が約 0.023 と後悔と同じ程度に大きく、分割間の依存 \(\bar\rho\) が 0.12 を超えると後悔の区間は 0 を含む。このため F2 は Prop. 5.3 による構造的な議論、選び方の対比、閾値の較正という互いに支え合う結果の上に置かれている。</p>
+  </section>
+
+  <section id="f2-budget">
+    <div class="kicker">F2 の範囲</div>
+    <h2>予算で上位 \(k\) 割に配る目的なら、順位の指標でも方策を選べた</h2>
+    <p>F2 は目的に固有の現象である。参照と目的の両方を、決まった予算 \(k\) での方策価値にすると、どの選び方もランダムより良くなり、指標で選んだときの後悔はどの予算でも 0 と区別できなかった（\(k = 0.3\) で Qini の後悔は −0.002 [−0.004, +0.002]、ランダムに対する改善は +0.007 [+0.006, +0.009]）。予算で上位を選ぶなら並び順で足り、符号で配るなら水準が要る。論文はこれを「指標は意図する運用ルールに合わせなければならない」理由としている。</p>
+    <p>なお、方策リスクを参照にしたままなら、選択に使う予算 \(k\) を 0.1 から 0.5 まで変えても F2 の後悔は正で、区間は 0 を含まなかった（\(k = 0.1\) で 0.029、\(0.5\) で 0.027）。また、マーケティングの RCT では予算ごとに最良のモデルが入れ替わる（図3）。</p>
+    <figure>
+      <img src="assets/fig2_policy_value_budget.png" alt="Four line charts of estimated policy value against the targeting budget k (fraction treated) for six estimators on Hillstrom, Lenta, MegaFon and X5. The lines cross, so the best model changes with the budget." loading="lazy">
+      <figcaption>図3　マーケティングの RCT 4 つでの、予算 \(k\)（処置する割合）と方策価値（論文 Fig. 5）。論文の説明では、Hillstrom で最良のモデルは \(k = 0.1\) の ClassTrans から \(k = 0.9\) の SoloModel に変わる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="guide">
+    <div class="kicker">実務への示唆</div>
+    <h2>先にアウトカムの型と配り方に合う指標を決め、それからモデルを選ぶ</h2>
+    <p>論文は実務向けの手順を次のようにまとめている（論文 6 節と付録）。</p>
+    <ul class="def">
+      <li><strong>アウトカムの型に合わせる</strong>：連続アウトカムでは正規化しない Qini を唯一の基準にしない。効果の真値が分かるか模擬できるなら \(\sqrt{\mathrm{PEHE}}\) を使い、そうでなければ自分のデータで Qini と AUUC の順位を比べ、食い違うなら勝者を不安定とみなす。二値アウトカムでは Qini を順位の指標として使ってよい。</li>
+      <li><strong>運用の目的に合わせる</strong>：決まった人数で上位に配るなら順位の指標で足りる。符号で配るなら、選択用のデータで較正した閾値と組み合わせる。予算制約のある割当てではその予算での方策価値を直接評価し、配る量が効果の大きさに依存するなら較正も確かめる。</li>
+      <li><strong>推定量の向き不向き</strong>：この論文の小さな分割では R/DR 学習器が数値的に不安定になることがあり、単純な学習器が健闘した。単純なベースラインを含める。</li>
+      <li><strong>複数のデータで確かめる</strong>：1 つのデータでの順位は、他のデータにはあまり引き継がれない。</li>
+    </ul>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>人数の割合で表した予算での方策価値を評価に含めるが、処置コストは扱わない</h2>
+    <ul class="def">
+      <li><strong>何を推定するか</strong>：新しい推定量は提案しない。12 の既存の推定量が出す CATE \(\hat\tau(x)\) を、どの指標で比べるべきかを調べる評価の論文である。</li>
+      <li><strong>コストの扱い</strong>：処置コストは出てこない。アウトカムは二値か連続（IHDP の模擬アウトカム、Revenue-Synthetic の支出）で、費用を差し引いた利益にはしていない。</li>
+      <li><strong>処置の種類</strong>：二値（処置する・しない）。</li>
+      <li><strong>予算制約の扱い</strong>：予算は「上位 \(k\) の割合に処置する」という人数の割合で表され、PolicyValue@\(k\) として評価に入る（\(k \in \{0.1, 0.2, 0.3, 0.5\}\) など）。金額の予算や、一人ごとに違うコストの合計への上限は扱っていない。予算つきの方策価値を目的にすると順位の指標で足り、F2 が消えることを示している。</li>
+    </ul>
+    <p>一人あたりのコストが全員同じなら、ROI（増分 ÷ コスト）の順は \(\hat\tau\) の順と一致するので、ナップザック問題の連続緩和の解は「\(\hat\tau\) の大きい順に予算まで配る」になる。この場合は、予算で上位を選ぶ目的なら順位で足りるという論文の結果と整合する。一方、予算の制約が効かずに緩和の閾値（ラグランジュ乗数）が 0 になる場合は、「\(\hat\tau > 0\) なら配る」という符号の方策に戻るので、F2 の議論のとおりスコアの水準が要る。コストが一人ごとに違う場合は、ROI の順と \(\hat\tau\) の順は一般に一致しない。そのため、\(\hat\tau\) の順位だけを測る Qini・AUUC・PolicyValue@\(k\) で選んだモデルが、ROI 順の割当てで良いとは限らない（解説者の注）。この論文はコストを含む指標を扱っておらず、この点は検証されていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{li2026upliftbench,
+  title         = {UpliftBench: Revealing Outcome-Regime and Objective Mismatch in Uplift Evaluation},
+  author        = {Li, Binshuang},
+  year          = {2026},
+  eprint        = {2608.00915},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2608.00915},
+  url           = {https://arxiv.org/abs/2608.00915}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 2: schematic, model B = model A - 0.6, sign threshold at 0 (explainer's toy values) ----------
+(function () {
+  var g = document.getElementById('dotsA'); if (!g) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); g.appendChild(e); return e; }
+  var A = [-0.9, -0.5, 0.15, 0.3, 0.45, 0.7, 1.0, 1.3];
+  var X0 = 330, U = 180;   // x of score 0, px per unit score
+  [[A, 110], [A.map(function (v) { return v - 0.6; }), 220]].forEach(function (r) {
+    r[0].forEach(function (v, i) {
+      var x = X0 + v * U;
+      el('circle', { cx: x, cy: r[1], r: 10, fill: v >= 0 ? '#1D4ED8' : '#CBD2DC' });
+      var t = el('text', { x: x, y: r[1] + 32, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' });
+      t.textContent = 8 - i;
+    });
+  });
+  var lab = el('text', { x: 60, y: 150, 'font-size': 13, fill: '#5B6676' }); lab.textContent = '数字は順位';
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -86,6 +86,7 @@ papers:
     year: 2022
     venue: "INFORMS J. Data Science"
     url: "https://arxiv.org/abs/2104.04103"
+    explainer: decision-vs-estimation
     code: ""
     category: foundation
     treatment: 二値
@@ -133,6 +134,7 @@ papers:
     year: 2023
     venue: "EJOR"
     url: "https://doi.org/10.1016/j.ejor.2022.03.049"
+    explainer: cost-sensitive-causal
     code: ""
     category: two-stage
     treatment: 二値
@@ -152,9 +154,10 @@ papers:
     note: ニューラルネットで拡張したロジット型の需要曲線で反応を予測し、セグメント間で予算を配分する
   - title: "Uplift modeling with continuous treatments: A predict-then-optimize approach"
     authors: "S. De Vos et al."
-    year: 2024
-    venue: "arXiv"
+    year: 2026
+    venue: "EJOR"
     url: "https://arxiv.org/abs/2412.09232"
+    explainer: continuous-pto
     code: "https://github.com/SimonDeVos/UMCT"
     category: two-stage
     treatment: 連続
@@ -225,6 +228,7 @@ papers:
     year: 2024
     venue: "ICDE 2024"
     url: "https://arxiv.org/abs/2407.01065"
+    explainer: roi-conformal
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -249,11 +253,12 @@ papers:
     year: 2022
     venue: "IEEE TKDE"
     url: "https://arxiv.org/abs/2002.05897"
+    explainer: ltr-uplift
     code: ""
     category: ranking
     treatment: 二値
     cost: 考慮しない
-    data: ""
+    data: Information, Hillstrom, Criteo
     note: アップリフト曲線の面積に対応する指標を定め、LambdaMART で直接最適化する
   - title: "Metalearners for Ranking Treatment Effects"
     authors: "T. Vanderschueren, W. Verbeke, F. Moraes, H. M. Proença"
@@ -272,6 +277,7 @@ papers:
     year: 2024
     venue: "KDD 2024"
     url: "https://arxiv.org/abs/2405.15301"
+    explainer: rankability-revenue
     code: "https://github.com/BokwaiHo/revenue_uplift"
     category: ranking
     treatment: 二値
@@ -308,6 +314,7 @@ papers:
     year: 2023
     venue: "arXiv"
     url: "https://arxiv.org/abs/2302.04477"
+    explainer: e2e-marketing-effectiveness
     code: ""
     category: decision-focused
     treatment: 多値
@@ -355,10 +362,11 @@ papers:
     year: 2025
     venue: "RecSys 2025 WS"
     url: "https://arxiv.org/abs/2509.01558"
+    explainer: network-interference-profit
     code: ""
     category: decision-focused
     treatment: 二値
-    cost: ""
+    cost: 購買時のみ（割引率 8%）
     data: 合成データ
     note: 干渉を考慮した推定量を微分可能な目的関数とし、増分利益を勾配法で直接最大化する
 
@@ -401,9 +409,10 @@ papers:
     note: コホートごとの異質な処置効果を推定し、制約つき最適化で処置を選ぶ
   - title: "Multi-Treatment Multi-Task Uplift Modeling for Enhancing User Growth"
     authors: "Y. Wei, Z. Qiu, Y. Li et al."
-    year: 2024
-    venue: "arXiv"
+    year: 2026
+    venue: "Neurocomputing"
     url: "https://arxiv.org/abs/2408.12803"
+    explainer: mtmt
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -415,10 +424,11 @@ papers:
     year: 2025
     venue: "arXiv"
     url: "https://arxiv.org/abs/2506.00959"
+    explainer: hidden-rep-clustering
     code: ""
     category: multi-treatment
     treatment: 多値
-    cost: 結果に依存（コストを予測）
+    cost: 群ごとの実績平均（個人ごとには予測しない）
     data: 自社データ（Meituan）
     note: マルチタスクの表現でユーザーをクラスタに分け、クラスタ単位の確率計画で予算を配分する
   - title: "Large-Scale Trade-Off Curve Computation for Incentive Allocation with Cardinality and Matroid Constraints"
@@ -426,45 +436,49 @@ papers:
     year: 2025
     venue: "IJCAI 2025"
     url: "https://arxiv.org/abs/2609.20699"
+    explainer: tradeoff-curve
     code: "https://github.com/congyu711/incentive-allocation-supplementaries"
     category: multi-treatment
     treatment: 多値
-    cost: 処置ごとに一定
+    cost: 利用者×処置ごとに既知
     data: 合成データ
-    note: マトロイド制約のもとで、予算と利益のトレードオフ曲線をほぼリアルタイムに近似する
+    note: 利用者ごとの署名関数を足し合わせて予算と利益のトレードオフ曲線（線形計画緩和）全体を求め、1人の変更は折れ点の差分だけで更新する。マトロイド制約にも対応する
   - title: "FunnelCausalNet: Funnel-aware Joint Conversion-Revenue Uplift for Multi-tier Coupon Allocation"
     authors: "Y. Zhang, Z. Wang, G. Chen et al."
     year: 2026
     venue: "CIKM 2026"
     url: "https://arxiv.org/abs/2608.11675"
+    explainer: funnelcausalnet
     code: ""
     category: multi-treatment
     treatment: 多値
     cost: 結果に依存（割引率 × 取扱高）
     data: Criteo-MT7（半合成）, Hillstrom, 自社データ（ホテルクーポン）
-    note: 取扱高の増分を購買確率と注文額の積で推定し、ラグランジュ法で段階的なクーポンを配る
+    note: 取扱高の増分を購買確率と注文額の積で推定して RCT で水準を補正し、LP 緩和やラグランジュ緩和で段階的なクーポンに割り当てる
   - title: "Jointly Optimizing Debiased CTR and Uplift for Coupons Marketing: A Unified Causal Framework"
     authors: "S. Yang, S. Yang, J. Wang et al."
     year: 2026
     venue: "CIKM 2026"
     url: "https://arxiv.org/abs/2602.12972"
+    explainer: debiased-ctr-uplift
     code: ""
     category: multi-treatment
     treatment: 連続
-    cost: 結果に依存（額面 × 利用確率）
+    cost: 結果に依存（額面 × 処置後のクリック確率 × 利用確率）
     data: 合成データ, 自社データ（Kuaishou）
-    note: クーポン額を処置の強度とみなし、偏りを除いた CTR とアップリフトを同時に学習して ROI を求める
+    note: クーポン額面の効果をロジット上のずれとみなし、偏りを除いた CTR と額面への感度を同時に学習して、ROI 最大の額面をしきい値つきで選ぶ
   - title: "TaQFormer: A Treatment-as-Query Transformer with Data-Fusion for Multidimensional Treatment Modeling in Coupon Allocation"
     authors: "J. Li, Z. Yang, Y. Xiang et al."
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2610.26199"
+    explainer: taqformer
     code: ""
     category: multi-treatment
     treatment: 多値
-    cost: ""
+    cost: 補助金率（補助金 ÷ 事業価値）に上限
     data: 自社データ（DiDi、観察データと RCT）
-    note: カテゴリ別の割引ベクトルの各成分をクエリトークンとし、多次元の処置の効果を推定する
+    note: カテゴリ別の割引ベクトルの各成分をクエリトークンにして効果を推定し、観察データでの事前学習と RCT での LoRA 適応をゲートで混ぜる。補助金率の上限つき割当てはラグランジュ緩和で解く
 
   # ---- 方策学習 ----
   - title: "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice"
@@ -516,34 +530,37 @@ papers:
     year: 2022
     venue: "arXiv"
     url: "https://arxiv.org/abs/2212.09007"
+    explainer: pac-bayes-allocation
     code: ""
     category: policy
     treatment: 二値
     cost: 結果に依存
-    data: JTPA
+    data: 合成データ, JTPA
     note: PAC-Bayes の枠組みで、一般的な予算・資源制約のもとでの処置ルールを推定する
   - title: "Optimal Individualized Treatment Rule for Combination Treatments Under Budget Constraints"
     authors: "Q. Xu, H. Fu, A. Qu"
     year: 2024
     venue: "JRSS-B"
     url: "https://arxiv.org/abs/2303.11507"
+    explainer: combination-itr
     code: ""
     category: policy
     treatment: 多値
     cost: 処置ごとに一定（組合せのコストの和）
     data: 合成データ, PDX（大腸がん）
-    note: 組合せ処置の効果を推定し、MCKP で予算内の個別ルールを求める
+    note: 組合せ処置ごとの効果を推定し、1人あたりの平均予算のもとで多肢選択ナップザック問題を動的計画法で解いて個別ルールを求める
   - title: "Optimal Policy Learning under Budget and Coverage Constraints"
     authors: "G. Cerulli"
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2605.12235"
+    explainer: budget-coverage-policy
     code: ""
     category: policy
     treatment: 二値
     cost: 個人ごとに異なる（既知）
     data: 合成データ
-    note: 予算と最低カバー率の制約のもとで、最適方策が双対価格によるしきい値規則になることを示す
+    note: 予算と最低カバー率の制約のもとで、最適方策が2つの双対価格によるアフィンしきい値規則になることを示す。ROI 順の割当てとずれるのは、費用がばらつき、カバー率の制約が効くとき
 
   # ---- オンライン・逐次 ----
   - title: "Model-based Constrained MDP for Budget Allocation in Sequential Incentive Marketing"
@@ -584,17 +601,19 @@ papers:
     year: 2022
     venue: "CIKM 2022"
     url: "https://arxiv.org/abs/2108.13298"
+    explainer: online-mckp
     code: ""
     category: online
     treatment: 多値
     cost: 結果に依存
-    data: 合成データ, Hillstrom
+    data: Booking.com の実験データ, 合成データ, Hillstrom
     note: プロモーションの選択をオンラインの MCKP とみなし、予算を守りながらリアルタイムに選ぶ
   - title: "Marketing Budget Allocation with Offline Constrained Deep Reinforcement Learning"
     authors: "T. Cai, J. Jiang, W. Zhang et al."
     year: 2023
     venue: "WSDM 2023"
     url: "https://arxiv.org/abs/2309.02669"
+    explainer: offline-constrained-rl
     code: ""
     category: online
     treatment: 多値
@@ -606,17 +625,19 @@ papers:
     year: 2024
     venue: "arXiv"
     url: "https://arxiv.org/abs/2406.05987"
+    explainer: realtime-coupon
     code: ""
     category: online
     treatment: 多値
     cost: 結果に依存（クーポン額 × 購買）
     data: 自社データ（Meituan）
-    note: 額ごとの購買率を単調回帰で推定し、ラグランジュ双対でリアルタイムに額を決める
+    note: 額ごとの購買率を XGBoost と単調回帰で予測し、平均価格の下限をラグランジュ乗数に置き換えて来訪ごとに額を決める。乗数は PID 制御で調整する
   - title: "Budget-Constrained Causal Bandits: Bridging Uplift Modeling and Sequential Decision-Making"
     authors: "A. Pillai"
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2604.26169"
+    explainer: budget-causal-bandits
     code: ""
     category: online
     treatment: 二値
@@ -628,6 +649,7 @@ papers:
     year: 2027
     venue: "WSDM 2027"
     url: "https://arxiv.org/abs/2611.08990"
+    explainer: action-centered-bandits
     code: ""
     category: online
     treatment: 多値
@@ -652,6 +674,7 @@ papers:
     year: 2021
     venue: "arXiv"
     url: "https://arxiv.org/abs/2111.10106"
+    explainer: criteo-benchmark
     code: "https://github.com/criteo-research/large-scale-ITE-UM-benchmark"
     category: evaluation
     treatment: 二値
@@ -663,6 +686,7 @@ papers:
     year: 2024
     venue: "EJOR"
     url: "https://arxiv.org/abs/2210.02152"
+    explainer: rct-uplift-evaluation
     code: ""
     category: evaluation
     treatment: 二値
@@ -674,23 +698,25 @@ papers:
     year: 2024
     venue: "J. Comput. Graph. Stat."
     url: "https://arxiv.org/abs/2306.11979"
+    explainer: multi-armed-qini
     code: "https://github.com/grf-labs/maq"
     category: evaluation
     treatment: 多値
     cost: 処置ごとに異なる
-    data: ""
-    note: Qini 曲線をコストの違う複数の処置に拡張し、予算の関数として解の経路を求める
+    data: シミュレーション, 投票率の RCT（Gerber et al. 2008）
+    note: Qini 曲線をコストの違う複数の処置に拡張し、増分費用対効果の順に割り当てる解の経路を予算の関数として求める。曲線上の各点の信頼区間と、曲線の差の検定も与える
   - title: "Benchmarking for Deep Uplift Modeling in Online Marketing"
     authors: "D. Liu et al."
     year: 2024
     venue: "arXiv"
     url: "https://arxiv.org/abs/2406.00335"
+    explainer: deep-uplift-benchmark
     code: ""
     category: evaluation
     treatment: 二値
     cost: ""
     data: Criteo, Lazada
-    note: 深層アップリフトの13手法を統一した手順で評価し直し、前処理で結果が変わることを示す
+    note: 深層アップリフトの13手法を統一した手順で評価し直し、前処理とテストデータの分布しだいで首位が入れ替わることを示す
   - title: "Evaluating Treatment Prioritization Rules via Rank-Weighted Average Treatment Effects"
     authors: "S. Yadlowsky et al."
     year: 2025
@@ -708,12 +734,13 @@ papers:
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2608.00915"
+    explainer: upliftbench
     code: "https://github.com/binshuangli/uplift-bench"
     category: evaluation
     treatment: 二値
     cost: ""
     data: IHDP, Jobs, Hillstrom, Lenta, X5, MegaFon, Criteo
-    note: 推定量の優劣が評価指標しだいで入れ替わることを、12手法と6指標で示す
+    note: 連続アウトカムの IHDP で Qini が効果推定の正確さと無相関になること、符号で配る方策の選択では順位の指標では足りず閾値の較正が要ることを、12手法・6指標で示す
 
 datasets:
   - name: "Criteo Uplift v2.1"

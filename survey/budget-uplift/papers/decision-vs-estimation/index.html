@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>因果的な意思決定と因果効果の推定は同じではない（論文解説）</title>
+<meta name="description" content="Causal Decision Making and Causal Effect Estimation Are Not the Same…and Why It Matters（INFORMS Journal on Data Science 2022）の非公式の解説。誰に処置するかを決めるのに、効果の正確な推定は必ずしも要らない。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = causal effect estimation (CEE): the size of tau-hat, its error / MSE, unbiasedness,
+                         and models built to estimate effects (unbiased model UM, causal tree)
+            --b  (blue)   = causal decision making (CDM): which side of the threshold the estimate falls on,
+                         correct treatment assignment, and models judged by decisions (biased model BM, outcome tree)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">INFORMS Journal on Data Science · 2022</div>
+  <h1>Causal Decision Making and Causal Effect Estimation Are Not the Same…and Why It Matters</h1>
+  <p class="subtitle">因果的な意思決定と因果効果の推定は同じではない、そしてそれがなぜ重要か</p>
+
+  <ul class="authors">
+    <li><b>Carlos Fernández-Loría</b><span>HKUST Business School</span></li>
+    <li><b>Foster Provost</b><span>NYU Stern School of Business and Compass Inc.</span></li>
+  </ul>
+
+  <p class="lead">誰にクーポンや広告を出すかを機械学習で決めるとき、まず個人ごとの<span class="A">因果効果を推定</span>し、その値で配る相手を選ぶ方法が研究で広まりつつある。この論文は、<span class="B">因果的な意思決定</span>で必要なのは効果がしきい値を超えるかどうかだけで、効果の正確な推定は必須ではないと論じる。そこから、学習の目的関数、学習データ、目的変数の選び方について 3 つの含意を引き出している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/ijds.2021.0006">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2104.04103">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。誤差の小さいモデルと判断の正しいモデルの比較、交絡で偏ったモデルと偏りのないモデルの判断の誤り、Criteo データでの因果木と決定木の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\mathbf{1}(\tau(x) > 0)\)</span><span class="d">意思決定で推定したいのは効果の大きさ \(\tau(x)\) ではなく、効果がしきい値を超えるかどうかである。</span></li>
+    <li><span class="k">学習データは 6 分の 1 以下</span><span class="d">Criteo の広告データで、広告を出さなかった人だけで学習した非因果の決定木が、因果木と同等以上に効果の大きい人を選んだ（論文 Fig. 3）。</span></li>
+    <li><span class="k">5 億件を超えても</span><span class="d">効果の推定に最適化したモデルと割当てに最適化したモデルの差は、学習データが 5 億件を超えても残った例がある（論文が引く Spotify の事例）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>誰に処置するかを決める問題と、効果の大きさを推定する問題では、推定の対象が違う</h2>
+    <p>論文が扱うのは、ある個人に特定の施策を行う（処置する）かどうかを決める問題である。たとえば解約防止では解約しそうな顧客ではなく、特典によって解約を思いとどまる顧客を選びたい。近年の研究では、機械学習で個人ごとの因果効果を推定し、その推定値で自動的に処置を決める方法が広まりつつある。</p>
+    <p>潜在結果の枠組みで、処置 \(i\) のもとでの結果を \(Y(i)\) と書く。<span class="A">因果効果の推定</span>（CEE）の推定対象は条件付き平均処置効果（CATE）であり、<span class="B">因果的な意思決定</span>（CDM）の推定対象は最適な処置の割当てである。</p>
+    <div class="eq">\[ \color{#C2410C}{\tau(x) = E[\,Y(1) - Y(0) \mid X = x\,]} \]</div>
+    <div class="eq">\[ \color{#1D4ED8}{a^*(x) = \mathbf{1}\big(\tau(x) > 0\big)} \]</div>
+    <p>下の式は上の式で定義されるので、CATE を推定してその符号で決めればよいように見える。しかしモデルが出すのは推定値であり、誤差を含む。論文は、どの種類の誤差が入るかが判断にとって決定的で、効果をより正確に推定しても判断がよくなるとは限らないと述べる。しきい値は 0 とは限らず、処置の費用と便益を考えれば別の値になる。たとえば購入確率を 1% 以上上げる顧客にだけ配る場合、効果が 1% を超えるかどうかさえ分かればよい。</p>
+    <p>論文は 2 つの問題の違いをほかに 2 点挙げる。1 つは結果変数の違いで、購入確率への効果が大きい人が、利益への効果も大きいとは限らない。もう 1 つは制約で、予算に上限があり費用が個人ごとに違うときは、CATE の大きい順に選ぶのが最適とは限らない。また、処置を決めながら学び直す文脈付きバンディットとは違い、論文が想定するのは学習済みの方策を固定して使うオフラインの設定である。</p>
+  </section>
+
+  <section id="objective">
+    <div class="kicker">含意 1：目的関数</div>
+    <h2>効果の推定誤差が小さいモデルが、正しい割当てをするとは限らない</h2>
+    <p>効果を推定する機械学習の多くは、暗黙のうちに効果の<span class="A">平均二乗誤差</span>を小さくしようとしている。一方、割当ての良し悪しは<span class="B">後悔</span>（regret）、つまり最適な処置で得られた結果と、モデルの決めた処置で得られる結果の差の期待値で測る。</p>
+    <div class="eq">\[ \color{#C2410C}{\mathrm{MSE}(\hat\tau) = E\big[\big((Y(1)-Y(0)) - \hat\tau(X)\big)^2\big]} \]</div>
+    <div class="eq">\[ \color{#1D4ED8}{\mathrm{Regret}(\hat a) = E\big[\,Y(a^*(X)) - Y(\hat a(X))\,\big]} \]</div>
+    <p>図1 は論文 Fig. 1 の例で、真の効果が 0.5 の個人に対して、モデル 1 は 3.5、モデル 2 は −0.5 と予測している。誤差はモデル 1 のほうが大きいが、符号が正しいので「処置する」という正しい判断になる。誤差の小さいモデル 2 は符号を誤り、処置しないと判断する。MSE でモデルを選ぶと、判断の悪いほうを選んでしまう。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="論文 Fig. 1 を描き直した図。縦軸は因果効果。真の効果はどちらのモデルでも0.5。モデル1の予測は3.5で誤差3だが境界0より上、モデル2の予測はマイナス0.5で誤差1だが境界より下にある。">
+        <rect x="90" y="30" width="370" height="208" fill="#E7EEFC"/>
+        <line x1="90" y1="30" x2="90" y2="290" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="90" y1="238" x2="460" y2="238" stroke="#16202E" stroke-width="2.5"/>
+        <text x="452" y="54" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="end">処置するのが正しい側</text>
+        <text x="98" y="260" font-size="15" fill="#16202E">判断の境界（効果 0）</text>
+        <text x="80" y="294" font-size="15" fill="#5B6676" text-anchor="end">−1</text>
+        <text x="80" y="243" font-size="15" fill="#5B6676" text-anchor="end">0</text>
+        <text x="80" y="191" font-size="15" fill="#5B6676" text-anchor="end">1</text>
+        <text x="80" y="139" font-size="15" fill="#5B6676" text-anchor="end">2</text>
+        <text x="80" y="87" font-size="15" fill="#5B6676" text-anchor="end">3</text>
+        <text x="80" y="35" font-size="15" fill="#5B6676" text-anchor="end">4</text>
+        <text transform="translate(30,160) rotate(-90)" font-size="16" fill="#16202E" text-anchor="middle">因果効果</text>
+        <line x1="190" y1="56" x2="190" y2="212" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <line x1="350" y1="212" x2="350" y2="264" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <circle cx="190" cy="56" r="9" fill="#1D4ED8"/>
+        <circle cx="350" cy="264" r="9" fill="#C2410C"/>
+        <path d="M190,201 L201,212 L190,223 L179,212 z" fill="#16202E"/>
+        <path d="M350,201 L361,212 L350,223 L339,212 z" fill="#16202E"/>
+        <text x="204" y="61" font-size="15" fill="#1D4ED8">予測 3.5</text>
+        <text x="200" y="140" font-size="15" fill="#5B6676">誤差 3</text>
+        <text x="364" y="269" font-size="15" fill="#C2410C">予測 −0.5</text>
+        <text x="350" y="190" font-size="15" fill="#16202E" text-anchor="middle">真の効果 0.5</text>
+        <text x="190" y="322" font-size="16" fill="#16202E" text-anchor="middle">モデル 1</text>
+        <text x="350" y="322" font-size="16" fill="#16202E" text-anchor="middle">モデル 2（誤差 1）</text>
+        <text x="484" y="80" font-size="15" fill="#1D4ED8">モデル 1：</text>
+        <text x="484" y="102" font-size="15" fill="#1D4ED8">処置する（正）</text>
+        <text x="484" y="262" font-size="15" fill="#C2410C">モデル 2：</text>
+        <text x="484" y="284" font-size="15" fill="#C2410C">処置しない（誤）</text>
+      </svg>
+      <figcaption>図1　1 人の個人に対する 2 つのモデルの効果予測（論文 Fig. 1 を、論文の座標の値のまま解説者が描き直したもの）。◆ が真の効果、● が予測、破線が予測誤差。</figcaption>
+    </figure>
+    <p>割当てを直接最適化する方法として、論文は割当てを重みつき分類に帰着させる方法（Zadrozny 2003、Zhao et al. 2012）を挙げる。最適な処置を目的変数とし、各処置のもとで観測した結果で観測を重みづける。後悔の最小化は重みつき誤分類率の最小化と同じなので、割当ては分類、効果推定は確率推定や回帰にたとえられる。分類の精度がよいモデルが確率の推定もうまいとは限らないことは、予測モデルの分野でよく知られている。</p>
+    <p>データが無限にあれば、効果を正確に推定するモデルは最適な割当てに収束するので、両者の差は消えるはずである。しかし論文は Spotify のプレイリスト作成を題材にした先行研究で、5 億件を超える学習データでも差が残ったことを紹介している。</p>
+  </section>
+
+  <section id="data">
+    <div class="kicker">含意 2：学習データ</div>
+    <h2>交絡で偏ったデータでも、判断には偏りのない実験データと同じくらい、場合によってはそれ以上に役立つ</h2>
+    <p>交絡は効果を推定するうえでは致命的とされる。観測データだけでは偏りの大きさを測れず、データを増やしても偏った値に収束するだけだからである。しかし判断にとって問題になるのは、偏りによって推定値がしきい値の反対側に移るときだけである。図1 でモデル 1 の大きな誤差が交絡のせいだったとしても、判断は損なわれていない。</p>
+    <p>図2 はある個人について、真の効果 \(\tau\) が判断のしきい値 \(\delta\) を上回る（介入するのが正しい）場合を描く。<span class="A">偏りのないモデル</span>（UM）は費用のかかる実験で集めた小さいデータで学習するので、ばらつきが大きい。<span class="B">偏ったモデル</span>（BM）は自然に集まる大量の観測データで学習するので、ばらつきは小さいが中心がずれている。推定値が \(\delta\) より左に出れば判断を誤るので、\(\delta\) より左の面積が判断を誤る確率になる。</p>
+    <figure>
+      <svg class="fig" id="fig-bias" viewBox="0 0 660 270" role="img" aria-label="論文 Fig. 2 を描き直した3枚の図。偏りのないモデルの推定値の分布は3枚とも真の効果を中心に広がる。偏ったモデルの分布は幅が狭く、左の図ではしきい値より左に中心があり、中央の図ではしきい値と真の効果の間、右の図では真の効果より右に中心がある。"></svg>
+      <figcaption>図2　偏ったモデル（BM、<span class="B">青</span>）と偏りのないモデル（UM、<span class="A">橙</span>）の推定値の標本分布。塗った部分が判断を誤る確率に当たる（論文 Fig. 2 を、論文の作図に使われた正規分布の値のまま解説者が描き直したもの）。</figcaption>
+    </figure>
+    <p>左の図のように偏りが大きく逆向きなら、BM は平均して誤った判断をし、UM のほうがよい。中央の図では偏りが少し小さいだけだが、BM のばらつきの小ささが偏りを補い、どちらがよいかははっきりしない。BM の分布の中心はしきい値の正しい側にあるので、データが増えれば BM も最適な判断に収束する。右の図のように偏りが判断を後押しする向きなら、BM のほうがよい。論文は、広告の効果が「買いそうな人」で大きく、交絡もその人たちで強い場合を例に挙げる。</p>
+    <p>この点が実務で重要なのは、広告配信や推薦のように、現代の業務システムがもともと交絡したデータを生むように作られているからである。ランダム化実験は処置の費用や機会損失のために高くつき、職業の割当てのように実施できない場合もある。論文は、交絡を補正すると分散が増えてかえって割当てが悪くなりうるとし、この見方は SUTVA の違反、ノンコンプライアンス、実験設計の不備など、交絡以外のデータの問題にも当てはまると述べる。</p>
+  </section>
+
+  <section id="proxy">
+    <div class="kicker">含意 3：目的変数</div>
+    <h2>効果ではなく結果そのものを予測して順位をつけても、同じくらいよく選べることがある</h2>
+    <p>非因果の予測では、真の目的変数ではなく、データの多い代理の目的変数で学習したほうがよいモデルができることがよく知られている。論文は広告や解約防止の実務で効果ではなく「処置後に買うか」といった結果を予測して配る相手を決める慣行を、この代理モデリングとして捉え直す。素朴さや技術不足の表れと決めつけず、代理のモデルのほうが役に立つのかを問うべきだという。</p>
+    <p>例として、論文は Criteo がランダムに広告を出して集めたデータ（13,979,592 件、特徴量 11 個、処置率 85%）を使う。目的変数はコンバージョンである。比べるのは、広告のコンバージョンへの CATE を予測する<span class="A">因果木</span>と、広告を出さなかったときのコンバージョン確率を予測する非因果の<span class="B">決定木</span>である。どちらも 80% の学習データで交差検証により学習・調整したが、決定木は広告を出さなかった人のデータだけを使った。因果木の学習データは決定木の 6 倍以上ある。</p>
+    <p class="src">このページの記述と数値は arXiv v3（2021 年 9 月 30 日）の本文による。INFORMS Journal on Data Science 掲載版の本文は自動取得できなかったため、照合していない。</p>
+    <figure style="max-width:40rem">
+      <img src="assets/fig3_uplift_curves.png" alt="横軸が対象にした人の割合、縦軸がコンバージョン率。破線のランダムな配信は0.2%付近から0.31%付近まで直線で上がる。点線の決定木の曲線は、ほぼすべての範囲で実線の因果木の曲線と同じか上にある。" loading="lazy">
+      <figcaption>図3　残り 20% のテストデータで、スコアの上位から配信対象を増やしたときのコンバージョン率（論文 Fig. 3、CC BY 4.0）。赤の実線が因果木、青の点線が決定木、黒の破線がランダムな配信。図の色は論文のもので、このページの色分けとは関係しない。</figcaption>
+    </figure>
+    <p>論文によれば、非因果の決定木のほうが、広告の効果が最も大きい人を見つけるのがうまかった。コンバージョンを予測できる特徴量は処置効果も予測でき、しかもコンバージョンのほうが信号対雑音比が高いからだと説明している。理論上はデータが増えれば因果木が上回るはずだが、そのためのデータをランダム化実験で集めるのは高くつく。一方で、負の効果のモデル化が重要な顧客維持などでは、結果予測モデルの成績が悪かった報告もあると注意している。</p>
+    <p>論文は、結果の予測が効果の推定の代わりになりうる条件を、次の 3 つにまとめている。</p>
+    <ul class="def">
+      <li>結果と効果に相関がある。</li>
+      <li>結果のほうが効果より推定しやすい。ある処置のデータが少ない場合や、結果のほうが信号対雑音比がずっと高い場合である。</li>
+      <li>予測を個人の順位づけに使う。上位何 % に介入するなら、スコアが効果の推定値かどうかは関係ない。</li>
+    </ul>
+  </section>
+
+  <section id="conclusion">
+    <div class="kicker">結論と今後の課題</div>
+    <h2>効果の推定は判断の評価には重要だが、判断を下すこと自体には必須ではない</h2>
+    <p>論文はランダム化実験や効果推定の手法を否定しているわけではないと断っている。効果の推定は判断を評価するうえで、特に判断の過程に懸念があるときに重要である。著者らは非因果のモデルに基づく方策も含めて、さまざまな割当て方策をランダム化実験で評価するよう実務家に勧めている。</p>
+    <p>今後の課題として、論文は 4 つを挙げる。1 つ目は、連続的な判断や、同じ個人に時間をかけて複数の処置をする場合まで含めて、予測誤差が判断にどう影響するかを統一的に説明する枠組みである。2 つ目は最適な割当てを学べる条件の数学的な定式化で、たとえば効果が大きいほど選ばれやすい交絡なら、順位は保たれるはずだという。3 つ目は観測データと実験データを組み合わせ、交絡による偏りと学習の誤差のトレードオフを最適化する方法である。4 つ目は、交絡が判断を特に損なう特徴量の領域に絞って実験する、効率的な実験の設計である。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算制約は定式化していないが、しきい値と順位だけが判断を決めるという見方を示している</h2>
+    <p>この論文は手法を提案する論文ではなく、見方を示す論文（perspective）である。推定の目標に置くのは CATE \(\tau(x)\) ではなく割当て \(a^*(x)\) で、評価には後悔を使う。処置は二値を中心に論じ、複数の処置は多クラス分類に帰着できると述べる。</p>
+    <p>費用は判断のしきい値に含める形で扱う。しきい値は処置の費用と便益を考えれば 0 以外の値になりうるとし、図2 のしきい値 \(\delta\) も介入する・しないの費用を考えた最適な値として置いている。結果変数を購入にするか利益にするかで判断が変わることも指摘するが、個人ごとに異なる費用をモデルに入れることはしていない。</p>
+    <p>予算制約は定式化していない。言及は 3 か所にとどまる。まず、予算が限られるときに予測効果の大きい順に配ることを、CEE の典型的な使い方として例に挙げる。次に、予算に上限があり費用が個人ごとに違うと CATE の上位を選ぶのが最適とは限らないとし、CATE を予測してから下流の最適化を解く方法と、制約を学習に組み込む方法を紹介する。最後に、しきい値が予算や人員の制約から決まることもあると述べ、上位何 % に介入するなら順位だけが要るとしている。</p>
+    <p>（解説者の注）費用 \(c_i\) が個人ごとに違い、総予算に上限があるとき、ナップザック問題の連続緩和では \(\tau_i / c_i\) の大きい順に、予算が尽きるまで配るのが最適になる。このとき判断を決めるのは、比 \(\tau_i / c_i\) の順位と、予算で決まる打ち切りの比との大小だけで、\(\tau_i\) や \(c_i\) そのものを正確に推定する必要はない。論文の「効果がしきい値の上か下か」を「比が打ち切りの値の上か下か」に置き換えた形である。ただし論文はこの場合を扱っておらず、打ち切りの値も推定値から決まるため、推定誤差が順位と打ち切りの両方に影響する点は別に検討が要る。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{fernandezloria2022causal,
+  title   = {Causal Decision Making and Causal Effect Estimation Are Not the Same\ldots and Why It Matters},
+  author  = {Fern{\'a}ndez-Lor{\'\i}a, Carlos and Provost, Foster},
+  journal = {INFORMS Journal on Data Science},
+  volume  = {1},
+  number  = {1},
+  pages   = {4--16},
+  year    = {2022},
+  doi     = {10.1287/ijds.2021.0006}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 2: the paper's Fig. 2, redrawn from the pgfplots parameters in the arXiv source ----------
+// BM ~ N(m, 0.35) with m = -0.2, 0.6, 1.5; UM ~ N(1, 0.7); threshold delta at 0, true tau at 1; x in [-1, 3].
+(function () {
+  var svg = document.getElementById('fig-bias'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  function pdf(x, m, s) { return Math.exp(-(x - m) * (x - m) / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI)); }
+  var panels = [[-0.2, '(a) 大きく逆向きの偏り'], [0.6, '(b) 小さく逆向きの偏り'], [1.5, '(c) 判断を後押しする偏り']];
+  var W = 196, GAP = 16, X0 = 14, BASE = 196, TOP = 40, YMAX = 1.2;
+  panels.forEach(function (p, k) {
+    var left = X0 + k * (W + GAP);
+    function px(x) { return left + (x + 1) / 4 * W; }
+    function py(y) { return BASE - y / YMAX * (BASE - TOP); }
+    function curve(m, s, x0, x1, closed) {
+      var d = '', n = 80;
+      for (var i = 0; i <= n; i++) { var x = x0 + (x1 - x0) * i / n; d += (i ? 'L' : 'M') + px(x).toFixed(1) + ',' + py(pdf(x, m, s)).toFixed(1); }
+      if (closed) d += 'L' + px(x1).toFixed(1) + ',' + BASE + 'L' + px(x0).toFixed(1) + ',' + BASE + 'z';
+      return d;
+    }
+    el('path', { d: curve(1, 0.7, -1, 0, true), fill: '#FCEBDF' });
+    el('path', { d: curve(p[0], 0.35, -1, 0, true), fill: '#1D4ED8', 'fill-opacity': 0.22 });
+    el('line', { x1: left, x2: left + W, y1: BASE, y2: BASE, stroke: '#16202E', 'stroke-width': 1.2 });
+    el('line', { x1: px(0), x2: px(0), y1: BASE, y2: TOP - 6, stroke: '#16202E', 'stroke-width': 2 });
+    el('line', { x1: px(1), x2: px(1), y1: BASE, y2: BASE + 6, stroke: '#16202E', 'stroke-width': 1.2 });
+    el('path', { d: curve(1, 0.7, -1, 3), fill: 'none', stroke: '#C2410C', 'stroke-width': 2.2 });
+    el('path', { d: curve(p[0], 0.35, -1, 3), fill: 'none', stroke: '#1D4ED8', 'stroke-width': 2.2, 'stroke-dasharray': '6 4' });
+    var t1 = el('text', { x: px(0), y: BASE + 22, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle', 'class': 'mi' }, 'δ');
+    el('text', { x: px(1), y: BASE + 22, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle', 'class': 'mi' }, 'τ');
+    el('text', { x: left + W / 2, y: BASE + 52, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' }, p[1]);
+  });
+  el('line', { x1: 410, x2: 440, y1: 16, y2: 16, stroke: '#1D4ED8', 'stroke-width': 2.2, 'stroke-dasharray': '6 4' });
+  el('text', { x: 446, y: 21, 'font-size': 14, fill: '#16202E' }, 'BM（偏り・大量データ）');
+  el('line', { x1: 14, x2: 44, y1: 16, y2: 16, stroke: '#C2410C', 'stroke-width': 2.2 });
+  el('text', { x: 50, y: 21, 'font-size': 14, fill: '#16202E' }, 'UM（偏りなし・小さい実験データ）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

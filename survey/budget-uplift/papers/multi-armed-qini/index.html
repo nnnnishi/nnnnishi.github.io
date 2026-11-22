@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>複数処置の Qini 曲線（論文解説）</title>
+<meta name="description" content="Qini Curves for Multi-Armed Treatment Rules（Journal of Computational and Graphical Statistics 2024）の非公式の解説。コストの違う複数の処置から誰に何を配るかを予算ごとに最適化し、その利得を Qini 曲線として推定する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = single-arm targeting: Qini curves drawn one arm at a time
+                         (Q_1, Q_2, ...), ranking units by tau/C within that arm only
+            --b  (blue)   = the paper's multi-armed policy: choosing both units and arms by the
+                         incremental cost-benefit ratio rho, and its Qini curve Q_{1,...,K}
+            gray          = baselines that ignore covariates (no targeting)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Journal of Computational and Graphical Statistics · 2024</div>
+  <h1>Qini Curves for Multi-Armed Treatment Rules</h1>
+  <p class="subtitle">複数の処置を使い分ける割当てルールのための Qini 曲線</p>
+
+  <ul class="authors">
+    <li><b>Erik Sverdrup</b><span>Monash University</span></li>
+    <li><b>Han Wu</b><span>Two Sigma</span></li>
+    <li><b>Susan Athey</b><span>Stanford University</span></li>
+    <li><b>Stefan Wager</b><span>Stanford University</span></li>
+  </ul>
+
+  <p class="lead">Qini 曲線は処置の効果が大きい人から順に処置したときの利得を、予算の関数として描く。この論文はそれを、<span class="A">一つの処置</span>を誰に配るかだけでなく、コストの違う<span class="B">複数の処置</span>から誰に何を配るかまで選ぶ場合に拡張する。予算の全範囲で最適な割当てを求めるアルゴリズムと、曲線上の各点の信頼区間もあわせて与える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1080/10618600.2024.2418820">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2306.11979">arXiv</a>
+    <a class="btn" href="https://github.com/grf-labs/maq">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。単一処置の Qini 曲線、処置ごとの曲線と使い分けの比較、増分費用対効果のしきい値を下げていく解の経路、投票率実験の信頼区間、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">増分効率 \(\rho\) で順位づけ</span><span class="d">最適な割当ては一人ひとりについて「次に高い処置へ上げたときの効果の増分 ÷ コストの増分」を計算し、それをしきい値で切る形で書ける（Theorem 1）。</span></li>
+    <li><span class="k">\(O(nK \log nK)\)</span><span class="d">予算の全範囲の最適解を優先度つきキューで順に求める。100 万人・5 処置で全経路の計算は普通のノート PC で約 1.5 秒だった（論文の脚注）。</span></li>
+    <li><span class="k">2% 対 1%</span><span class="d">投票率の実験で、予算 \(B = 5\) のとき、4 種類の手紙の組合せによる投票率の上昇と、最も控えめな手紙だけの場合との比較。差の 95% 信頼区間は [0.5, 1.5]。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>処置が一つなら、効果をコストで割った値の大きい順に配れば最適になる</h2>
+    <p>Qini 曲線は推定した処置効果の大きい順に処置していったときの平均的な利得を、使った予算に対して描いた曲線である。マーケティングの分野で提案され、ターゲティングのルールを評価する道具として広く使われている。</p>
+    <p>処置が一つで、人によってコストが違う場合、予算のもとで利得を最大にする問題は分数ナップザック問題になる。最適な方策は条件つき平均処置効果をコストで割った比 \(\tau(x)/C(x)\) の大きい順に、予算が尽きるまで配るというものである。予算を変えたときのこの順位づけが解の経路になり、その利得をたどったものが<span class="A">単一処置の Qini 曲線</span>である。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>処置ごとに Qini 曲線を描くだけでは、人によって処置を使い分けたときの利得が見えない</h2>
+    <p>ある集団には安い薬が効き、そのうちの一部の人には高い薬がさらによく効く、という状況を考える。予算によっては、ある人たちには安い薬を、別の人たちには高い薬を配るのが最適になる。処置ごとに別々の Qini 曲線を描くと、この使い分けによる効率の違いが隠れてしまう。</p>
+    <p>論文の合成データの例（Fig. 1）では、予算 0.2 のとき、処置 1 だけを使うと利得は 0.54、処置 2 だけなら 0.60 だった。二つの処置を人ごとに使い分ける<span class="B">複数処置の方策</span>では 0.75 になり、どちらか一方だけの場合を上回った。処置 1 の曲線が支出 0.3 を超えると平らになるのは、効果がありそうな人全員にその時点で処置 1 を配り終えているからである。</p>
+    <p>誰にどの処置を配るかを予算のもとで決めるのは制約つき最適化問題であり、処置ごとの並べ替えでは解けない。論文はこれを処置 \(k = 1, \dots, K\)（\(k = 0\) はコストのかからない対照）の場合に定式化する。</p>
+    <div class="eq">\[ \pi^*_B = \operatorname{argmax}_{\pi} \bigl\{ \, \mathbb{E}[\langle \pi(X_i), \tau(X_i) \rangle] \; : \; \mathbb{E}[\langle \pi(X_i), C(X_i) \rangle] \le B \, \bigr\} \]</div>
+    <p>\(\tau_k(x)\) は処置 \(k\) の条件つき平均処置効果、\(C_k(x)\) は対照と比べたコストの増分で、コスト関数 \(C(\cdot)\) は既知とする（コストの決め方はモデル化の選択として扱う）。\(\pi(x)\) は割り当てる処置を表す \(K\) 次元のベクトルで、0 と 1 の間の値は確率的な割当てと解釈する。予算 \(B\) は 1 人あたりの期待コストの上限である。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>最適な割当ては、各人の凸包上で次の処置へ上げる「増分の費用対効果」をしきい値で切る形になる</h2>
+    <p>1 人分の処置を、コスト \(C_k(x)\) を横軸、効果 \(\tau_k(x)\) を縦軸とする平面に置く。最適解で使われうるのは、この平面で左上の凸包に乗る処置だけである。凸包上の処置をコストの小さい順に \(k_1(x), k_2(x), \dots\) と並べ、隣り合う処置の間の傾きを増分費用対効果と呼ぶ。</p>
+    <div class="eq">\[ \rho_{k_j(x)}(x) = \frac{\tau_{k_j(x)}(x) - \tau_{k_{j-1}(x)}(x)}{C_{k_j(x)}(x) - C_{k_{j-1}(x)}(x)} \]</div>
+    <p>Theorem 1 によると、最適な方策はしきい値 \(\lambda_B \ge 0\) を一つ決めて、\(\rho_{k_j(x)}(x) > \lambda_B > \rho_{k_{j+1}(x)}(x)\) となる処置 \(k_j(x)\) をその人に割り当てる形で書ける。ちょうどしきい値上にある人だけは、二つの処置を確率的に混ぜる。予算を増やすと \(\lambda_B\) が下がり、新しい人に最初の処置を配るか、すでに配った人を凸包上の次の処置へ上げるかが、\(\rho\) の大きい順に決まっていく。</p>
+    <p>このため、効果とコストを同じ単位で測る必要はない。予算 1 単位をどこに使うかは、人と処置の組ごとの「効果の増分 ÷ コストの増分」の大小だけで決まる。共変量が連続分布に従う一般的な場合には、最適な方策はほぼ確実に整数値（確率的な混合なし）になると論文は述べている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="1人分の処置をコストと効果の平面に置いた模式図。原点の対照0から、処置3 (1,2)、処置4 (2,3)、処置1 (5,4) が左上の凸包を作り、隣り合う点の傾きは2、1、1/3と小さくなる。処置2、5、6は凸包の下にあり、最適解では使われない。">
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="30" stroke="#16202E" stroke-width="1.5"/>
+        <g font-size="15" fill="#5B6676" text-anchor="middle">
+          <text x="80" y="322">0</text><text x="165" y="322">1</text><text x="250" y="322">2</text><text x="335" y="322">3</text><text x="420" y="322">4</text><text x="505" y="322">5</text><text x="590" y="322">6</text>
+        </g>
+        <g font-size="15" fill="#5B6676" text-anchor="end">
+          <text x="70" y="305">0</text><text x="70" y="245">1</text><text x="70" y="185">2</text><text x="70" y="125">3</text><text x="70" y="65">4</text>
+        </g>
+        <text x="335" y="350" font-size="16" fill="#16202E" text-anchor="middle">コストの増分 <tspan class="mi">C</tspan><tspan font-size="12" dy="4">k</tspan><tspan dy="-4">(</tspan><tspan class="mi">x</tspan>)</text>
+        <text transform="translate(28,165) rotate(-90)" font-size="16" fill="#16202E" text-anchor="middle">処置効果 <tspan class="mi">τ</tspan><tspan font-size="12" dy="4">k</tspan><tspan dy="-4">(</tspan><tspan class="mi">x</tspan>)</text>
+        <polyline points="80,300 165,180 250,120 505,60" fill="none" stroke="#1D4ED8" stroke-width="2.5"/>
+        <text x="140" y="268" font-size="16" fill="#1D4ED8"><tspan class="mi">ρ</tspan><tspan font-size="12" dy="4">3</tspan><tspan dy="-4"> = 2</tspan></text>
+        <text x="186" y="206" font-size="16" fill="#1D4ED8"><tspan class="mi">ρ</tspan><tspan font-size="12" dy="4">4</tspan><tspan dy="-4"> = 1</tspan></text>
+        <text x="390" y="114" font-size="16" fill="#1D4ED8"><tspan class="mi">ρ</tspan><tspan font-size="12" dy="4">1</tspan><tspan dy="-4"> = 1/3</tspan></text>
+        <circle cx="250" cy="168" r="8" fill="#CBD2DC"/><text x="250" y="194" font-size="15" fill="#5B6676" text-anchor="middle">2</text>
+        <circle cx="377.5" cy="144" r="8" fill="#CBD2DC"/><text x="377.5" y="170" font-size="15" fill="#5B6676" text-anchor="middle">5</text>
+        <circle cx="420" cy="210" r="8" fill="#CBD2DC"/><text x="420" y="236" font-size="15" fill="#5B6676" text-anchor="middle">6</text>
+        <circle cx="80" cy="300" r="8" fill="#16202E"/><text x="98" y="292" font-size="14" fill="#16202E">0（対照）</text>
+        <circle cx="165" cy="180" r="9" fill="#1D4ED8"/><text x="152" y="166" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="end">3</text>
+        <circle cx="250" cy="120" r="9" fill="#1D4ED8"/><text x="240" y="104" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="end">4</text>
+        <circle cx="505" cy="60" r="9" fill="#1D4ED8"/><text x="505" y="40" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">1</text>
+        <text x="600" y="214" font-size="15" fill="#5B6676" text-anchor="end">凸包の下：使われない</text>
+      </svg>
+      <figcaption>図1　ある 1 人の処置（数字は処置の番号）をコストと効果の平面に置いた図。凸包上の点 (0,0), (1,2), (2,3), (5,4) と傾き \(\rho\) の値は論文 Fig. 2 の説明による。予算 1 なら処置 3 を、予算 2 なら処置 4 を割り当てる。凸包の下にある処置 2, 5, 6 の位置は論文に数値がないため、解説者が置いた（模式図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="algorithm">
+    <div class="kicker">アルゴリズム</div>
+    <h2>優先度つきキューを使うと、予算の全範囲の解の経路を \(O(nK \log nK)\) で計算できる</h2>
+    <p>テスト集合の \(n\) 人について、最適化問題は \(nK\) 個の変数をもつ線形計画になる。予算ごとに汎用の LP ソルバーで解くのは計算量の面で現実的でない。この問題は多肢選択ナップザック問題の線形緩和にあたり、Zemel（1980）の方法を使えば増分費用対効果の並べ替えで一つの予算の解が得られる。ただしその方法が与えるのは一つの予算での解だけである。</p>
+    <p>論文はこれを予算の経路全体に広げる。まず各人の凸包を求め、最初の処置を \(\rho\) を優先度としてキューに入れる。キューの先頭の（人, 処置）を取り出して割り当て、その人の凸包に次の処置が残っていれば、増分の \(\rho\) を優先度として入れ直す。取り出しのたびに、新しい人への割当てか、すでに割り当てた人の処置の格上げのどちらかが起き、そのたびに利得と支出を記録する。予算の上限に達したら、最後の 1 人だけを分数で割り当てて止める。</p>
+    <p>計算量は \(O(nK \log nK)\) で、著者らの実装 <code>maq</code>（R と Python）は、100 万人・5 処置の全経路を普通のノート PC で約 1.5 秒で計算したと脚注にある。</p>
+  </section>
+
+  <section id="inference">
+    <div class="kicker">推論</div>
+    <h2>曲線上の各点の推定値は漸近正規になり、半標本ブートストラップで信頼区間を作れる</h2>
+    <p>Qini 曲線上の 1 点は、学習データで推定した \(\hat\tau(\cdot)\) が誘導する方策の価値 \(Q(B)\) である。テスト集合では予算をちょうど使い切る方策 \(\hat\pi_B\) を求め、評価用のスコア \(\widehat\Gamma_i\) の平均で価値を推定する。</p>
+    <div class="eq">\[ \widehat Q(B) = \frac{1}{n} \sum_{i=1}^{n} \langle \hat\pi_B(X_i), \widehat\Gamma_i \rangle \]</div>
+    <p>割付確率が分かっている無作為化実験では \(\widehat\Gamma_i\) に逆確率重みづけ（IPW）を、分かっていない観察データではクロスフィッティングした拡張逆確率重みづけ（AIPW）を使う。難しいのは、予算を使い切るしきい値 \(\hat\lambda_B\) 自体がテスト集合から決まる確率変数になることである。論文はまず \(\hat\lambda_B\) の漸近線形性を示し、それを二重頑健なスコアの議論と組み合わせて、\(\widehat Q(B)\) の中心極限定理を導く（Theorem 2）。この定理は学習データを固定し、テスト集合のばらつきだけを扱う。</p>
+    <p>これにより、テスト集合の半分を無作為に選んで経路を計算し直す半標本ブートストラップで、標準誤差を推定できる。合成データ（10 次元の共変量、3 つの腕のうち 1 つをコストのない対照とする設定）で、予算 0.05〜0.5 の 10 点、テスト集合の大きさ 1,000〜10,000 について調べると、95% 信頼区間の被覆率は 0.93〜0.96 だった（Table 1、1,000 回の繰り返し）。</p>
+    <figure>
+      <svg class="fig" id="fig-coverage" viewBox="0 0 640 360" role="img" aria-label="95%信頼区間の被覆率を予算ごとに描いた折れ線。ランダムフォレストで評価スコアを作った場合は、テスト集合1000でも10000でも0.93から0.95の間にある。付録の xgboost で作った場合は0.87から0.94で、予算が大きいほど低い。"></svg>
+      <figcaption>図2　\(Q(B)\) の 95% 信頼区間の被覆率。本文 Table 1（評価スコアの局外関数をランダムフォレストで推定）と付録 Table A1（xgboost で推定）のうち、テスト集合の大きさ 1,000 と 10,000 の行を描いた。xgboost の場合は 0.87〜0.94 で、0.95 を下回っている（論文の表の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="tests">
+    <div class="kicker">検定</div>
+    <h2>曲線の差の信頼区間で、処置を増やす価値とターゲティングの価値を予算ごとに検定できる</h2>
+    <p>同じテスト集合で求めた 2 本の Qini 曲線の差について、対応のあるブートストラップで標準誤差を推定すれば、予算ごとの点ごとの信頼区間が得られる。論文は二つの使い方を挙げる。</p>
+    <ul class="def">
+      <li><strong>処置を増やす価値</strong>：すべての処置を使う曲線 \(Q(B)\) と、処置 \(k\) だけ（または一部の処置だけ）を使う曲線 \(Q_k(B)\) の差 \(Q(B) - Q_k(B)\)。</li>
+      <li><strong>ターゲティングの価値</strong>：共変量を使う曲線と、平均の効果 \(\bar\tau\) と平均のコスト \(\bar C\) だけから作った方策の曲線 \(\bar Q(B)\) の差 \(Q(B) - \bar Q(B)\)。共変量を使わない方策は凸包上で隣り合う二つの処置に予算を分ける。</li>
+    </ul>
+    <p>先の合成データで 5 通りの差（Table 3）を調べると、被覆率は 0.93〜0.97 だった。曲線の間の面積のような曲線全体の要約量の推論は、今後の課題とされている。</p>
+  </section>
+
+  <section id="voting">
+    <div class="kicker">応用</div>
+    <h2>投票率の実験では、組合せの利得は主に、安い手紙と効果の大きい手紙に予算を分けることから生じていた</h2>
+    <p>Gerber ら（2008）の無作為化実験では、2006 年の米国予備選挙の前に 180,002 世帯へ 4 種類の手紙を送った。処置 1「Civic」は市民の義務として投票を促し、処置 2「Hawthorne」は投票するかどうかが調査されていると伝える。処置 3「Self」は自分の世帯と似た世帯の過去の投票歴を知らせ、処置 4「Neighbors」は投票歴を近所に知らせると伝える。対照群には手紙を送らない。結果変数は、世帯の人が予備選挙で投票したかどうかである。Gerber らは Neighbors が最も効果的で、効果の異質性はほとんど見られないと報告している。</p>
+    <p>ただし Neighbors は受け取る人に踏み込んだ手紙でもある。論文は投票率の上昇と「押しつけ」の度合いのトレードオフを見るため、コストを「侵入度」の単位で \(C(1) = 1,\ C(2) = 15,\ C(3) = 30,\ C(4) = 45\) とおき、年齢や過去の投票歴などの共変量で \(\hat\tau\) を学習した。評価には半分の世帯を取り分け、既知の割付確率（各処置 1/9、対照 5/9）による IPW を使っている。</p>
+    <p>予算 \(B = 5\) では、<span class="B">4 種類の最適な組合せ</span>による投票率の上昇は 2%（95% 信頼区間 [1.2, 2.8]）で、<span class="A">最も控えめな Civic だけ</span>では 1%（[0.1, 1.8]）だった。二つの方策の差の 95% 信頼区間は [0.5, 1.5] である。</p>
+    <p>一方、共変量を使わない方策は同じ予算で無作為に選んだ 91% に Civic を、残りの 9% に Neighbors を送る。その利得は共変量を使う組合せとほとんど変わらなかった（差の 95% 信頼区間 [−0.9, 0.4]）。論文はこの結果から、この応用で組合せが上回ったのは主にターゲティングのためではなく、安いが効果の小さい処置と、高いが効果の大きい処置に予算を分けられる柔軟さのためだと述べている。</p>
+    <figure>
+      <svg class="fig" id="fig-voting" viewBox="0 0 640 300" role="img" aria-label="予算5での投票率上昇と95%信頼区間。4種類の組合せは2%で区間1.2から2.8、Civicだけは1%で区間0.1から1.8。組合せとCivicだけの差の区間は0.5から1.5で0を含まない。共変量を使うかどうかの差の区間はマイナス0.9から0.4で0を含む。"></svg>
+      <figcaption>図3　予算 \(B = 5\) における投票率の上昇（%）と 95% 信頼区間。差の 2 行は論文が区間だけを示しているので、点推定は描いていない（論文本文の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p class="src">このページの数値は arXiv v4（2024 年 10 月 15 日）の本文と表による。JCGS 掲載版（2024 年 12 月 10 日オンライン公開、34 巻 3 号）は CC BY 4.0 で公開されているが、本文を自動取得できなかったため照合していない。arXiv 版は図の再利用を認める利用許諾ではないため、図はすべて論文の本文と表の数値から解説者が描いた。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算を 1 人あたりの平均コストの上限として明示し、ROI 順の割当てをコストの違う複数の処置へ広げる</h2>
+    <p>この論文が推定するのは CATE そのものではなく、与えられた CATE の推定値 \(\hat\tau(\cdot)\) とコスト関数から作った方策の価値、すなわち予算 \(B\) ごとの利得 \(Q(B)\) である。CATE の推定法は問わず、実験では一般化ランダムフォレスト（<code>grf</code> の多腕因果フォレスト）を使っている。信頼区間は学習データを固定したうえでのもので、テスト集合のばらつきだけを反映する。</p>
+    <p>コストは処置ごと・人ごとに違ってよく、既知の関数 \(C_k(x)\) として与える。効果と同じ単位である必要はなく、投票率の例では「侵入度」で測っている。処置は互いに排他的な \(K\) 個の多値処置と、コストのかからない対照である。</p>
+    <p>予算制約は「1 人あたりの期待コスト \(\le B\)」として明示的に扱い、分数の割当てを許した線形計画として解く。\(K = 1\) では分数ナップザック問題になり、最適解は \(\tau(x)/C(x)\) の大きい順（ROI 順）の割当てになると論文は明記している。\(K > 1\) では多肢選択ナップザック問題の線形緩和になり、順位の基準が凸包上の増分の比 \(\rho\) に置き換わる。ROI 順の割当て（ナップザック問題の連続緩和）を、そのまま特殊な場合として含む一般化になっている（解説者の注）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{sverdrup2025qini,
+  title   = {Qini Curves for Multi-Armed Treatment Rules},
+  author  = {Sverdrup, Erik and Wu, Han and Athey, Susan and Wager, Stefan},
+  journal = {Journal of Computational and Graphical Statistics},
+  volume  = {34},
+  number  = {3},
+  pages   = {948--960},
+  year    = {2025},
+  doi     = {10.1080/10618600.2024.2418820}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+function svgMaker(svg) {
+  var NS = 'http://www.w3.org/2000/svg';
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 2: coverage, Table 1 (random forest) and Table A1 (xgboost), arXiv v4 ----------
+(function () {
+  var svg = document.getElementById('fig-coverage'); if (!svg) return;
+  var el = svgMaker(svg);
+  var B = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5];
+  var series = [
+    { lab: 'フォレスト n = 1,000',  c: '#16202E', dash: '',    v: [.95, .95, .95, .95, .95, .95, .95, .95, .95, .94] },
+    { lab: 'フォレスト n = 10,000', c: '#16202E', dash: '6 4', v: [.95, .93, .94, .94, .94, .94, .94, .95, .95, .94] },
+    { lab: 'xgboost n = 1,000',     c: '#8C96A5', dash: '',    v: [.93, .91, .91, .91, .90, .90, .88, .88, .88, .87] },
+    { lab: 'xgboost n = 10,000',    c: '#8C96A5', dash: '6 4', v: [.92, .94, .93, .92, .93, .92, .91, .91, .91, .90] }
+  ];
+  var X0 = 90, X1 = 610, Y0 = 290, Y1 = 90, LO = 0.86, HI = 0.97;
+  function px(b) { return X0 + (b - 0.05) / 0.45 * (X1 - X0); }
+  function py(v) { return Y0 - (v - LO) / (HI - LO) * (Y0 - Y1); }
+  [0.87, 0.89, 0.91, 0.93, 0.95, 0.97].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: v === 0.95 ? '#16202E' : '#D9DEE6', 'stroke-width': v === 0.95 ? 1.2 : 1, 'stroke-dasharray': v === 0.95 ? '2 3' : '' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, v.toFixed(2));
+  });
+  B.forEach(function (b, i) { if (i % 2 === 1) el('text', { x: px(b), y: Y0 + 22, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, String(b)); });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + 48, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '予算（1 人あたりの支出）B');
+  series.forEach(function (s, k) {
+    el('polyline', { points: s.v.map(function (v, i) { return px(B[i]) + ',' + py(v); }).join(' '), fill: 'none', stroke: s.c, 'stroke-width': 2.2, 'stroke-dasharray': s.dash });
+    s.v.forEach(function (v, i) { el('circle', { cx: px(B[i]), cy: py(v), r: 3.5, fill: s.c }); });
+    var lx = 90 + (k % 2) * 270, ly = 26 + Math.floor(k / 2) * 26;
+    el('line', { x1: lx, x2: lx + 34, y1: ly - 5, y2: ly - 5, stroke: s.c, 'stroke-width': 2.2, 'stroke-dasharray': s.dash });
+    el('text', { x: lx + 44, y: ly, 'font-size': 14, fill: '#16202E' }, s.lab);
+  });
+})();
+
+// ---------- figure 3: election turnout at B = 5 (text of Section 6, arXiv v4) ----------
+(function () {
+  var svg = document.getElementById('fig-voting'); if (!svg) return;
+  var el = svgMaker(svg);
+  var rows = [
+    { lab: '4 種類の組合せ', c: '#1D4ED8', lo: 1.2, hi: 2.8, pt: 2 },
+    { lab: 'Civic だけ', c: '#C2410C', lo: 0.1, hi: 1.8, pt: 1 },
+    { lab: '差：組合せ − Civic だけ', c: '#16202E', lo: 0.5, hi: 1.5 },
+    { lab: '差：共変量あり − なし', c: '#16202E', lo: -0.9, hi: 0.4 }
+  ];
+  var X0 = 300, X1 = 610, LO = -1, HI = 3, Y0 = 50, DY = 54;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [-1, 0, 1, 2, 3].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 26, y2: Y0 + DY * 3 + 24, stroke: v === 0 ? '#16202E' : '#D9DEE6', 'stroke-width': v === 0 ? 1.2 : 1, 'stroke-dasharray': v === 0 ? '4 3' : '' });
+    el('text', { x: px(v), y: Y0 + DY * 3 + 46, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, (v < 0 ? '−' + (-v) : String(v)));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 3 + 72, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '投票率の上昇（%）');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 16, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r.lab);
+    el('line', { x1: px(r.lo), x2: px(r.hi), y1: y, y2: y, stroke: r.c, 'stroke-width': 3 });
+    el('line', { x1: px(r.lo), x2: px(r.lo), y1: y - 8, y2: y + 8, stroke: r.c, 'stroke-width': 2 });
+    el('line', { x1: px(r.hi), x2: px(r.hi), y1: y - 8, y2: y + 8, stroke: r.c, 'stroke-width': 2 });
+    if (r.pt != null) el('circle', { cx: px(r.pt), cy: y, r: 8, fill: r.c });
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>購入と取扱高のファネルを使うクーポン配分（論文解説）</title>
+<meta name="description" content="FunnelCausalNet: Funnel-aware Joint Conversion-Revenue Uplift for Multi-tier Coupon Allocation（CIKM 2026）の非公式の解説。取扱高の効果を購入確率と購入者の注文額の積で推定し、予算つきの多段階クーポン割当てに渡す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = regressing GMV directly as one zero-inflated continuous response, and the
+                         Bernoulli switching variance p(1-p)·mu_v^2 that this carries; other methods in charts
+            --b  (blue)   = funnel composition mu_gmv = mu_conv · mu_val (FunnelCausalNet) and its results
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">CIKM 2026 · ACM</div>
+  <h1>FunnelCausalNet: Funnel-aware Joint Conversion-Revenue Uplift for Multi-tier Coupon Allocation</h1>
+  <p class="subtitle">購入と取扱高のファネルを考慮したアップリフトの同時推定と、多段階クーポンの割当て</p>
+
+  <ul class="authors">
+    <li><b>Yu Zhang</b><span>AMap Alibaba Group, Beijing, China</span></li>
+    <li><b>Zhihan Wang</b><span>AMap Alibaba Group, Beijing, China</span></li>
+    <li><b>Guanlin Chen</b><span>AMap Alibaba Group, Beijing, China</span></li>
+    <li><b>Min Jiang</b><span>AMap Alibaba Group, Beijing, China</span></li>
+    <li><b>Shuai Li</b><span>AMap Alibaba Group, Beijing, China</span></li>
+  </ul>
+
+  <p class="lead">クーポン施策の取扱高（GMV）は、購入しなかった人ではゼロになり、購入した人の間では大きくばらつく。この論文は GMV を<span class="A">ひとつの連続値としてそのまま回帰する</span>代わりに、<span class="B">購入確率と購入者の注文額の積</span>として推定する FunnelCausalNet を提案し、その推定値を予算つきの多段階クーポン割当てに渡す。半合成データでは GMV の効果の推定誤差が 18〜48% 下がり、ホテルクーポンの RCT ログでは比べた 6 手法の中で平均 ΔROI が最も高かった。ただし後者の差は統計的に有意とはしていない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3799682.3840815">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2608.11675">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ゼロの多い GMV の分布、GMV の分散の2つの項、購入確率と注文額の積による推定、論文 Table 11 の ΔROI 比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">推定誤差 18〜48% 減</span><span class="d">半合成データ Criteo-MT7 で購入率を 4.6〜45.4% の 4 段階に変えたとき、GMV を直接回帰する場合に比べて、積で推定すると GMV の効果の誤差（PEHE_GMV）が下がった（Table 5）。</span></li>
+    <li><span class="k">7 地点すべてで平均 ΔROI が最大</span><span class="d">ホテルクーポンの RCT ログで、GMV の増加率 10〜60% の 7 地点を 6 手法で比べた。ただし地点ごとの 95% ブートストラップ信頼区間はどれも 0 を含む（Table 11）。</span></li>
+    <li><span class="k">公開 RCT では上位に届かない</span><span class="d">処置が「送る・送らない」の 2 値で購入も少ない Hillstrom では、売上に特化した RERUM（AUUC_GMV 0.747）などが上回った。論文はこれを適用範囲の境界として示している。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>クーポンの GMV は購入しなかった人ではゼロになり、購入確率と注文額の 2 段階で決まる</h2>
+    <p>論文はクーポンの RCT に共通する 3 つの性質を挙げる。1 つ目は<strong>ファネルの恒等式</strong>である。購入しなければ GMV はゼロなので、GMV は「購入したか」と「購入したときの注文額」に分解できる。ゼロが大半を占める GMV を制約のない連続値として回帰すると、効果の推定値のばらつきが大きくなる。2 つ目は<strong>順位のずれ</strong>である。購入の増分で並べた順と GMV の増分で並べた順は大きく食い違うことがあり、予算が厳しいほど GMV の増分を取りこぼす。3 つ目は<strong>多段階の処置</strong>である。割引の強さが複数あり、著者らの RCT ログでは段階によって購入確率への効き方と注文額への効き方が違っていた。処置を「配る・配らない」の 2 値で扱うと、誰にどの段階を配るかに答えられない。</p>
+    <p>実務では購入確率と注文額を別々のモデルで推定し、あとで組み合わせることが多い。論文はこれに対して、点推定、監査のための不確実性の表示、予算つきの割当てを一続きの仕組みとして示す。個々の部品がそれぞれ新しいとは主張していないことも明記している。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>割引の段階を一人に 1 つ選び、補助金の総額を予算 B 以内に収める</h2>
+    <p>観測は特徴 \(X\)、処置 \(T \in \{0,1,\ldots,K\}\)（\(T=0\) は配らない）、購入 \(Y^c \in \{0,1\}\)、GMV \(Y^g \ge 0\) である。購入しなければ \(Y^g = 0\) という制約を常に置く。段階 \(t\) ごとに、購入と GMV のそれぞれについて CATE を定める。</p>
+    <div class="eq">\[ \tau^{c}_{t}(x)=\mathbb{E}[Y^{c}(t)-Y^{c}(0)\mid X=x],\qquad \tau^{g}_{t}(x)=\mathbb{E}[Y^{g}(t)-Y^{g}(0)\mid X=x] \]</div>
+    <p>識別は RCT を前提とし、観察データだけからの識別は主張しない。段階は RCT で無作為に割り付けたクーポンそのもので、段階の間を連続的な用量反応曲線で補間することはしない。</p>
+    <p>方策 \(\pi\) は各利用者に対照か段階の一つを割り当てる。段階 \(k\) を配ったときに予測される補助金の増分を \(c(x,k)\) とし、総額に予算 \(B\) を置く。</p>
+    <div class="eq">\[ \sum_{i} c\bigl(x_i,\pi(x_i)\bigr) \le B \]</div>
+    <p>目的は GMV の増分の合計か、それを補助金の合計で割った \(\Delta\mathrm{ROI} = \sum_i \hat\tau^{g}_{\pi(x_i)}(x_i) \big/ \sum_i \hat c_{i,\pi(x_i)}\) である。購入と GMV の順位が食い違うとき、どの目的もつねに事業の意向と一致するわけではないと論文は断っている。</p>
+  </section>
+
+  <section id="funnel">
+    <div class="kicker">手法 1：推定</div>
+    <h2>GMV の期待値を「購入確率 × 購入者の平均注文額」として出し、金額は購入者だけから学ぶ</h2>
+    <p>FunnelCausalNet は表現を共有するネットワークに 2 つの出力（頭）を載せる。段階ごとの購入確率 \(\mu_{\mathrm{conv}}^{(t)}(x)\) を出す頭と、購入した場合の注文額の期待値 \(\mu_{\mathrm{val}}^{(t)}(x)\)（非負）を出す頭である。GMV の期待値は両者の積で決める。</p>
+    <div class="eq">\[ \color{#1D4ED8}{\mu_{\mathrm{gmv}}^{(t)}(x)=\mu_{\mathrm{conv}}^{(t)}(x)\,\mu_{\mathrm{val}}^{(t)}(x)} \]</div>
+    <p>購入の頭はベルヌーイ損失（BCE）で、注文額の頭は購入者だけを使って \(\log(1+\mathrm{GMV})\) の二乗誤差で学習する。推論時には対数正規分布の平均補正で金額に戻す。全体の損失は \(\mathcal{L}_{\mathrm{total}}=\mathcal{L}_{\mathrm{conv}}+\alpha\,\mathcal{L}_{\mathrm{val}}+\beta\,\mathcal{L}_{\mathrm{consist}}+\gamma\,\mathcal{L}_{\mathrm{mono}}\) で、後ろの 2 項（一貫性と単調性）は任意である。</p>
+    <p>積で結ぶ「ハード」な方式のほかに、積の関係を大きなペナルティに置き換える「ソフト」な方式もある。購入と GMV の記録の時期がずれる、記録が欠けるなどの理由で、購入しなければ GMV はゼロという関係が近似的にしか成り立たない場合はソフトな方式が向くとしている。論文の RCT ログでは、この関係はデータの作り方から成り立つ。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="FunnelCausalNet の推定の模式図。利用者の特徴と段階 t が共有表現に入り、購入確率の頭と注文額の頭に分かれる。2つの積が GMV の期待値になり、段階どうしと対照の差が GMV の CATE になる。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="12" y="110" width="118" height="80" rx="10" fill="#F2F4F7"/>
+        <text x="71" y="145" font-size="16" fill="#16202E" text-anchor="middle">特徴 <tspan class="mi">x</tspan></text>
+        <text x="71" y="169" font-size="16" fill="#16202E" text-anchor="middle">段階 <tspan class="mi">t</tspan></text>
+        <rect x="160" y="110" width="104" height="80" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="212" y="145" font-size="16" fill="#16202E" text-anchor="middle">共有の</text>
+        <text x="212" y="169" font-size="16" fill="#16202E" text-anchor="middle">表現</text>
+        <rect x="296" y="30" width="170" height="92" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="381" y="58" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">購入確率の頭</text>
+        <text x="381" y="84" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">μ</tspan><tspan font-size="12" dy="4">conv</tspan><tspan dy="-4">(</tspan><tspan class="mi">x</tspan>, <tspan class="mi">t</tspan>)</text>
+        <text x="381" y="108" font-size="15" fill="#5B6676" text-anchor="middle">全員で学習（BCE）</text>
+        <rect x="296" y="178" width="170" height="92" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="381" y="206" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">注文額の頭</text>
+        <text x="381" y="232" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">μ</tspan><tspan font-size="12" dy="4">val</tspan><tspan dy="-4">(</tspan><tspan class="mi">x</tspan>, <tspan class="mi">t</tspan>) ≥ 0</text>
+        <text x="381" y="256" font-size="15" fill="#5B6676" text-anchor="middle">購入者だけで学習</text>
+        <rect x="496" y="96" width="136" height="108" rx="10" fill="#E7EEFC"/>
+        <text x="564" y="124" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">GMV の期待値</text>
+        <text x="564" y="152" font-size="16" fill="#16202E" text-anchor="middle">購入確率</text>
+        <text x="564" y="174" font-size="16" fill="#16202E" text-anchor="middle">× 注文額</text>
+        <text x="564" y="196" font-size="14" fill="#5B6676" text-anchor="middle">段階ごとに計算</text>
+        <path d="M130,150 L158,150" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M264,138 L294,84" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M264,162 L294,216" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M466,84 L494,128" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M466,216 L494,172" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+      </svg>
+      <figcaption>図1　FunnelCausalNet の推定の模式図（論文の記述から解説者が描いたもの）。購入確率が 0 なら GMV の期待値も 0 になる。段階 \(t\) と対照の差が \(\hat\tau^{g}_{t}(x)\) になる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>理想化した仮定のもとでは、積で推定すると「ゼロかどうか」の切り替わりによる分散が消える</h2>
+    <p>\((x,t)\) を固定し、購入確率を \(p\)、購入者の注文額の平均と分散を \(\mu_v,\ \sigma_v^2\) とする。命題 1 は GMV の分散を 2 つの項に分ける。</p>
+    <div class="eq">\[ \mathrm{Var}(Y^{g}\mid X=x,T=t)=p\,\sigma_v^{2}+\color{#C2410C}{p(1-p)\,\mu_v^{2}} \]</div>
+    <p>第 1 項は購入者の間での注文額のばらつきで、第 2 項は<span class="A">ゼロかどうかの切り替わり</span>によるばらつきである。命題 2 は次のような仮定（A1〜A5）を置く。購入確率は正しく特定したパラメトリックモデルで全サンプルから推定し、\(n^{-1/2}\) の速さで収束する。注文額は購入者だけからノンパラメトリックに推定し、それより遅い速さで収束する。2 つの頭の推定誤差の共分散は無視できる。このとき、直接回帰と比べた MSE の比の極限は次のようになる。</p>
+    <div class="eq">\[ \lim_{n\to\infty}\frac{\mathrm{MSE}(\color{#1D4ED8}{\hat{\mu}_g^{\mathrm{funnel}}})}{\mathrm{MSE}(\color{#C2410C}{\hat{\mu}_g^{\mathrm{direct}}})}=\frac{p\,\sigma_v^{2}}{p\,\sigma_v^{2}+p(1-p)\,\mu_v^{2}}=\frac{1}{1+(1-p)\,\mu_v^{2}/\sigma_v^{2}} \]</div>
+    <p>比は、ゼロの割合 \(1-p\) が大きいほど、また \(\mu_v\) が \(\sigma_v\) に比べて大きいほど小さくなる。ただし論文はこの式を「どちらの方式が有利になりやすいかの目安」と位置づけ、表現を共有するニューラルネットへの保証ではないと繰り返し断っている。2 つの頭を同じ速さのノンパラメトリック推定にすると比は 1 になる。表現を共有すると有限標本で誤差が相関しうるし、2 つの頭の系統的な偏りは積によって掛け合わされる。考え方は計量経済学のハードルモデルや二部モデルと同じで、論文の貢献は恒等式そのものではなく、それをクーポンのアップリフトにつなげた点にあるとしている。</p>
+    <figure>
+      <svg class="fig" id="fig-ratio" viewBox="0 0 640 340" role="img" aria-label="命題2の式から計算した MSE の比の曲線。横軸は購入確率 p、縦軸は比。注文額の平均と標準偏差の比が0.5、1、2の3本で、どれも p が小さいほど比が小さく、p が1に近づくと1に戻る。"></svg>
+      <figcaption>図2　命題 2 の式から計算した、直接回帰に対する積の推定の MSE 比。\(\mu_v/\sigma_v\) の 3 つの値は解説者が選んだもので、論文の実験値ではない。比が 1 より小さいほど積の推定が有利である。</figcaption>
+    </figure>
+  </section>
+
+  <section id="allocation">
+    <div class="kicker">手法 2：割当て</div>
+    <h2>割当てはラグランジュ緩和で利用者ごとに分け、GMV の水準は RCT の群平均で補正してから渡す</h2>
+    <p>割当ての段階では、予測した段階ごとの GMV の増分 \(\hat\tau^{g}_{t}(x)\) とコスト \(c(x,t)\) を受け取り、スカラーの乗数 \(\lambda\) を双対更新して予算制約を近似的に満たす。内側の問題は利用者ごとに分かれるので、大規模でも計算できる。メモリが足りる規模では LP 緩和を参照に使い、産業データの主な結果（後述の E7）も LP 緩和で出している。</p>
+    <p>ゼロが極端に多いと、予測した GMV の水準が系統的にずれることがある（例えば対照群の GMV を過小に見積もる）。そこで論文は学習に使わない一部のデータで RCT の群ごとの平均を求め、それに合わせる加法的なずらしを予測に足してから割当てに渡す。論文はこれをアンカリングと呼び、再学習は要らない。</p>
+    <p>不確実性を示すには、購入と GMV のそれぞれの CATE に分割コンフォーマル区間を付け、ボンフェローニ法で 2 つを束ねる。各区間を水準 \(\alpha/2\) で作れば、2 つが同時に真の値を含む確率は \(1-\alpha\) 以上になる。ただし論文はこの区間を監査や監視のための表示と位置づけ、割当てには使わない。GMV の効果の下側信頼限界（LCB）で割り当てると、ゼロの多さのせいで下限が悲観的になり、全員を対照に回してしまうからである（実験 E4）。購入と GMV の順位が食い違う利用者を予算の境目の近くで拾い出す診断も、人が確認するための開示として位置づけている。合成データでの F1 は最大でも約 0.25 で、論文は精度の保証された検出器ではないと述べている。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>評価には、半合成の多段階データ、公開 RCT の Hillstrom、ホテルクーポンの RCT ログの 3 つを使った</h2>
+    <p>Criteo-MT7 は、真の個別効果が分かる半合成データで、割引率 0〜14% の 8 段階と対照からなり、基準の購入率は約 8% である。Hillstrom は約 6.4 万人の公開 RCT で、2 種類のメール送付を 1 つにまとめて「送る・送らない」の比較にしている。ホテルクーポンのデータは匿名化した多段階の RCT ログで、約 279 万人、約 498 万件の接触記録からなる。シードごとに全体を並べ替え、先頭の 5 万件で学習し、残りの約 493 万件で評価する。</p>
+    <p>比較対象は 11 手法である。S・T・X 学習器、因果フォレスト、2 頭のネットワーク（DualHeadNet）、CFRNet、DragonNet、EFIN、DESCN、ECUP、RERUM を比べる。深層モデルは同じ PyTorch の仕組みで実装し直し、学習の設定をそろえている。多段階の公開ベンチマークで連続の GMV と RCT を兼ね備えたものは見つからなかったと著者らは述べる。</p>
+    <p class="src">このページの数値は arXiv v1（2026 年 8 月 12 日）の本文と表による。表の番号も arXiv v1 のもの。ACM の出版版（DOI 10.1145/3799682.3840815）の本文は自動取得できなかったため、照合していない。</p>
+  </section>
+
+  <section id="mt7">
+    <div class="kicker">実験の結果 1</div>
+    <h2>半合成データでは、積で推定するだけで GMV の効果の推定誤差が 18〜48% 下がった</h2>
+    <p>Criteo-MT7（\(N\) = 1 万、3 シードの平均、Table 3）では、AUUC_GMV が最も高いのは EFIN（0.615）で、FunnelCausalNet は 0.613 で 2 位だった。差はシード間の標準偏差 1 つ分以内である。GMV の効果の誤差 PEHE_GMV も EFIN が最小（26.70）で、FunnelCausalNet は 31.18 だった。購入の効果の誤差 PEHE_CVR は DualHeadNet（0.048）が最小で、FunnelCausalNet は 0.058 である。平均効果の誤差は因果フォレスト（4.62）や S 学習器（5.98）のような浅いモデルが小さく、論文は水準の較正と異質性の順位づけは別の目標だとしている。</p>
+    <p>学習の仕組みをそろえて推定の方式だけを変えた比較（E2、5 シード、Table 4）では、<span class="A">GMV の直接回帰</span>、ソフトな方式、<span class="B">ハードな積</span>、ZILN 型の尤度の 4 通りを比べた。ハードな積は 1 万・2 万・10 万件のすべてで PEHE_GMV が最小だった（例えば 2 万件で 15.29 対 直接回帰 25.48）。ファネルの制約に反する予測の割合（違反率）は、直接回帰では 62〜71%、ハードな積では 0% だった。</p>
+    <p>基準の購入率を変えた試験（2 万件、5 シード、Table 5）では、積で推定すると PEHE_GMV が 4 つの水準のすべてで下がった。下がり方は購入率 4.6% で 18.1%、11.9% で 38.0%、24.3% で 48.3%、45.4% で 44.6% である。論文は、この向きは命題 2 と整合するが、漸近的な仮定を確かめたものではないとしている。なお、データの節には「この範囲で効果は単調」とあるが、表では購入率 24.3% で最大となっている。</p>
+    <figure>
+      <svg class="fig" id="fig-e2b" viewBox="0 0 640 330" role="img" aria-label="論文 Table 5 の棒グラフ。購入率4.6%、11.9%、24.3%、45.4%の4水準で、直接回帰とハードな積の PEHE_GMV を比べる。どの水準でも積の方が低く、減少率は18.1%、38.0%、48.3%、44.6%。"></svg>
+      <figcaption>図3　PEHE_GMV（小さいほどよい、5 シードの平均）。<span class="A">■</span> GMV の直接回帰、<span class="B">■</span> ハードな積。棒の上の % は誤差の減少率（論文 Table 5 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ota">
+    <div class="kicker">実験の結果 2</div>
+    <h2>ホテルクーポンの RCT ログでは、7 つの地点すべてで平均 ΔROI が最も高かったが、有意な差とはしていない</h2>
+    <p>産業データの評価には RCT ログを使う期待結果指標（EOM、Yan et al.）を使う。乗数 \(\alpha\) ごとに、予測した GMV の増分とコストから LP 緩和の KKT 条件で各利用者の段階を決める。無作為に割り付けられた段階がその推奨と一致した利用者だけを残し、Hájek 型の IPW で GMV と補助金の平均 \(V_\alpha,\ C_\alpha\) を推定する。対照群の平均 \(V_{\mathrm{ctl}}\) と比べて \(\Delta\mathrm{GMV\%}=100(V_\alpha-V_{\mathrm{ctl}})/V_{\mathrm{ctl}}\)、\(\Delta\mathrm{ROI}=(V_\alpha-V_{\mathrm{ctl}})/C_\alpha\) とし、\(\alpha\) を動かして得た曲線上で \(\Delta\mathrm{GMV\%}\) が 10〜60% の 7 地点の \(\Delta\mathrm{ROI}\) を読む。比べたのは多段階に対応した深層モデル 6 つである。</p>
+    <p>FunnelCausalNet は 7 地点すべてで、3 シード平均の \(\Delta\mathrm{ROI}\) が最も高かった（Table 11）。10% の地点では 4.94（次点は EFIN の 4.84）、60% の地点では 3.60（次点は RERUM と EFIN の 3.50）である。ただし、次点との差の 95% ペアブートストラップ信頼区間は 0 を含む（10% で [−0.42, +0.35]、60% で [−0.07, +0.38]）。7 地点は同じ曲線上の点で互いに相関し、3 つのシードも同じ RCT の並べ替えにすぎない。このため論文はこの結果を傾向の記述として扱い、有意性は主張していない。本文では 25〜60% の地点で次点との差が 0.18〜0.21 とされているが、表から計算すると 0.10〜0.22 となっている。</p>
+    <p>手数料率 \(\gamma\) を 0.2〜0.3 とすると、損益分岐点は \(\Delta\mathrm{ROI}=1/\gamma\) の 3.3〜5.0 で、7 地点はこの帯をまたぐように選ばれている。\(\Delta\mathrm{ROI}\) は補助金を費用とみなした代理指標で、店舗単位で照合した利益ではない。曲線の右端まで届く \(\Delta\mathrm{GMV\%}\) も手法で違い、FunnelCausalNet は約 90.4%、EFIN は約 61.8% である。社内のオンライン評価でも既存のモデルとの順位はオフラインと同じ向きだったが、数値は契約上公開できないとしている。</p>
+    <p>半合成データでの割当て（E4、Table 7）では、予算の比 \(B/B_{\mathrm{free}}\) が 0.05 のとき、アンカリングとラグランジュ緩和を組み合わせた方式の \(\Delta\mathrm{ROI}\) は 3.92 で、無作為の 3.07、上位 K 人の 3.66、LP の 3.43 を上回った。0.50 のときは 3.00 で、上位 K 人の 3.05 や LP の 3.03 とほぼ同じだった。この比較はアンカリングと割当ての方法を同時に変えているので、アンカリングだけの効果は切り出せていないと論文は断っている。</p>
+    <figure>
+      <svg class="fig" id="fig-e7" viewBox="0 0 640 360" role="img" aria-label="論文 Table 11 の折れ線グラフ。横軸は GMV の増加率10%から60%、縦軸は ΔROI。FunnelCausalNet の線はすべての地点でほかの5手法の最良値をわずかに上回り、4.94から3.60に下がる。"></svg>
+      <figcaption>図4　ΔROI（3 シードの平均）。<span class="B">●</span> FunnelCausalNet、<span class="A">●</span> ほかの 5 手法のうち各地点で最も高い値、灰色はほかの 5 手法それぞれ。網かけは手数料率 0.2〜0.3 での損益分岐の帯。DragonNet の 10% の値は 1 シードのみ（論文 Table 11 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="scope">
+    <div class="kicker">適用範囲</div>
+    <h2>処置が 2 値で購入の少ない公開データでは、売上に特化した手法のほうが上位になる</h2>
+    <p>Hillstrom は「送る・送らない」の 2 値の RCT で、購入者が少なく、割引の強さという軸がない。AUUC_GMV では売上に特化した RERUM（0.747）と DualHeadNet（0.739）が上位で、DESCN、ECUP、FunnelCausalNet といった多段階・ファネル型の深層モデルはどれも下回った。論文は、問題設定が合っていないことと、購入者が少なく注文額の頭を学習しきれないことの両方が原因でありうるとし、FunnelCausalNet が 2 値の公開ベンチマークで広く優位なわけではない証拠だと明記している。</p>
+    <p>ほかの限界も論文に書かれている。コンフォーマル区間は保守的で、同時被覆率は名目の \(1-\alpha\) を 3〜15 ポイント上回る（例えば Criteo-MT7 の \(\alpha=0.20\) で 0.942）。Criteo-MT7 での GMV の効果の区間幅は通貨単位で 1 万前後あり、狭い \(\alpha\) では LCB で決める割当てが意味をなさないことが多い。産業データは公開できず、コードも公開されていないので、外部からは再現できない。E7 は記録単位で並べ替えて分けているので、同じ利用者が学習側と評価側の両方に現れうる。段階は離散のクーポンで、連続的な割引の強さの滑らかさや単調性は使っていない。</p>
+    <p>計算時間は、8 段階・100 万人でラグランジュ緩和の更新が 0.127 秒、学習が 324 秒だった（Table 10）。LP 緩和は 5 万人で 11.26 秒かかり、50 万人以上ではメモリ不足などで解けなかった。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>補助金の総額に上限を置き、ラグランジュ乗数を動かして多段階のクーポンを割り当てる</h2>
+    <p>この論文が推定するのは、段階 \(t\) ごとの購入の CATE \(\tau^{c}_{t}(x)\) と GMV の CATE \(\tau^{g}_{t}(x)\) で、GMV の期待値は購入確率と注文額の積で出す。割当てに使うのは、RCT の群平均で水準を補正した \(\hat\tau^{g}_{t}(x)\) である。</p>
+    <p>コスト \(c(x,k)\) は段階 \(k\) を配ったときの補助金の増分の予測で、段階ごとのクーポンの条件と、キャンペーンごとの計上の基準から決まる。半合成データの実験では割引率 \(d_k\) と予測 GMV の積 \(d_k\hat\mu_g^{(k)}(x)\) をコストとしており、補助金は購入があったときにだけ発生する。処置は対照と \(K\) 個の段階からなる多値で、段階の間の補間はしない。</p>
+    <p>予算制約は補助金の総額の上限 \(B\) として明示的に扱い、スカラーの乗数 \(\lambda\) を双対更新するラグランジュ緩和で近似的に満たす。中規模では LP 緩和を使う。産業データの評価では予算を 1 つに固定せず、乗数を動かして \(\Delta\mathrm{GMV\%}\) と \(\Delta\mathrm{ROI}\) の曲線全体を描き、GMV の増加率の目標ごとに比べている。</p>
+    <p>ROI 順の割当てとの関係は次のように整理できる（解説者の注）。乗数 \(\lambda\) を固定すると、内側の問題は利用者ごとに \(\hat\tau^{g}_{t}(x)-\lambda\,c(x,t)\) が最大の段階を選び、すべての段階で負なら配らない、という形になる。これは多肢選択ナップザック問題のラグランジュ緩和で、段階が 1 つなら「\(\hat\tau/c \ge \lambda\) の人に配る」という ROI 順のしきい値と一致する。段階が複数あるとき、LP 緩和の解は、利用者ごとに \((c,\hat\tau)\) の上側の凸包に乗る段階だけを使い、段階を 1 つ上げたときの増分の比 \(\Delta\hat\tau/\Delta c\) が大きい順に予算を使う形になる。論文はこの内側の問題の式を明示しておらず、\(\lambda\) の更新方法や丸めの詳細も書いていない。論文が報告する \(\Delta\mathrm{ROI}\) は、GMV の増分の合計を補助金の合計で割った比である。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhang2026funnelcausalnet,
+  title     = {FunnelCausalNet: Funnel-aware Joint Conversion-Revenue Uplift for Multi-tier Coupon Allocation},
+  author    = {Zhang, Yu and Wang, Zhihan and Chen, Guanlin and Jiang, Min and Li, Shuai},
+  booktitle = {Proceedings of the 35th ACM International Conference on Information and Knowledge Management},
+  pages     = {6370--6380},
+  year      = {2026},
+  publisher = {ACM},
+  doi       = {10.1145/3799682.3840815}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 2: MSE ratio of Proposition 2, 1 / (1 + (1-p) r^2), r = mu_v / sigma_v (explainer-chosen r) ----------
+(function () {
+  var svg = document.getElementById('fig-ratio'); if (!svg) return;
+  var el = mk(svg);
+  var X0 = 80, X1 = 470, Y0 = 280, Y1 = 30;
+  function px(p) { return X0 + p * (X1 - X0); }
+  function py(v) { return Y0 - v * (Y0 - Y1); }
+  [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: '#D9DEE6' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'end' }, String(v));
+  });
+  [0, 0.2, 0.4, 0.6, 0.8, 1].forEach(function (p) {
+    el('text', { x: px(p), y: Y0 + 24, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, String(p));
+  });
+  el('line', { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.5 });
+  el('line', { x1: X0, x2: X0, y1: Y0, y2: Y1 - 6, stroke: '#16202E', 'stroke-width': 1.5 });
+  var curves = [[0.5, '#8FA6E8', '0.5'], [1, '#4F74E0', '1'], [2, '#1D4ED8', '2']];
+  curves.forEach(function (c, j) {
+    var pts = [];
+    for (var i = 0; i <= 100; i++) { var p = 0.01 + i * 0.0099; pts.push(px(p).toFixed(1) + ',' + py(1 / (1 + (1 - p) * c[0] * c[0])).toFixed(1)); }
+    el('polyline', { points: pts.join(' '), fill: 'none', stroke: c[1], 'stroke-width': 3 });
+    var y = 92 + j * 34;
+    el('line', { x1: 492, x2: 520, y1: y, y2: y, stroke: c[1], 'stroke-width': 3 });
+    var t = el('text', { x: 528, y: y + 5, 'font-size': 16, fill: '#16202E' });
+    t.innerHTML = '<tspan class="mi">μ</tspan><tspan font-size="12" dy="4">v</tspan><tspan dy="-4"> / </tspan><tspan class="mi">σ</tspan><tspan font-size="12" dy="4">v</tspan><tspan dy="-4"> = ' + c[2] + '</tspan>';
+  });
+  el('text', { x: 492, y: 58, 'font-size': 15, fill: '#5B6676' }, '解説者が選んだ値');
+  var xl = el('text', { x: (X0 + X1) / 2, y: Y0 + 50, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' });
+  xl.innerHTML = '購入確率 <tspan class="mi">p</tspan>';
+  el('text', { transform: 'translate(26,' + (Y0 + Y1) / 2 + ') rotate(-90)', 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, 'MSE の比（積 ÷ 直接回帰）');
+})();
+
+// ---------- figure 3: Table 5 of the paper (arXiv v1), PEHE_GMV, direct (A) vs hard funnel (C) ----------
+(function () {
+  var svg = document.getElementById('fig-e2b'); if (!svg) return;
+  var el = mk(svg);
+  var rows = [['4.6%', 12.22, 10.01, '−18.1%'], ['11.9%', 25.43, 15.77, '−38.0%'], ['24.3%', 39.22, 20.29, '−48.3%'], ['45.4%', 55.11, 30.54, '−44.6%']];
+  var X0 = 80, X1 = 620, Y0 = 260, HI = 60, BW = 44;
+  function py(v) { return Y0 - v / HI * 210; }
+  [0, 20, 40, 60].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: '#D9DEE6' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'end' }, String(v));
+  });
+  var GW = (X1 - X0) / 4;
+  rows.forEach(function (r, i) {
+    var cx = X0 + GW * (i + 0.5);
+    el('rect', { x: cx - BW - 3, y: py(r[1]), width: BW, height: Y0 - py(r[1]), fill: '#C2410C', rx: 3 });
+    el('rect', { x: cx + 3, y: py(r[2]), width: BW, height: Y0 - py(r[2]), fill: '#1D4ED8', rx: 3 });
+    el('text', { x: cx - BW / 2 - 3, y: py(r[1]) - 8, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' }, r[1].toFixed(2));
+    el('text', { x: cx + BW / 2 + 3, y: py(r[2]) - 8, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' }, r[2].toFixed(2));
+    el('text', { x: cx, y: py(r[1]) - 30, 'font-size': 15, 'font-weight': 600, fill: '#1D4ED8', 'text-anchor': 'middle' }, r[3]);
+    el('text', { x: cx, y: Y0 + 24, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, r[0]);
+  });
+  el('line', { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.5 });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + 52, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, '観測された購入率');
+  el('text', { transform: 'translate(26,' + (Y0 + 50) / 2 + ') rotate(-90)', 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, 'PEHE_GMV');
+})();
+
+// ---------- figure 4: Table 11 of the paper (arXiv v1), Delta ROI at 7 Delta GMV% anchors ----------
+(function () {
+  var svg = document.getElementById('fig-e7'); if (!svg) return;
+  var el = mk(svg);
+  var A = [10, 20, 25, 30, 40, 50, 60];
+  var M = {
+    ECUP: [4.13, 4.00, 3.87, 3.82, 3.73, 3.60, 3.49], RERUM: [4.77, 4.40, 4.23, 4.08, 3.81, 3.62, 3.50],
+    CFRNet: [4.11, 3.92, 3.83, 3.75, 3.63, 3.52, 3.41], DragonNet: [3.13, 4.30, 4.12, 3.97, 3.74, 3.58, 3.49],
+    EFIN: [4.84, 4.23, 4.08, 3.96, 3.77, 3.62, 3.50]
+  };
+  var F = [4.94, 4.57, 4.44, 4.30, 4.01, 3.80, 3.60];
+  var X0 = 80, X1 = 600, Y0 = 290, Y1 = 30, LO = 3.0, HI = 5.2;
+  function px(a) { return X0 + (a - 5) / 60 * (X1 - X0); }
+  function py(v) { return Y0 - (v - LO) / (HI - LO) * (Y0 - Y1); }
+  el('rect', { x: X0, y: py(5.0), width: X1 - X0, height: py(3.3) - py(5.0), fill: '#F2F4F7' });
+  [3.0, 3.5, 4.0, 4.5, 5.0].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: '#D9DEE6' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'end' }, v.toFixed(1));
+  });
+  A.forEach(function (a) { el('text', { x: px(a), y: Y0 + 24, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, a + '%'); });
+  function line(v, col, w, dash) {
+    el('polyline', { points: v.map(function (y, i) { return px(A[i]) + ',' + py(y); }).join(' '), fill: 'none', stroke: col, 'stroke-width': w, 'stroke-dasharray': dash || 'none' });
+  }
+  Object.keys(M).forEach(function (k) { line(M[k], '#CBD2DC', 2); });
+  var best = A.map(function (_, i) { return Math.max.apply(null, Object.keys(M).map(function (k) { return M[k][i]; })); });
+  line(best, '#C2410C', 2.5, '6 4');
+  best.forEach(function (v, i) { el('circle', { cx: px(A[i]), cy: py(v), r: 5.5, fill: '#C2410C' }); });
+  line(F, '#1D4ED8', 3);
+  F.forEach(function (v, i) { el('circle', { cx: px(A[i]), cy: py(v), r: 6.5, fill: '#1D4ED8' }); });
+  el('text', { x: px(10) + 10, y: py(4.94) - 10, 'font-size': 14, fill: '#1D4ED8' }, '4.94');
+  el('text', { x: px(60) - 4, y: py(3.60) - 12, 'font-size': 14, fill: '#1D4ED8', 'text-anchor': 'end' }, '3.60');
+  el('text', { x: X1 - 6, y: py(5.0) + 18, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, '損益分岐の帯（ΔROI 3.3〜5.0）');
+  el('line', { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.5 });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + 52, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, 'GMV の増加率（ΔGMV%）の地点');
+  el('text', { transform: 'translate(26,' + (Y0 + Y1) / 2 + ') rotate(-90)', 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, 'ΔROI');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

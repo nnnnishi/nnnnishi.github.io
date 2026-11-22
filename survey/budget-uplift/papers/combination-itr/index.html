@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算制約のもとでの組合せ処置の個別化ルール（論文解説）</title>
+<meta name="description" content="Optimal individualized treatment rule for combination treatments under budget constraints（JRSS-B 2024）の非公式の解説。共変量と処置の組合せを同じ低次元空間に埋め込んで効果を推定し、予算のもとでの割当てを多選択ナップザック問題として解く。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = modelling each combination as a separate arm (treatment-specific functions or
+                         dictionary columns, 2^K of them) and the best competing method in the result charts
+            --b  (blue)   = the Double Encoder Model: shared encoders alpha(X), beta(A), and its (budgeted)
+                         assignments / results
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Journal of the Royal Statistical Society Series B · 2024</div>
+  <h1>Optimal individualized treatment rule for combination treatments under budget constraints</h1>
+  <p class="subtitle">予算制約のもとでの組合せ処置に対する最適な個別化処置ルール</p>
+
+  <ul class="authors">
+    <li><b>Qi Xu</b><span>Department of Statistics, University of California Irvine</span></li>
+    <li><b>Haoda Fu</b><span>Eli Lilly and Company</span></li>
+    <li><b>Annie Qu</b><span>Department of Statistics, University of California Irvine</span></li>
+  </ul>
+
+  <p class="lead">複数の処置を同時に使う組合せ処置では、選べる組合せの数が処置の数に対して指数的に増える。従来の個別化処置ルールは組合せを<span class="A">それぞれ別の処置として推定する</span>ので、組合せ一つあたりのデータが少なくなる。この論文は共変量と組合せを同じ低次元空間に埋め込み、<span class="B">パラメータを全組合せで共有する</span>二重エンコーダモデル（DEM）を提案する。予算があるときの割当ては、多選択ナップザック問題として解く。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1093/jrsssb/qkad141">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2303.11507">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。組合せごとに別の関数を推定する従来法、共変量と組合せを同じ空間に埋め込む二重エンコーダモデル、予算のもとでの多選択ナップザック、論文 Table 5 の予算つきシミュレーション結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">組合せの数から処置の数へ</span><span class="d">価値の低下の上界で、組合せの数 \(|\mathcal{A}|\) への依存が、既存の多群処置の \(O(|\mathcal{A}|^{1/4})\) から \(O((\log_2|\mathcal{A}|)^{1/4})\) に緩やかになる（論文 4.2 節）。</span></li>
+    <li><span class="k">制約 20% で +8.08%</span><span class="d">シミュレーション（2000 件）で第 2 処置を受けられる人を 20% に限ったとき、価値関数が最良の比較手法より 8.08% 高かった。制約なしでは 3.47%（Table 5）。</span></li>
+    <li><span class="k">予算 $5,000 で 0.050</span><span class="d">大腸がんの PDX データで予算を $5,000 にしたときの価値。全系統に同じ処置を与える規則の最良（0.047、費用 $5,365）と同程度だった（Table 7, 8）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>組合せ処置では選択肢が処置の数に対して指数的に増え、組合せごとの推定ではデータが足りなくなる</h2>
+    <p>個別化処置ルール（ITR）は患者や顧客の特徴 \(\mathbf{X}\) から処置を選ぶ規則 \(d(\mathbf{X})\) である。その良さは、全員がこの規則に従ったときの結果の期待値、つまり価値関数 \(\mathcal{V}(d)=\mathbb{E}[Y\{d(\mathbf{X})\}]\) で測る。論文が扱う処置は、\(K\) 個の処置それぞれを使うかどうかを並べたベクトル \(\mathbf{A}\in\{0,1\}^K\) である。薬の飲み合わせなどで使えない組合せを除いた集合 \(\mathcal{A}\) から、一人に一つを選ぶ。</p>
+    <p>多群処置の Q 学習では、結果の条件付き期待値を \(m(\mathbf{X}) + \sum_l \delta_l(\mathbf{X})\,\mathbb{I}(\tilde A = l)\) と書き、組合せごとに処置効果の関数 \(\delta_l\) を推定する。論文はここに二つの問題を挙げる。\(\delta_l\) に線形モデルなどを仮定すると、組合せの複雑な交互作用を表せず、誤特定が起きやすい。また、関数の数は \(K\) に対して指数的に増えるので、標本の少ない臨床研究では推定の効率が大きく落ちる。</p>
+    <p>組合せ処置向けの既存手法には、Hamming 損失を使う結果重みづけ学習（OWL-DL）があるが、処置間の交互作用を無視するので、交互作用があると一致性が保証されない。予算制約についても、既存研究は二値処置を対象に、処置効果の分位点で区切る方法を扱っている。組合せの割当てでは費用が組合せごとに違うので、分位点はそのままでは使えない。</p>
+  </section>
+
+  <section id="dem">
+    <div class="kicker">手法</div>
+    <h2>二重エンコーダモデルは共変量と組合せを同じ低次元空間に埋め込み、その内積で処置効果を表す</h2>
+    <div class="eq">\[ \mathbb{E}(Y\mid\mathbf{X},\mathbf{A}) = m(\mathbf{X}) + \color{#1D4ED8}{\alpha(\mathbf{X})^{\top}\beta(\mathbf{A})} \]</div>
+    <p>\(m(\mathbf{X})\) は処置によらない部分である。共変量エンコーダ \(\alpha(\mathbf{X})\in\mathbb{R}^r\) は処置効果の基底関数を、処置エンコーダ \(\beta(\mathbf{A})\in\mathbb{R}^r\) はその係数を学ぶ。各組合せの効果は \(r\) 個の共通の関数の線形結合になる。\(r = |\mathcal{A}|\) とすれば上の多群モデルを特殊な場合として含み、\(r\) が \(|\mathcal{A}|\) よりずっと小さくても表せるなら、推定するものが大きく減る。\(r\) はハイパーパラメータとしてデータから選ぶ。</p>
+    <p>処置エンコーダは各処置の表現を足し合わせる加法部分と、組合せで生じる交互作用部分に分ける。</p>
+    <div class="eq">\[ \beta(\mathbf{A}) = \underbrace{\mathbf{W}\mathbf{A}}_{\text{加法部分}} + \underbrace{\beta_1(\mathbf{A})}_{\text{交互作用部分}} \]</div>
+    <p>交互作用部分を組合せごとの表（辞書）で持つと、表の各列はその組合せが観測されたときしか更新されない。論文は \(\beta_1\) を、組合せのベクトル \(\mathbf{A}\) を入力とするニューラルネットにして、重みを全組合せで共有する。1 件の観測で、値が 0 の入力につながる重みを除くすべての重みが更新される（図1）。交互作用は疎なことが多いとして交互作用部分には L1 罰則を、加法部分には L2 罰則をかける。共変量エンコーダにはニューラルネットのほか、解釈しやすい多項式と B スプラインも用意している。</p>
+    <p>推定では、処置によらない部分の推定値 \(\hat m\) を結果から引き、傾向スコアの逆数で重みづけした二乗誤差を最小にする。傾向スコアと \(\hat m\) のどちらかが正しければ処置効果の一致推定量になる（二重頑健性）ことを、論文は補足資料で示している。傾向スコアはグループ Lasso つきの多項ロジスティック回帰で推定し、重みが極端にならないよう安定化している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="パラメータ共有の模式図。左は組合せごとに別の表現を持つ方法で、8通りの組合せのうち観測された組合せ (1,0,1) の列だけが更新される。右はニューラルネットの処置エンコーダで、値が0の入力につながる重み以外がすべて更新される。">
+        <text x="320" y="26" font-size="16" fill="#16202E" text-anchor="middle">観測された組合せ <tspan class="mi">a</tspan>₀ = (1, 0, 1)</text>
+        <line x1="320" y1="44" x2="320" y2="312" stroke="#D9DEE6" stroke-width="1.5"/>
+        <text x="160" y="66" font-size="16" font-weight="600" fill="#C2410C" text-anchor="middle">組合せごとに別の表現</text>
+        <g font-size="15" text-anchor="middle">
+          <rect x="24" y="96" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="55" y="132" fill="#5B6676">000</text>
+          <rect x="94" y="96" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="125" y="132" fill="#5B6676">001</text>
+          <rect x="164" y="96" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="195" y="132" fill="#5B6676">010</text>
+          <rect x="234" y="96" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="265" y="132" fill="#5B6676">011</text>
+          <rect x="24" y="168" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="55" y="204" fill="#5B6676">100</text>
+          <rect x="94" y="168" width="62" height="62" rx="8" fill="#C2410C"/><text x="125" y="204" fill="#fff" font-weight="600">101</text>
+          <rect x="164" y="168" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="195" y="204" fill="#5B6676">110</text>
+          <rect x="234" y="168" width="62" height="62" rx="8" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/><text x="265" y="204" fill="#5B6676">111</text>
+        </g>
+        <text x="160" y="270" font-size="15" fill="#16202E" text-anchor="middle">観測された組合せの列だけ更新</text>
+        <text x="160" y="294" font-size="15" fill="#5B6676" text-anchor="middle">列の数は最大 2<tspan class="mi" dy="-6" font-size="11">K</tspan></text>
+        <text x="480" y="66" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">共有の処置エンコーダ</text>
+        <g stroke-width="2">
+          <line x1="372" y1="120" x2="472" y2="104" stroke="#1D4ED8"/><line x1="372" y1="120" x2="472" y2="148" stroke="#1D4ED8"/><line x1="372" y1="120" x2="472" y2="192" stroke="#1D4ED8"/><line x1="372" y1="120" x2="472" y2="236" stroke="#1D4ED8"/>
+          <line x1="372" y1="170" x2="472" y2="104" stroke="#CBD2DC" stroke-dasharray="4 4"/><line x1="372" y1="170" x2="472" y2="148" stroke="#CBD2DC" stroke-dasharray="4 4"/><line x1="372" y1="170" x2="472" y2="192" stroke="#CBD2DC" stroke-dasharray="4 4"/><line x1="372" y1="170" x2="472" y2="236" stroke="#CBD2DC" stroke-dasharray="4 4"/>
+          <line x1="372" y1="220" x2="472" y2="104" stroke="#1D4ED8"/><line x1="372" y1="220" x2="472" y2="148" stroke="#1D4ED8"/><line x1="372" y1="220" x2="472" y2="192" stroke="#1D4ED8"/><line x1="372" y1="220" x2="472" y2="236" stroke="#1D4ED8"/>
+          <line x1="472" y1="104" x2="572" y2="170" stroke="#1D4ED8"/><line x1="472" y1="148" x2="572" y2="170" stroke="#1D4ED8"/><line x1="472" y1="192" x2="572" y2="170" stroke="#1D4ED8"/><line x1="472" y1="236" x2="572" y2="170" stroke="#1D4ED8"/>
+        </g>
+        <circle cx="372" cy="120" r="15" fill="#1D4ED8"/><text x="372" y="125" font-size="15" fill="#fff" text-anchor="middle">1</text>
+        <circle cx="372" cy="170" r="15" fill="#fff" stroke="#CBD2DC" stroke-width="2"/><text x="372" y="175" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <circle cx="372" cy="220" r="15" fill="#1D4ED8"/><text x="372" y="225" font-size="15" fill="#fff" text-anchor="middle">1</text>
+        <circle cx="472" cy="104" r="11" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <circle cx="472" cy="148" r="11" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <circle cx="472" cy="192" r="11" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <circle cx="472" cy="236" r="11" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <rect x="560" y="146" width="56" height="48" rx="8" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="588" y="176" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">β</tspan>₁(<tspan class="mi">a</tspan>₀)</text>
+        <text x="350" y="125" font-size="14" fill="#5B6676" text-anchor="end"><tspan class="mi">A</tspan>¹</text>
+        <text x="350" y="175" font-size="14" fill="#5B6676" text-anchor="end"><tspan class="mi">A</tspan>²</text>
+        <text x="350" y="225" font-size="14" fill="#5B6676" text-anchor="end"><tspan class="mi">A</tspan>³</text>
+        <text x="480" y="282" font-size="15" fill="#16202E" text-anchor="middle">0 の入力につながる重み以外を更新</text>
+        <text x="480" y="306" font-size="15" fill="#5B6676" text-anchor="middle">入力の次元は <tspan class="mi">K</tspan></text>
+      </svg>
+      <figcaption>図1　パラメータ共有の模式図（論文 Fig. 1 の考え方を解説者が描き直したもの、\(K = 3\)）。左の方式では観測された組合せ (1, 0, 1) の列だけが更新されるが、右の方式では 1 件の観測で、破線以外の重みがすべて更新される。</figcaption>
+    </figure>
+    <p class="src">arXiv v3 の式 (6) では、交互作用部分を 0 とする制約が「処置を 2 つ以上含む組合せ」に対して書かれている。一方、命題 1 は 2 処置の組合せで交互作用部分が値をとる場合を論じている。</p>
+  </section>
+
+  <section id="budget-rule">
+    <div class="kicker">予算制約</div>
+    <h2>予算のもとでの割当ては、一人に一つの組合せを選ぶ多選択ナップザック問題になる</h2>
+    <p>処置 \(k\) の費用を \(c_k\) とし、組合せ \(\mathbf{a}\) の費用をその和 \(\mathbf{c}^{\top}\mathbf{a}\) とする。\(n\) 人の集団で一人あたりの平均費用を \(B\) 以下に抑えながら、推定した処置効果 \(\hat\delta_{ij}=\hat\alpha(\mathbf{x}_i)^{\top}\hat\beta(\mathbf{a}_j)\) の和を最大にする。</p>
+    <div class="eq">\[ \max_{d_{ij}\in\{0,1\}}\; \frac1n\sum_{i=1}^n\sum_{j}\hat\delta_{ij}\,d_{ij} \quad\text{s.t.}\quad \frac1n\sum_{i=1}^n\sum_j c_{\mathbf{a}_j}d_{ij}\le B,\qquad \sum_j d_{ij}=1 \]</div>
+    <p>各人の選択肢から必ず一つを選ぶので、これは多選択ナップザック問題（MCKP）である。二値処置ならこの解は処置効果の分位点で区切る規則に一致し、論文はそれを特殊な場合と位置づけている。組合せの場合は、効果が高く費用が安い組合せが他の組合せを「支配」するという関係が、二値のときの効果の差に代わる目安になる。</p>
+    <p>MCKP は NP 困難だが、予算を刻んだ動的計画法を使えば擬多項式時間で解ける。論文は 1 人目から順に「予算 \(b\) 以内で得られる効果の和の最大値」を更新していく。この枠組みに必要なのは処置効果の推定値だけなので、論文は比較手法にも同じ解き方を適用している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="3人に4つの選択肢（なし、A、B、A+B）がある多選択ナップザックの例。各人の最善はすべてA+Bで費用9となり予算4を超える。予算4の最適は1人目A、2人目B、3人目Aで、効果の和は9.5。">
+        <g font-size="16" text-anchor="middle" fill="#16202E">
+          <text x="70" y="42" fill="#5B6676">選択肢</text>
+          <text x="190" y="42">なし</text><text x="300" y="42">A</text><text x="410" y="42">B</text><text x="520" y="42">A + B</text>
+          <text x="70" y="72" fill="#5B6676">費用</text>
+          <text x="190" y="72" fill="#5B6676">0</text><text x="300" y="72" fill="#5B6676">1</text><text x="410" y="72" fill="#5B6676">2</text><text x="520" y="72" fill="#5B6676">3</text>
+        </g>
+        <line x1="20" y1="88" x2="620" y2="88" stroke="#D9DEE6" stroke-width="1.5"/>
+        <g font-size="16" text-anchor="middle">
+          <text x="70" y="128" fill="#16202E">1 人目</text>
+          <text x="70" y="182" fill="#16202E">2 人目</text>
+          <text x="70" y="236" fill="#16202E">3 人目</text>
+          <rect x="250" y="102" width="100" height="40" rx="8" fill="#E7EEFC"/>
+          <rect x="360" y="156" width="100" height="40" rx="8" fill="#E7EEFC"/>
+          <rect x="250" y="210" width="100" height="40" rx="8" fill="#E7EEFC"/>
+          <rect x="472" y="104" width="96" height="36" rx="7" fill="none" stroke="#C2410C" stroke-width="2.5"/>
+          <rect x="472" y="158" width="96" height="36" rx="7" fill="none" stroke="#C2410C" stroke-width="2.5"/>
+          <rect x="472" y="212" width="96" height="36" rx="7" fill="none" stroke="#C2410C" stroke-width="2.5"/>
+          <text x="190" y="128" fill="#5B6676">0</text><text x="300" y="128" fill="#1D4ED8" font-weight="600">3</text><text x="410" y="128" fill="#16202E">2</text><text x="520" y="128" fill="#16202E">5</text>
+          <text x="190" y="182" fill="#5B6676">0</text><text x="300" y="182" fill="#16202E">1</text><text x="410" y="182" fill="#1D4ED8" font-weight="600">4</text><text x="520" y="182" fill="#16202E">4.5</text>
+          <text x="190" y="236" fill="#5B6676">0</text><text x="300" y="236" fill="#1D4ED8" font-weight="600">2.5</text><text x="410" y="236" fill="#16202E">1</text><text x="520" y="236" fill="#16202E">3</text>
+        </g>
+        <line x1="20" y1="266" x2="620" y2="266" stroke="#D9DEE6" stroke-width="1.5"/>
+        <rect x="24" y="284" width="18" height="18" rx="4" fill="none" stroke="#C2410C" stroke-width="2.5"/>
+        <text x="52" y="299" font-size="16" fill="#16202E">各人の最善：費用 9、効果の和 12.5（予算 4 を超える）</text>
+        <rect x="24" y="312" width="18" height="18" rx="4" fill="#E7EEFC"/>
+        <text x="52" y="327" font-size="16" fill="#16202E">予算 4 での最適：費用 4、効果の和 9.5</text>
+      </svg>
+      <figcaption>図2　多選択ナップザックの小さな例（解説者が置いた例、模式図）。表の中の数は各人・各選択肢の処置効果。処置 A の費用を 1、B を 2、3 人の予算の合計を 4 とした。各人の最善はすべて A + B だが、予算内で効果の和が最大になるのは、1 人目に A、2 人目に B、3 人目に A を割り当てる組である。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>価値の低下は処置効果の推定誤差で抑えられ、DEM では組合せの数への依存が緩やかになる</h2>
+    <p>推定した効果が最大の組合せを選ぶ規則 \(\hat d\) について、論文は最適な規則との価値の差が、組合せごとの効果の推定誤差（二乗平均の平方根）の最大値の 2 倍以下になることを示す。異なる組合せの効果がほぼ等しい人が少ないというマージン条件を置くと、上界の次数はよくなる。予算つきでも、動的計画法で得る価値と真の効果で解いた場合の価値の差は、各人の推定誤差の平均で抑えられる。</p>
+    <p>DEM の関数クラスでは、Rademacher 複雑度の上界のうちエンコーダに関する項が \(\sqrt{K/n}\) の次数になる。処置エンコーダの入力は組合せのベクトルそのもので、パラメータは全組合せで共有されるので、複雑度は組合せの数 \(|\mathcal{A}|\) ではなく処置の数 \(K\) に比例する。論文は、これにより既存の多群処置の価値低下の上界で \(O(|\mathcal{A}|^{1/4})\) だった依存が \(O((\log_2|\mathcal{A}|)^{1/4})\) に改善すると述べている。</p>
+    <p>表現力については、3 層のネットに \(\Omega(2^{K/2}r^{1/2})\) 個の隠れノードがあれば任意の交互作用を表せることも示している。ただし、そのような重みを最適化で見つけられる保証はないので、論文は広めのネットを使うよう勧めている。</p>
+  </section>
+
+  <section id="sim">
+    <div class="kicker">実験の結果 1</div>
+    <h2>交互作用があり処置の数が多い設定ほど、DEM の正解率は比較手法を大きく上回った</h2>
+    <p class="src">以下の数値と表番号は arXiv v3（2023 年 9 月 27 日）の本文と表による。JRSS-B 掲載版の本文は自動取得できなかったため、照合していない。</p>
+    <p>シミュレーションでは 10 個の共変量を一様分布から生成した。設定 1・2 は 3 処置（使う組合せは 6 通り）、設定 3・4 は 5 処置（20 通り）で、交互作用は設定 2・4 にだけ入れている。処置は一様に、または傾向スコアのモデルに従って割り当てた。訓練データは 500・1000・2000 件で、それぞれ 200 回繰り返した。比較手法は \(L_1\)-PLS、OWL-MD、MOWL-linear、OWL-DL、TARNet である。</p>
+    <p>割当て方 2 通り × 設定 4 通り × 標本サイズ 3 通りの 24 条件すべてで、提案法の価値関数と正解率（最適な組合せを選べた割合）が最も高かった（Table 3, 4）。差が大きいのは 5 処置の設定で、一様割当て・500 件の正解率は、設定 3 で 0.420（比較手法は 0.102〜0.271）、設定 4 で 0.324（同 0.146〜0.215）だった。論文によれば、交互作用のない設定 1・3 では提案法と OWL-DL が他の手法を上回り、交互作用のある設定 2・4 では OWL-DL の成績が落ちる。論文は、比較手法の決定関数が組合せごとに別々なのに対し、提案法はパラメータを共有していることが効いていると説明している。</p>
+    <figure>
+      <svg class="fig" id="fig-acc" viewBox="0 0 640 270" role="img" aria-label="論文 Table 4 のドットプロット。一様割当て、訓練データ500件での正解率。設定1から4のすべてで提案法が最も高く、設定3では0.420対0.271、設定4では0.324対0.215。"></svg>
+      <figcaption>図3　正解率（一様割当て、訓練データ 500 件）。<span class="B">●</span> 提案法、<span class="A">●</span> 各設定で最良の比較手法、灰色はその他の比較手法。右の数は提案法と最良の比較手法の値（論文 Table 4 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="sim-budget">
+    <div class="kicker">実験の結果 2</div>
+    <h2>予算を絞った条件でも DEM の価値が最も高く、20% の制約では最良の比較手法を 8.08% 上回った</h2>
+    <p>設定 4（5 処置、交互作用あり、一様割当て）のデータで、第 2 処置を最も必要とされる処置とみなし、それを受けられる人の割合を 20%・50%・80%・100% に制限した。100% は制約がないのと同じである。比較には処置ごとのスコアを出せる 4 手法を使い、それぞれの推定値に同じ MCKP の解き方を適用した。</p>
+    <p>標本サイズ 3 通り × 制約 4 通りの 12 条件すべてで、提案法の価値が最も高かった（Table 5）。2000 件では、最良の比較手法（OWL-MD）に対する改善が、制約 20% で 8.08%、100% で 3.47% だった。論文は 100% から 20% に絞ったときの比較手法の価値の低下を約 0.9 としている。Table 5 から計算すると、比較手法の低下は 0.95〜1.18、提案法は 0.88〜0.94 となっている。</p>
+    <figure>
+      <svg class="fig" id="fig-budget" viewBox="0 0 640 270" role="img" aria-label="論文 Table 5 のドットプロット。訓練データ2000件、第2処置の制約20%、50%、80%、100%での価値関数。すべての制約で提案法が最も高く、20%では5.789対5.356。"></svg>
+      <figcaption>図4　価値関数（設定 4、訓練データ 2000 件）。縦は第 2 処置を受けられる人の割合。<span class="B">●</span> 提案法、<span class="A">●</span> 最良の比較手法（OWL-MD）、灰色は \(L_1\)-PLS、MOWL-linear、TARNet（論文 Table 5 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="pdx">
+    <div class="kicker">実験の結果 3</div>
+    <h2>大腸がんの PDX データでは、予算 $5,000 の DEM が、全系統に同じ組合せを与える最良の規則と同程度の価値を得た</h2>
+    <p>PDX（患者由来腫瘍異種移植）では、患者の腫瘍を複数のマウスに移植して一つの系統をつくり、同じ系統のマウスに別々の処置を試す。論文は Novartis の PDX 研究から大腸がんの 37 系統を使い、7 種類の薬からなる 13 通りの処置（単剤 6、組合せ 7）を全系統に与えた 481 件の観測を分析した。共変量は 50 遺伝子に関する 94 個の遺伝子特徴、結果は腫瘍の縮小の大きさ（大きいほどよい）である。どの系統でも全処置の結果が観測されているので、正値性の仮定は自然に満たされる。</p>
+    <p>薬の費用は 1 単位あたり $66〜$500 とした（LJC049 と LJM716 は仮の価格）。37 系統の予算は $21,000（制約なしと同じ）、$15,000、$10,000、$5,000 の 4 通りで、系統を訓練 25・検証 6・テスト 6 に分ける操作を 100 回繰り返した。</p>
+    <p>提案法の価値は予算の順に 0.142、0.103、0.067、0.050 で、どの予算でも比較手法より高かった（Table 7）。提案法の $5,000 での値は最良の比較手法 MOWL-linear の制約なしの値（0.054）と同程度である。全系統に同じ処置を与える規則では BYL719 + binimetinib の 0.047（費用 $5,365）が最良で、最適な割当ては 0.447（$8,171）だった（Table 8）。なお、Table 7 の括弧内の値は 0.2 前後で、表題では標準誤差、本文では標準偏差と書かれている。</p>
+    <p>本文は最適な割当てとの価値の差を、全系統に同じ処置を与える規則に比べて 23.0〜81.1%、他の ITR 手法に比べて 40.4〜65.8% 縮めたと述べている。解説者が Table 7・8 の平均値からこの比を計算したところ、81.1% は一致したが、他の端の値は一致しなかった（解説者の注）。</p>
+    <figure>
+      <svg class="fig" id="fig-pdx" viewBox="0 0 640 292" role="img" aria-label="論文 Table 7 のドットプロット。PDXデータで予算21,000、15,000、10,000、5,000ドルでの価値関数。すべての予算で提案法が最も高く、5,000ドルで0.050。全系統に同じ処置を与える規則の最良0.047と最適な割当て0.447を縦の破線で示す。"></svg>
+      <figcaption>図5　PDX データでの価値関数。<span class="B">●</span> 提案法、<span class="A">●</span> 最良の比較手法（MOWL-linear）、灰色は \(L_1\)-PLS、MOWL-kernel、OWL-DL、TARNet。破線は全系統に同じ処置を与える規則の最良（0.047）と最適な割当て（0.447）（論文 Table 7, 8 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>組合せごとの処置効果を推定し、既知の費用と平均予算のもとで一人に一つの組合せを割り当てる</h2>
+    <p>推定するのは、各人 \(i\) と各組合せ \(\mathbf{a}_j\) の処置効果 \(\delta_{ij}\) である。この処置効果は「処置なし」との差ではなく、処置によらない部分 \(m(\mathbf{X})=\mathbb{E}[Q(\mathbf{X},\mathbf{A})\mid\mathbf{X}]\) からの差として定義され、組合せどうしの比較に使う。</p>
+    <p>費用は処置ごとに決まった既知の値で、組合せの費用はその和 \(\mathbf{c}^{\top}\mathbf{a}\) である。結果に応じて変わる費用は扱っていない。処置は \(K\) 個の二値処置の組合せで、PDX の例では 7 剤からなる 13 通りから選ぶ。</p>
+    <p>予算制約は一人あたりの平均費用の上限 \(B\) として明示的に扱う。割当ては整数の MCKP として動的計画法で解き、連続緩和は使っていない。シミュレーションでは費用の代わりに、第 2 処置を受けられる人の割合を制限している。</p>
+    <p>ROI 順の割当てとの関係について（解説者の注）。二値処置で費用が全員同じなら、論文が述べるとおり解は効果の分位点で区切る規則になり、ROI 順と同じになる。組合せの場合、MCKP の連続緩和は、各人の（費用, 効果）の点の上側凸包に沿って「効果の増分 ÷ 費用の増分」の大きい順に予算を割り振る貪欲法で解けることが知られており、ROI 順を一般化したものにあたる。論文はこの連続緩和や比による順位づけは使わず、支配関係を目安として示したうえで、整数解を動的計画法で求めている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{xu2024optimal,
+  title   = {Optimal individualized treatment rule for combination treatments under budget constraints},
+  author  = {Xu, Qi and Fu, Haoda and Qu, Annie},
+  journal = {Journal of the Royal Statistical Society Series B: Statistical Methodology},
+  volume  = {86},
+  number  = {3},
+  pages   = {714--741},
+  year    = {2024},
+  doi     = {10.1093/jrsssb/qkad141}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figures 3-5: dot plots from the paper's tables (arXiv v3) ----------
+// rows: [label, proposed, competitor values...]; the best competitor is drawn orange, the rest grey.
+function dotPlot(id, o) {
+  var svg = document.getElementById(id); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var X0 = o.x0, X1 = 500, Y0 = o.y0 || 50, DY = o.dy;
+  function px(v) { return X0 + (v - o.lo) / (o.hi - o.lo) * (X1 - X0); }
+  var yEnd = Y0 + DY * (o.rows.length - 1);
+  o.ticks.forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: yEnd + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: yEnd + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, o.fmt(v));
+  });
+  (o.refs || []).forEach(function (r) {
+    el('line', { x1: px(r[0]), x2: px(r[0]), y1: Y0 - 30, y2: yEnd + 22, stroke: '#16202E', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' });
+    el('text', { x: px(r[0]) + (r[2] || 0), y: Y0 - 34, 'font-size': 14, fill: '#16202E', 'text-anchor': r[3] || 'middle' }, r[1]);
+  });
+  el('text', { x: 520, y: Y0 - 24, 'font-size': 14, fill: '#5B6676' }, o.colHead);
+  o.rows.forEach(function (r, i) {
+    var y = Y0 + DY * i, others = r.slice(2), best = Math.max.apply(null, others);
+    el('text', { x: X0 - 14, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(best), x2: px(r[1]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+    others.forEach(function (v) { if (v !== best) el('circle', { cx: px(v), cy: y, r: 6, fill: '#CBD2DC' }); });
+    el('circle', { cx: px(best), cy: y, r: 8, fill: '#C2410C' });
+    el('circle', { cx: px(r[1]), cy: y, r: 8, fill: '#1D4ED8' });
+    el('text', { x: 520, y: y + 5, 'font-size': 15, fill: '#1D4ED8', 'font-weight': 600 }, o.fmt(r[1]));
+    el('text', { x: 572, y: y + 5, 'font-size': 15, fill: '#C2410C', 'font-weight': 600 }, o.fmt(best));
+  });
+  el('text', { x: (X0 + X1) / 2, y: yEnd + 68, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, o.axis);
+}
+// Table 4, uniform assignment, n = 500: Proposed, L1-pls, OWL-MD, MOWL-linear, OWL-DL, TARNet
+dotPlot('fig-acc', { x0: 120, dy: 46, lo: 0, hi: 0.7, ticks: [0, 0.2, 0.4, 0.6], fmt: function (v) { return v === 0 ? '0' : v.toFixed(v * 10 % 1 ? 3 : 1); },
+  axis: '正解率', colHead: '提案 / 最良',
+  rows: [['設定 1', 0.622, 0.338, 0.572, 0.491, 0.598, 0.553], ['設定 2', 0.544, 0.350, 0.515, 0.474, 0.488, 0.432],
+         ['設定 3', 0.420, 0.102, 0.148, 0.251, 0.271, 0.205], ['設定 4', 0.324, 0.146, 0.205, 0.215, 0.154, 0.162]] });
+// Table 5, n = 2000: Proposed, L1-pls, OWL-MD, MOWL-linear, TARNet
+dotPlot('fig-budget', { x0: 120, dy: 46, lo: 4, hi: 7, ticks: [4, 5, 6, 7], fmt: function (v) { return Number.isInteger(v) ? String(v) : v.toFixed(3); },
+  axis: '価値関数', colHead: '提案 / 最良',
+  rows: [['20%', 5.789, 4.108, 5.356, 5.317, 5.015], ['50%', 6.015, 4.437, 5.897, 5.778, 5.298],
+         ['80%', 6.324, 4.847, 6.215, 6.117, 5.598], ['100%', 6.732, 5.252, 6.506, 6.494, 6.057]] });
+// Table 7: Proposed, L1-PLS, MOWL-linear, MOWL-kernel, OWL-DL, TARNet; Table 8: best one-size-fits-all 0.047, optimal 0.447
+dotPlot('fig-pdx', { x0: 120, y0: 72, dy: 46, lo: -0.4, hi: 0.5, ticks: [-0.4, -0.2, 0, 0.2, 0.4], fmt: function (v) { var s = Math.abs(v) < 1e-9 ? '0' : (Math.round(v * 10) === v * 10 ? v.toFixed(1) : v.toFixed(3)); return s.replace('-', '−'); },
+  axis: '価値関数（腫瘍の縮小）', colHead: '提案 / 最良', refs: [[0.047, '全系統に同じ処置の最良', 4, 'end'], [0.447, '最適', 0, 'middle']],
+  rows: [['$21,000', 0.142, -0.157, 0.054, -0.313, -0.298, -0.254], ['$15,000', 0.103, -0.188, -0.007, -0.312, -0.318, -0.283],
+         ['$10,000', 0.067, -0.209, -0.077, -0.330, -0.320, -0.299], ['$5,000', 0.050, -0.282, -0.103, -0.367, -0.367, -0.348]] });
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

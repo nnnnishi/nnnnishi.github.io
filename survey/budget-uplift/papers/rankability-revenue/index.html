@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>順位を学習する売上アップリフトモデル RERUM（論文解説）</title>
+<meta name="description" content="Rankability-enhanced Revenue Uplift Modeling Framework for Online Marketing（KDD 2024）の非公式の解説。裾の長い売上を ZILN 損失で回帰し、2 種類の順位損失を足してアップリフトの順位を直接学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the usual objective: per-customer response regression with MSE
+                         (the looser error bound) and the base uplift models trained that way
+            --b  (blue)   = what RERUM adds: ranking-oriented objectives (response ranking losses,
+                         listwise uplift ranking loss) and the RERUM-trained models
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD 2024 · Barcelona</div>
+  <h1>Rankability-enhanced Revenue Uplift Modeling Framework for Online Marketing</h1>
+  <p class="subtitle">オンラインマーケティングのための、順位づけ性能を高めた売上アップリフトモデリング</p>
+
+  <ul class="authors">
+    <li><b>Bowei He</b><span>City University of Hong Kong（FiT, Tencent でのインターン中の研究）</span></li>
+    <li><b>Yunpeng Weng</b><span>FiT, Tencent</span></li>
+    <li><b>Xing Tang</b><span>FiT, Tencent</span></li>
+    <li><b>Ziqiang Cui</b><span>City University of Hong Kong</span></li>
+    <li><b>Zexu Sun</b><span>Renmin University of China</span></li>
+    <li><b>Liang Chen</b><span>FiT, Tencent</span></li>
+    <li><b>Xiuqiang He</b><span>FiT, Tencent</span></li>
+    <li><b>Chen Ma</b><span>City University of Hong Kong</span></li>
+  </ul>
+
+  <p class="lead">売上のアップリフトを推定するとき、反応は 0 が大半を占め、ごく一部が非常に大きい値をとる。従来のモデルは<span class="A">一人ひとりの売上を MSE で回帰する</span>が、施策で実際に使うのはアップリフトの順位である。この論文は売上を ZILN 損失で回帰したうえで、<span class="B">2 種類の順位損失</span>を加えて順位を直接学習する枠組み RERUM を提案し、公開データ、Tencent の自社データ、オンライン実験で評価している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3637528.3671516">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2405.15301">arXiv</a>
+    <a class="btn" href="https://github.com/BokwaiHo/revenue_uplift">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。0が多く裾の長い売上の分布、小さな誤差で入れ替わるアップリフトの順位、RERUMの3つの損失、論文 Table 4 のオンライン実験、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">損失を 3 つ足す</span><span class="d">売上を「買うか」と「いくら買うか」に分ける ZILN 損失、2 人ずつの順位損失、集団全体のリストワイズ順位損失を足し合わせる。TAR、CFR、DragonNet などのモデルにそのまま組み込める。</span></li>
+    <li><span class="k">AUUC 0.6028 → 0.6721</span><span class="d">Hillstrom-Men で最も良かった既存手法（DragonNet）と、RERUM を組み込んだ DragonNet の比較（Table 1）。論文は 11.50% の改善としている。</span></li>
+    <li><span class="k">LIFT@2 平均 +20.61%</span><span class="d">約 4 億人の利用者を対象にした 3 回のオンラインキャンペーンで、上位 2% に選んだ人の売上の差が既存のオンラインモデルより大きかった（Table 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>売上のアップリフトは 0 が多く裾の長い連続値を相手にし、順位の正しさが問われる</h2>
+    <p>マーケティングのアップリフトモデリングは、購入したかどうか（0/1）を扱う<strong>コンバージョンのアップリフト</strong>と、支払った金額を扱う<strong>売上のアップリフト</strong>に分かれる。論文は企業の収入に直結する後者に取り組む。推定する量は共変量 \(\mathbf{x}\) のもとでの処置群と対照群の期待売上の差（CATE）である。</p>
+    <div class="eq">\[ \tau(\mathbf{x}) = \mathbb{E}[Y \mid X=\mathbf{x},\, T=1] - \mathbb{E}[Y \mid X=\mathbf{x},\, T=0] \]</div>
+    <p>論文は売上を扱う難しさを 2 つ挙げる。1 つは分布の形で、論文の配信基盤での A/B テストでは売上の大部分が 0 か小さな値で、0 を除いて対数をとるとおおむね正規分布になる。投資信託の販売額は 0 や数ドルから数百万ドル以上にまで及びうる。MSE 損失はこのような外れ値の影響を受けやすい。もう 1 つは目的のずれで、既存手法の多くは<span class="A">アップリフトの値の正確さ</span>だけを見ている。しかし施策では効果の大きい人から順に介入する。論文は、値が多少ずれても<span class="B">真の順位が保たれること</span>のほうが実務では重要だと述べる。</p>
+  </section>
+
+  <section id="ziln">
+    <div class="kicker">手法 1</div>
+    <h2>ZILN 損失は売上を「買うか」と「買った人の金額」に分け、金額は対数正規分布で回帰する</h2>
+    <p>顧客生涯価値の研究にならい、論文は MSE の代わりに zero-inflated lognormal（ZILN）損失を使う。第 1 項は売上が正かどうかを確率 \(p\) で当てる交差エントロピー、第 2 項は支払った人だけについて、売上を平均 \(\mu\)、標準偏差 \(\sigma\) の対数正規分布とみなした負の対数尤度である。0 の人は金額の回帰に入らず、対数をとるので大きな値の影響も弱まる。</p>
+    <div class="eq">\[ \mathcal{L}_{\mathrm{ZILN}} = \underbrace{-\mathbb{1}(y{=}0)\log(1-p) - \mathbb{1}(y{>}0)\log p}_{\text{買うか}} \;+\; \underbrace{\mathbb{1}(y{>}0)\Big[\log\!\big(y\sigma\sqrt{2\pi}\big) + \frac{(\log y-\mu)^2}{2\sigma^2}\Big]}_{\text{買った人の金額}} \]</div>
+    <p>この損失に合わせて、既存のアップリフトモデルの出力部分を作り替える。共通の表現学習部の上に処置群用と対照群用の出力部を置き、それぞれが \((p^1,\mu^1,\sigma^1)\) と \((p^0,\mu^0,\sigma^0)\) を出す。CFR の分布を揃える項や DragonNet の傾向スコアの出力部は、元のモデルにあれば残す。論文は、この枠組みが特定のモデルに依存しないと述べている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="RERUMのモデル構成の模式図。顧客の特徴から表現学習部を通り、処置群の出力部が p1, mu1, sigma1 を、対照群の出力部が p0, mu0, sigma0 を出す。それぞれにZILN損失がかかり、さらに群内と群間の応答順位損失、集団全体のリストワイズ順位損失が加わる。分布を揃える部分と傾向スコアの部分は元のモデルにあれば使う。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="12" y="130" width="96" height="70" rx="10" fill="#F2F4F7"/>
+        <text x="60" y="160" font-size="16" fill="#16202E" text-anchor="middle">顧客の特徴</text>
+        <text x="60" y="184" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">x</tspan></text>
+        <rect x="140" y="110" width="120" height="110" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="200" y="160" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">表現学習部</text>
+        <text x="200" y="184" font-size="15" fill="#5B6676" text-anchor="middle">（共通）</text>
+        <rect x="140" y="268" width="120" height="50" rx="10" fill="#fff" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="200" y="298" font-size="15" fill="#5B6676" text-anchor="middle">分布を揃える項</text>
+        <rect x="296" y="20" width="150" height="90" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="371" y="52" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">処置群の出力部</text>
+        <text x="371" y="84" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">p</tspan>¹, <tspan class="mi">μ</tspan>¹, <tspan class="mi">σ</tspan>¹</text>
+        <rect x="296" y="138" width="150" height="54" rx="10" fill="#fff" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="371" y="170" font-size="15" fill="#5B6676" text-anchor="middle">傾向スコアの出力部</text>
+        <rect x="296" y="220" width="150" height="90" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="371" y="252" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">対照群の出力部</text>
+        <text x="371" y="284" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">p</tspan>⁰, <tspan class="mi">μ</tspan>⁰, <tspan class="mi">σ</tspan>⁰</text>
+        <rect x="478" y="20" width="150" height="54" rx="10" fill="#FCEBDF"/>
+        <text x="553" y="53" font-size="15" fill="#C2410C" text-anchor="middle">ZILN 損失（処置）</text>
+        <rect x="478" y="256" width="150" height="54" rx="10" fill="#FCEBDF"/>
+        <text x="553" y="289" font-size="15" fill="#C2410C" text-anchor="middle">ZILN 損失（対照）</text>
+        <rect x="478" y="88" width="150" height="154" rx="10" fill="#E7EEFC"/>
+        <text x="553" y="114" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">順位損失</text>
+        <text x="553" y="144" font-size="14" fill="#16202E" text-anchor="middle">群内の応答の順位</text>
+        <text x="553" y="174" font-size="14" fill="#16202E" text-anchor="middle">群間の応答の順位</text>
+        <text x="553" y="204" font-size="14" fill="#16202E" text-anchor="middle">集団全体の</text>
+        <text x="553" y="224" font-size="14" fill="#16202E" text-anchor="middle">アップリフトの順位</text>
+        <path d="M108,165 L138,165" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M200,266 L200,222" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M260,140 L294,72" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M260,165 L294,165" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M260,190 L294,258" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M446,50 L476,48" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M446,280 L476,282" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M446,90 L476,130" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M446,240 L476,200" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+      </svg>
+      <figcaption>図1　RERUM のモデル構成の模式図（論文 Fig. 2 の構造を解説者が簡略化して描き直したもの）。破線の部分は元のモデルにあれば使う（CFR の分布を揃える項、DragonNet の傾向スコア）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="bound">
+    <div class="kicker">理論</div>
+    <h2>2 人のアップリフトの差の誤差は個人ごとの回帰誤差よりきつい 2 つの上界で抑えられる</h2>
+    <p>順位を正しくするには、任意の 2 人 \(i, j\) について予測の差 \(\hat\tau_i - \hat\tau_j\) が真の差 \(\tau_i - \tau_j\) に近ければよい。論文は \(\hat\tau = \hat y^1 - \hat y^0\) を代入して三角不等式を 2 段階で使い、この誤差を次のように抑える。</p>
+    <div class="eq">\[ \begin{aligned} \big|(\hat\tau_i-\hat\tau_j)-(\tau_i-\tau_j)\big| &\le \textcolor{#1D4ED8}{\big|(\hat y^1_i-\hat y^1_j)-(y^1_i-y^1_j)\big| + \big|(\hat y^0_i-\hat y^0_j)-(y^0_i-y^0_j)\big|} \\ &\le \textcolor{#C2410C}{|\hat y^1_i-y^1_i| + |\hat y^1_j-y^1_j| + |\hat y^0_i-y^0_i| + |\hat y^0_j-y^0_j|} \end{aligned} \]</div>
+    <p>中段は、同じ群の中での 2 人の応答の差がどれだけずれているかを表す。項の組み方を変えると、もう 1 つの中間の上界 \(|(\hat y^1_i-y^0_j)-(y^1_i-\hat y^0_j)| + |(\hat y^0_i-y^1_j)-(y^0_i-\hat y^1_j)|\) も得られ、こちらは処置群と対照群をまたいだ比較になる。どちらの最後の段も<span class="A">個人ごとの誤差の和</span>になる。論文はこれを MSE 損失が最小化する量に当たるとし、MSE はアップリフトの順位から見ると<span class="B">中段より緩い上界</span>しか抑えていないと論じる。なお、最後の段の式は絶対誤差の和の形で書かれている。</p>
+  </section>
+
+  <section id="ranking-losses">
+    <div class="kicker">手法 2・3</div>
+    <h2>応答の順位が入れ替わった組を罰し、さらに集団全体のアップリフトの並びをリストワイズに合わせる</h2>
+    <p><strong>応答の順位損失</strong>（RR）は 2 つの中間の上界を損失に置き換えたものである。群内の損失では、同じ群の 2 人について予測の大小が真の大小と食い違ったときだけ、差のずれの 2 乗を罰する。</p>
+    <div class="eq">\[ \mathcal{L}_{\text{wr-rank}}(i,j) = \begin{cases} 0, & (\hat y_i-\hat y_j)(y_i-y_j) \ge 0 \\ \big((\hat y_i-\hat y_j)-(y_i-y_j)\big)^2, & \text{otherwise} \end{cases} \]</div>
+    <p>群間の損失も同じ形で、処置群の \(i\) と対照群の \(j\) を組にして \((\hat y^1_i - y^0_j)\) と \((y^1_i - \hat y^0_j)\) を比べる。計算量を抑えるため、全ての組ではなく各群から一定数をサンプリングして計算する。</p>
+    <p><strong>アップリフトの順位損失</strong>（UR）は ListNet の考え方で集団全体の並びを扱う。各人が 1 位に選ばれる確率を softmax で定め、真のアップリフトから作った確率と予測から作った確率の交差エントロピーを損失にする。真のアップリフトは観測できないので、論文は真の側の得点を \(\ln\tau\) と置いて正規化の定数を落とし、RCT では処置群と対照群の共変量の分布が同じであることを使って、観測された売上 \(y\) で書き直す。</p>
+    <div class="eq">\[ \mathcal{L}_{\text{lu-rank}} = -\frac{1}{|\mathcal D^t|}\sum_{\mathbf{x}\in\mathcal D^t} y\,\log\frac{e^{\hat\tau(\mathbf{x})}}{\sum_{\mathbf{x}'\in\mathcal D} e^{\hat\tau(\mathbf{x}')}} \;+\; \frac{1}{|\mathcal D^c|}\sum_{\mathbf{x}\in\mathcal D^c} y\,\log\frac{e^{\hat\tau(\mathbf{x})}}{\sum_{\mathbf{x}'\in\mathcal D} e^{\hat\tau(\mathbf{x}')}} \]</div>
+    <p>処置群で売上の大きい人の予測アップリフトは上に、対照群で売上の大きい人は下に押される。実装ではミニバッチの中で計算する。なお、得点を \(\ln\tau\) と置く段階は \(\tau\) が正であることを前提にした形になっている。最終的な学習目的は 3 つの損失を重みをつけずに足し、L2 正則化の項を加えたものである。</p>
+    <div class="eq">\[ \mathcal{L}_{\text{overall}} = \textcolor{#C2410C}{\mathcal{L}_{\mathrm{ZILN}}} + \textcolor{#1D4ED8}{\mathcal{L}_{\text{r-rank}}} + \textcolor{#1D4ED8}{\mathcal{L}_{\text{lu-rank}}} + \lambda\|\theta\|_2^2 \]</div>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>Hillstrom の 2 つのデータと Tencent の投資信託データで、4 つの順位指標を比べた</h2>
+    <p>Hillstrom は 64,000 人への電子メール施策のデータで、配信後 2 週間の支払額（spend）を応答にする。男性向けメールと配信なしを組にした Hillstrom-Men と、女性向けメールと配信なしを組にした Hillstrom-Women を作っている。Product は Tencent FiT の投資信託の販売データで、500 万人以上、1,800 以上の特徴量（大半がカテゴリ変数）を含み、処置はインセンティブのクーポン、応答は投資信託の購入額である。いずれも学習・検証・テストに 60% / 10% / 30% で分け、5 つの乱数シードの平均を報告している。</p>
+    <p>比較対象は Causal Forest、S-Learner、T-Learner、TR、TAR、CFR（Wasserstein 版と MMD 版）、StableCFR、CITE、DragonNet である。RERUM はこのうち TAR、CFR の 2 種、DragonNet に組み込んだ。評価指標は AUUC と AUQC（いずれも「jointly, absolute」版を 100 区間で近似して正規化したもの）、ケンドールの順位相関 KRCC、上位 30% での処置群と対照群の平均売上の差 LIFT@30 である。</p>
+    <p class="src">以下の数値は arXiv v2（2024 年 6 月 12 日）の本文と表による。KDD 2024 の掲載版（ACM Digital Library）の本文は自動取得できなかったため、照合していない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果 1</div>
+    <h2>どのモデルに組み込んでも、RERUM は AUUC を上げた</h2>
+    <p>Table 1 では、RERUM を組み込んだ 4 つのモデルが、それぞれ元のモデルを 3 つのデータと 4 つの指標のすべてで上回っている。たとえば TAR に組み込んだ場合の AUUC の改善は、Hillstrom-Men で 11.45%、Hillstrom-Women で 10.82%、Product で 5.70% である。既存手法の中で最も良いものとの比較では、AUUC の最高値は Hillstrom-Men と Hillstrom-Women が RERUM（DragonNet）の 0.6721 と 0.6580、Product が RERUM（CFR<sub>wass</sub>）の 0.7563 だった。RERUM（DragonNet）の LIFT@30 は、3 つのデータの平均で 21.98% 改善している。</p>
+    <p>ただし、どの組でも最良の既存手法を上回るわけではない。Product では RERUM（TAR）の AUUC が 0.6863 で、CITE の 0.6976 を下回る。Hillstrom-Men の LIFT@30 では、RERUM（TAR）の 1.3477 と RERUM（CFR<sub>mmd</sub>）の 1.3015 が DragonNet の 1.3526 に届いていない。また Table 1 の太字は KRCC の Hillstrom-Men と Hillstrom-Women では RERUM（CFR<sub>mmd</sub>）についているが、値は RERUM（TAR）のほうが大きくなっている（0.1617 と 0.1806）。</p>
+    <figure>
+      <svg class="fig" id="fig-auuc" viewBox="0 0 640 448" role="img" aria-label="論文 Table 1 のドットプロット。3つのデータと4つの元のモデルの計12組について、元のモデルとRERUMを組み込んだモデルのAUUCを比べる。12組すべてでRERUMのほうが高い。"></svg>
+      <figcaption>図2　AUUC（正規化）。<span class="A">●</span> 元のモデル（MSE で回帰）、<span class="B">●</span> RERUM を組み込んだモデル（論文 Table 1 の数値から解説者が作図）。横軸は 0.55 から始まる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ablation">
+    <div class="kicker">実験の結果 2</div>
+    <h2>3 つの部品はそれぞれ順位指標を押し上げ、ZILN は売上の回帰誤差も大きく下げた</h2>
+    <p>Table 2 は元のモデルに UR、RR、ZILN の順で部品を足したときの変化である。DragonNet の Hillstrom-Men では、AUUC が 0.6028 から 0.6534（+UR）、0.6684（+UR+RR）、0.6721（RERUM）と上がる。論文は、どの部品を足しても 4 つの指標がある程度よくなると述べる。ただし表には例外もあり、Product の LIFT@30 は TAR+UR+RR の 1.0610 から RERUM（TAR）の 1.0247 に下がり、Product の KRCC は CFR<sub>mmd</sub>+UR の 0.3697 から CFR<sub>mmd</sub>+UR+RR の 0.3014 に下がっている。</p>
+    <p>付録では群内と群間の順位損失を 1 つずつ外している。どちらを外しても性能は下がり、群内の損失を外したときのほうが下がり幅がやや大きい（RERUM（TAR）の Hillstrom-Men の AUUC は 0.6299 から、群内を外すと 0.6203、群間を外すと 0.6228）。</p>
+    <p>回帰の精度は MAPE で比べている（Table 3）。MSE を ZILN に替えると、TAR の MAPE は Hillstrom-Men で 0.2142 から 0.0586 に、Product で 0.4429 から 0.1378 に下がった。順位損失を足すと MAPE はやや悪化する（RERUM（TAR）で 0.0667 と 0.1535）が、MSE で学習した元のモデルよりは小さい。論文は、順位損失の目的は回帰ではなく順位なので、この程度の悪化は許容できるとしている。バッチサイズとサンプル数への感度は図で示され、論文はどちらにも比較的頑健だと述べている。</p>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 3</div>
+    <h2>Tencent FiT の 3 回のオンライン実験で、上位 2% の売上の差が平均 20.61% 大きくなった</h2>
+    <p>オンライン実験の場面は Tencent FiT の資産運用事業での投資信託の販売で、処置は通知の赤い点（レッドポイント）の表示、応答は売上である。約 4 億人の利用者からモデルのアップリフト上位 2% を選び、その中を無作為に処置群と対照群に分けて、その後 1 か月の平均売上の差（売上の LIFT@2）を比べた。</p>
+    <p>比較相手は、論文が最先端とする既存のオンラインモデル（Base）と、それに RERUM を組み込んだモデルである。LIFT@2 は 3 回のキャンペーンで 24,566 → 26,826（+9.20%）、30,137 → 41,360（+37.24%）、21,971 → 25,361（+15.43%）となり、論文は平均の改善を 20.61% としている。さらに、RERUM によって運用資産（AUM）が毎月 4.3 億ドル増えたと報告している。表の数値の単位は書かれていない。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>費用と予算は扱わず、売上の増分の順位を正しくすることに集中する</h2>
+    <p>この論文が推定するのは、処置による売上の増分（CATE）\(\tau(\mathbf{x})\) である。クーポン代や通知のコストは学習目的にも評価にも入っておらず、利益ではなく売上を対象にしている。処置は二値で、複数の処置は今後の課題に挙げられている。</p>
+    <p>予算制約も扱っていない。ただし評価は上位 30%（LIFT@30）や上位 2%（オンライン実験）のように、介入する人数を先に決めて上位から選ぶ形になっている。一人あたりの費用が全員同じなら、ROI 順の割当て（ナップザック問題の連続緩和）はアップリフトの大きい順に選ぶことと一致する。この場合、論文が改善しようとしている「順位の正しさ」はそのまま割当ての良さにつながる（解説者の注）。</p>
+    <p>一方、クーポン代が人によって違うときや、購入したときにだけ費用がかかるときは、ROI 順は売上の増分の順と一致するとは限らない。RERUM の順位損失は \(\tau\) の並びを合わせるもので、費用で割った比の並びは学習しない。予算のもとで使うには、別に推定した費用と組み合わせる必要がある（解説者の注）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{he2024rankability,
+  title     = {Rankability-enhanced Revenue Uplift Modeling Framework for Online Marketing},
+  author    = {He, Bowei and Weng, Yunpeng and Tang, Xing and Cui, Ziqiang and Sun, Zexu and Chen, Liang and He, Xiuqiang and Ma, Chen},
+  booktitle = {Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+  pages     = {5093--5104},
+  year      = {2024},
+  publisher = {ACM},
+  doi       = {10.1145/3637528.3671516}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 2: Table 1 of the paper (arXiv v2), normalized AUUC ----------
+(function () {
+  var svg = document.getElementById('fig-auuc'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var groups = [
+    ['Hillstrom-Men', [['TAR', 0.5652, 0.6299], ['CFR-wass', 0.5661, 0.6474], ['CFR-mmd', 0.5760, 0.6242], ['DragonNet', 0.6028, 0.6721]]],
+    ['Hillstrom-Women', [['TAR', 0.5739, 0.6360], ['CFR-wass', 0.5754, 0.6568], ['CFR-mmd', 0.5836, 0.6374], ['DragonNet', 0.5858, 0.6580]]],
+    ['Product', [['TAR', 0.6493, 0.6863], ['CFR-wass', 0.6957, 0.7563], ['CFR-mmd', 0.6933, 0.7554], ['DragonNet', 0.6347, 0.7176]]]
+  ];
+  var X0 = 236, X1 = 612, LO = 0.55, HI = 0.78, Y0 = 62, DY = 24, GAP = 20;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  var yEnd = Y0 + DY * 11 + GAP * 2;
+  [0.55, 0.60, 0.65, 0.70, 0.75].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 16, y2: yEnd + 14, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: yEnd + 36, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v.toFixed(2));
+  });
+  el('circle', { cx: X0 + 6, cy: 20, r: 7, fill: '#C2410C' }); el('text', { x: X0 + 20, y: 25, 'font-size': 15, fill: '#16202E' }, '元のモデル');
+  el('circle', { cx: X0 + 136, cy: 20, r: 7, fill: '#1D4ED8' }); el('text', { x: X0 + 150, y: 25, 'font-size': 15, fill: '#16202E' }, 'RERUM を組み込んだモデル');
+  var k = 0;
+  groups.forEach(function (g, gi) {
+    g[1].forEach(function (r, i) {
+      var y = Y0 + DY * k + GAP * gi; k++;
+      if (i === 0) el('text', { x: 12, y: y + 5, 'font-size': 14, 'font-weight': 600, fill: '#16202E' }, g[0]);
+      el('text', { x: X0 - 12, y: y + 5, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+      el('line', { x1: px(r[1]), x2: px(r[2]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+      el('circle', { cx: px(r[1]), cy: y, r: 7, fill: '#C2410C' });
+      el('circle', { cx: px(r[2]), cy: y, r: 7, fill: '#1D4ED8' });
+    });
+  });
+  el('text', { x: (X0 + X1) / 2, y: yEnd + 58, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'AUUC（正規化）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

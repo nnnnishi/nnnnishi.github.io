@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>深層アップリフトモデルのベンチマーク（論文解説）</title>
+<meta name="description" content="Benchmarking for Deep Uplift Modeling in Online Marketing（arXiv 2024）の非公式の解説。深層アップリフトの 13 手法を同じ分割・前処理・調整手順で評価し直すと、前処理とテスト分布しだいで首位が入れ替わる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = evaluation on data that carries the training-time treatment bias (validation splits,
+                         Lazada's biased training source) and the ad-hoc, non-uniform protocols of past papers
+            --b  (blue)   = the unified protocol (fixed splits, seeds 0-9, same tuning) and the unbiased
+                         RCT test set of Lazada
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- tables (this page) ---------- */
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+.tbl { border-collapse: collapse; font: 0.9rem/1.5 var(--font-en); font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; vertical-align: top; }
+.tbl thead th { font-weight: 600; color: var(--muted); border-bottom: 1.5px solid var(--ink); font-family: var(--font-ja); }
+.tbl tbody th { text-align: left; font-weight: 600; font-family: var(--font-ja); }
+.tnote { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2024</div>
+  <h1>Benchmarking for Deep Uplift Modeling in Online Marketing</h1>
+  <p class="subtitle">オンラインマーケティングにおける深層アップリフトモデリングのベンチマーク</p>
+
+  <ul class="authors">
+    <li><b>Dugang Liu</b><span>Guangdong Laboratory of Artificial Intelligence and Digital Economy (SZ)</span></li>
+    <li><b>Xing Tang</b><span>Financial Technology (FiT), Tencent</span></li>
+    <li><b>Yang Qiao</b><span>Financial Technology (FiT), Tencent</span></li>
+    <li><b>Miao Liu</b><span>Shenzhen University</span></li>
+    <li><b>Zexu Sun</b><span>Renmin University of China</span></li>
+    <li><b>Xiuqiang He</b><span>Financial Technology (FiT), Tencent</span></li>
+    <li><b>Zhong Ming</b><span>Shenzhen Technology University</span></li>
+  </ul>
+
+  <p class="lead">深層アップリフトモデルの論文はそれぞれ<span class="A">別の分割と前処理</span>で実験しており、同じモデルの成績を論文どうしで比べられない。この論文は 13 手法を、Criteo と Lazada の 2 つのデータ、4 通りの前処理で、<span class="B">同じ分割と同じ調整手順</span>のもとに評価し直した。その結果、どの条件でも勝つモデルはなく、新しい手法と古い手法の差は予想より小さいことが多かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2406.00335">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。論文ごとにばらばらな評価、前処理だけで変わる EFIN の成績、13手法×8条件の統一評価、条件ごとに入れ替わる首位、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">13 手法 × 8 条件</span><span class="d">2 つのデータと 4 通りの前処理（重複除去・特徴量の正規化の有無）の組合せで、分割の乱数シードと調整手順をそろえて評価した。</span></li>
+    <li><span class="k">首位は 8 条件で 7 手法</span><span class="d">テスト QINI の 1 位は、FlexTENet、EFIN、EUEN、GANITE、SNet、DESCN、CFRNet に分かれた（論文 Table 4〜7 から解説者が数えた）。</span></li>
+    <li><span class="k">検証 1 位 → テスト 12〜13 位</span><span class="d">Lazada では、EFIN の検証 QINI は 4 条件すべてで 1 位だったが、偏りのない RCT テストでは 13 手法中 12〜13 位だった（Table 4〜7）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>深層アップリフトモデルの論文どうしの成績は、分割と前処理がそろっていないので比べられない</h2>
+    <p>アップリフトモデリングはクーポンなどの処置を受けたときと受けないときの反応の差（アップリフト）を個人ごとに推定し、配布先を決めるのに使う。近年は EUEN、DESCN、EFIN のように、ニューラルネットの構造を工夫した手法が次々に提案されている。論文はこの系統を<strong>深層アップリフトモデリング</strong>（DUM）と呼ぶ。</p>
+    <p>Criteo と Lazada という公開の産業データはよく使われているが、各論文は<span class="A">異なる乱数シードで、手順を明かさずに</span>学習用とテスト用に分けている。特徴量の正規化や重複した行の除去といった前処理にも共通の決まりがない。この論文によれば、どの論文も既存手法を上回ったと報告しているが、評価の手順が違うため、同じモデルの数値を論文の間で比べられない。ベースラインが正しく実装・調整されたのかも確かめにくく、実務家は手元のデータで多くのベースラインを実装し直すことになる。</p>
+    <p>論文は、最もよく使われる CausalML も主に木ベースの手法を扱い、DUM はほとんど含まないと指摘する。既存のベンチマークやライブラリ 7 つと比べた論文 Table 1 では、最適なハイパーパラメータを提供するものも、重複除去を扱うものもなかった。</p>
+  </section>
+
+  <section id="models">
+    <div class="kicker">評価の対象</div>
+    <h2>13 手法を、処置を枝の切り替えにだけ使うか、特徴量として学習に入れるかで 2 群に分けた</h2>
+    <p>処置を \(T\in\{0,1\}\)、潜在的な結果を \(Y_i(1),\,Y_i(0)\) とすると、アップリフトは \(\tau_i = Y_i(1)-Y_i(0)\) である。深層アップリフトモデルは特徴量を埋め込みに変換したあと、対照群の反応 \(\hat Y_i(0)\) と処置群の反応 \(\hat Y_i(1)\) を予測し、その差で顧客を並べる。手法によっては、処置群か対照群かを予測する枝を加え、群の偏りに強くしている。</p>
+    <div class="eq">\[ \hat\tau_i = \hat Y_i(1) - \hat Y_i(0) \]</div>
+    <ul class="def">
+      <li><strong>処置を枝の切り替えに使う</strong>（5 手法）：T-Learner、TARNet、CFRNet、FlexTENet、EUEN。処置は損失を計算するときにどちらの予測枝を使うかを決めるだけで、学習の入力には入らない。</li>
+      <li><strong>処置を特徴量として使う</strong>（8 手法）：S-Learner、BNN、DragonNet、SNet、GANITE、CEVAE、DESCN、EFIN。処置そのものが情報を持つ場合や、分布のずれを補正する手順に処置を使う場合を想定する。</li>
+    </ul>
+    <p>論文は、DUM と個別処置効果（ITE）の推定とは評価指標・特徴量の規模・処置の種類が違うとする。DUM が重視するのは効果の大きい顧客を上位に並べることで、効果の値そのものではない。そのため、評価には PEHE などの誤差ではなく、AUUC や Qini 係数のような順位の指標を使う。</p>
+  </section>
+
+  <section id="protocol">
+    <div class="kicker">評価手順</div>
+    <h2>2 つの産業データと 4 通りの前処理を、同じ分割と同じ調整手順で評価した</h2>
+    <p>Criteo は広告のデータで、約 1,400 万行、特徴量 12 個、結果は訪問である。1 つのデータを 8:1:1 で学習・検証・テストに分けるので、<span class="A">テストにも学習用と同じ処置の偏りがある</span>。Lazada は EC のデータで、学習用は配布方針による偏りがある本番環境から、テスト用は配布方針の影響を受けない利用者を対象とした<span class="B">ランダム化比較試験（RCT）</span>から集めている。学習用を 9:1 で学習と検証に分け、RCT のデータをそのままテストに使う（DESCN の論文と同じ分け方）。どちらも乱数シードを 0〜9 に固定して分割した。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th></th><th>Criteo</th><th>Lazada 学習</th><th>Lazada テスト</th></tr></thead>
+        <tbody>
+          <tr><th>行数</th><td>13,979,592</td><td>926,669</td><td>181,669</td></tr>
+          <tr><th>処置群 : 対照群</th><td>5.67 : 1</td><td>0.28 : 1</td><td>1.09 : 1</td></tr>
+          <tr><th>正例の割合</th><td>4.70%</td><td>1.99%</td><td>3.52%</td></tr>
+          <tr><th>平均アップリフト</th><td>1.03%</td><td>4.72%</td><td>0.37%</td></tr>
+          <tr><th>特徴量の数</th><td>12</td><td>83</td><td>83</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tnote">論文 Table 2 から抜粋。Lazada では学習用とテスト用で処置群の比率も平均アップリフトも大きく違う。</p>
+    <p>前処理は 2 つの操作の有無を組み合わせた 4 通りである。<strong>重複除去</strong>は、同じ特徴量を持つ行が繰り返し現れるときに重複分を取り除く操作、<strong>特徴量の正規化</strong>は入力にバッチ正規化をかける操作である。指標は QINI、AUUC、WAU、上位 30% のアップリフト（LIFT@30）の 4 つで、scikit-uplift で計算する。実装はすべて PyTorch で、AdamW、最大 20 エポック、早期終了（patience 5）とし、隠れ層の幅・バッチサイズ・学習率・重み減衰・補助損失の重みを、QINI を基準に Optuna で探索した。</p>
+    <p class="src">以下の数値はすべて arXiv v1（2024 年 6 月 1 日）の表による。Crossref では出版版を確認できなかった（2026 年 11 月時点）。表の値が 10 個のシードの平均かどうかは本文に書かれていない。コードは採録後に GitHub で公開する予定とされている。</p>
+  </section>
+
+  <section id="no-sota">
+    <div class="kicker">実験の結果 1</div>
+    <h2>データと前処理が変わるたびに首位が入れ替わり、安定して最良のモデルはなかった</h2>
+    <p>図1 は論文 Table 4〜7 のテスト QINI から、8 つの条件それぞれで 13 手法の順位をつけたものである。Criteo の 1 位は、前処理なしで FlexTENet、重複除去だけで EFIN、正規化だけで EUEN、両方で GANITE だった。Lazada の 1 位は SNet、DESCN、SNet、CFRNet である。8 条件で 1 位が 7 手法に分かれた。</p>
+    <p>論文はこの結果から、十分にハイパーパラメータを探索して調整すると、データと前処理を通じて安定した最先端のモデルはないと結論している。とくに学習とテストの分布が違う Lazada では、最近の手法と従来の手法の差が予想より小さかった。たとえば重複除去と正規化の両方を行った条件の Lazada では、テスト QINI の上位 3 つが CFRNet（0.0303）、BNN（0.0292）、TARNet（0.0266）で、いずれも 2016〜2017 年の手法である。</p>
+    <figure>
+      <svg class="fig" id="fig-rank" viewBox="0 0 640 412" role="img" aria-label="13手法×8条件のテストQINIの順位表。Criteo の4条件と Lazada の4条件で1位の手法がそれぞれ違い、EFIN は Criteo では1〜2位のこともあるが、Lazada では12〜13位である。"></svg>
+      <figcaption>図1　テスト QINI の順位（1 = 最良、13 手法中）。濃い<span class="B">青</span>が 1 位、薄い青が 2〜3 位。列は前処理の組合せ（なし／重複除去のみ／正規化のみ／両方）。論文 Table 4〜7 の数値から解説者が順位をつけて作図した。同じ値は同順位とした。</figcaption>
+    </figure>
+  </section>
+
+  <section id="preprocessing">
+    <div class="kicker">実験の結果 2</div>
+    <h2>重複除去は Criteo ではほとんどの手法の成績を上げたが、Lazada では上がる手法と下がる手法に分かれた</h2>
+    <p>正規化をしない場合に重複除去をすると、Criteo ではテスト AUUC が 13 手法中 12 手法で上がり、下がったのは DESCN（0.0316 → 0.0309）だけだった（Table 6 → Table 4）。論文の本文は CEVAE も例外に挙げているが、表の値では CEVAE もわずかに上がっている（0.0341 → 0.0348）。一方、学習とテストの分布が違う Lazada では、上がったのが 6 手法、下がったのが 7 手法だった。正規化をする場合は、Lazada の多くの手法で上下の向きが正規化なしの場合と逆になった。</p>
+    <p>正規化の影響も一様ではない。論文は、Criteo では重複除去をしないとき正規化の影響はほとんどなく、一部の手法がわずかに下がる程度だとしている（表では CEVAE が 0.0341 から 0.0260 に下がっている）。Lazada では手法によって上がるものと下がるものに分かれる。論文の本文は重複除去なしの Lazada で S-Learner、BNN、TARNet、CFRNet が大きく改善したとしている。ただし Table 6 と Table 7 の数値では BNN、TARNet、CFRNet のテスト AUUC は下がっており、本文の記述は重複除去ありの場合（Table 4 → Table 5）の変化と一致する。</p>
+    <p>論文は、実務でモデルを導入するときは、そのモデルが重複した行や特徴量の処理にどう反応するかを確かめてから前処理を決める必要があると述べる。多くのモデルが前処理の違いに頑健でないことから、データの選別やノイズ除去、特徴量の埋め込み学習の研究が必要だとしている。</p>
+    <figure>
+      <svg class="fig" id="fig-dedup" viewBox="0 0 640 440" role="img" aria-label="正規化なしの条件で、重複除去の前後のテストAUUCを手法ごとに比べたドットプロット。Criteo では DESCN 以外の12手法で右に動き、Lazada では右に動く手法と左に動く手法がほぼ半々である。"></svg>
+      <figcaption>図2　重複除去の前（○）と後（●）のテスト AUUC（正規化なし）。左が Criteo、右が Lazada で、横軸の目盛りは別である。論文 Fig. 2 と同じ量を、Table 4 と Table 6 の数値から解説者が作図した。</figcaption>
+    </figure>
+  </section>
+
+  <section id="test-dist">
+    <div class="kicker">実験の結果 3</div>
+    <h2>テスト分布が変わると順位も変わり、Criteo で上位の EFIN は Lazada の RCT テストで下位だった</h2>
+    <p>論文は、同じ手法でも Criteo と Lazada で成績が大きく違うことを指摘する。例に挙げているのは 2023 年の EFIN で、Criteo では多くの条件で上位だが、Lazada では際立って弱い。論文はこれを、<span class="A">テストにも選択の偏りがある Criteo</span> と<span class="B">偏りのないテストを持つ Lazada</span> の違いによるものとし、既存の DUM は異なるテスト分布に対して頑健ではないと述べる。</p>
+    <p>図3 は重複除去ありで正規化なしの条件（Table 4）について、検証 QINI とテスト QINI を手法ごとに並べたものである。Criteo では検証の順位がテストの順位とほぼ一致する（順位相関 0.95）が、Lazada では一致しない（0.09）。4 つの前処理条件で見ても、順位相関は Criteo で 0.65〜0.99、Lazada で −0.52〜0.09 である（順位相関は解説者が Table 4〜7 から計算した）。EFIN は Lazada の検証 QINI が 0.5181 で 1 位だが、テストでは 0.0169 で 12 位だった。Lazada の検証データは偏りのある学習用データから切り出しているので、値の水準もテストとは大きく違う。</p>
+    <p>論文は業務の性質に合わせてモデルを選ぶ必要があるとし、分布の変化に頑健な学習や、オフラインで最良のモデルを自動で選ぶ方法の研究を課題に挙げている。</p>
+    <figure>
+      <svg class="fig" id="fig-vt" viewBox="0 0 640 340" role="img" aria-label="Table 4 の条件で、横軸を検証QINI、縦軸をテストQINIとした散布図を Criteo と Lazada で並べたもの。Criteo では点が右上がりに並ぶ。Lazada では右上がりにならず、検証で最も高い EFIN がテストでは下位にある。"></svg>
+      <figcaption>図3　検証 QINI（横軸）とテスト QINI（縦軸）、重複除去あり・正規化なし。左が Criteo、右が Lazada（テストは RCT）。点は 13 手法で、EFIN だけ名前を付けた。論文 Table 4 の数値から解説者が作図した。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>コストと予算は扱わず、処置効果の順位づけがどれだけ正しいかを統一手順で比べる</h2>
+    <p>この論文が比べるのは、二値の処置（配る・配らない）に対する条件付き平均処置効果 \(\hat\tau(x)\) の推定モデルである。結果は訪問などの二値の反応で、処置のコストや売上額は出てこない。多値の処置や連続値の処置は今後の課題とされている。</p>
+    <p>予算制約も扱っていない。評価の中心は \(\hat\tau\) の順に顧客を並べたときの AUUC と Qini 係数、上位 30% でのアップリフトである。予算制約つきの割当てを連続緩和したナップザック問題として解くと、「効果 ÷ コスト」の大きい順に予算が尽きるまで配るのが最適になる。全員のコストが同じなら、この順位は \(\hat\tau\) の順位と一致する。そのため Qini 曲線や上位 \(k\)% のアップリフトは、一人あたりのコストが等しい場合に、配布人数（予算）を変えたときの成果を見ていると読める。LIFT@30 は予算を対象者の 30% に固定した場合にあたる（解説者の注）。ただし論文はこうした予算の解釈を述べておらず、コストが顧客によって違う場合の評価もしていない。</p>
+    <p>予算制約つきの研究にとっての示唆は、モデルの選択が前処理とテスト分布に左右されることである。偏りのある検証データで選んだモデルが、RCT のテストでは下位になる例が表に現れている。予算配分の評価でも、どの分布で順位を測ったかを確かめる必要がある（解説者の注）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{liu2024benchmarking,
+  title         = {Benchmarking for Deep Uplift Modeling in Online Marketing},
+  author        = {Liu, Dugang and Tang, Xing and Qiao, Yang and Liu, Miao and Sun, Zexu and He, Xiuqiang and Ming, Zhong},
+  year          = {2024},
+  eprint        = {2406.00335},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2406.00335}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- data: Tables 4-7 of the paper (arXiv v1) ----------
+// Conditions: noID_noFN = Table 6, ID_noFN = Table 4, noID_FN = Table 7, ID_FN = Table 5.
+var M = ['S-Learner', 'T-Learner', 'BNN', 'TARNet', 'CFRNet', 'CEVAE', 'GANITE', 'DragonNet', 'FlexTENet', 'SNet', 'EUEN', 'DESCN', 'EFIN'];
+var COND = ['noID_noFN', 'ID_noFN', 'noID_FN', 'ID_FN'];
+var VQ = {   // validation QINI
+  Criteo: {
+    noID_noFN: [0.0988, 0.0888, 0.0979, 0.0952, 0.0994, 0.095, 0.085, 0.0947, 0.1015, 0.0973, 0.0949, 0.0831, 0.0949],
+    ID_noFN: [0.0946, 0.1035, 0.1047, 0.1024, 0.1075, 0.0975, 0.1209, 0.1085, 0.1146, 0.1016, 0.1158, 0.0817, 0.1255]
+  },
+  Lazada: {
+    noID_noFN: [0.4581, 0.4648, 0.4558, 0.4635, 0.4609, 0.4734, 0.4592, 0.5051, 0.4576, 0.4767, 0.4758, 0.4741, 0.5131],
+    ID_noFN: [0.4192, 0.4431, 0.4741, 0.4394, 0.4595, 0.4424, 0.4946, 0.4961, 0.4995, 0.4502, 0.4513, 0.4671, 0.5181]
+  }
+};
+var TQ = {   // test QINI
+  Criteo: {
+    noID_noFN: [0.0902, 0.079, 0.0888, 0.0847, 0.0901, 0.0867, 0.0818, 0.0851, 0.0924, 0.0843, 0.0898, 0.0803, 0.0859],
+    ID_noFN: [0.0951, 0.1053, 0.1017, 0.1063, 0.1085, 0.0881, 0.1192, 0.1099, 0.1164, 0.1044, 0.1143, 0.0795, 0.122],
+    noID_FN: [0.0868, 0.0843, 0.0828, 0.0834, 0.0892, 0.066, 0.0807, 0.0886, 0.0894, 0.0851, 0.0899, 0.0803, 0.0857],
+    ID_FN: [0.0825, 0.1034, 0.0911, 0.1087, 0.1194, 0.0334, 0.1272, 0.1057, 0.1125, 0.1127, 0.1186, 0.0827, 0.1208]
+  },
+  Lazada: {
+    noID_noFN: [0.0207, 0.0217, 0.023, 0.0214, 0.0231, 0.0158, 0.0174, 0.0176, 0.0185, 0.0238, 0.0156, 0.0223, 0.0141],
+    ID_noFN: [0.0178, 0.0231, 0.0199, 0.0177, 0.0234, 0.0078, 0.0187, 0.0177, 0.0215, 0.019, 0.0205, 0.0252, 0.0169],
+    noID_FN: [0.0218, 0.0237, 0.0184, 0.0195, 0.0219, 0.022, 0.0167, 0.0204, 0.0238, 0.0272, 0.0245, 0.0185, 0.0163],
+    ID_FN: [0.0246, 0.0163, 0.0292, 0.0266, 0.0303, 0.0121, 0.0194, 0.0209, 0.022, 0.0231, 0.0206, 0.0197, 0.0131]
+  }
+};
+var TA = {   // test AUUC, no feature normalization
+  Criteo: {
+    noID_noFN: [0.0354, 0.031, 0.0349, 0.0333, 0.0354, 0.0341, 0.0322, 0.0335, 0.0363, 0.0331, 0.0353, 0.0316, 0.0337],
+    ID_noFN: [0.0375, 0.0416, 0.0402, 0.0425, 0.0434, 0.0348, 0.0478, 0.0439, 0.047, 0.0414, 0.0456, 0.0309, 0.0491]
+  },
+  Lazada: {
+    noID_noFN: [0.0029, 0.0031, 0.0033, 0.003, 0.0033, 0.0022, 0.0024, 0.0025, 0.0026, 0.0034, 0.0022, 0.0031, 0.002],
+    ID_noFN: [0.0024, 0.0032, 0.0028, 0.0024, 0.0032, 0.001, 0.0025, 0.0024, 0.003, 0.0026, 0.0028, 0.0034, 0.0023]
+  }
+};
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+function ranks(v) { return v.map(function (x) { return 1 + v.filter(function (y) { return y > x; }).length; }); }
+
+// ---------- figure 1: rank of test QINI, 13 models x 8 conditions ----------
+(function () {
+  var svg = document.getElementById('fig-rank'); if (!svg) return;
+  var el = mk(svg);
+  var LX = 112, CW = 60, GAP = 22, Y0 = 84, RH = 25;
+  var lab = ['なし', '重複除去', '正規化', '両方'];
+  ['Criteo', 'Lazada'].forEach(function (ds, d) {
+    var x0 = LX + d * (4 * CW + GAP);
+    el('text', { x: x0 + 2 * CW, y: 26, 'font-size': 16, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, ds);
+    el('line', { x1: x0 + 4, x2: x0 + 4 * CW - 4, y1: 36, y2: 36, stroke: '#16202E', 'stroke-width': 1.2 });
+    COND.forEach(function (c, j) {
+      var cx = x0 + j * CW + CW / 2;
+      el('text', { x: cx, y: 60, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' }, lab[j]);
+      var r = ranks(TQ[ds][c]);
+      r.forEach(function (k, i) {
+        var y = Y0 + i * RH;
+        var fill = k === 1 ? '#1D4ED8' : (k <= 3 ? '#E7EEFC' : '#fff');
+        el('rect', { x: x0 + j * CW + 3, y: y - 17, width: CW - 6, height: RH - 4, rx: 4, fill: fill, stroke: k <= 3 ? 'none' : '#D9DEE6' });
+        el('text', { x: cx, y: y, 'font-size': 14, fill: k === 1 ? '#fff' : (k <= 3 ? '#1D4ED8' : '#16202E'), 'font-weight': k <= 3 ? 650 : 400, 'text-anchor': 'middle', 'font-family': 'Inter, sans-serif' }, k);
+      });
+    });
+  });
+  M.forEach(function (m, i) {
+    el('text', { x: LX - 10, y: Y0 + i * RH, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end', 'font-family': 'Inter, sans-serif' }, m);
+  });
+})();
+
+// ---------- figure 2: test AUUC before / after instance deduplication (no FN) ----------
+(function () {
+  var svg = document.getElementById('fig-dedup'); if (!svg) return;
+  var el = mk(svg);
+  var Y0 = 64, RH = 26, LX = 104;
+  var P = [
+    { ds: 'Criteo', x0: LX + 14, x1: 340, lo: 0.030, hi: 0.050, ticks: [0.03, 0.04, 0.05], fmt: function (v) { return v.toFixed(2); } },
+    { ds: 'Lazada', x0: 400, x1: 626, lo: 0.0005, hi: 0.0036, ticks: [0.001, 0.002, 0.003], fmt: function (v) { return v.toFixed(3); } }
+  ];
+  M.forEach(function (m, i) {
+    el('text', { x: LX, y: Y0 + i * RH + 5, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end', 'font-family': 'Inter, sans-serif' }, m);
+  });
+  P.forEach(function (p) {
+    function px(v) { return p.x0 + (v - p.lo) / (p.hi - p.lo) * (p.x1 - p.x0); }
+    el('text', { x: (p.x0 + p.x1) / 2, y: 26, 'font-size': 16, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, p.ds);
+    p.ticks.forEach(function (t) {
+      el('line', { x1: px(t), x2: px(t), y1: Y0 - 18, y2: Y0 + RH * 12 + 14, stroke: '#D9DEE6' });
+      el('text', { x: px(t), y: Y0 + RH * 12 + 36, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle', 'font-family': 'Inter, sans-serif' }, p.fmt(t));
+    });
+    var a = TA[p.ds].noID_noFN, b = TA[p.ds].ID_noFN;
+    M.forEach(function (m, i) {
+      var y = Y0 + i * RH;
+      el('line', { x1: px(a[i]), x2: px(b[i]), y1: y, y2: y, stroke: '#9AA3B0', 'stroke-width': 2.5 });
+      el('circle', { cx: px(a[i]), cy: y, r: 6, fill: '#fff', stroke: '#16202E', 'stroke-width': 1.8 });
+      el('circle', { cx: px(b[i]), cy: y, r: 6, fill: '#16202E' });
+    });
+  });
+  el('text', { x: 365, y: Y0 + RH * 12 + 62, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'テスト AUUC（○ 重複除去なし → ● 重複除去あり）');
+})();
+
+// ---------- figure 3: validation vs test QINI, Table 4 (ID, no FN) ----------
+(function () {
+  var svg = document.getElementById('fig-vt'); if (!svg) return;
+  var el = mk(svg);
+  var P = [
+    { ds: 'Criteo', x0: 70, x1: 300, xlo: 0.08, xhi: 0.13, ylo: 0.075, yhi: 0.125, xt: [0.08, 0.10, 0.12], yt: [0.08, 0.10, 0.12], d: 2, test: 'テスト QINI', tc: '#16202E' },
+    { ds: 'Lazada', x0: 390, x1: 620, xlo: 0.41, xhi: 0.53, ylo: 0.005, yhi: 0.027, xt: [0.42, 0.46, 0.50], yt: [0.01, 0.02], d: 2, test: 'テスト QINI（RCT）', tc: '#1D4ED8' }
+  ];
+  var Y0 = 270, Y1 = 40;
+  P.forEach(function (p) {
+    function sx(v) { return p.x0 + (v - p.xlo) / (p.xhi - p.xlo) * (p.x1 - p.x0); }
+    function sy(v) { return Y0 - (v - p.ylo) / (p.yhi - p.ylo) * (Y0 - Y1); }
+    el('rect', { x: p.x0, y: Y1, width: p.x1 - p.x0, height: Y0 - Y1, fill: 'none', stroke: '#D9DEE6' });
+    p.xt.forEach(function (t) { el('text', { x: sx(t), y: Y0 + 20, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle', 'font-family': 'Inter, sans-serif' }, t.toFixed(p.d)); });
+    p.yt.forEach(function (t) { el('text', { x: p.x0 - 6, y: sy(t) + 4, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end', 'font-family': 'Inter, sans-serif' }, t.toFixed(p.d)); });
+    el('text', { x: (p.x0 + p.x1) / 2, y: 26, 'font-size': 16, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, p.ds);
+    el('text', { x: (p.x0 + p.x1) / 2, y: Y0 + 44, 'font-size': 14, fill: '#C2410C', 'text-anchor': 'middle' }, '検証 QINI（学習と同じ分布）');
+    el('text', { transform: 'translate(' + (p.x0 - 46) + ',' + ((Y0 + Y1) / 2) + ') rotate(-90)', 'font-size': 14, fill: p.tc, 'text-anchor': 'middle' }, p.test);
+    var v = VQ[p.ds].ID_noFN, t = TQ[p.ds].ID_noFN;
+    M.forEach(function (m, i) {
+      var e = m === 'EFIN';
+      el('circle', { cx: sx(v[i]), cy: sy(t[i]), r: e ? 7 : 5.5, fill: e ? '#16202E' : '#9AA3B0' });
+      if (e) el('text', { x: sx(v[i]) - 10, y: sy(t[i]) + 5, 'font-size': 14, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'end', 'font-family': 'Inter, sans-serif' }, 'EFIN');
+    });
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

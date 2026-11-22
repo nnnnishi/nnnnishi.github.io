@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算と利益のトレードオフ曲線を大規模に計算する（論文解説）</title>
+<meta name="description" content="Large-Scale Trade-Off Curve Computation for Incentive Allocation with Cardinality and Matroid Constraints（IJCAI 2025）の非公式の解説。利用者ごとの署名関数を足し合わせて、予算と利益のトレードオフ曲線全体を求め、更新する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = solving the allocation once per budget value, and brute-force views of it
+                         (all O(m^2) line intersections, the scan line algorithm in the experiments)
+            --b  (blue)   = the paper's structure: signature functions, their sum f, the trade-off curve tau(B),
+                         and the p-level based algorithm ("opt" in Table 2)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">IJCAI · 2025</div>
+  <h1>Large-Scale Trade-Off Curve Computation for Incentive Allocation with Cardinality and Matroid Constraints</h1>
+  <p class="subtitle">個数制約・マトロイド制約のあるインセンティブ配分で、予算と利益のトレードオフ曲線を大規模に計算する</p>
+
+  <ul class="authors">
+    <li><b>Yu Cong</b><span>University of Electronic Science and Technology of China</span></li>
+    <li><b>Chao Xu</b><span>University of Electronic Science and Technology of China</span></li>
+    <li><b>Yi Zhou</b><span>University of Electronic Science and Technology of China</span></li>
+  </ul>
+
+  <p class="lead">クーポンの配分はふつう予算を一つ決めてから解く。この論文は<span class="A">予算ごとに解き直す</span>のではなく、予算と利益の<span class="B">トレードオフ曲線</span>全体を線形計画緩和のもとで求め、利用者ごとの変更に合わせて保ち続ける方法を示す。利用者ごとの「署名関数」を足し合わせれば曲線が得られ、一人分の変更は、曲線の折れ点が変わった箇所だけを直せば反映できる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.24963/ijcai.2025/287">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2609.20699">arXiv</a>
+    <a class="btn" href="https://github.com/congyu711/incentive-allocation-supplementaries">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予算ごとに解き直すやり方、候補クーポンの直線から作る署名関数、署名関数の和から得るトレードオフ曲線と差分更新、論文 Table 2 の計算時間、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">折れ点 \(O(m^2)\) → \(O(mp^{1/3})\)</span><span class="d">利用者ごとに \(p\) 枚まで配る個数制約で、署名関数の折れ点の数の上界。計算幾何の \(p\)-level の結果を使い、従来の \(O(m^2)\) を改善した。</span></li>
+    <li><span class="k">更新 \(O(t\log k)\)</span><span class="d">利用者 1 人の変更で、曲線を表す傾きの差分の表が \(t\) 箇所変わるときの手間。曲線全体は作り直さない（定理 3）。</span></li>
+    <li><span class="k">\(m=10^7\) で 101.8 秒</span><span class="d">\(p=2000\) のとき、署名関数の折れ点を \(p\)-level の方法で求めた時間。単純な走査法は TLE（時間切れ）だった（論文 Table 2、一様乱数の 10 回平均）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予算を一つ決めて解くだけでは、予算額そのものを決める問いに答えられない</h2>
+    <p>論文が想定するのは、配車アプリの利用者にクーポンを配る場面である。利用者（論文の用語ではエージェント）ごとに候補のクーポンがあり、それぞれに価値 \(v\)（乗車回数などの指標の増分）と費用 \(c\) がある。総費用を予算 \(B\) 以下に抑えながら、価値の合計を最大にする組み合わせを選ぶ。これはナップザック問題の一種である。</p>
+    <p>しかし実務では、<span class="A">予算を一つ決めて解く</span>だけでは足りないことが多い。キャンペーンの総予算をいくらにするか、目標の利益を得るのにいくら要るかを判断するには、予算と利益の関係を表す曲線全体が要る。別の施策と予算を分け合うときも、配分を最適化するアルゴリズムがこの曲線を何度も評価することになる。さらに \(v\) や \(c\) はモデルの予測値なので、利用者が乗車するたびに予測が変わり、曲線も変わる。</p>
+    <p>そこで論文は<span class="B">トレードオフ曲線全体</span>を保ちながら、各利用者のクーポン候補の追加・削除に合わせて更新する問題を扱う。利用者は数百万人、一人あたりの候補は数百枚程度で、どの一人も全体にはほとんど影響しない状況を想定している。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>整数解の代わりに線形計画緩和の最適値を、予算の関数として追う</h2>
+    <p>利用者 \(i\) の候補クーポンの集合を \(E_i\)、同時に配ってよい組み合わせの族を \(\mathcal{F}_i\) とする。制約は 3 種類を考える。1 枚だけ選ぶ<strong>多肢選択制約</strong>、\(p\) 枚まで選ぶ<strong>個数制約</strong>、そしてそれらを一般化した<strong>マトロイド制約</strong>である。マトロイド制約の例として論文は週末用 2 枚・平日用 2 枚まで、ただし合計 3 枚まで、という条件を挙げている。</p>
+    <div class="eq">\[ \tau(B) \;=\; \max_x \Big\{\, v\cdot x \;\Big|\; c\cdot x \le B,\;\; x_{E_i} \in \operatorname{Conv}(\mathcal{F}_i)\ \ \forall i \,\Big\} \]</div>
+    <p>整数解の最適値 \(\bar\tau(B)\) を求めるのは NP 困難なので、論文は上の線形計画緩和の最適値 \(\tau(B)\) を予算 \(B\) の関数として追い、これを（分数の）<span class="B">トレードオフ曲線</span>と呼ぶ。両者の差は一般には利用者 1 人が生み出せる価値の合計以下で、各利用者の制約がマトロイドならクーポン 1 枚の価値の最大値 \(\|v\|_\infty\) 以下に収まる（Camerini と Vercellis の結果）。一人の価値が全体に比べて小さい大規模な配布では、\(\tau\) は \(\bar\tau\) のよい近似になる。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>利用者ごとの署名関数を足し合わせれば、トレードオフ曲線全体が得られる</h2>
+    <p>予算 1 単位あたりの値段 \(\lambda \ge 0\) を決めると、各利用者は「価値 − \(\lambda\) × 費用」が最大になる組み合わせを、他の利用者とは無関係に選べる。この最大値を \(\lambda\) の関数とみたものが、利用者 \(i\) の<span class="B">署名関数</span> \(f_i(\lambda)\) である。\(f_i\) は区分線形で凸になる。</p>
+    <div class="eq">\[ \begin{aligned} f_i(\lambda) &= \max_{x \in \operatorname{Conv}(\mathcal{F}_i)} (v_{E_i} - \lambda c_{E_i})\cdot x \\ f &= \textstyle\sum_i f_i \\ \tau(B) &= \min_{\lambda \ge 0} \big\{ \lambda B + f(\lambda) \big\} \end{aligned} \]</div>
+    <p>最後の式はラグランジュ双対で、論文の定理 4 は、\(\tau\) が区分線形で凹であり、この式で与えられることを示す。\(\tau\) の傾きが変わる予算は、\(f\) の折れ点と一対一に対応する。各 \(f_i\) を「折れ点の位置と、そこでの傾きの変化量」の表（傾き差分形式）で持てば、\(f\) は表をつなぎ合わせて並べ替えるだけで作れる。署名関数は利用者ごとに独立に計算できるので、並列化もしやすい。</p>
+    <p>\(f\) の折れ点が \(k\) 個あるとき、累積和のデータ構造を使うと次の操作ができる。予算 \(B\) から \(\tau(B)\) を求める評価と、目標の利益に必要な予算を求める逆引きは、どちらも二分探索で \(O(\log k)\) の時間で求まる。利用者 1 人の情報が変わったときは、その人の \(f_i\) を差し替えるだけでよく、表が \(t\) 箇所変わるなら \(O(t\log k)\) で済む（定理 3）。曲線の一部（\(t\) 個の折れ点）を書き出すのは \(O(\log k + t)\) である。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="解説者が置いた2人・各2枚の例。左は署名関数の和 f(λ) で、λ が 1、1.5、3、4 で折れる凸な関数。破線は 4λ + f(λ) で、λ = 1.5 で最小値 11.5 をとる。右はトレードオフ曲線 τ(B) で、予算 1、3、5、8 で折れる凹な関数。予算 4 のときの値 11.5 が左の最小値と一致する。">
+        <line x1="50" y1="300" x2="306" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="50" y1="300" x2="50" y2="34" stroke="#16202E" stroke-width="1.5"/>
+        <polyline points="50,92 100,144 125,150.5 200,131 250,92 300,40" fill="none" stroke="#5B6676" stroke-width="2" stroke-dasharray="6 5"/>
+        <polyline points="50,92 100,196 125,228.5 200,287 250,300 300,300" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+        <circle cx="100" cy="196" r="4.5" fill="#1D4ED8"/><circle cx="125" cy="228.5" r="4.5" fill="#1D4ED8"/><circle cx="200" cy="287" r="4.5" fill="#1D4ED8"/><circle cx="250" cy="300" r="4.5" fill="#1D4ED8"/>
+        <circle cx="125" cy="150.5" r="7" fill="#fff" stroke="#16202E" stroke-width="2.5"/>
+        <text x="130" y="258" font-size="15" fill="#1D4ED8"><tspan class="mi">f</tspan>(<tspan class="mi">λ</tspan>)</text>
+        <text x="236" y="70" font-size="15" fill="#5B6676" text-anchor="end">4<tspan class="mi">λ</tspan> + <tspan class="mi">f</tspan>(<tspan class="mi">λ</tspan>)</text>
+        <text x="50" y="320" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="100" y="320" font-size="15" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="200" y="320" font-size="15" fill="#5B6676" text-anchor="middle">3</text>
+        <text x="250" y="320" font-size="15" fill="#5B6676" text-anchor="middle">4</text>
+        <text x="125" y="342" font-size="15" fill="#5B6676" text-anchor="middle">1.5</text>
+        <text x="300" y="320" font-size="16" fill="#16202E" text-anchor="end"><tspan class="mi">λ</tspan></text>
+        <text x="178" y="370" font-size="16" fill="#16202E" text-anchor="middle">予算 1 単位の値段</text>
+        <text x="42" y="96" font-size="15" fill="#5B6676" text-anchor="end">16</text>
+        <line x1="306" y1="150.5" x2="460" y2="150.5" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="3 4"/>
+        <text x="296" y="142" font-size="15" fill="#16202E">最小値 11.5</text>
+        <line x1="370" y1="300" x2="616" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="370" y1="300" x2="370" y2="34" stroke="#16202E" stroke-width="1.5"/>
+        <polyline points="370,300 394,248 442,170 490,131 562,92 610,92" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+        <circle cx="394" cy="248" r="4.5" fill="#1D4ED8"/><circle cx="442" cy="170" r="4.5" fill="#1D4ED8"/><circle cx="490" cy="131" r="4.5" fill="#1D4ED8"/><circle cx="562" cy="92" r="4.5" fill="#1D4ED8"/>
+        <circle cx="466" cy="150.5" r="7" fill="#fff" stroke="#16202E" stroke-width="2.5"/>
+        <text x="374" y="276" font-size="14" fill="#1D4ED8">4</text>
+        <text x="400" y="204" font-size="14" fill="#1D4ED8">3</text>
+        <text x="484" y="178" font-size="14" fill="#1D4ED8">1.5</text>
+        <text x="520" y="132" font-size="14" fill="#1D4ED8">1</text>
+        <text x="586" y="84" font-size="14" fill="#1D4ED8">0</text>
+        <text x="600" y="236" font-size="15" fill="#1D4ED8" text-anchor="end"><tspan class="mi">τ</tspan>(<tspan class="mi">B</tspan>)</text>
+        <text x="370" y="320" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="394" y="320" font-size="15" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="442" y="320" font-size="15" fill="#5B6676" text-anchor="middle">3</text>
+        <text x="466" y="320" font-size="15" fill="#16202E" text-anchor="middle">4</text>
+        <text x="490" y="320" font-size="15" fill="#5B6676" text-anchor="middle">5</text>
+        <text x="562" y="320" font-size="15" fill="#5B6676" text-anchor="middle">8</text>
+        <text x="490" y="370" font-size="16" fill="#16202E" text-anchor="middle">予算 <tspan class="mi">B</tspan> → 価値の合計</text>
+        <text x="362" y="96" font-size="15" fill="#5B6676" text-anchor="end">16</text>
+      </svg>
+      <figcaption>図1　署名関数の和 \(f\)（左）とトレードオフ曲線 \(\tau\)（右）の関係。予算 \(B=4\) のとき、破線 \(4\lambda+f(\lambda)\) の最小値 11.5 が \(\tau(4)\) になる。右の数字は各区間の傾き。例は解説者が置いたもの（模式図）で、利用者 A の候補は（価値, 費用）=（6, 2）と（9, 5）、利用者 B の候補は（4, 1）と（7, 3）、どちらも 1 枚まで。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>個数制約では、計算幾何の <span style="white-space:nowrap">\(p\)-level</span> を使うと、署名関数の折れ点は \(O(mp^{1/3})\) 個に抑えられる</h2>
+    <p>あとは各利用者の署名関数を求めればよい。個数制約（\(p\) 枚まで）の場合、候補 \(e\) ごとに直線 \(\ell_e(\lambda) = v_e - \lambda c_e\) を引くと、\(f(\lambda)\) は各 \(\lambda\) で上から \(p\) 本の直線の値の和になる（価値・費用 0 のダミーを \(p\) 個足して、ちょうど \(p\) 枚選ぶ形にする）。<span class="A">直線どうしの交点</span>は \(O(m^2)\) 個あり、これが Pisinger による従来の上界だった。</p>
+    <p>論文は、上から \(p\) 番目の直線がつくる折れ線（計算幾何でいう \(p\)-level）に注目する。上位 \(p\) 本の中で順位が入れ替わっても和は変わらないので、\(f\) の傾きが変わりうるのは \(p\)-level の頂点だけである。\(p\)-level の頂点数には \(O(mp^{1/3})\) という上界（Dey）が知られているので、署名関数の折れ点も <span class="B">\(O(mp^{1/3})\)</span> 個に抑えられる。全体の計算時間は \(O((k+m)\log m)\) で（定理 1）、多肢選択制約（\(p=1\)）では既存の静的な計算法と同じ \(O(m\log m)\) で更新もできる。</p>
+    <figure style="max-width:24rem">
+      <img src="assets/fig1_two_level.png" alt="横軸 λ、縦軸 v − cλ の座標に、傾きの異なる4本の直線を引いた図。各 λ で上から2番目にある直線をつないだ太い折れ線が2-levelで、直線が交わるたびに折れ、凸にはならない。" loading="lazy">
+      <figcaption>図2　直線の配置と 2-level（太線）。\(p>1\) の \(p\)-level は凸とは限らない（論文 Fig. 1）。</figcaption>
+    </figure>
+    <p>マトロイド制約では、\(f\) の折れ点は重み \(v_e - \lambda c_e\) のもとでの最適基が入れ替わる点に当たる。折れ点の数は同じく \(O(mp^{1/3})\)（\(p\) はマトロイドの階数）で、この数が必要になるマトロイドもある。一般のマトロイドには \(p\)-level のような専用の算法がないため、論文は凸な区分線形関数の折れ点を \(O(k)\) 回の評価で見つける Eisner–Severance 法を使い、1 回の評価に最適基の計算（時間 \(T\)）を当てる。全体の計算時間は \(O(Tk + k\log m)\) になる（定理 2）。このほか、マトロイド制約では分数になる変数が高々 2 個の最適解があること（定理 7）、目的関数を劣モジュラにしても署名関数は区分線形・凸のままだが、提案する算法はそのままでは使えないことも述べている。</p>
+    <p>実装面では署名関数の計算をユーザー定義関数にし、残りの集計を OLAP データベース（例として ClickHouse）のウィンドウ集計で更新し続ける方法を技術付録で示している。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験</div>
+    <h2>一様乱数の実験では、\(p\) が小さいと単純な走査法が速く、\(p\) が大きいと <span style="white-space:nowrap">\(p\)-level</span> の方法が速かった</h2>
+    <p>論文は主に理論の研究だが、個数制約の場合について、署名関数の折れ点を求める 2 つの実装を比べている。一つは \(p\)-level のデータ構造を使う方法（表の opt）、もう一つは現在の \(p\) 番目の直線との交点をすべて調べながら進む<span class="A">走査法</span>（scan、計算時間 \(O(km)\)）である。数値は一様分布から引き、各設定 10 回の平均を M2 Max の Mac で測った。表の \(m\) は 1 つの署名関数に入る直線の本数である。</p>
+    <p>\(p=20, 40\) では走査法のほうが速く、\(m=10^7\)、\(p=20\) で 13.0 秒対 100.5 秒だった。論文は、\(p\) が小さいと折れ点の数 \(k\) が \(m\) よりずっと小さくなるためだと説明している（\(p=1\) なら \(k\) は一様乱数の点の凸包の頂点数で抑えられ、その期待値は \(O(\log m)\)）。\(p\) が大きくなると \(k\) も増え、走査法は遅くなる。\(p=2000\) では \(m=10^6\) で 72.5 秒対 7.6 秒となり、\(m=10^7\) では走査法が TLE になった。\(p=m/5\) では \(m=5\times10^5\) 以上で走査法が TLE になり、<span class="B">\(p\)-level の方法</span>は \(m=10^7\) で 134.0 秒だった。</p>
+    <p>マトロイド制約についてはラミナーマトロイドで Eisner–Severance 法を実装し、署名関数の計算時間を示している（Table 3）。\(m=10^4\) で 1.24 秒、\(m=7\times10^4\) で 44.8 秒である。論文はこれを動作例と位置づけている。</p>
+    <figure>
+      <svg class="fig" id="fig-time" viewBox="0 0 640 470" role="img" aria-label="論文 Table 2 の計算時間を両対数で描いた4つの小さなグラフ。p = 20 と 40 では走査法（橙）が p-level の方法（青）より速い。p = 2000 と p = m/5 では p-level の方法が速く、走査法は大きい m で TLE になる。"></svg>
+      <figcaption>図3　署名関数の折れ点を求める時間（秒、両対数）。<span class="A">●</span> 走査法（scan）、<span class="B">●</span> \(p\)-level の方法（opt）。0.000 秒と表示された点は対数軸に描けないため省き、TLE は上端に × で示した（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p class="src">数値と定理の書き方は IJCAI 2025 の掲載版（Proceedings pp. 2575–2582）による。arXiv v2（2026 年 9 月 20 日）では「いくつかの誤りを修正した」とされ、表の数値は同じだが、定理 1 の計算時間を \(O(mp^{1/3}\log m)\) と書き直し、opt の実装を Chan の kinetic heap 法（\(O(m\log m + k\log^{1+\varepsilon} m)\)）と明記している。掲載版では opt を \(O((k+m)\log m)\) の方法と説明している。TLE の制限時間と、価値・費用を引いた一様分布の範囲は、どちらの版にも書かれていない。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算を一つに固定せず、あらゆる予算での最適値を曲線として保つ</h2>
+    <p>この論文は効果の推定を扱わない。各クーポンの価値 \(v\)（乗車回数などの増分）と費用 \(c\) は、モデルの予測値として与えられる前提である。費用も利用者とクーポンの組ごとに与えられる非負の定数で、反応に応じて費用が変わる場合を論文は区別して論じていない。処置は多値で、一人に複数枚を組み合わせて配ることも含む（多肢選択・個数・マトロイド制約）。実験は計算時間だけを測ったもので、実際の配布データでの効果の評価はない。</p>
+    <p>予算制約は総費用 \(c\cdot x \le B\) の形で入る。ただし特定の \(B\) で解くのではなく、すべての \(B \ge 0\) での線形計画緩和の最適値を曲線 \(\tau(B)\) として求め、予測の更新に合わせて保ち続けるのがこの論文の特徴である。</p>
+    <p>ROI 順の割り当てとの関係は次のように整理できる（解説者の注）。各利用者の候補が 1 枚だけなら \(f_i(\lambda) = \max(0,\, v_i - \lambda c_i)\) で、折れ点は \(\lambda = v_i / c_i\) にある。このとき \(\tau(B)\) を求めることは、ナップザック問題の連続緩和を ROI（\(v/c\)）の大きい順に詰めて解くことと同じで、\(\tau\) の傾きは ROI を大きい順に並べたものになる。候補が複数あると、折れ点は「上位の選択肢に乗り換えたときの価値の増分 ÷ 費用の増分」になる。図 1 では \(\tau\) の傾き 4、3、1.5、1 が、B の（4, 1）、A の（6, 2）、B の（4, 1）→（7, 3）への乗り換え、A の（6, 2）→（9, 5）への乗り換えにそれぞれ当たる。\(\lambda\) はその予算で割り当てを打ち切る ROI のしきい値と読める。この論文は ROI 順の割り当てを多値の処置と組み合わせの制約に広げ、予算のすべての値について一度に求めるものと位置づけられる。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{cong2025tradeoff,
+  title     = {Large-Scale Trade-Off Curve Computation for Incentive Allocation with Cardinality and Matroid Constraints},
+  author    = {Cong, Yu and Xu, Chao and Zhou, Yi},
+  booktitle = {Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence, {IJCAI-25}},
+  publisher = {International Joint Conferences on Artificial Intelligence Organization},
+  pages     = {2575--2582},
+  year      = {2025},
+  doi       = {10.24963/ijcai.2025/287}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 3: Table 2 of the paper (IJCAI 2025 = arXiv v2), seconds, log-log ----------
+(function () {
+  var svg = document.getElementById('fig-time'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var M = [1e3, 5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 1e7];
+  // null = '-' (p > m), 0 = printed as 0.000 (not drawable on a log axis), 'T' = TLE
+  var panels = [
+    ['p = 20',   [0, 0.003, 0.008, 0.043, 0.094, 0.528, 1.147, 12.994], [0, 0.005, 0.010, 0.089, 0.216, 2.911, 7.291, 100.512]],
+    ['p = 40',   [0, 0.006, 0.014, 0.080, 0.173, 0.937, 1.989, 23.863], [0.001, 0.005, 0.012, 0.087, 0.223, 2.952, 7.140, 101.675]],
+    ['p = 2000', [null, 0.137, 0.384, 2.634, 5.795, 33.760, 72.485, 'T'], [null, 0.027, 0.048, 0.187, 0.397, 3.398, 7.604, 101.775]],
+    ['p = m/5',  [0.003, 0.091, 0.384, 9.531, 38.275, 'T', 'T', 'T'], [0.002, 0.02, 0.048, 0.326, 1.222, 10.500, 23.203, 133.974]]
+  ];
+  var W = 236, H = 150;
+  panels.forEach(function (pn, j) {
+    var X0 = 84 + (j % 2) * 300, Y0 = 40 + Math.floor(j / 2) * 215;
+    function px(m) { return X0 + (Math.log10(m) - 3) / 4 * W; }
+    function py(s) { return Y0 + H - (Math.log10(s) + 3) / 6 * H; }
+    el('text', { x: X0, y: Y0 - 14, 'font-size': 15, 'font-weight': 600, fill: '#16202E' }, pn[0]);
+    [-3, -1, 1, 3].forEach(function (e) {
+      el('line', { x1: X0, x2: X0 + W, y1: py(Math.pow(10, e)), y2: py(Math.pow(10, e)), stroke: '#D9DEE6' });
+      el('text', { x: X0 - 8, y: py(Math.pow(10, e)) + 5, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, ['0.001', '0.1', '10', '1000'][(e + 3) / 2]);
+    });
+    [3, 5, 7].forEach(function (e) {
+      el('text', { x: px(Math.pow(10, e)), y: Y0 + H + 24, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }).innerHTML = '10<tspan dy="-7" font-size="11">' + e + '</tspan>';
+    });
+    el('line', { x1: X0, x2: X0 + W, y1: Y0 + H, y2: Y0 + H, stroke: '#16202E' });
+    el('line', { x1: X0, x2: X0, y1: Y0, y2: Y0 + H, stroke: '#16202E' });
+    [[pn[1], '#C2410C'], [pn[2], '#1D4ED8']].forEach(function (sr) {
+      var pts = [];
+      sr[0].forEach(function (v, i) { if (typeof v === 'number' && v > 0) pts.push(px(M[i]) + ',' + py(v)); });
+      el('polyline', { points: pts.join(' '), fill: 'none', stroke: sr[1], 'stroke-width': 2 });
+      sr[0].forEach(function (v, i) {
+        if (typeof v === 'number' && v > 0) el('circle', { cx: px(M[i]), cy: py(v), r: 4, fill: sr[1] });
+        if (v === 'T') el('text', { x: px(M[i]), y: Y0 + 6, 'font-size': 16, 'font-weight': 700, fill: sr[1], 'text-anchor': 'middle' }, '×');
+      });
+    });
+  });
+  el('text', { x: 320, y: 462, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '横軸：直線の本数 m　縦軸：秒');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

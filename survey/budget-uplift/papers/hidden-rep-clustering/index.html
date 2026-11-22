@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>隠れ表現のクラスタリングによる予算配分（論文解説）</title>
+<meta name="description" content="Hidden Representation Clustering with Multi-Task Representation Learning towards Robust Online Budget Allocation（arXiv 2025）の非公式の解説。個体ごとの予測値の代わりに、表現ネットワークの隠れ表現で個体を K 群に分け、群ごとの統計値で予算配分を解く。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = individual-level allocation: per-individual counterfactual predictions of
+                         revenue and cost (two-stage methods, DFL) and their sensitivity to noise
+            --b  (blue)   = cluster-level allocation: hidden-representation clusters, their statistics
+                         (mean / dispersion / size) and the paper's HRC
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2025</div>
+  <h1>Hidden Representation Clustering with Multi-Task Representation Learning towards Robust Online Budget Allocation</h1>
+  <p class="subtitle">多タスク表現学習の隠れ表現をクラスタリングする、頑健なオンライン予算配分</p>
+
+  <ul class="authors">
+    <li><b>Xiaohan Wang</b><span>Meituan</span></li>
+    <li><b>Yu Zhang</b><span>Meituan</span></li>
+    <li><b>Guibin Jiang</b><span>Meituan</span></li>
+    <li><b>Bing Cheng</b><span>Meituan</span></li>
+    <li><b>Wei Lin</b><span>Meituan</span></li>
+  </ul>
+
+  <p class="lead">マーケティングの予算配分では、処置ごとの収益とコストを個体ごとに予測してから最適化する方法が主流だが、数千万件の反実仮想の予測はデータのノイズに弱い。この論文は<span class="A">個体ごとの予測値</span>を使う代わりに、表現ネットワークの<span class="B">隠れ表現で個体を K 群に分け</span>、群ごとの平均とばらつきから予算配分を解く。Meituan でのオンライン A/B テストでは、本番の DFL-PL より注文数（OV）が 0.53%、取引額（GMV）が 0.65% 高かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2506.00959">arXiv</a>
+    <a class="btn" href="https://arxiv.org/pdf/2506.00959">PDF</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。個体ごとに処置ごとの値を予測する従来法、ノイズで揺れる出力と揺れにくい隠れ表現、隠れ表現をK群に分ける手法、論文 Table 2 のオンラインA/Bテストの結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">OV +0.53%、GMV +0.65%</span><span class="d">本番で数週間運用されていた DFL-PL との 2 週間の A/B テスト。コストの差は 0.03043 ポイントだった（Table 2）。</span></li>
+    <li><span class="k">OV +0.13%、GMV +0.23%</span><span class="d">本番の S-learner＋ヒューリスティック探索（Slearner-HEU）との 2 週間の A/B テスト（Table 2）。</span></li>
+    <li><span class="k">\(N\) 個体 → \(K\) 群</span><span class="d">数千万の個体ではなく、\(K \ll N\) 個の群の上で 0-1 計画を解く。予算ごとの解を表にしておき、オンラインでは群を判定して表を引くだけにする。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>個体ごとに予測してから最適化する方法には、ノイズ、予測の規模、求解の重さという課題がある</h2>
+    <p>マーケティングの予算配分では、まず処置ごとの収益とコストを機械学習で予測し、次にその予測値を係数にしてオペレーションズ・リサーチ（OR）の最適化を解く「二段階法」が広く使われている。予測は反実仮想になるので、因果フォレストや Dragonnet などの因果推論の手法が使われる。ただ、論文によれば、予測誤差が積み重なるため理論上の最適解は実際には最適にならず、ヒューリスティックな探索に劣ることもある。最適化の決定損失を学習に組み込む決定志向学習（DFL）も提案されているが、勾配の推定のばらつきが学習を不安定にしうる。</p>
+    <p>論文は既存の方法に共通する課題として次の三つを挙げる。</p>
+    <ul class="def">
+      <li><span class="A">ノイズ</span>：個体単位の予測はデータのノイズに敏感である。たとえばホテルの予約では、同じ人でも公費で払うときと自費で払うときで反応が違い、モデルの学習がうまく進まず性能が下がる原因になる。</li>
+      <li><span class="A">大規模な反実仮想予測</span>：予測の対象は数千万件に上り、しかも一つの個体についてすべての処置の結果は観測できない。</li>
+      <li><span class="A">求解の速さと精度の両立</span>：OR の計算量は個体数と処置数とともに急速に増える。ラグランジュ双対やヒューリスティック探索で速くすると、精度が落ちやすい。</li>
+    </ul>
+    <p>そこで論文は個体ごとの予測値ではなく個体の内在的な性質を学び、<span class="B">似た個体をまとめた群の単位</span>で予算配分を解くことを提案する。手法の名前は Hidden Representation Clustering（HRC）である。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>予算の総額が変わるたびに、個体ごとに処置を一つ選ぶ 0-1 整数計画を解き直す</h2>
+    <p>個体 \(i\)（\(N\) 個）に処置 \(j\)（\(M\) 通り）を割り当てたときの収益を \(r_{i,j}\)、コストを \(c_{i,j}\) とする。総予算 \(B\) のもとで、各個体に処置を一つずつ割り当て、収益の合計を最大にする。</p>
+    <div class="eq">\[ \max_{x}\ \sum_{i=1}^{N}\sum_{j=1}^{M} r_{i,j}\,x_{i,j} \quad \text{s.t.}\ \ \sum_{i=1}^{N}\sum_{j=1}^{M} c_{i,j}\,x_{i,j} \le B,\ \ \sum_{j=1}^{M} x_{i,j}=1,\ \ x_{i,j}\in\{0,1\} \]</div>
+    <p>実際のマーケティングでは \(B\) が大きく変動するので、この問題を予算ごとに何度も解き直すことになる。二段階法では \(r_{i,j}\) と \(c_{i,j}\) を<span class="A">個体ごとの予測値</span>で置き換え、数千万個の個体について解く。</p>
+  </section>
+
+  <section id="network">
+    <div class="kicker">手法 1</div>
+    <h2>多タスクの表現ネットワークで収益と傾向スコアを同時に学習し、途中の隠れ表現を取り出す</h2>
+    <p>ネットワークは二つの部分からなる。隠れ表現モジュール（パラメータ \(\theta\)）が特徴量 \(X\) を隠れ表現 \(Z\) に写し、その上の多タスク出力モジュールが処置 \(T\) のもとでの収益 \(R(T,Z;\phi_1)\) と傾向スコア \(g(Z;\phi_2)\) を予測する。隠れ表現モジュールは全結合層、バッチ正規化、ドロップアウト（0.5）と全結合層を重ねたもので、全体の構成は Dragonnet や VCNet に近い。学習では次の損失を最小にする（\(y_i\) は観測された収益、\(\alpha&gt;0\) は傾向スコアの損失の重み）。</p>
+    <div class="eq">\[ \min_{\theta,\phi_1,\phi_2}\ \frac{1}{N}\sum_{i=1}^{N}\Bigl[\bigl(R(t_i,z_i;\phi_1)-y_i\bigr)^2+\alpha\,\bigl(g(z_i;\phi_2)-t_i\bigr)^2\Bigr] \]</div>
+    <p>収益を予測する部分は学習データの種類で使い分ける。RCT データでは処置 \(T\) の埋め込みを \(Z\) に連結するだけでよい。観察データ（OBS）では \(Z\) から正の重みを作るハイパーネットワークを使う。</p>
+    <div class="eq">\[ R(T,Z;\phi_1)=\bigl|\omega(Z;\phi_{1,2})\bigr|\cdot\tanh\!\bigl(\bigl|\omega(Z;\phi_{1,1})\bigr|\cdot \mathrm{Repeat}(T)\bigr) \]</div>
+    <p>重みが正なので、予測収益は処置の値 \(t\) について単調に増える（\(\partial R/\partial t&gt;0\)）。論文は、この単調性の制約が偏った観察データからの多値処置の反実仮想予測に役立つと述べている。</p>
+  </section>
+
+  <section id="clustering">
+    <div class="kicker">手法 2</div>
+    <h2>隠れ表現を K-means で K 群に分け、群ごとの平均とばらつきを係数にして予算配分を解く</h2>
+    <p>学習したネットワークの出力（予測収益）ではなく、隠れ表現 \(Z\) を使って個体をまとめる。K-means で \(Z\) を \(K\) 群に分け、各群 \(k\) と処置 \(j\) について、収益の平均 \(\hat\mu_r^{(k,j)}\) とばらつき \(\hat\sigma_r^{(k,j)}\)、コストの平均 \(\hat\mu_c^{(k,j)}\) とばらつき \(\hat\sigma_c^{(k,j)}\)、群の個体数 \(\omega_k\) を計算する。論文は \(\hat\sigma\) を分散（variance）と呼んでいる。もとの 0-1 計画はこれらの<span class="B">群の統計値</span>を使った次の問題に置き換わる。</p>
+    <div class="eq">\[ \begin{aligned} \max_{x}\ \ & \sum_{k=1}^{K}\sum_{j=1}^{M} \omega_k\,x_{k,j}\,\bigl(\textcolor{#1D4ED8}{\hat\mu_r^{(k,j)}}-\lambda\,\hat\sigma_r^{(k,j)}-\kappa\,\hat\sigma_c^{(k,j)}\bigr) \\ \text{s.t.}\ \ & \sum_{k=1}^{K}\sum_{j=1}^{M} \omega_k\,\hat\mu_c^{(k,j)}\,x_{k,j}\le B,\ \ \sum_{j=1}^{M} x_{k,j}=1,\ \ x_{k,j}\in\{0,1\} \end{aligned} \]</div>
+    <p>\(\lambda\) と \(\kappa\) は、収益とコストのばらつきをどれだけ避けるかを決める係数である。論文はこれを確率計画と呼ぶ。\(K\) は \(N\) よりはるかに小さいので、さまざまな予算 \(B\) での解を短時間で求めて対応表として保存できる。実験で使った \(K\)、\(\lambda\)、\(\kappa\) の値と、解き方（ソルバー）は論文に書かれていない。</p>
+    <p>オンラインで配るときは、隠れ表現モジュールと K-means をまとめて、特徴量から群の番号を当てる \(K\) クラスの分類モデルに蒸留する（交差エントロピー損失で学習）。リクエストの特徴量 \(x\) から群 \(k\) を予測し、保存した対応表から処置を返すだけなので、論文は数百万件のリクエストにミリ秒単位で応答できるとしている。蒸留したモデルは追加のデータで微調整しやすいとも述べる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 390" role="img" aria-label="HRC の流れの模式図。1段目で学習データから表現ネットワークを学習する。2段目で隠れ表現をK-meansでK群に分け、群ごとの統計値から予算ごとの配分を解いて対応表にする。3段目のオンラインでは、蒸留したKクラス分類モデルでリクエストの群を判定し、対応表から処置を返す。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker>
+        <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker></defs>
+        <text x="16" y="26" font-size="15" font-weight="600" fill="#5B6676">① 表現の学習（オフライン）</text>
+        <rect x="16" y="40" width="150" height="58" rx="10" fill="#F2F4F7"/>
+        <text x="91" y="65" font-size="15" fill="#16202E" text-anchor="middle">学習データ</text>
+        <text x="91" y="86" font-size="14" fill="#5B6676" text-anchor="middle">RCT または OBS</text>
+        <rect x="206" y="40" width="418" height="58" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="415" y="65" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">表現ネットワーク</text>
+        <text x="415" y="86" font-size="14" fill="#16202E" text-anchor="middle"><tspan class="mi">X</tspan> → 隠れ表現 <tspan class="mi">Z</tspan> → 収益と傾向スコア</text>
+        <path d="M166,69 L204,69" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+
+        <text x="16" y="146" font-size="15" font-weight="600" fill="#5B6676">② 群分けと最適化（オフライン）</text>
+        <rect x="16" y="160" width="120" height="70" rx="10" fill="#F2F4F7"/>
+        <text x="76" y="190" font-size="15" fill="#16202E" text-anchor="middle">隠れ表現</text>
+        <text x="76" y="212" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">Z</tspan></text>
+        <rect x="166" y="160" width="120" height="70" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="226" y="190" font-size="15" fill="#16202E" text-anchor="middle">K-means で</text>
+        <text x="226" y="212" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">K</tspan> 群に分ける</text>
+        <rect x="316" y="160" width="140" height="70" rx="10" fill="#E7EEFC"/>
+        <text x="386" y="190" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">群の統計値</text>
+        <text x="386" y="212" font-size="14" fill="#16202E" text-anchor="middle">平均・ばらつき・人数</text>
+        <rect x="486" y="160" width="138" height="70" rx="10" fill="#E7EEFC"/>
+        <text x="555" y="190" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">予算 <tspan class="mi">B</tspan> ごとに</text>
+        <text x="555" y="212" font-size="14" fill="#16202E" text-anchor="middle">解いて表にする</text>
+        <path d="M136,195 L164,195" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M286,195 L314,195" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M456,195 L484,195" stroke="#1D4ED8" stroke-width="1.5" fill="none" marker-end="url(#arB)"/>
+
+        <text x="16" y="278" font-size="15" font-weight="600" fill="#5B6676">③ 配布（オンライン）</text>
+        <rect x="16" y="292" width="120" height="70" rx="10" fill="#F2F4F7"/>
+        <text x="76" y="322" font-size="15" fill="#16202E" text-anchor="middle">リクエストの</text>
+        <text x="76" y="344" font-size="15" fill="#16202E" text-anchor="middle">特徴量 <tspan class="mi">x</tspan></text>
+        <rect x="166" y="292" width="190" height="70" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="261" y="322" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">K</tspan> クラス分類モデル</text>
+        <text x="261" y="344" font-size="14" fill="#5B6676" text-anchor="middle">（②の写像を蒸留）</text>
+        <rect x="386" y="292" width="70" height="70" rx="10" fill="#E7EEFC"/>
+        <text x="421" y="333" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">群 <tspan class="mi">k</tspan></text>
+        <rect x="486" y="292" width="138" height="70" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="555" y="322" font-size="15" fill="#16202E" text-anchor="middle">表を引いて</text>
+        <text x="555" y="344" font-size="15" fill="#16202E" text-anchor="middle">処置を返す</text>
+        <path d="M136,327 L164,327" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M356,327 L384,327" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M456,327 L484,327" stroke="#1D4ED8" stroke-width="1.5" fill="none" marker-end="url(#arB)"/>
+        <path d="M226,230 L250,290" stroke="#5B6676" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <path d="M555,230 L555,290" stroke="#1D4ED8" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arB)"/>
+      </svg>
+      <figcaption>図1　HRC の流れ（論文 Fig. 1 の構成をもとに解説者が作図）。破線は学習したモジュールや求めた表を次の段階に渡すことを表す。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>論文は、入力のノイズに対して<span style="white-space:nowrap">隠れ表現</span>は出力より揺れにくいと論じている</h2>
+    <p>付録 A の定理 1 は、特徴量に正規分布のノイズ \(\Delta\sim\mathcal N(0,\sigma_\Delta^2 I)\) が加わったときの揺れを比べる。隠れ表現を \(z=g(x)\)、出力を \(y=f(z)\) とし、1 次のテイラー展開で近似すると、隠れ表現の揺れは \(\mathbb E\|\tilde z-z\|^2=\sigma_\Delta^2\|J_g(x)\|_F^2\) になる。出力の揺れには \(\partial y/\partial g\) の分が掛かり、論文は \(g\) が低感度の条件を満たして \(\|\partial y/\partial g\|_F^2\gg 1\) となるとき、隠れ表現の揺れのほうがずっと小さいと結論している。この条件を満たすために、隠れ表現モジュールに重みの正則化とバッチ正規化を入れたとしている。なお、証明の中で出力の揺れについて示されているのは、上からの評価（\(\le\)）となっている。</p>
+    <p>定理 2 は、RCT データで学習した場合、隠れ表現 \(Z\) は処置 \(T\) と独立（相互情報量 \(I(T;Z)=0\)）で、出力 \(Y\) は \(T\) の影響を受ける（\(I(T;Y)&gt;0\)）と述べる。つまり群分けは過去に割り当てられた処置ではなく、個体の性質にもとづいて行われることになる。証明の最後の行は「\(I(Z;T)\) と \(I(Y;T)\) が正」と書かれており、定理の主張（\(I(T;Z)=0\)）と表記が食い違っている。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>Meituan の店舗の値引き施策 5 週間分のデータで、6 段階の割引率を処置にして比べた</h2>
+    <p>データは Meituan のプラットフォームで店舗が毎日出す値引きから集めた。同じ商品の割引は価格差別を避けるため全消費者に共通で、割引率は商品ごと・日ごとに変わる。処置は \(-5\%\) から \(-10\%\) までの 6 段階の割引率である。サンプルは合計 4,400 万件で、各サンプルに 450 個の特徴量、処置、コスト、2 種類の収益（注文数 OV と取引額 GMV）のラベルがつく。値は守秘のため尺度を変えて伏せてある。論文は配分の単位を individual と呼ぶが、それが店舗か商品かは明記していない（解説者の注）。</p>
+    <ul class="def">
+      <li>Meituan-w1：RCT、冬、学習用、600 万件</li>
+      <li>Meituan-w2：RCT、冬、評価用、700 万件</li>
+      <li>Meituan-w3：RCT、夏、評価用、1,000 万件（コストの平均は w1 の 0.321 に対して 1.397）</li>
+      <li>Meituan-w4：OBS（本番アルゴリズムの結果）、冬、学習用、1,700 万件</li>
+      <li>Meituan-w5：RCT、冬、評価用、400 万件</li>
+    </ul>
+    <p>比較手法は 6 つで、DFL を方策学習で行う DFL-PL、最大エントロピー正則化で行う DFL-MER、S-learner と因果フォレスト（CF）それぞれにヒューリスティック探索（HEU）またはラグランジュ双対（LANG）を組み合わせた 4 つの二段階法である。観察データの実験では、Dragonnet にラグランジュ双対またはヒューリスティック探索を組み合わせた 2 つ（LANG-Drag、HEU-Drag）を加える。評価指標は EOM（expected outcome metric）で、RCT データから任意の配分方策の収益を不偏に推定する。学習時の収益は OV とした。</p>
+    <p class="src">このページの数値は arXiv v1（2025 年 6 月 1 日）の本文と表による。査読付きの出版版は Crossref では見つからなかった。オフライン実験の結果は図だけで示されているので、このページでは図から数値を読み取らず、論文の記述だけを紹介する。</p>
+  </section>
+
+  <section id="offline">
+    <div class="kicker">実験の結果 1</div>
+    <h2>オフラインの比較では、三つの設定のいずれでも HRC の注文数の EOM が比較手法を上回ったと論文は報告している</h2>
+    <p><strong>同じ季節のデータ</strong>：w1 で学習し、分布の近い w2 で評価した。0.4 から 0.6 の範囲の六つの予算点で、HRC の OV の EOM は 6 手法より高かった。GMV でも他の手法と遜色ない結果だったとしている（論文 Fig. 3）。</p>
+    <p><strong>分布の違うデータ</strong>：w1 で学習し、コストも収益も分布の異なる夏の w3 で評価した。予算点ごとの EOM を箱ひげ図にすると、HRC の OV と GMV の平均が最も高かったと論文は述べる（論文 Fig. 4）。本文は五つの予算点の結果を表で示すと書いているが、arXiv v1 にはその表が含まれておらず、2 位との差も \(\{0.1, 0.1, 0.1, 0.1, 0.1\}\) となっている。</p>
+    <p><strong>観察データでの学習</strong>：本番アルゴリズムのもとで集めた w4 で学習し、RCT の w5 で評価した。単調性の制約を入れた HRC-Mono は、OV と GMV の両方で HEU-CF、LANG-CF、LANG-Drag、HEU-Drag を上回った（論文 Fig. 5）。この比較に DFL と S-learner の手法は含まれていない。</p>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2</div>
+    <h2>2 週間ずつの A/B テストで、本番の DFL-PL より注文数が 0.53%、取引額が 0.65% 高かった</h2>
+    <p>Meituan で大規模なオンラインのトラフィックを二つ用意し、すでに数週間運用されていた本番アルゴリズムと HRC を比べた。第 1〜2 週は Slearner-HEU、第 3〜4 週は DFL-PL が相手である。論文 Table 2 の期間平均では、Slearner-HEU に対して OV が 0.13%、GMV が 0.23%、DFL-PL に対して OV が 0.53%、GMV が 0.65% 高かった。コストの差はそれぞれ 0.00296 ポイントと 0.03043 ポイントで、論文は両群のコストを妥当な範囲にそろえたとしている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="論文 Table 2 の棒グラフ。HRC と本番アルゴリズムの差。Slearner-HEU に対して OV +0.13%、GMV +0.23%。DFL-PL に対して OV +0.53%、GMV +0.65%。">
+        <line x1="80" y1="197.1" x2="620" y2="197.1" stroke="#D9DEE6"/>
+        <line x1="80" y1="134.3" x2="620" y2="134.3" stroke="#D9DEE6"/>
+        <line x1="80" y1="71.4" x2="620" y2="71.4" stroke="#D9DEE6"/>
+        <text x="70" y="265" font-size="15" fill="#5B6676" text-anchor="end">0%</text>
+        <text x="70" y="202" font-size="15" fill="#5B6676" text-anchor="end">0.2%</text>
+        <text x="70" y="139" font-size="15" fill="#5B6676" text-anchor="end">0.4%</text>
+        <text x="70" y="76" font-size="15" fill="#5B6676" text-anchor="end">0.6%</text>
+        <rect x="150" y="219.1" width="60" height="40.9" fill="#1D4ED8"/>
+        <rect x="222" y="187.7" width="60" height="72.3" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <rect x="390" y="93.4" width="60" height="166.6" fill="#1D4ED8"/>
+        <rect x="462" y="55.7" width="60" height="204.3" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="180" y="211" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">+0.13%</text>
+        <text x="252" y="180" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">+0.23%</text>
+        <text x="420" y="85" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">+0.53%</text>
+        <text x="492" y="48" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">+0.65%</text>
+        <line x1="80" y1="260" x2="620" y2="260" stroke="#16202E" stroke-width="1.5"/>
+        <text x="216" y="286" font-size="15" fill="#16202E" text-anchor="middle">対 Slearner-HEU</text>
+        <text x="216" y="308" font-size="14" fill="#5B6676" text-anchor="middle">第 1〜2 週</text>
+        <text x="456" y="286" font-size="15" fill="#16202E" text-anchor="middle">対 DFL-PL</text>
+        <text x="456" y="308" font-size="14" fill="#5B6676" text-anchor="middle">第 3〜4 週</text>
+        <rect x="100" y="22" width="16" height="16" fill="#1D4ED8"/>
+        <text x="124" y="36" font-size="15" fill="#16202E">注文数（OV）</text>
+        <rect x="250" y="22" width="16" height="16" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="274" y="36" font-size="15" fill="#16202E">取引額（GMV）</text>
+      </svg>
+      <figcaption>図2　オンライン A/B テストでの HRC の上乗せ（期間平均、論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p>論文は日ごとの差（論文 Fig. 6）も示し、HRC が二つの手法を安定して上回ったと述べている。ただし図では、差が負になった日もある。期間平均の差について、信頼区間や検定の結果は示されていない。また本文には「Slearner-HEU を OV で 11%、GMV で 22%、DFL-PL を 22%、33% 上回った」とも書かれており、Table 2 や要旨の値と一致していない。このページでは Table 2 の値を使っている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算制約つきの 0-1 計画を、個体ではなく K 個の群の上で直接解く</h2>
+    <ul class="def">
+      <li>推定するもの：表現ネットワークは処置ごとの収益と傾向スコアを学習するが、配分にはその予測値を使わず、隠れ表現による群分けだけを使う。配分の係数は群と処置ごとに実データから計算した収益とコストの平均とばらつきである。</li>
+      <li>コストの扱い：コストを個体ごとには予測しない。群と処置ごとのコストの平均を予算制約に入れ、ばらつきを目的関数の罰則に入れる。コストの定義（割引額の合計など）は論文に明記されていない。</li>
+      <li>処置の種類：6 段階の割引率（多値処置）。観察データで学習するときは、予測収益が処置の値について単調になるよう制約する。</li>
+      <li>予算制約：総予算 \(B\) のもとで、各群に処置を一つ選ぶ 0-1 計画を解く。予算をいくつも変えて解き、対応表として保存しておく。</li>
+      <li>データ：Meituan の店舗の値引き施策のデータ（RCT 4 週分と観察データ 1 週分）と、同社でのオンライン A/B テスト。</li>
+    </ul>
+    <p>ROI 順の割当てとの関係（解説者の注）：群の上の問題は、各群が \(M\) 通りの選択肢から一つを選び、人数 \(\omega_k\) で重みをつけた多選択ナップザック問題である。その連続緩和を予算の乗数 \(\nu\) で解くと、各群は \(\hat\mu_r-\lambda\hat\sigma_r-\kappa\hat\sigma_c-\nu\,\hat\mu_c\) が最大の処置を選ぶことになり、予算を増やすにつれて「罰則を差し引いた収益の増分 ÷ コストの増分」が大きい群と処置の組から順に割り当てが進む。比較手法の LANG-* はこれと同じ乗数の形を個体の予測値の上で使っている。HRC は群の数が少ないので、連続緩和ではなく整数のまま解いている。その代わり、配分は群単位でしか変えられず、同じ群の個体は必ず同じ処置になる。論文はこの点も ROI との関係も論じていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{wang2025hidden,
+  title         = {Hidden Representation Clustering with Multi-Task Representation Learning towards Robust Online Budget Allocation},
+  author        = {Wang, Xiaohan and Zhang, Yu and Jiang, Guibin and Cheng, Bing and Lin, Wei},
+  year          = {2025},
+  eprint        = {2506.00959},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2506.00959}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

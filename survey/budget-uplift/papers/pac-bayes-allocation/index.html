@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算制約のもとでの PAC-Bayes 処置割当て（論文解説）</title>
+<meta name="description" content="PAC-Bayesian Treatment Allocation Under Budget Constraints（arXiv 2022）の非公式の解説。候補ルールを「福祉 − u × 費用」の指数で重みづけして処置確率を決め、予算ごとの後悔の上界を示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = cost: the conditional average treatment cost delta_c, the empirical cost K_n,
+                         the budget penalty u·K and rules that rank by effect alone ("Ignore Cost")
+            --b  (blue)   = welfare: the treatment effect delta_y, W_n, and the paper's PAC-Bayesian rules
+                         (Gibbs PB-G, majority vote PB-MV, batch PB-B)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2022</div>
+  <h1>PAC-Bayesian Treatment Allocation Under Budget Constraints</h1>
+  <p class="subtitle">予算制約のもとでの PAC-Bayes による処置割当て</p>
+
+  <ul class="authors">
+    <li><b>Daniel F. Pellatt</b><span>Department of Economics, University of California, San Diego</span></li>
+  </ul>
+
+  <p class="lead">予算が限られると、効果のある人全員には処置できない。しかも処置の<span class="A">費用</span>は人によって違い、処置する時点では分からないこともある。この論文は候補となる処置ルールを「<span class="B">福祉</span> − \(u\) × <span class="A">費用</span>」の推定値で指数的に重みづけして処置確率を決める規則を提案し、その費用の推定と後悔について有限標本の保証を与える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2212.09007">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2212.09007">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。効果の順だけで選ぶと予算が早く尽きる例、最適ルール δy > η·δc、候補ルールの指数重みと u の関係、論文 Table 1 の a=4 の福祉、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\delta_y(x) > \eta_B\,\delta_c(x)\)</span><span class="d">予算 \(B\) のもとでの最適ルールの形。処置すると費用が減る人（\(\delta_c < 0\)）がいても成り立つ（Theorem 2.1）。</span></li>
+    <li><span class="k">\(\exp[-\lambda(uK_n - W_n)]\)</span><span class="d">候補ルールへの重み。\(u = 0\) なら予算なしで、\(u\) を大きくするほど費用の小さいルールに重みが移る。</span></li>
+    <li><span class="k">0.61 対 0.57</span><span class="d">シミュレーション（\(a = 4\)、費用 0.1）での福祉の増分。PB-B が比較手法 R-NP を上回り、費用を無視する方法は 0.10 だった（論文 Table 1）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予算が足りないとき、誰に処置するかは効果だけでなく一人ひとりの費用でも決まる</h2>
+    <p>無作為化実験のデータから「誰に処置するか」のルールを学ぶ研究は多いが、その多くは予算の制約を置かない。論文は、経験的福祉最大化（EWM）の先行研究も、一般的な予算制約や、個人の特徴によって変わる不確実な費用は扱っていないと指摘する。たとえば Kitagawa and Tetenov（2018）は処置できる人数の上限を無作為の割当てで扱うが、費用を一定とみなすので、効果と費用の釣り合いがよい人を選ぶことはできない。</p>
+    <p>例として論文はオレゴン州の医療保険（Medicaid）拡大、アフリカでのマラリア予防の蚊帳の配布、有料サービスの無料体験の提供を挙げる。どれも予算に限りがあり、処置の費用が対象者によって違う。この論文はこうした場面で使える処置ルールを、PAC-Bayes と呼ばれる学習理論の枠組みで作り、理論的な保証を与えることを目的にしている。</p>
+  </section>
+
+  <section id="optimal-rule">
+    <div class="kicker">理論 1：最適ルール</div>
+    <h2>予算つきの最適ルールは「効果が定数倍の費用を上回る人に処置する」形になる</h2>
+    <p>データは \(Z_i = (Y_i, C_i, D_i, X_i)\) で、\(Y\) が結果、\(C\) が費用、\(D\) が処置の有無、\(X\) が処置前の共変量である。処置確率 \(e(x)\) は既知とする（無作為化実験を想定）。共変量で条件づけた平均処置効果を <span class="B">\(\delta_y(x)\)</span>、同じく平均の追加費用を <span class="A">\(\delta_c(x)\)</span> と書く。処置ルール \(f: \mathcal{X} \to [0,1]\) の福祉と費用は</p>
+    <div class="eq">\[ W(f) = \mathbb{E}\big[\delta_y(X)\,f(X)\big], \qquad K(f) = \mathbb{E}\big[\delta_c(X)\,f(X)\big] \]</div>
+    <p>で、政策担当者は \(K(f) \le B\) のもとで \(W(f)\) を最大にする。論文の Theorem 2.1 は、このときの最適ルールがある定数 \(\eta_B \ge 0\) を使って次のように書けることを示す（境界上の扱いは省略）。</p>
+    <div class="eq">\[ f^*_B(x) = 1\{\,\color{#1D4ED8}{\delta_y(x)} > \eta_B\,\color{#C2410C}{\delta_c(x)}\,\} \]</div>
+    <p>予算が足りていれば \(\eta_B = 0\) で、効果が正の人全員に処置する。足りなければ \(\eta_B\) を上げて、ちょうど予算を使い切るところで止める。費用の定義は柔軟で、処置しないほうが費用がかかる人（\(\delta_c < 0\)）がいれば、その節約分も予算に戻せる。人数の上限は \(C_0 = 0,\ C_1 = 1\) とおいた特別な場合にあたり、効果と費用の単位が違ってもよい。</p>
+    <p>ただし、この最適ルールを決めるのは \(\delta_y - \eta_B\,\delta_c\) の<strong>符号だけ</strong>なので、同じ判定を与える関数は無数にある。論文はこれを、1 つのルールを選ぶ代わりに候補ルールを平均する根拠として挙げている。</p>
+    <figure>
+      <svg class="fig" id="fig-rule" viewBox="0 0 640 380" role="img" aria-label="横軸が条件つき平均費用、縦軸が条件つき平均処置効果の模式図。原点を通る直線 δy = η·δc より上の人に処置する。費用が負の左側では、効果がわずかに負の人も処置の対象になりうる。"></svg>
+      <figcaption>図1　最適ルール \(\delta_y(x) > \eta_B\,\delta_c(x)\) の模式図。直線より上（青い領域）の人に処置する。点は架空の人で、\(\eta_B = 1\) は解説者が置いた値。予算が厳しいほど \(\eta_B\) が大きくなり、直線は急になる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>候補ルールを「福祉 − u × 費用」の指数で重みづけし、その加重投票で処置確率を決める</h2>
+    <p>まず、パラメータ \(\theta\) で番号づけた処置ルールの族 \(f_\theta(x) = 1\{\phi(x)^\top\theta > 0\}\) を用意する（\(\phi\) は共変量の多項式など）。処置確率が既知なので、福祉と費用は逆確率重みで偏りなく推定できる。</p>
+    <div class="eq">\[ W_n(\theta) = \frac{1}{n}\sum_{i=1}^n \delta_{y,i}\,f_\theta(X_i), \qquad K_n(\theta) = \frac{1}{n}\sum_{i=1}^n \delta_{c,i}\,f_\theta(X_i), \qquad \delta_{y,i} = \frac{Y_iD_i}{e(X_i)} - \frac{Y_i(1-D_i)}{1-e(X_i)} \]</div>
+    <p>（\(\delta_{c,i}\) は \(Y\) を \(C\) に替えたもの。）提案手法は 1 つの \(\theta\) を選ばず、事前分布 \(\pi\) を次の重みで傾けた分布（ギブス事後分布）\(\hat\rho_{\lambda,u}\) を使う。</p>
+    <div class="eq">\[ \frac{d\hat\rho_{\lambda,u}}{d\pi}(\theta) \;\propto\; \exp\!\Big[-\lambda\big(u\,\color{#C2410C}{K_n(\theta)} - \color{#1D4ED8}{W_n(\theta)}\big)\Big] \]</div>
+    <p>処置確率は \(f_{G}(x) = \int f_\theta(x)\,d\hat\rho_{\lambda,u}(\theta)\) で、重みつきの多数決で賛成した割合にあたる（<strong>ギブス規則</strong>、PB-G）。この割合が 1/2 を超えたら処置する非確率的な<strong>多数決規則</strong>（PB-MV）も考える。\(u\) が予算の厳しさを決め、\(u = 0\) は予算なし、\(u\) を大きくすると費用の大きいルールの重みが下がる。\(\lambda\) は重みの鋭さで、交差検証で選ぶ。</p>
+    <p>この分布は経験的な後悔に KL ダイバージェンスの罰則を加えた量を、経験的な費用の制約 \(\int K_n\,d\rho \le B\) のもとで最小にする解になっている（Lemma 2.1, 2.2）。\(u\) はこの問題のラグランジュ乗数で、論文によれば \(u\) の値と予算は 1 対 1 に対応する。</p>
+    <figure>
+      <svg class="fig" id="fig-gibbs" viewBox="0 0 640 400" role="img" aria-label="1次元の共変量で、しきい値の違う5つの候補ルールに重みをつける模式図。u=0 では全員に処置するルールの重みが大きく、u=1.5 では対象を絞ったルールに重みが移る。下段は重みつき投票で得た処置確率の階段。"></svg>
+      <figcaption>図2　ギブス規則の模式図。共変量 \(x\) が \(t\) 以上なら処置する 5 つのルールに、\(\exp[\lambda(W - uK)]\) に比例する重みをつけた（\(\lambda = 12\)）。左は \(u = 0\)、右は \(u = 1.5\)。下段の階段が処置確率 \(f_G(x)\) である。効果 \(\delta_y = 0.3 + x\)、費用 \(\delta_c = 1.2 - x\) は解説者が置いた例で、福祉と費用は母集団の値で計算した。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論 2：保証</div>
+    <h2>u を固定すれば、費用の推定は信頼でき、後悔は同じ費用の最良ルールに近づく</h2>
+    <p>論文は PAC-Bayes の一般化誤差の上界を、処置ルールと費用の設定に合わせて導いている。主な結果は次の 3 つである。</p>
+    <ul class="def">
+      <li><strong>費用の推定（Theorem 3.1 (b)）</strong>：\(u\) を固定し、\(\lambda\) を \(\sqrt{n}\) に比例させると、経験的な費用 \(K_n(f_G)\) と母集団での費用 \(K(f_G)\) の差は、確率 \(1-\epsilon\) 以上で \(\sqrt{n}\) 分の 1 程度（対数の因子を除く）に収まる。</li>
+      <li><strong>後悔の上界（Theorem 3.3 (b)）</strong>：ルール族を線形のしきい値ルール、事前分布を原点中心の正規分布とすると、ギブス規則の後悔は、母集団での費用がそれ以下になる族の中の最良ルールの後悔に、\(\log(n)/\sqrt{n}\) の速さで近づく。論文はこれをほぼ最適な速さとしている。</li>
+      <li><strong>多数決規則（Theorem 3.4）</strong>：ギブス規則の費用を予算とみなすと、多数決規則の損失（その予算での最適ルールとの差）は、ギブス規則の後悔の 2 倍以下に抑えられる。</li>
+    </ul>
+    <p>このため論文は \(u\) の候補をいくつか用意し、それぞれの経験的な費用を見て使う規則を選ぶ進め方を勧めている。予算 \(B\) を先に決めて \(u\) をデータから合わせる方法も分析されているが、その場合は上界に推定した乗数 \(\hat u\) が入り、得られた規則の母集団での費用が \(B\) を超えるおそれもあると論文は述べる。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>シミュレーションでは、効果と費用の比を推定して予算まで順に処置する方法と比べた</h2>
+    <p>共変量は 3 つの一様乱数で、効果は \(\delta_y(x) = 4\Lambda(2(x_1 + x_1x_2 + x_2))\)、処置したときの費用は平均 \(\delta_c(x) = 4\Lambda(a(3x_2 + 1.5x_3))\) の二項分布である（\(\Lambda\) はロジスティック関数）。定数 \(a \in \{1, 2, 4\}\) が大きいほど、費用は共変量に強く依存して変わる。学習データは 1,000 件、評価用データは 10,000 件で、100 回繰り返した。</p>
+    <p>提案手法のルール族は共変量の 2 次までの単項式 10 個を使う線形しきい値ルールで、事前分布は標準正規分布である。\(u\) を 0 から 2 まで 0.05 刻みで動かし、\(\lambda\) は 4 分割交差検証で選んだ。分布からのサンプリングには逐次モンテカルロ法（SMC）を使っている。比較対象は次の 2 つである。</p>
+    <ul class="def">
+      <li><strong>R-NP</strong>：Sun ほか（2021）の方法。一般化ランダムフォレストで効果と費用の比 \(\delta_y/\delta_c\) を推定し、比の大きい順に予算が尽きるまで処置する。</li>
+      <li><span class="A">Ignore Cost（IC）</span>：一般化ランダムフォレストで効果だけを推定し、その順に予算まで処置する。</li>
+    </ul>
+    <p>R-NP と IC は対象者全員を並べてから順に処置する「バッチ実装」なので、論文は多数決規則の点数を使って同じように処置する <span class="B">PB-B</span> も作り、条件をそろえて比べた。</p>
+    <p class="src">このページの数値は arXiv v2（2023 年 6 月 9 日）の本文と表による。2026 年 11 月時点で、Crossref では出版版を確認できなかった。</p>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">実験の結果 1</div>
+    <h2>費用が共変量で大きく変わる設定ほど、PAC-Bayes の規則は低い予算で比較手法を上回った</h2>
+    <p>論文 Table 1 は 7 つの費用水準で各手法の福祉の増分を並べている。\(a = 1\) では PB-B は R-NP とほぼ同じで、差は \(\pm 0.01\) 以内だった。PB-G と PB-MV はほとんどの費用水準で R-NP をわずかに下回り、その差は費用が大きいほど少し広がった。</p>
+    <p>\(a = 2, 4\) では PAC-Bayes 系の規則が相対的によくなる。\(a = 4\)、費用 0.1 での福祉の増分は PB-B と PB-MV が 0.61、PB-G が 0.60、R-NP が 0.57 で、<span class="A">IC</span> は 0.10 だった。一方、費用が大きい水準では PB-G と PB-MV が R-NP をわずかに下回る。論文は、ギブス事後分布の KL 罰則が規則にある程度のランダムさを残すため、全員に近い人数を処置すべき高い予算では不利になる可能性を挙げている。</p>
+    <p>論文はこの結果を、条件つきの期待費用がばらつく場面では PAC-Bayes の方法に利点がありうることを示唆するものとしている。また、R-NP は費用が処置で必ず増える（\(C_0 \le C_1\)）場合にしか使えず、対象者全員がそろってから順に処置するバッチ実装も、費用が後から分かる場面などでは使えないと指摘する。</p>
+    <figure>
+      <svg class="fig" id="fig-sim" viewBox="0 0 640 330" role="img" aria-label="論文 Table 1 の値から計算した、R-NP との福祉の増分の差。a=1, 2, 4 の3つの小さなグラフで、横軸が費用水準。a=1 では差はほぼ0、a=2 と a=4 では低い費用で PAC-Bayes 系が正、高い費用で PB-G がやや負。"></svg>
+      <figcaption>図3　R-NP を基準にした福祉の増分の差。<span class="B">●</span> PB-B、<span class="B">○</span> PB-G。論文 Table 1（arXiv v2）の値から解説者が差を計算して作図した。表は小数第 2 位までなので、差には丸めの誤差が含まれる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="jtpa">
+    <div class="kicker">実験の結果 2</div>
+    <h2>職業訓練の実験データでは、予算を絞ると処置確率が一律に下がるのではなく、対象の分布が変わった</h2>
+    <p>実データの例として、米国の職業訓練プログラム JTPA の無作為化実験を使う。対象は 22 歳以上の 7,675 人で、処置群に割り当てられる確率は 2/3 である。結果は処置後 30 か月の総収入、共変量は教育年数と前年の収入の 2 つで、3 次までの多項式ルールを使った。一人ひとりの費用は記録されていないため、サービスを 1 時間も受けなかった人は 0、受けた人は性別・割当て・推奨されたサービスの種類が同じ人たちの平均費用とした。</p>
+    <p>\(u\) を 0.05 から 3 まで動かし、2 分割交差検証で費用と福祉を推定すると、一人あたりの平均費用がおよそ 100 ドルから 650 ドルまでの規則が得られた。論文は、費用が 200 ドル付近の低予算モデル（\(u = 2.45\)）、400 ドル付近の中予算モデル（\(u = 2.1\)）、推定福祉が最大の予算なしモデル（\(u = 0.15\)）を詳しく見ている。</p>
+    <p>予算なしモデルは標本の 81% を処置し、共変量空間の広い範囲で処置確率が 0 か 1 になった。中予算モデルは平均 49% を処置し、標本での処置確率は 46〜51% とほぼ一様だった。低予算モデルは平均 20% を処置し、処置確率は 4〜66% と人によって大きく違う。論文によれば、低予算モデルは低〜中程度の教育年数の人、とくに標本に多い水準の人で処置確率を下げて費用を抑えていた。</p>
+    <figure>
+      <svg class="fig" id="fig-jtpa" viewBox="0 0 640 260" role="img" aria-label="JTPA の3つのモデルの処置割合。予算なしモデルは平均81%、中予算モデルは平均49%で処置確率の幅は46から51%、低予算モデルは平均20%で幅は4から66%。"></svg>
+      <figcaption>図4　JTPA で推定した 3 つのギブス規則。<span class="B">●</span> 標本での平均の処置割合、灰色の帯は標本に現れた共変量での処置確率の範囲（予算なしモデルは本文に範囲の記載がないため帯なし）。論文本文の数値から解説者が作図。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>費用の上限を直接扱い、比の順位づけではなく候補ルールの重みで予算を守る</h2>
+    <p>この論文が推定するのは、個人の効果やスコアそのものではなく、処置ルールの族の上の分布 \(\hat\rho_{\lambda,u}\) である。福祉 \(W_n\) と費用 \(K_n\) は既知の処置確率による逆確率重みで推定し、効果と費用のモデルを別々に当てはめることはしない。費用は共変量で変わり、処置の時点では不確実でもよく、処置で費用が減る場合（\(C_1 < C_0\)）や人数の上限も同じ枠組みで扱える。処置は二値である。</p>
+    <p>予算制約は期待費用の上限 \(K(f) \le B\) として正面から扱う。実装では \(u\) を罰則の重みとして動かし、その経験的な費用を見て予算に合う規則を選ぶ。予算 \(B\) を固定して乗数 \(\hat u\) を合わせる方法も理論的に分析されている。</p>
+    <p>最適ルール \(\delta_y(x) > \eta_B\,\delta_c(x)\) は、\(\delta_c > 0\) のとき「効果 ÷ 費用」が \(\eta_B\) を超える人に処置することと同じで、ナップザック問題の連続緩和で ROI の高い順に予算まで処置する解と同じ形である（解説者の注）。論文自身も、\(C_0 \le C_1\) のときはこの比のしきい値の形になると述べ、比を推定して順に処置する Sun ほか（2021）の方法を比較対象にしている。提案手法の違いは比を推定して並べる代わりに、福祉から \(u\) 倍の費用を引いた量で候補ルールを重みづけする点にある。\(u\) は \(\eta_B\) と同じくラグランジュ乗数の役割を担う（解説者の注）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{pellatt2022pacbayesian,
+  title         = {PAC-Bayesian Treatment Allocation Under Budget Constraints},
+  author        = {Pellatt, Daniel F.},
+  year          = {2022},
+  eprint        = {2212.09007},
+  archivePrefix = {arXiv},
+  primaryClass  = {econ.EM},
+  url           = {https://arxiv.org/abs/2212.09007}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+var COL = { a: '#C2410C', b: '#1D4ED8', bsoft: '#E7EEFC', ink: '#16202E', muted: '#5B6676', hair: '#D9DEE6', gray: '#CBD2DC' };
+function mk(svg) {
+  return function (tag, a, txt) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in a) e.setAttribute(k, a[k]);
+    if (txt != null) e.innerHTML = txt;
+    svg.appendChild(e); return e;
+  };
+}
+function mi(s) { return '<tspan class="mi">' + s + '</tspan>'; }
+
+// ---------- figure 1: schematic of the optimal rule delta_y > eta * delta_c (eta = 1, toy points) ----------
+(function () {
+  var svg = document.getElementById('fig-rule'); if (!svg) return;
+  var el = mk(svg);
+  var X0 = 70, X1 = 610, Y0 = 330, Y1 = 30, CMIN = -1, CMAX = 2, YMIN = -1, YMAX = 3;
+  function sx(c) { return X0 + (c - CMIN) / (CMAX - CMIN) * (X1 - X0); }
+  function sy(v) { return Y0 - (v - YMIN) / (YMAX - YMIN) * (Y0 - Y1); }
+  var eta = 1;
+  // treated region: above the line y = eta * c inside the box
+  el('polygon', { points: [sx(CMIN), sy(eta * CMIN), sx(CMAX), sy(eta * CMAX), sx(CMAX), sy(YMAX), sx(CMIN), sy(YMAX)].join(' '), fill: COL.bsoft });
+  el('line', { x1: X0, x2: X1, y1: sy(0), y2: sy(0), stroke: COL.ink, 'stroke-width': 1.5 });
+  el('line', { x1: sx(0), x2: sx(0), y1: Y0, y2: Y1 - 6, stroke: COL.ink, 'stroke-width': 1.5 });
+  el('line', { x1: sx(CMIN), y1: sy(eta * CMIN), x2: sx(CMAX), y2: sy(eta * CMAX), stroke: COL.ink, 'stroke-width': 2.5 });
+  var pts = [[-0.6, 1.4], [-0.7, -0.4], [-0.3, 2.3], [0.3, 1.9], [0.6, 2.6], [0.5, 0.2], [1.0, 1.5], [1.3, 0.8], [1.5, 2.2], [1.8, 1.2], [0.9, -0.5], [1.6, 2.7], [0.2, 0.6], [1.2, 2.4]];
+  pts.forEach(function (p) {
+    var up = p[1] > eta * p[0];
+    el('circle', { cx: sx(p[0]), cy: sy(p[1]), r: 7.5, fill: up ? COL.b : '#fff', stroke: up ? COL.b : COL.muted, 'stroke-width': 2 });
+  });
+  el('text', { x: sx(1.97), y: sy(-0.62), 'font-size': 16, fill: COL.ink, 'text-anchor': 'end' }, '直線：' + mi('δ') + '<tspan font-size="12" dy="4">y</tspan><tspan dy="-4"> = </tspan>' + mi('η') + '<tspan font-size="12" dy="4">B</tspan><tspan dy="-4"> · </tspan>' + mi('δ') + '<tspan font-size="12" dy="4">c</tspan>');
+  el('text', { x: sx(-0.95), y: sy(2.75), 'font-size': 16, 'font-weight': 600, fill: COL.b }, '処置する');
+  el('text', { x: sx(1.95), y: sy(0.35), 'font-size': 16, 'font-weight': 600, fill: COL.muted, 'text-anchor': 'end' }, '処置しない');
+  el('text', { x: sx(-0.5), y: Y0 + 20, 'font-size': 15, fill: COL.a, 'text-anchor': 'middle' }, '処置で費用が減る');
+  el('text', { x: sx(1), y: Y0 + 20, 'font-size': 15, fill: COL.a, 'text-anchor': 'middle' }, '処置で費用が増える');
+  el('text', { x: sx(0.5), y: Y0 + 44, 'font-size': 16, fill: COL.ink, 'text-anchor': 'middle' }, '条件つき平均費用 ' + mi('δ') + '<tspan font-size="12" dy="4">c</tspan><tspan dy="-4">(</tspan>' + mi('x') + ')');
+  el('text', { transform: 'translate(24,' + sy(1) + ') rotate(-90)', 'font-size': 16, fill: COL.ink, 'text-anchor': 'middle' }, '条件つき平均効果 ' + mi('δ') + '<tspan font-size="12" dy="4">y</tspan><tspan dy="-4">(</tspan>' + mi('x') + ')');
+  el('text', { x: sx(0) - 6, y: sy(0) + 18, 'font-size': 14, fill: COL.muted, 'text-anchor': 'end' }, '0');
+})();
+
+// ---------- figure 2: Gibbs weights over 5 threshold rules (toy: delta_y = 0.3 + x, delta_c = 1.2 - x, lambda = 12) ----------
+(function () {
+  var svg = document.getElementById('fig-gibbs'); if (!svg) return;
+  var el = mk(svg);
+  var ts = [0, 0.2, 0.4, 0.6, 0.8], LAM = 12;
+  function W(t) { return 0.3 * (1 - t) + (1 - t * t) / 2; }
+  function K(t) { return 1.2 * (1 - t) - (1 - t * t) / 2; }
+  function weights(u) {
+    var s = ts.map(function (t) { return LAM * (W(t) - u * K(t)); });
+    var m = Math.max.apply(null, s), w = s.map(function (v) { return Math.exp(v - m); });
+    var z = w.reduce(function (a, b) { return a + b; }, 0);
+    return w.map(function (v) { return v / z; });
+  }
+  [[0, 20], [1.5, 335]].forEach(function (cfg) {
+    var u = cfg[0], ox = cfg[1], w = weights(u);
+    var gw = 0, gk = 0;
+    w.forEach(function (v, i) { gw += v * W(ts[i]); gk += v * K(ts[i]); });
+    el('text', { x: ox + 140, y: 26, 'font-size': 17, 'font-weight': 600, fill: COL.ink, 'text-anchor': 'middle' }, mi('u') + ' = ' + u);
+    // rules: a strip over x in [0,1], treated part shaded
+    var RX = ox + 70, RW = 140;
+    ts.forEach(function (t, i) {
+      var y = 46 + i * 30;
+      el('text', { x: ox + 60, y: y + 15, 'font-size': 14, fill: COL.muted, 'text-anchor': 'end' }, mi('t') + ' = ' + t);
+      el('rect', { x: RX, y: y + 3, width: RW, height: 16, rx: 3, fill: '#F2F4F7' });
+      el('rect', { x: RX + t * RW, y: y + 3, width: (1 - t) * RW, height: 16, rx: 3, fill: COL.gray });
+      el('rect', { x: RX + RW + 12, y: y + 3, width: w[i] * 70, height: 16, rx: 3, fill: COL.b });
+      el('text', { x: RX + RW + 18 + w[i] * 70, y: y + 16, 'font-size': 14, fill: COL.ink }, w[i].toFixed(2));
+    });
+    el('text', { x: RX + RW / 2, y: 206, 'font-size': 13, fill: COL.muted, 'text-anchor': 'middle' }, '処置する範囲（灰）');
+    el('text', { x: RX + RW + 42, y: 206, 'font-size': 13, fill: COL.muted, 'text-anchor': 'middle' }, '重み');
+    // treatment probability staircase
+    var PX0 = ox + 30, PW = 250, PY0 = 330, PH = 90;
+    el('line', { x1: PX0, x2: PX0 + PW, y1: PY0, y2: PY0, stroke: COL.ink, 'stroke-width': 1.2 });
+    el('line', { x1: PX0, x2: PX0, y1: PY0, y2: PY0 - PH - 6, stroke: COL.ink, 'stroke-width': 1.2 });
+    var d = '', cum = 0;
+    for (var i = 0; i < 5; i++) {
+      cum += w[i];
+      var xa = PX0 + ts[i] * PW, xb = PX0 + (i < 4 ? ts[i + 1] : 1) * PW, y = PY0 - cum * PH;
+      d += (i === 0 ? 'M' : 'L') + xa + ',' + y + ' L' + xb + ',' + y + ' ';
+    }
+    el('path', { d: d, fill: 'none', stroke: COL.b, 'stroke-width': 3 });
+    el('text', { x: PX0 - 6, y: PY0 - PH + 5, 'font-size': 13, fill: COL.muted, 'text-anchor': 'end' }, '1');
+    el('text', { x: PX0 - 6, y: PY0 + 5, 'font-size': 13, fill: COL.muted, 'text-anchor': 'end' }, '0');
+    el('text', { x: PX0 + PW, y: PY0 + 20, 'font-size': 14, fill: COL.ink, 'text-anchor': 'end' }, '共変量 ' + mi('x') + ' →');
+    el('text', { x: PX0 + 8, y: PY0 - PH - 12, 'font-size': 14, fill: COL.ink }, '処置確率 ' + mi('f') + '<tspan font-size="11" dy="4">G</tspan><tspan dy="-4">(</tspan>' + mi('x') + ')');
+    el('text', { x: ox + 140, y: 382, 'font-size': 15, fill: COL.ink, 'text-anchor': 'middle' }, '<tspan fill="' + COL.b + '">福祉 ' + gw.toFixed(2) + '</tspan>　<tspan fill="' + COL.a + '">費用 ' + gk.toFixed(2) + '</tspan>');
+  });
+})();
+
+// ---------- figure 3: Table 1 (arXiv v2), welfare gain minus R-NP ----------
+(function () {
+  var svg = document.getElementById('fig-sim'); if (!svg) return;
+  var el = mk(svg);
+  var cost = [0.1, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8];
+  // [PB-G, PB-MV, PB-B, R-NP, IC] per cost level
+  var T = {
+    1: [[.27, .28, .28, .28, .11], [.56, .57, .58, .57, .34], [.90, .91, .92, .92, .70], [1.20, 1.22, 1.23, 1.23, 1.04], [1.46, 1.48, 1.49, 1.49, 1.34], [1.66, 1.68, 1.69, 1.70, 1.57], [1.79, 1.81, 1.82, 1.82, 1.74]],
+    2: [[.46, .47, .47, .45, .10], [.71, .72, .73, .70, .31], [1.01, 1.01, 1.03, 1.01, .63], [1.28, 1.29, 1.30, 1.29, .96], [1.51, 1.53, 1.54, 1.54, 1.26], [1.68, 1.70, 1.71, 1.72, 1.52], [1.79, 1.81, 1.82, 1.83, 1.71]],
+    4: [[.60, .61, .61, .57, .10], [.80, .80, .82, .78, .30], [1.07, 1.08, 1.09, 1.07, .61], [1.33, 1.34, 1.35, 1.34, .92], [1.55, 1.56, 1.58, 1.57, 1.24], [1.70, 1.72, 1.74, 1.74, 1.51], [1.80, 1.82, 1.84, 1.83, 1.70]]
+  };
+  var PW = 170, GAP = 24, OX = 70, Y0 = 60, Y1 = 270, LO = -0.04, HI = 0.05;
+  function sy(v) { return Y1 - (v - LO) / (HI - LO) * (Y1 - Y0); }
+  [-0.04, -0.02, 0, 0.02, 0.04].forEach(function (v) {
+    el('text', { x: OX - 8, y: sy(v) + 5, 'font-size': 13, fill: COL.muted, 'text-anchor': 'end' }, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2));
+  });
+  [1, 2, 4].forEach(function (a, k) {
+    var x0 = OX + k * (PW + GAP);
+    function sx(c) { return x0 + 10 + (c - 0.1) / 1.7 * (PW - 20); }
+    el('rect', { x: x0, y: Y0 - 6, width: PW, height: Y1 - Y0 + 12, fill: '#fff', stroke: COL.hair });
+    [-0.04, -0.02, 0.02, 0.04].forEach(function (v) { el('line', { x1: x0, x2: x0 + PW, y1: sy(v), y2: sy(v), stroke: '#EEF0F3' }); });
+    el('line', { x1: x0, x2: x0 + PW, y1: sy(0), y2: sy(0), stroke: COL.ink, 'stroke-width': 1.2 });
+    el('text', { x: x0 + PW / 2, y: Y0 - 16, 'font-size': 16, 'font-weight': 600, fill: COL.ink, 'text-anchor': 'middle' }, mi('a') + ' = ' + a);
+    T[a].forEach(function (r, i) {
+      var g = +(r[0] - r[3]).toFixed(2), b = +(r[2] - r[3]).toFixed(2);
+      el('circle', { cx: sx(cost[i]) - 4, cy: sy(g), r: 5.5, fill: '#fff', stroke: COL.b, 'stroke-width': 2 });
+      el('circle', { cx: sx(cost[i]) + 4, cy: sy(b), r: 5.5, fill: COL.b });
+    });
+    [0.1, 0.9, 1.8].forEach(function (c) {
+      el('text', { x: sx(c), y: Y1 + 26, 'font-size': 13, fill: COL.muted, 'text-anchor': 'middle' }, c.toFixed(1));
+    });
+  });
+  el('text', { x: OX + (3 * PW + 2 * GAP) / 2, y: Y1 + 50, 'font-size': 15, fill: COL.ink, 'text-anchor': 'middle' }, '費用水準');
+  el('text', { transform: 'translate(20,' + (Y0 + Y1) / 2 + ') rotate(-90)', 'font-size': 14, fill: COL.ink, 'text-anchor': 'middle' }, 'R-NP との差');
+})();
+
+// ---------- figure 4: JTPA, three Gibbs rules (numbers from the text) ----------
+(function () {
+  var svg = document.getElementById('fig-jtpa'); if (!svg) return;
+  var el = mk(svg);
+  var rows = [['予算なし（' + mi('u') + ' = 0.15）', 81, null], ['中予算・約 400 ドル（' + mi('u') + ' = 2.1）', 49, [46, 51]], ['低予算・約 200 ドル（' + mi('u') + ' = 2.45）', 20, [4, 66]]];
+  var X0 = 290, X1 = 610, Y0 = 50, DY = 56;
+  function sx(v) { return X0 + v / 100 * (X1 - X0); }
+  [0, 25, 50, 75, 100].forEach(function (v) {
+    el('line', { x1: sx(v), x2: sx(v), y1: Y0 - 24, y2: Y0 + DY * 2 + 24, stroke: COL.hair });
+    el('text', { x: sx(v), y: Y0 + DY * 2 + 46, 'font-size': 14, fill: COL.muted, 'text-anchor': 'middle' }, v + '%');
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 14, y: y + 5, 'font-size': 15, fill: COL.ink, 'text-anchor': 'end' }, r[0]);
+    if (r[2]) el('rect', { x: sx(r[2][0]), y: y - 9, width: sx(r[2][1]) - sx(r[2][0]), height: 18, rx: 4, fill: COL.gray });
+    el('circle', { cx: sx(r[1]), cy: y, r: 8, fill: COL.b });
+    el('text', { x: sx(r[1]), y: y - 16, 'font-size': 14, fill: COL.ink, 'text-anchor': 'middle' }, r[1] + '%');
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 2 + 72, 'font-size': 15, fill: COL.ink, 'text-anchor': 'middle' }, '処置の割合・処置確率');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

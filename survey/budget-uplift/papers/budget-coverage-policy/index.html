@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>予算と最低カバー率の制約のもとでの最適方策学習（論文解説）</title>
+<meta name="description" content="Optimal Policy Learning under Budget and Coverage Constraints（arXiv 2026）の非公式の解説。予算と最低カバー率の二つの制約があるとき、最適な処置ルールは二つの影の価格で決まるしきい値規則になり、費用対効果の順位だけでは決まらなくなる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = rank-and-cut (RC): one constant cut on the cost-effectiveness ratio tau/c,
+                         and the misallocation it causes
+            --b  (blue)   = the LP-optimal affine threshold tau - lambda* c + nu* >= 0 and the
+                         Greedy-Lagrangian (GLC) algorithm that approximates it
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2026</div>
+  <h1>Optimal Policy Learning under Budget and Coverage Constraints</h1>
+  <p class="subtitle">予算と最低カバー率の制約のもとでの最適方策学習</p>
+
+  <ul class="authors">
+    <li><b>Giovanni Cerulli</b><span>CNR-IRCrES, National Research Council of Italy, Research Institute on Sustainable Economic Growth</span></li>
+  </ul>
+
+  <p class="lead">予算の上限に加えて、対象者の一定割合以上に処置を届けるという最低カバー率の条件があるとき、誰に処置するのが最適か。この論文は、最適な処置ルールが予算と最低カバー率それぞれの影の価格で決まるしきい値規則になることを示し、それを近似する<span class="B">Greedy-Lagrangian（GLC）</span>と、費用対効果の順に並べて切る<span class="A">rank-and-cut（RC）</span>を分析する。論文によれば、RC が最適解から大きくずれるのは、費用が人によって違い、しかも最低カバー率の制約が効いている場合である。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2605.12235">Paper</a>
+    <a class="btn" href="https://arxiv.org/pdf/2605.12235">PDF</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。論文の6人の数値例、LPとRCの境界の違い（模式図）、GLCがλを0.2から1.2に動かす様子、論文 Table 2 の食い違いの割合、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\tau - \lambda^* c + \nu^* \ge 0\)</span><span class="d">最適方策は予算の影の価格 \(\lambda^*\) と最低カバー率の影の価格 \(\nu^*\) で決まるアフィンしきい値規則になる（Theorem 1）。</span></li>
+    <li><span class="k">差は 1 人あたり \(2V_{\max}/n\) 以下</span><span class="d">LP 緩和と 0-1 問題の最適値の差は \(n\) によらず \(2V_{\max}\) 以下なので、1 人あたりに直すと 0 に近づく。</span></li>
+    <li><span class="k">0.152 対 0.001〜0.002</span><span class="d">LP と RC で割当てが食い違う人の割合。費用がばらつき、最低カバー率が効いたシナリオだけが大きかった（Table 2）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予算の上限と最低カバー率を同時に課すと、処置の割当ては組合せ最適化の問題になる</h2>
+    <p>論文の例は失業者に職業訓練を割り当てる公的機関である。訓練で得られる効果は人によって違い、費用も、技能の低い人ほど長く手厚い訓練が要るので高くなる。予算には上限があり、全員には提供できない。一方で、公平性や政治的な受け入れやすさ、制度の規定のために、対象者の一定割合以上には届ける必要がある。</p>
+    <p>\(N\) 人から処置する人を選ぶ方法は \(2^N\) 通りあり、厳密に解くには混合整数線形計画（MILP）が要る。MILP は NP 困難で、人数が多いと実用的でなくなる。予算制約のもとでの処置ルールは Bhattacharya and Dupas（2012）などが母集団の水準で特徴づけているが、論文はこれに最低カバー率を加え、計算できる形で方策を作る段階まで扱う。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>最適方策は、予算と最低カバー率の二つの影の価格で決まるアフィンしきい値規則になる</h2>
+    <p>共変量 \(x\) の人の処置効果を CATE \(\tau(x)\)、処置の費用を \(c(x) > 0\)（既知とする）、1 人あたりの予算を \(C = B/N\)、最低カバー率を \(\rho\) とする。方策 \(\pi(x) \in \{0,1\}\) について、次の問題を解く。</p>
+    <div class="eq">\[ \max_{\pi}\; \mathbb{E}[\pi(X)\,\tau(X)] \quad \text{s.t.}\quad \mathbb{E}[\pi(X)\,c(X)] \le C,\qquad \mathbb{E}[\pi(X)] \ge \rho \]</div>
+    <p>無交絡と重なりの仮定、実行可能な方策があること、Slater 条件を置き、方策のクラスがすべての可測な二値ルールを含むとすると、強双対性が成り立つ。最適方策は二つの制約のラグランジュ乗数 \(\lambda^*, \nu^* \ge 0\) を使って次の形に書ける（Theorem 1）。</p>
+    <div class="eq">\[ \pi^*(x) = \mathbb{1}\{\, \tau(x) \;\textcolor{#1D4ED8}{-\; \lambda^* c(x) \;+\; \nu^*} \;\ge\; 0 \,\} \]</div>
+    <p>\(\lambda^*\) は予算を 1 単位緩めたときの価値（費用 1 単位あたりの価格）、\(\nu^*\) は最低カバー率を緩めたときの価値（処置する 1 人あたりの価格）である。最低カバー率が効いていなければ \(\nu^* = 0\) となり、規則は \(\tau(x)/c(x) \ge \lambda^*\)、つまり費用 1 単位あたりの効果で切る費用対効果の基準になる。最低カバー率が効いていると、全員のスコアに同じ \(\nu^* > 0\) が足されて選び方が緩くなり、効果が小さい人や、わずかに負の人まで処置することがある。</p>
+    <p>費用は既知として扱い、推定した費用への拡張は局外関数を加えれば同様に扱えるとして、この論文では扱っていない。</p>
+  </section>
+
+  <section id="knapsack">
+    <div class="kicker">LP 緩和</div>
+    <h2>標本上の問題は人数下限つきの<span style="white-space:nowrap"> 0-1 </span>ナップザック問題になり、LP 緩和との差は 1 人あたりでは消えていく</h2>
+    <p>標本では \(\tau(X_i)\) を推定値 \(v_i\)（例えば二重頑健な推定値）で置き換える。方策のクラスが標本上のどんな割当ても表せるなら、問題は次の整数計画と同じになる（Theorem 2）。各人が品物、\(v_i\) が価値、費用 \(w_i = c(X_i)\) が重さで、人数の下限がついたナップザック問題である。</p>
+    <div class="eq">\[ \max_{d \in \{0,1\}^n} \sum_{i=1}^n v_i d_i \quad \text{s.t.}\quad \sum_{i=1}^n w_i d_i \le nC,\qquad \sum_{i=1}^n d_i \ge \lceil n\rho \rceil \]</div>
+    <p>\(d_i\) を \([0,1]\) の連続値に緩めた LP 緩和では、全員にかかる制約が予算と人数の二つしかないため、端点解で 0 と 1 の間の値をとる人は高々 2 人である。これに \(|v_i| \le V_{\max}\) と費用の有界性の仮定を合わせると、二つの最適値の差は \(n\) によらず \(2V_{\max}\) 以下になり、1 人あたりの差は次のように 0 に近づく（Lemma 4、Theorem 3）。</p>
+    <div class="eq">\[ 0 \;\le\; \tfrac{1}{n}\mathrm{OPT}^{\mathrm{LP}}_n - \tfrac{1}{n}\mathrm{OPT}^{01}_n \;\le\; \frac{2V_{\max}}{n} \;\longrightarrow\; 0 \]</div>
+    <p>このため、実行可能で、LP の最適値との差が \(o(n)\) に収まるしきい値規則は、1 人あたりで見れば 0-1 問題でも漸近的に最適になる（Theorem 4、境界上にちょうど乗る人の確率が 0 という条件のもとで）。</p>
+  </section>
+
+  <section id="glc">
+    <div class="kicker">手法 1</div>
+    <h2>GLC は予算の影の価格を二分探索し、スコア上位で人数を満たしてから予算に収まるだけ人を足していく</h2>
+    <p>GLC（Greedy-Lagrangian with coverage）は、予算の影の価格 \(\lambda\) を決めて各人のスコア \(a_i(\lambda) = v_i - \lambda w_i\) を計算し、次の手順で割当てを作る。まず、費用の安い順に \(K_n\) 人を選んでも予算を超えるなら、問題は実行不能として止める。</p>
+    <ul class="def">
+      <li>スコアの上位 \(K_n\) 人を必ず処置する（人数の下限を満たす）。この人たちだけで予算を超えたら、\(\lambda\) が小さすぎるので上げる。</li>
+      <li>残りの人をスコア順に見て、スコアが正で予算に収まる人を足していく。</li>
+      <li>予算の使い残しが予算の \(\varepsilon\) 倍を超えたら \(\lambda\) を下げる。これを二分探索で繰り返し、使い残しが \(\varepsilon\) 倍以内に収まったら止める。</li>
+    </ul>
+    <p>人数の下限は「上位 \(K_n\) 人を必ず選ぶ」ことで満たすので、探索するのは \(\lambda\) の 1 次元だけである。1 回の反復はスコアの並べ替えで \(O(n \log n)\)、反復回数は \(O(\log(1/\varepsilon))\) で、全体で \(O(n \log n \cdot \log(1/\varepsilon))\) になる。論文は汎用の内点法で LP を解く場合の最悪計算量を \(O(n^3)\) 程度としている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="論文 Appendix の6人の数値例の表。価値は20,18,14,13,8,7、費用は10,9,4,4,2,2。λ=0.2のスコアでは1と2が上位で費用19となり予算12を超える。λ=1.2では3と4が上位になり、5と6を足して費用12、価値42。費用対効果の比の順は5,3,6,4,1,2で、RCも同じ4人を選ぶ。">
+        <rect x="14" y="58" width="612" height="34" fill="#F2F4F7"/>
+        <rect x="14" y="128" width="612" height="34" fill="#F2F4F7"/>
+        <rect x="14" y="198" width="612" height="34" fill="#F2F4F7"/>
+        <text x="50" y="40" font-size="15" fill="#5B6676" text-anchor="middle">人</text>
+        <text x="122" y="40" font-size="15" fill="#5B6676" text-anchor="middle">価値 <tspan class="mi">v</tspan></text>
+        <text x="200" y="40" font-size="15" fill="#5B6676" text-anchor="middle">費用 <tspan class="mi">w</tspan></text>
+        <text x="306" y="40" font-size="15" fill="#5B6676" text-anchor="middle"><tspan class="mi">a</tspan>（<tspan class="mi">λ</tspan> = 0.2）</text>
+        <text x="438" y="40" font-size="15" fill="#1D4ED8" text-anchor="middle"><tspan class="mi">a</tspan>（<tspan class="mi">λ</tspan> = 1.2）</text>
+        <text x="566" y="40" font-size="15" fill="#C2410C" text-anchor="middle"><tspan class="mi">v</tspan>/<tspan class="mi">w</tspan>（順位）</text>
+        <g font-size="16" fill="#16202E" text-anchor="middle">
+          <text x="50" y="81" font-weight="600">1</text><text x="122" y="81">20</text><text x="200" y="81">10</text><text x="306" y="81" font-weight="700">18.0（1）</text><text x="438" y="81">8.0（3）</text><text x="566" y="81">2.00（5）</text>
+          <text x="50" y="116" font-weight="600">2</text><text x="122" y="116">18</text><text x="200" y="116">9</text><text x="306" y="116" font-weight="700">16.2（2）</text><text x="438" y="116">7.2（4）</text><text x="566" y="116">2.00（6）</text>
+          <text x="50" y="151" font-weight="600">3</text><text x="122" y="151">14</text><text x="200" y="151">4</text><text x="306" y="151">13.2（3）</text><text x="438" y="151" fill="#1D4ED8" font-weight="700">9.2（1）</text><text x="566" y="151" fill="#C2410C" font-weight="700">3.50（2）</text>
+          <text x="50" y="186" font-weight="600">4</text><text x="122" y="186">13</text><text x="200" y="186">4</text><text x="306" y="186">12.2（4）</text><text x="438" y="186" fill="#1D4ED8" font-weight="700">8.2（2）</text><text x="566" y="186" fill="#C2410C" font-weight="700">3.25（4）</text>
+          <text x="50" y="221" font-weight="600">5</text><text x="122" y="221">8</text><text x="200" y="221">2</text><text x="306" y="221">7.6（5）</text><text x="438" y="221" fill="#1D4ED8" font-weight="700">5.6（5）</text><text x="566" y="221" fill="#C2410C" font-weight="700">4.00（1）</text>
+          <text x="50" y="256" font-weight="600">6</text><text x="122" y="256">7</text><text x="200" y="256">2</text><text x="306" y="256">6.6（6）</text><text x="438" y="256" fill="#1D4ED8" font-weight="700">4.6（6）</text><text x="566" y="256" fill="#C2410C" font-weight="700">3.50（3）</text>
+        </g>
+        <line x1="14" y1="276" x2="626" y2="276" stroke="#D9DEE6"/>
+        <text x="24" y="304" font-size="15" fill="#16202E"><tspan class="mi">λ</tspan> = 0.2：上位 2 人（1, 2）だけで費用 19。予算 12 を超えるので <tspan class="mi">λ</tspan> を上げる。</text>
+        <text x="24" y="332" font-size="15" fill="#1D4ED8"><tspan class="mi">λ</tspan> = 1.2：上位 2 人（3, 4）で費用 8、5 と 6 を足して費用 12、価値の合計 42。</text>
+        <text x="24" y="360" font-size="15" fill="#C2410C">RC：比の順 5, 3, 6, 4 で費用 12、価値の合計 42（この例では同じ 4 人）。</text>
+      </svg>
+      <figcaption>図1　予算 12、最低 2 人の数値例（論文 Appendix 1・2 の数値から解説者が作表）。太字は各列で選ばれる人（\(\lambda = 0.2\) の列は予算を超えてしまう上位 2 人）、括弧内は順位。予算 12 のもとで価値の合計が 42 を超える選び方はなく、この例では両方の方法が最適解に達している（解説者が確かめた）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="rc">
+    <div class="kicker">手法 2</div>
+    <h2>費用対効果の順に切る RC は、費用がばらつき、最低カバー率が効くときに最適解からずれる</h2>
+    <p>RC（rank-and-cut）は、各人を比 \(s_i = \hat\tau_i / c_i\) の大きい順に一度だけ並べ、上から \(k\) 人を選ぶ切り方のうち、\(k\) が人数の下限以上で累積費用が予算内のものから、効果の合計が最大のものを選ぶ（Algorithm 2）。並べ替え 1 回の \(O(n \log n)\) で済み、影の価格の調整は要らない。</p>
+    <p>最適な規則を \(c(x)\) で割ると、費用対効果 \(r(x) = \tau(x)/c(x)\) に対するしきい値規則になる。</p>
+    <div class="eq">\[ \pi^*(x) = \mathbb{1}\{\, r(x) \ge \textcolor{#1D4ED8}{b_{LP}(x) = \lambda^* - \nu^*/c(x)} \,\} \]</div>
+    <div class="eq">\[ \pi^{RC}(x) = \mathbb{1}\{\, r(x) \ge \textcolor{#C2410C}{t^*} \,\} \]</div>
+    <p>最適な下限 \(b_{LP}\) は、\(\nu^* > 0\) のとき費用とともに上がる。<span class="A">RC</span> の下限 \(t^*\) は一定なので、二つは \(c^\times = \nu^*/(\lambda^* - t^*)\) で交わる。費用が \(c^\times\) より低い人では最適な規則のほうが緩く、RC が処置しない人を処置する。費用が \(c^\times\) より高い人では逆に、最適な規則なら処置しない人を RC が処置する。</p>
+    <p>論文は、\(|\tau| \le K\)、費用の有界性、境界付近の人の割合についてのマージン条件 \(P(|m^*(X)| \le t) \le Ct\) のもとで、RC による厚生の損失が \(K C\cdot\mathbb{E}[c(X)\,|t^* - b_{LP}(X)|]\) 以下になることを示す（Theorem 5）。\(b_{LP}\) が人によって変わるのは \(\nu^*/c(x)\) の項だけなので、費用がほぼ一定か、\(\nu^* \approx 0\)（最低カバー率が効いていない）なら、RC は最適解にほぼ一致する。論文は費用がばらつき \(\nu^*\) が大きい場合に誤った割当てが多くなり、それ以外の 3 通りではほぼ一致するか完全に一致すると整理している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="横軸が費用、縦軸が費用対効果の模式図。最適な下限は費用とともに上がる曲線で、RCの下限は水平な破線。交点より左では曲線が破線より下にあり、その間はLPだけが処置する。交点より右では曲線が破線より上にあり、その間はRCだけが処置する。">
+        <polygon points="80.0,274.2 85.6,258.2 91.1,244.3 96.7,232.2 102.3,221.4 107.9,211.8 113.4,203.2 119.0,195.4 124.6,188.4 130.1,181.9 135.7,176.1 141.3,170.7 146.9,165.8 152.4,161.2 158.0,156.9 163.6,153.0 169.1,149.3 174.7,145.9 180.3,142.7 185.9,139.7 191.4,136.8 197.0,134.2 202.6,131.7 208.1,129.3 213.7,127.0 219.3,124.9 224.9,122.9 230.4,120.9 236.0,119.1 241.6,117.4 247.1,115.7 252.7,114.1 258.3,112.6 263.9,111.1 269.4,109.8 271.0,109.4 80.0,109.4" fill="#E7EEFC"/>
+        <polygon points="271.0,109.4 276.6,108.0 285.9,106.0 295.2,104.0 304.4,102.2 313.7,100.5 323.0,98.9 332.3,97.3 341.6,95.9 350.9,94.5 360.2,93.2 369.4,92.0 378.7,90.9 388.0,89.7 397.3,88.7 406.6,87.7 415.9,86.7 425.2,85.8 434.4,84.9 443.7,84.1 453.0,83.3 462.3,82.5 471.6,81.8 480.9,81.1 490.2,80.4 499.4,79.7 508.7,79.1 518.0,78.5 527.3,77.9 536.6,77.3 545.9,76.7 555.2,76.2 564.4,75.7 573.7,75.2 583.0,74.7 592.3,74.3 600.0,73.9 600.0,109.4" fill="#FCEBDF"/>
+        <line x1="80" y1="320" x2="610" y2="320" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="320" x2="80" y2="24" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="197.9" x2="600" y2="197.9" stroke="#D9DEE6"/>
+        <polyline points="80.0,274.2 89.3,248.8 98.6,228.4 107.9,211.8 117.1,197.9 126.4,186.2 135.7,176.1 145.0,167.4 154.3,159.7 163.6,153.0 172.9,147.0 182.1,141.7 191.4,136.8 200.7,132.5 210.0,128.5 219.3,124.9 228.6,121.6 237.9,118.5 247.1,115.7 256.4,113.1 265.7,110.7 275.0,108.4 284.3,106.3 293.6,104.3 302.9,102.5 312.1,100.8 321.4,99.1 330.7,97.6 340.0,96.1 349.3,94.8 358.6,93.5 367.9,92.2 377.1,91.1 386.4,89.9 395.7,88.9 405.0,87.9 414.3,86.9 423.6,86.0 432.9,85.1 442.1,84.2 451.4,83.4 460.7,82.6 470.0,81.9 479.3,81.2 488.6,80.5 497.9,79.8 507.1,79.2 516.4,78.6 525.7,78.0 535.0,77.4 544.3,76.8 553.6,76.3 562.9,75.8 572.1,75.3 581.4,74.8 590.7,74.3 600.0,73.9" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+        <line x1="80" y1="109.4" x2="600" y2="109.4" stroke="#C2410C" stroke-width="2.5" stroke-dasharray="9 6"/>
+        <line x1="271" y1="320" x2="271" y2="40" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="3 4"/>
+        <text x="279" y="308" font-size="16" fill="#5B6676"><tspan class="mi">c</tspan><tspan dy="-7" font-size="12">×</tspan></text>
+        <text x="88" y="132" font-size="14" font-weight="600" fill="#1D4ED8">LP だけが処置</text>
+        <text x="596" y="64" font-size="15" font-weight="600" fill="#C2410C" text-anchor="end">RC だけが処置</text>
+        <text x="596" y="138" font-size="15" fill="#C2410C" text-anchor="end">RC の下限 <tspan class="mi">t</tspan>*</text>
+        <text x="330" y="250" font-size="15" fill="#1D4ED8">最適な下限 <tspan class="mi">b</tspan><tspan dy="4" font-size="11">LP</tspan><tspan dy="-4">(<tspan class="mi">c</tspan>) = <tspan class="mi">λ</tspan>* − <tspan class="mi">ν</tspan>*/<tspan class="mi">c</tspan></tspan></text>
+        <text x="72" y="202" font-size="15" fill="#5B6676" text-anchor="end">0</text>
+        <text x="345" y="344" font-size="16" fill="#16202E" text-anchor="middle">費用 <tspan class="mi">c</tspan>(<tspan class="mi">x</tspan>)</text>
+        <text transform="translate(30,172) rotate(-90)" font-size="16" fill="#16202E" text-anchor="middle">費用対効果 <tspan class="mi">r</tspan> = <tspan class="mi">τ</tspan>/<tspan class="mi">c</tspan></text>
+      </svg>
+      <figcaption>図2　最適な下限 \(b_{LP}\) と RC の下限 \(t^*\) の模式図（\(\lambda^* = 1,\ \nu^* = 0.6,\ t^* = 0.58\) は解説者が置いた値）。論文 Fig. 1 にも同じ形の図があるが、二つの領域につけたラベルは本文の説明（\(c < c^\times\) では最適な規則のほうが緩い）と逆になっている。この図は本文の説明に合わせて描いた。</figcaption>
+    </figure>
+  </section>
+
+  <section id="mc1">
+    <div class="kicker">実験の結果 1</div>
+    <h2>シミュレーションでは、GLC の 1 人あたり後悔は \(n = 200\) 以上で 0.0010〜0.0017 にとどまった</h2>
+    <p>1 つ目のシミュレーションは、共変量 \(X_i \sim \mathcal{N}(0, I_d)\)、効果 \(\tau_i = X_{i1} + 0.5X_{i2}\)、費用 \(w_i = \exp(2X_{i1})\) とし、費用のばらつきを大きくしてある。真の効果を使って、MILP による厳密解（OPT）、LP 緩和、GLC を比べた。\(n\) は 50 から 500 まで 25 刻み、各 \(n\) で 50 回繰り返している。1 人あたりの予算 \(C\)、最低カバー率 \(\rho\)、次元 \(d\) の値は本文に書かれていない。</p>
+    <p class="src">このページの数値は arXiv v1（2026 年 5 月 12 日）の本文と表による。2026 年 11 月時点で出版版は確認できなかった。</p>
+    <p>Table 1 では、OPT と GLC の 1 人あたりの価値は \(n = 50\) で 0.2001 と 0.1954（後悔 0.0047）、\(n = 500\) で 0.2112 と 0.2099（後悔 0.0013）だった。\(n \ge 200\) では後悔が 0.0010〜0.0017 の範囲にある。なお \(n = 100\) の後悔は 0.0059 で、\(n = 50\) より大きい。LP 緩和と OPT の差は \(n = 50\) の 0.0044 から、\(n \ge 250\) では 0.0001〜0.0002 まで縮んだ。LP 解で 0 と 1 の間の値をとる人は、平均 1.0〜1.6 人だった。</p>
+    <figure style="max-width:40rem">
+      <img src="assets/fig2_regret_vs_n.png" alt="横軸がサンプルサイズ n（50から500）、縦軸が1人あたりの後悔または差。GLC の平均後悔（青の実線）は n が小さいところで大きくばらつき、n=200 付近から 0.001 から 0.002 程度で推移する。LP の1人あたりの整数性ギャップ（橙の破線）は n=50 の約0.004から急に下がり、ほぼ0に近づく。" loading="lazy">
+      <figcaption>図3　GLC の 1 人あたり後悔（実線）と LP の 1 人あたり整数性ギャップ（破線）。帯は繰り返し間のばらつき（論文 Fig. 2、CC BY 4.0）。この図の色は論文のもので、このページの配色の意味とは関係しない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="mc2">
+    <div class="kicker">実験の結果 2</div>
+    <h2>LP と RC の割当てが大きく食い違ったのは、費用がばらつき、最低カバー率が効いたシナリオだけだった</h2>
+    <p>2 つ目のシミュレーションは、\(X \sim \mathcal{N}(0,1)\)、効果 \(\tau(X) = (\beta_1 - \beta_0)X + \gamma X^2\)、費用 \(c(X) = c_0 + \delta|X|\) とし、費用のばらつき \(\delta \in \{0, 1\}\) と最低カバー率 \(\rho \in \{0.1, 0.5\}\) を組み合わせた 4 つのシナリオで、LP と RC の割当てが食い違う人の割合を測った。標本の大きさは \(n = 500\) で、100 回の平均をとっている。RC は LP と同じカバー率になるよう調整してある。\(\beta_0, \beta_1, \gamma, c_0\) と予算の値は本文に書かれていない。</p>
+    <p>食い違いの割合は、費用のばらつきがあり \(\rho = 0.5\) のシナリオ（1）で 0.1520 だった。このとき \(\nu\) の平均は 0.842 で、カバー制約が効いている。残りの 3 つは \(\nu\) の平均が 0.000 で、食い違いは 0.0010〜0.0020 だった。論文は、\(\rho\) が大きいだけでは \(\nu^* > 0\) にならないと注記し、費用が一定で \(\rho = 0.5\) のシナリオ（3）をその例に挙げている。このため、前節の 4 通りのうち「費用が一定で \(\nu^*\) が大きい」場合は、この表では確かめられていない（解説者の注）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="論文 Table 2 の横棒グラフ。LPとRCで割当てが食い違う人の割合。シナリオ1（費用のばらつき大、ρ=0.5）は0.1520、シナリオ2（費用のばらつき大、ρ=0.1）は0.0010、シナリオ3（費用一定、ρ=0.5）は0.0020、シナリオ4（費用一定、ρ=0.1）は0.0020。">
+        <text x="40" y="42" font-size="15" fill="#16202E">(1) 費用のばらつき大・<tspan class="mi">ρ</tspan> = 0.5（<tspan class="mi">ν</tspan> の平均 0.842）</text>
+        <rect x="40" y="52" width="456" height="26" rx="4" fill="#C2410C"/>
+        <text x="508" y="71" font-size="16" font-weight="650" fill="#C2410C">0.1520</text>
+        <text x="40" y="118" font-size="15" fill="#16202E">(2) 費用のばらつき大・<tspan class="mi">ρ</tspan> = 0.1（0.000）</text>
+        <rect x="40" y="128" width="3" height="26" rx="1" fill="#CBD2DC"/>
+        <text x="54" y="147" font-size="16" font-weight="650" fill="#16202E">0.0010</text>
+        <text x="40" y="194" font-size="15" fill="#16202E">(3) 費用一定・<tspan class="mi">ρ</tspan> = 0.5（0.000）</text>
+        <rect x="40" y="204" width="6" height="26" rx="1" fill="#CBD2DC"/>
+        <text x="57" y="223" font-size="16" font-weight="650" fill="#16202E">0.0020</text>
+        <text x="40" y="270" font-size="15" fill="#16202E">(4) 費用一定・<tspan class="mi">ρ</tspan> = 0.1（0.000）</text>
+        <rect x="40" y="280" width="6" height="26" rx="1" fill="#CBD2DC"/>
+        <text x="57" y="299" font-size="16" font-weight="650" fill="#16202E">0.0020</text>
+      </svg>
+      <figcaption>図4　LP と RC で割当てが食い違う人の割合（括弧内は \(\nu\) の平均）。\(n = 500\)、100 回の平均（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p class="src">本文ではこの結果を「Table 1」と呼んでいる箇所があるが、表の番号は Table 2 である。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は制約として正面から扱い、最低カバー率が効かなければ ROI 順の割当てに戻る</h2>
+    <p>この論文は効果の推定方法を提案しておらず、CATE の推定値 \(v_i\)（二重頑健な推定値などを例に挙げる）を所与として、割当ての段階を扱う。シミュレーションでも真の効果を使っている。費用 \(c(x)\) は人ごとに違うが既知の値で、処置への反応によって変わる費用は扱わない。処置は二値である。</p>
+    <p>予算は母集団では 1 人あたりの期待費用の上限、標本では費用の合計の上限として、制約に直接入る。そこに処置する人数の下限（最低カバー率）が加わる。</p>
+    <p>最低カバー率が効いていない（\(\nu^* = 0\)）とき、最適な規則は \(\tau/c \ge \lambda^*\) となり、ROI 順に並べて予算で切る割当て、つまりナップザック問題の連続緩和の解と同じ形になる。RC はこの ROI 順に並べて切る方法にあたる。論文の「LP 緩和で 0 と 1 の間の値をとる人は高々 2 人」という結果は、予算制約だけの連続緩和で 0 と 1 の間の値をとる品物が高々 1 個になるという事実を、制約が 2 本の場合に広げたものと読める（解説者の注）。最低カバー率が効くと、全員のスコアに同じ \(\nu^*\) が足されるので、ROI に直すと費用の安い人ほど \(\nu^*/c\) だけ有利になり、順位は \(\lambda^*\) と \(\nu^*\) に依存する。そのため、事前に一度 ROI 順に並べるだけでは最適解に届かないことがあり、論文は \(\lambda\) を探索する GLC でこれに対処している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{cerulli2026optimal,
+  title         = {Optimal Policy Learning under Budget and Coverage Constraints},
+  author        = {Cerulli, Giovanni},
+  year          = {2026},
+  eprint        = {2605.12235},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ML},
+  doi           = {10.48550/arXiv.2605.12235}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RCT データでのアップリフトモデル評価の改善（論文解説）</title>
+<meta name="description" content="Improving uplift model evaluation on randomized controlled trial data（European Journal of Operational Research 2024）の非公式の解説。学習データで当てた予測をテストデータのアウトカムから引き、Qini 曲線や MSE の分散を偏りなく減らす。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the original outcome Y and metrics computed from it: the noise W^p·Phi(X)
+                         that makes Qini / MSE_W evaluations vary across test sets
+            --b  (blue)   = the adjusted outcome Y - Phi_hat(X) (fitted on training data) and the
+                         variance reduction it brings
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">European Journal of Operational Research · 2024</div>
+  <h1>Improving uplift model evaluation on randomized controlled trial data</h1>
+  <p class="subtitle">ランダム化比較試験データでのアップリフトモデル評価の改善</p>
+
+  <ul class="authors">
+    <li><b>Björn Bokelmann</b><span>Chair of Information Systems, Humboldt University Berlin</span></li>
+    <li><b>Stefan Lessmann</b><span>Chair of Information Systems, Humboldt University Berlin</span></li>
+  </ul>
+
+  <p class="lead">アップリフトモデルを RCT データで評価するとき、Qini 曲線や変換アウトカムの平均二乗誤差 \(MSE_W\) の値は、テストデータの偶然で大きくばらつく。この論文はばらつきの原因を式で分解し、学習データで作った予測をテストデータの<span class="A">元のアウトカム</span>から引いた<span class="B">調整後のアウトカム</span>で指標を計算すれば、偏りを入れずに分散を減らせることを示す。シミュレーションと 3 つの実データのどの設定でも、分散は減った。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1016/j.ejor.2023.09.018">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2210.02152">arXiv</a>
+    <a class="btn" href="https://github.com/bokelmab/uplift_metrics">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。上位の人で処置群と対照群の差を取る従来の評価、テストデータごとに揺れる Qini 曲線、アウトカムから予測を引く調整、論文 Table 3 の誤判定の割合、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">分散 12.4〜34.1% 減</span><span class="d">実データ 3 件で、条件付き平均調整または二重頑健調整を使ったときの \(\Delta MSE_W\) の分散の減少率（Table 2）。</span></li>
+    <li><span class="k">誤判定 39.3% → 4.4%</span><span class="d">シミュレーション（aw、\(\sigma = 0.5\)）で、真の CATE より因果フォレストのほうが良いと \(MSE_W\) が判定した割合。二重頑健調整で下がった（Table 3）。</span></li>
+    <li><span class="k">テストデータを 10% 以上節約</span><span class="d">分散が x% 減れば、同じ幅の信頼区間に必要なテストデータも x% 減る。Criteo データでは 10% を超えると論文は述べる。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>アップリフトモデルの評価では、観測できない CATE の代わりに処置群と対照群の差を使う</h2>
+    <p>予測モデルなら、テストデータの正解と予測を比べれば評価できる。ところがアップリフトモデルが当てたい CATE（条件付き平均処置効果）は、一人ひとりについては観測できない。観測できるのは、処置を受けた場合と受けなかった場合のどちらか一方の結果だけである。そのため評価では処置群と対照群の結果の差を CATE の代わりに使う。</p>
+    <p>論文は評価指標を 3 種類に分ける。モデルが上位に並べた割合 \(s\) の人について処置群と対照群の平均の差を取る<strong>順位の指標</strong>（Qini 曲線、アップリフト曲線）、CATE の予測値の正確さを測る<strong>精度の指標</strong>（変換アウトカムの平均二乗誤差 \(MSE_W\)）、モデルから決めた処置の割当てを評価する<strong>決定の指標</strong>である。本文は前の 2 つを分析し、結果が決定の指標にも当てはまることを付録で示している。精度の指標は順位の指標ほど使われていない。それでも、処置のコストが人によって違うときは順位だけでは処置を決められないので、精度の指標も重要だと論文は述べる。</p>
+    <p>RCT では処置がランダムに割り当てられるので、これらの指標に偏りはない。問題は分散である。テストデータは有限なので、同じモデルでもテストデータが変われば評価も変わる。論文は、従来の計算方法は分散の点で最適ではなく、多くの研究がデータを十分に生かせていないと指摘する。</p>
+  </section>
+
+  <section id="variance">
+    <div class="kicker">理論</div>
+    <h2>評価指標のばらつきは、変換アウトカムが CATE の周りでどれだけ揺れるかで決まる</h2>
+    <p>処置確率 \(p\) が全員共通の RCT を考え、アウトカムを次のように書く。\(W\in\{0,1\}\) は処置の有無、\(\mu_x\) は対照群での条件付き期待値、\(\tau_x\) は CATE、\(\varepsilon\) は特徴量では説明できないノイズである。</p>
+    <div class="eq">\[ Y = \mu_x + W\,\tau_x + \varepsilon \]</div>
+    <p>\(MSE_W\) は観測できない \(\tau_x\) を変換アウトカム \(W^pY\) で置き換えた平均二乗誤差である。ここで \(W^p = W/p - (1-W)/(1-p)\)（Horvitz–Thompson 変換）で、\(W^pY\) の期待値は \(\tau_x\) になる。Qini 曲線の各点（上位 \(s\) の人での処置群と対照群の平均の差）も、上位 \(s\) に含まれる処置群の割合 \(\tilde p\) を使うと同じ形に書ける。どちらの指標も、減らせる分散は \(W^pY\) の分散で決まる。\(W^pY\) は次のように分解できる。</p>
+    <div class="eq">\[ W^pY = \tau_x + \underbrace{W^p\,\Phi(X)}_{\color{#C2410C}{\text{減らせる揺れ}}} + W^p\varepsilon, \qquad \Phi(X) := \mu_x + (1-p)\,\tau_x \]</div>
+    <p>右辺の \(\tau_x\) 以外の項は、\(W^pY\) を \(\tau_x\) の周りで揺らすだけである。\(W^p\varepsilon\) は説明できないノイズによるので減らせないが、論文が局外関数（nuisance function）と呼ぶ \(\Phi(X)\) による<span class="A">揺れ</span>は減らせる。分散を 2 つの成分に分けると、次のようになる。</p>
+    <div class="eq">\[ \mathbb{E}\big[\mathrm{Var}[W^pY\mid W]\big] = \mathrm{Var}[\tau_x] + \frac{\mathrm{Var}[\Phi(X)] + \mathrm{Var}[\varepsilon]}{p(1-p)}, \qquad \mathrm{Var}\big[\mathbb{E}[W^pY\mid W]\big] = \frac{\mathbb{E}[\Phi(X)]^2}{p(1-p)} \]</div>
+    <p>\(MSE_W\) の分散には両方の成分が効き、Qini 曲線には 1 つ目の成分だけが効く（\(p\) を \(\tilde p\) に置き換える）。つまり \(\Phi(X)\) の分散と平均を小さくできれば、指標の分散が減る。</p>
+  </section>
+
+  <section id="adjustment">
+    <div class="kicker">手法</div>
+    <h2>学習データで当てた予測をテストデータのアウトカムから引くと、偏りを入れずに分散を減らせる</h2>
+    <p>手順は単純である。学習データで \(\Phi(X)\) を近似する関数 \(\hat\Phi(X)\) を作り、テストデータでは \(Y\) の代わりに<span class="B">調整後のアウトカム</span> \(Y-\hat\Phi(X)\) で指標を計算する。すると減らせる揺れは \(W^p(\Phi(X)-\hat\Phi(X))\) に縮む。分散が減る条件は次の 2 つである。</p>
+    <ul class="def">
+      <li>(C1) \(\;|\mathbb{E}[\Phi(X)]-\mathbb{E}[\hat\Phi(X)]| < |\mathbb{E}[\Phi(X)]|\)：満たせば \(MSE_W\) の分散が減る。</li>
+      <li>(C2) \(\;\mathrm{Var}[\Phi(X)-\hat\Phi(X)] < \mathrm{Var}[\Phi(X)]\)：満たせば \(MSE_W\) の分散がさらに減り、Qini 曲線の分散も減る。</li>
+    </ul>
+    <p>論文はこの条件から 3 つの調整方法を導く。</p>
+    <ul class="def">
+      <li><strong>無条件平均調整</strong>（AM1）：\(\hat\Phi = (1-p)\hat\mu_1 + p\,\hat\mu_0\)。学習データの処置群と対照群の平均から作る定数なので C2 には効かず、Qini 曲線の分散は変わらない。</li>
+      <li><strong>二重頑健調整</strong>（AM2）：\(\hat\Phi = (1-p)\hat\mu_1(x) + p\,\hat\mu_0(x)\)。処置群と対照群のそれぞれで学習した予測モデルを使う。\(W^p(Y-\hat\Phi)\) は、よく知られた二重頑健なアウトカム変換で傾向スコアを定数 \(p\) にしたものと一致する。</li>
+      <li><strong>条件付き平均調整</strong>（AM3）：\(p = 0.5\) のときは \(\Phi(X) = \mathbb{E}[Y\mid X]\) なので、処置群と対照群をまとめて学習した予測 \(\hat\mu(x)\) を使う。</li>
+    </ul>
+    <p>\(\hat\Phi\) はテストデータの上では固定された関数なので、引いても \(\mu_x\) がずれるだけで指標の期待値は変わらない。ただしこれは \(\hat\Phi\) をテストデータで学習しない場合に限る。また論文は、\(\hat\Phi\) が定数による予測 \(\mathbb{E}[\Phi(X)]\) より正確なら C2 が成り立ち、\(\mathbb{E}[\Phi(X)]\) がほぼ 0 でない限り C1 もまず成り立つと論じている。</p>
+    <p>信頼区間の幅は指標の分散の平方根に比例し、テストデータの件数の平方根に反比例する。このため、分散を x% 減らせば、同じ幅の信頼区間を得るのに必要なテストデータも x% 減らせる。</p>
+    <figure>
+      <svg class="fig" id="fig-strip" viewBox="0 0 640 300" role="img" aria-label="模式図。16人の変換アウトカムを数直線上に並べる。元のアウトカムでは値が真の効果の線から大きく離れて左右に散らばり、調整後のアウトカムでは線の近くに集まる。"></svg>
+      <figcaption>図1　変換アウトカム \(W^pY\) の散らばりの模式図（\(p = 0.5\)、\(\tau_x = 1\)）。上段は<span class="A">元のアウトカム</span>、下段は<span class="B">調整後のアウトカム</span>（\(\hat\Phi\) の誤差を小さく置いた場合）。● は処置群、○ は対照群。値は解説者が置いた例。</figcaption>
+    </figure>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>2 種類のシミュレーションと 3 つの実 RCT データで、元のアウトカムと調整後のアウトカムの分散を比べた</h2>
+    <p>シミュレーションには grf パッケージの generate_causal_data を使い、Wager &amp; Athey（2018）と Nie &amp; Wager（2021）の設定（論文の記号で "aw" と "nw"）を選んだ。処置確率は 0.5、特徴量は 6 個、ノイズの標準偏差 \(\sigma\) は 0.5、1、2 の 3 通りである。各設定で 15,000 件のデータを 10,000 回作り、10,000 件で学習、5,000 件で評価した。</p>
+    <p>実データは Criteo（13,979,592 件、処置確率 0.85）、Hillstrom（男性向け広告の群を除いた 42,693 件、処置確率 0.5）、オンライン小売のクーポン配布データ（144,630 件、処置確率 0.75。論文の記号で "private"）の 3 つである。Hillstrom と private は 80% を学習に、20% をテストに使い、Criteo は 90% をテストに使った。評価するモデルは因果フォレスト（grf）で、調整用の \(\hat\mu,\,\hat\mu_0,\,\hat\mu_1\) はランダムフォレスト（ranger）で作った。</p>
+    <p>\(MSE_W\) については因果フォレストと常に 0 を予測するモデルとの差 \(\Delta MSE_W\) の分散を比べた。調整すると \(MSE_W\) そのものの期待値は変わるが、差の期待値は変わらないからである。Qini 曲線はシミュレーションでは \(s = 0.1\) の点、実データでは 10% 刻みの各点で比べた。実データではデータを繰り返し作れないので、信頼区間の計算に使う分散の推定値で比べている。</p>
+    <p class="src">以下の数値は arXiv v3（2022 年 12 月 16 日、題名は "Improving uplift model evaluation on RCT data"）の本文と表による。EJOR 掲載版の本文は取得できなかったため、照合していない。なお arXiv v3 では、4.3 節が信頼区間の幅を「テストデータの件数に反比例する」と書いている一方、付録 C の式は件数の平方根に反比例する形になっている。また付録 C の Qini 曲線の信頼区間の式は、直前に示した分散 \(\sigma_s^2\) の式と分母の書き方が異なっている。</p>
+  </section>
+
+  <section id="reduction">
+    <div class="kicker">実験の結果 1</div>
+    <h2>調整はどの設定でも分散を減らし、実データでは \(\Delta MSE_W\) の分散が 12.4〜34.1% 減った</h2>
+    <p>シミュレーション（Table 1）では、\(\Delta MSE_W\) の分散が無条件平均調整で 28.4〜89.7%、条件付き平均調整と二重頑健調整で 44.4〜97.8% 減った。\(\Delta MSE_W\) では、ノイズの \(\sigma\) が大きいほど減り方が小さい。Qini 曲線（\(s = 0.1\)）の分散は、条件付き平均調整と二重頑健調整で 10.1〜71.9% 減った。</p>
+    <p>実データ（Table 2）でも、すべての指標で分散が減った。\(\Delta MSE_W\) では、条件付き平均調整と二重頑健調整の減少率が 12.4〜34.1% で、無条件平均調整（0.4〜16.4%）をどのデータでも上回った。Qini 曲線では private で 15.1〜25.1%、Criteo で 11.3〜13.7% 減ったが、Hillstrom では 1.75〜3.30% にとどまった。論文によると、Hillstrom は処置効果の異質性が大きい一方で \(\mu_x\) の異質性が小さく、減らせる分散がもともと少ない。</p>
+    <p>シミュレーションより実データで減り方が小さいのは、実データのほうがノイズの影響が大きいからだろうと論文は推測している。</p>
+    <figure>
+      <svg class="fig" id="fig-real" viewBox="0 0 640 400" role="img" aria-label="論文 Table 2 の横棒グラフ。3つの実データについて、調整による分散の減少率を示す。左はデルタMSE_W で、private は無条件16.4%、条件付き34.1%、二重頑健33.3%。Criteo は0.4%、13.8%、12.4%。Hillstrom は14.4%、16.7%、16.6%。右は Qini 曲線の10点での減少率の範囲で、private が15〜25%、Criteo が11〜14%、Hillstrom が2〜3%。"></svg>
+      <figcaption>図2　実データでの分散の減少率（%）。左は \(\Delta MSE_W\)、右は Qini 曲線の 10 点での最小〜最大。灰は無条件平均調整、淡い<span class="B">青</span>は条件付き平均調整、濃い<span class="B">青</span>は二重頑健調整（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="misleading">
+    <div class="kicker">実験の結果 2</div>
+    <h2>調整すると、モデルの優劣を取り違える評価が減った</h2>
+    <p>Table 3 は、シミュレーションで \(\Delta MSE_W\) がモデルの優劣を逆に判定した割合である。因果フォレストの比較相手は真の CATE（完全な予測）、常に 0 を予測するモデル、因果フォレストの予測にノイズを加えた劣化版の 3 つである。</p>
+    <p>aw（\(\sigma = 0.5\)）では、<span class="A">元のアウトカム</span>の \(MSE_W\) は 39.3% の回で、因果フォレストのほうが完全な予測より良いと判定した。<span class="B">調整後</span>は、条件付き平均調整で 4.5%、二重頑健調整で 4.4% に下がった。すべての設定と比較相手で、どの調整方法も誤判定の割合を下げた。条件付き平均調整と二重頑健調整の割合は、どの行でも無条件平均調整と同じか、それより低い。劣化版との比較では元のアウトカムで 45.6〜48.6%、調整後も 38.8〜46.4% が誤判定だった。</p>
+    <p>これらの結果から論文は、元のアウトカムで計算した \(MSE_W\) は使わないよう勧めている。調整方法では、学習が要らない無条件平均調整がいちばん手軽だが、条件付き平均調整や二重頑健調整には劣るとしている。</p>
+    <figure>
+      <svg class="fig" id="fig-mis" viewBox="0 0 640 345" role="img" aria-label="論文 Table 3 のドットプロット。真の CATE と比べたときの誤判定の割合を、6つのシミュレーション設定について元のアウトカムと二重頑健調整で比べる。aw σ=0.5 では39.3%から4.4%、nw σ=2 では15.9%から10.7%など、どの設定でも調整後のほうが低い。"></svg>
+      <figcaption>図3　真の CATE より因果フォレストを良いと判定した割合（%）。<span class="A">●</span> 元のアウトカム、<span class="B">●</span> 二重頑健調整（論文 Table 3 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算も処置コストも扱わず、RCT での評価指標の分散を減らす方法を示す</h2>
+    <ul class="def">
+      <li><strong>何を推定するか</strong>：新しいアップリフトモデルは提案しない。学習済みモデルの CATE 予測や順位を、RCT のテストデータでどう評価するかを扱う。学習データで当てるのは、評価のための補助の予測 \(\hat\Phi(X)\)（アウトカムの条件付き期待値）である。</li>
+      <li><strong>コストの扱い</strong>：処置コストは式に出てこない。付録では、処置を決めるごとにコスト \(c\) を足す targeting profit（Hitsch &amp; Misra）にも同じ分析が当てはまり、コストは統計的な性質に関係しないと述べている。序論では、コストが人によって違うときは順位だけでは処置を決められないことを、精度の指標 \(MSE_W\) を扱う理由に挙げている。</li>
+      <li><strong>処置の種類</strong>：二値で、処置確率 \(p\) は全員共通の定数（RCT）。傾向スコアが人によって違う観測データは対象外である。2 種類の広告がある Hillstrom は、片方の群を除いて二値にしている。</li>
+      <li><strong>予算制約の扱い</strong>：予算は Qini 曲線の横軸である処置する人の割合 \(s\) として現れるだけで、金額の予算や総コストの上限は扱っていない。</li>
+    </ul>
+    <p>ROI 順の割当てとの関係は次のように整理できる（解説者の注）。予算のもとでナップザック問題の連続緩和を解くと、「増分の利益 ÷ 期待コスト」の大きい順に配ることになる。こうした方策どうしを同じ予算で比べるのは、論文の分類では決定の指標の差 \(\hat v(d_1)-\hat v(d_2)\) に当たる。付録は、この差が変換アウトカムの和で書けるので調整で分散が減ること、また差を取れば調整による偏りが消えることを示している。そのため、ROI 順の方策を予算ごとに比べる場面にもこの調整は使えると考えられる。ただし購入したときだけコストがかかる場合は、予算に対応する人数がアウトカムによって変わる。横軸を累積コストにした曲線の分散は、この論文では分析されていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{bokelmann2024improving,
+  title   = {Improving uplift model evaluation on randomized controlled trial data},
+  author  = {Bokelmann, Bj{\"o}rn and Lessmann, Stefan},
+  journal = {European Journal of Operational Research},
+  volume  = {313},
+  number  = {2},
+  pages   = {691--707},
+  year    = {2024},
+  doi     = {10.1016/j.ejor.2023.09.018}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 1: schematic, explainer-chosen toy values (p = 0.5, tau = 1) ----------
+// W^p Y = tau + W^p (Phi + eps)            (original outcome)
+// W^p (Y - Phi_hat) = tau + W^p (Phi - Phi_hat + eps)   (adjusted outcome)
+(function () {
+  var svg = document.getElementById('fig-strip'); if (!svg) return;
+  var el = mk(svg);
+  var phi = [1.2, 3.4, 2.1, 0.6, 2.8, 1.7, 3.9, 0.9, 2.4, 1.4, 3.1, 0.4, 2.0, 3.6, 1.0, 2.6];
+  var eps = [0.10, -0.15, 0.05, 0.20, -0.05, 0.15, -0.20, 0.00, 0.10, -0.10, 0.05, 0.15, -0.15, 0.00, 0.20, -0.05];
+  var err = [0.20, -0.25, 0.10, -0.15, 0.30, -0.10, 0.15, -0.30, 0.05, 0.25, -0.20, 0.10, -0.05, 0.20, -0.15, 0.00];
+  var X0 = 40, X1 = 620, LO = -9, HI = 11;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  el('line', { x1: px(1), x2: px(1), y1: 28, y2: 262, stroke: '#16202E', 'stroke-width': 2, 'stroke-dasharray': '6 4' });
+  el('text', { x: px(1) + 8, y: 40, 'font-size': 15, fill: '#16202E' }, '真の効果 τ = 1');
+  [[90, '元のアウトカム', '#C2410C', 0], [200, '調整後のアウトカム', '#1D4ED8', 1]].forEach(function (row) {
+    var y = row[0], c = row[2];
+    el('line', { x1: X0, x2: X1, y1: y, y2: y, stroke: '#D9DEE6', 'stroke-width': 1.5 });
+    el('text', { x: X0, y: y - 30, 'font-size': 16, 'font-weight': 600, fill: c }, row[1]);
+    phi.forEach(function (f, i) {
+      var wp = i % 2 === 0 ? 2 : -2, v = row[3] === 0 ? 1 + wp * (f + eps[i]) : 1 + wp * (err[i] + eps[i]);
+      var dy = (i % 4 < 2 ? -9 : 9);
+      el('circle', wp > 0 ? { cx: px(v), cy: y + dy, r: 7, fill: c } : { cx: px(v), cy: y + dy, r: 6, fill: '#fff', stroke: c, 'stroke-width': 2.5 });
+    });
+  });
+  [-8, -4, 0, 4, 8].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: 248, y2: 256, stroke: '#5B6676' });
+    el('text', { x: px(v), y: 276, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, String(v).replace('-', '−'));
+  });
+  el('line', { x1: X0, x2: X1, y1: 252, y2: 252, stroke: '#5B6676' });
+  el('text', { x: X1, y: 296, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, '変換アウトカムの値');
+  el('text', { x: X1, y: 40, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, '模式図');
+})();
+
+// ---------- figure 2: Table 2 of the paper (arXiv v3), variance reduction on real-world data (%) ----------
+(function () {
+  var svg = document.getElementById('fig-real'); if (!svg) return;
+  var el = mk(svg);
+  var LB = '#93B0EE';
+  var rows = [
+    ['private', [16.4, 34.1, 33.3], [['15.6', '25.1'], ['15.1', '23.8']]],
+    ['Criteo', [0.4, 13.8, 12.4], [['12.7', '13.7'], ['11.3', '12.1']]],
+    ['Hillstrom', [14.4, 16.7, 16.6], [['1.79', '3.30'], ['1.75', '3.19']]]
+  ];
+  var L0 = 110, L1 = 340, R0 = 392, R1 = 556, MAX = 40, Y0 = 70, GH = 98, BH = 16;
+  function lx(v) { return L0 + v / MAX * (L1 - L0); }
+  function rx(v) { return R0 + v / 30 * (R1 - R0); }
+  el('text', { x: L0, y: 28, 'font-size': 16, 'font-weight': 600, fill: '#16202E' }).innerHTML = 'Δ<tspan class="mi">MSE</tspan><tspan class="mi" font-size="12" dy="4">W</tspan>';
+  el('text', { x: R0, y: 28, 'font-size': 16, 'font-weight': 600, fill: '#16202E' }, 'Qini 曲線（10 点の範囲）');
+  [0, 10, 20, 30, 40].forEach(function (v) {
+    el('line', { x1: lx(v), x2: lx(v), y1: 44, y2: Y0 + GH * 3 - 16, stroke: '#D9DEE6' });
+    el('text', { x: lx(v), y: Y0 + GH * 3 + 4, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, v);
+  });
+  [0, 10, 20, 30].forEach(function (v) {
+    el('line', { x1: rx(v), x2: rx(v), y1: 44, y2: Y0 + GH * 3 - 16, stroke: '#D9DEE6' });
+    el('text', { x: rx(v), y: Y0 + GH * 3 + 4, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, v);
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + GH * i;
+    el('text', { x: L0 - 12, y: y + 30, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    ['#CBD2DC', LB, '#1D4ED8'].forEach(function (c, k) {
+      var yy = y + k * (BH + 4);
+      el('rect', { x: L0, y: yy, width: Math.max(lx(r[1][k]) - L0, 1.5), height: BH, fill: c });
+      el('text', { x: lx(r[1][k]) + 5, y: yy + 13, 'font-size': 13, fill: '#16202E' }, r[1][k].toFixed(1));
+    });
+    [LB, '#1D4ED8'].forEach(function (c, k) {
+      var yy = y + (k + 1) * (BH + 4), a = r[2][k][0], b = r[2][k][1];
+      el('rect', { x: rx(+a), y: yy, width: Math.max(rx(+b) - rx(+a), 3), height: BH, fill: c });
+      el('text', { x: rx(+b) + 5, y: yy + 13, 'font-size': 13, fill: '#16202E' }, a + '–' + b);
+    });
+  });
+  el('text', { x: (L0 + R1) / 2, y: Y0 + GH * 3 + 26, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '分散の減少率（%）');
+})();
+
+// ---------- figure 3: Table 3 of the paper (arXiv v3), misleading evaluations vs. the true CATE (%) ----------
+(function () {
+  var svg = document.getElementById('fig-mis'); if (!svg) return;
+  var el = mk(svg);
+  var rows = [['aw, σ = 0.5', 39.3, 4.4], ['aw, σ = 1', 32.9, 8.7], ['aw, σ = 2', 25.1, 9.2],
+              ['nw, σ = 0.5', 33.8, 6.6], ['nw, σ = 1', 26.4, 8.2], ['nw, σ = 2', 15.9, 10.7]];
+  var X0 = 150, X1 = 600, HI = 45, Y0 = 62, DY = 42;
+  function px(v) { return X0 + v / HI * (X1 - X0); }
+  [0, 10, 20, 30, 40].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 5 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 5 + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v);
+  });
+  el('circle', { cx: X0 + 6, cy: 20, r: 7, fill: '#C2410C' }); el('text', { x: X0 + 20, y: 25, 'font-size': 15, fill: '#16202E' }, '元のアウトカム');
+  el('circle', { cx: X0 + 156, cy: 20, r: 7, fill: '#1D4ED8' }); el('text', { x: X0 + 170, y: 25, 'font-size': 15, fill: '#16202E' }, '二重頑健調整');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 14, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(r[2]), x2: px(r[1]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+    el('circle', { cx: px(r[1]), cy: y, r: 8, fill: '#C2410C' });
+    el('circle', { cx: px(r[2]), cy: y, r: 8, fill: '#1D4ED8' });
+    el('text', { x: px(r[1]) + 14, y: y + 5, 'font-size': 13, fill: '#5B6676' }, r[1]);
+    el('text', { x: px(r[2]) - 14, y: y + 5, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }, r[2]);
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 5 + 66, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '誤判定の割合（%）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

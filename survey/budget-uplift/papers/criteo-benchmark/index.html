@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>個別処置効果予測とアップリフトモデリングの大規模ベンチマーク（論文解説）</title>
+<meta name="description" content="A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling（arXiv 2021）の非公式の解説。Criteo の広告 RCT を合わせた約 1,398 万件の公開データ CRITEO-UPLIFTv2 と、それを使った評価の手順。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = small, older benchmarks (IHDP, Jobs, Hillstrom) and small test sets, where the
+                         evaluation noise hides the differences between models
+            --b  (blue)   = the paper's large dataset CRITEO-UPLIFTv2 / CRITEO-ITE and its proposals
+                         (full test set, multi-peaked response surfaces)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2021</div>
+  <h1>A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling</h1>
+  <p class="subtitle">個別処置効果の予測とアップリフトモデリングのための大規模ベンチマーク</p>
+
+  <ul class="authors">
+    <li><b>Eustache Diemert</b><span>Criteo AI Lab</span></li>
+    <li><b>Artem Betlei</b><span>Criteo AI Lab, University Grenoble Alps</span></li>
+    <li><b>Christophe Renaudin</b><span>Criteo AI Lab</span></li>
+    <li><b>Massih-Reza Amini</b><span>University Grenoble Alps</span></li>
+    <li><b>Théophane Gregoir</b><span>Criteo AI Lab, ENS Paris Saclay</span></li>
+    <li><b>Thibaud Rahier</b><span>Criteo AI Lab</span></li>
+  </ul>
+
+  <p class="lead">因果効果の推定手法は数百から数万件の<span class="A">小さな公開データ</span>で比べられることが多かった。この論文は、Criteo が実施した複数の広告 RCT をまとめた約 1,398 万件の<span class="B">CRITEO-UPLIFTv2</span>を公開し、データの作り方と妥当性の確認、アップリフトモデリングと個別処置効果（ITE）予測の評価手順を示す。テストデータが 100 万件以上になると、アップリフトモデルの性能差を信頼区間で区別できるようになった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2111.10106">arXiv</a>
+    <a class="btn" href="https://github.com/criteo-research/large-scale-ITE-UM-benchmark">Code</a>
+    <a class="btn" href="https://ailab.criteo.com/criteo-uplift-prediction-dataset/">Dataset</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。既存ベンチマークの件数、小さなテストデータでの評価のぶれ（模式図）、広告 RCT を合わせたデータの構成、論文 Table 5 の ITE モデルの順位、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">13,979,592 件</span><span class="d">CRITEO-UPLIFTv2 の件数。論文 Table 1 で比べている Hillstrom（42,693 件）や IHDP（747 件）より桁違いに大きい。</span></li>
+    <li><span class="k">処置群 85%、訪問 4.70%</span><span class="d">処置群と対照群の比率も、結果ラベルの比率も大きく偏っている。コンバージョンの陽性率は 0.29% しかない（Table 1）。</span></li>
+    <li><span class="k">100 万件から</span><span class="d">テストデータが 100 万件未満では 4 つのアップリフトモデルの信頼区間がほぼ重なり、100 万件以上で初めて区別できた（Fig. 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>因果推論の公開ベンチマークは、1980 年代の小さなデータに偏っていた</h2>
+    <p>ITE 予測の研究では乳幼児の発達支援を調べた IHDP（1,000 件未満）と、職業訓練の効果を調べた Jobs（約 3,000 件）が今も主なベンチマークである。どちらも 1980 年代に集められた。アップリフトモデリングで公開されている例外的なデータは、電子メール施策の Hillstrom（論文本文では 64,000 件）くらいで、件数も特徴量の次元も現代の Web データには及ばない。</p>
+    <p>論文は、少数のデータで最高性能を競い続けると研究全体がそのデータに過剰適合する（conceptual overfitting）おそれがあり、公開データがないために非公開データで結果を報告して再現できなくなる例もあると指摘する。データが大きければ評価指標の分散が小さくなり、手法間の有意な差も捉えやすくなる。</p>
+    <figure>
+      <svg class="fig" id="fig-size" viewBox="0 0 640 290" role="img" aria-label="論文 Table 1 の件数を対数軸で比べた横棒グラフ。IHDP (Hill) 747件、Jobs 3,212件、IHDP (ACIC 2017) 4,302件、Hillstrom 42,693件、CRITEO-UPLIFTv2 13,979,592件。"></svg>
+      <figcaption>図1　ベンチマークの件数（対数軸）。<span class="A">■</span> 既存のデータ、<span class="B">■</span> CRITEO-UPLIFTv2（論文 Table 1 の数値から解説者が作図）。Hillstrom の件数は本文では 64,000 件、Table 1 では 42,693 件となっている。</figcaption>
+    </figure>
+  </section>
+
+  <section id="tasks">
+    <div class="kicker">問題設定</div>
+    <h2>ITE 予測は観察データを、アップリフトモデリングは RCT のデータを前提にする</h2>
+    <p>どちらも処置 \(T\in\{0,1\}\) を変えると結果 \(Y\) がどう変わるかを特徴 \(x\) ごとに推定する。ITE 予測が推定するのは条件付き平均処置効果（CATE）である。</p>
+    <div class="eq">\[ \tau(x) = \mathbb{E}[Y(1) - Y(0) \mid X = x] = \mu_1(x) - \mu_0(x) \]</div>
+    <p>\(\mu_0, \mu_1\) は応答曲面と呼ばれる。ITE 予測は観察データを想定するので、処置の割り付けの偏り（選択バイアス）にも対処する必要がある。性能は真の効果との二乗誤差 PEHE で測るが、実データでは反実仮想の結果が観測できないので計算できない。そのため、実データの特徴量に人工の応答曲面を組み合わせた半合成データで評価するのが普通である。</p>
+    <p>アップリフトモデリングは処置群と対照群を無作為に分けた RCT のデータを前提にする。このとき CATE は観測できる量の差 \(u(x) = \mathbb{E}[Y\mid T{=}1, X{=}x] - \mathbb{E}[Y\mid T{=}0, X{=}x]\) で表せる。個人の真の効果は観測できないので、予測したアップリフトの大きい順に個人を並べ、上位の割合ごとに群のアップリフトを測るアップリフト曲線と、その曲線下面積 AUUC で評価する。</p>
+  </section>
+
+  <section id="dataset">
+    <div class="kicker">データ</div>
+    <h2>複数の広告主で実施した広告の RCT を、処置群の比率をそろえて 1 つにまとめた</h2>
+    <p>Criteo は母集団の一部に広告を出さない incrementality test（RCT の一種）を複数の広告主で実施した。広告主ごとに、ある時点で各ユーザー（ブラウザの cookie で識別）を無作為に処置群か対照群に割り当て、その時点までの行動から特徴量 \(X\) を記録する。割り当て後の 2 週間に、広告への接触 \(E\)、サイト訪問 \(V\)、コンバージョン \(C\) があったかどうかを記録した。対照群には広告が出ないので \(T=0 \Rightarrow E=0\)、訪問せずに購入はできないので \(V=0 \Rightarrow C=0\) が成り立つ。</p>
+    <p>特徴量を割り当ての時点で一斉に記録するのは、時間による交絡を避けるためである。広告システムはユーザーの反応を見て入札を変えるので、テスト中の行動は処置にもそれ以前の行動にも影響される。また、広告主ごとに処置群の比率が違ったので、テストの識別子が隠れた交絡因子になっていた。この場合、モデルは特徴量からどの広告主のテストかを見分けるだけで、見かけの性能を上げられてしまう。2018 年に公開した初版（v1）にはこの問題があったため、v2 ではすべてのテストを同じ処置群比率になるようサブサンプリングした。</p>
+    <figure>
+      <img src="assets/fig1_data_collection.png" alt="Data collection timeline. User features X are snapshotted at the moment users are randomly allocated to control or treatment; exposures E, visits V and conversions C are then logged during the A/B test period, giving one (E, V, C) triple per user." loading="lazy">
+      <figcaption>図2　データの集め方。特徴量を記録する期間のあと、無作為の割り当てと同時に特徴量 \(X\) を確定し、A/B テスト期間の接触・訪問・コンバージョンから \((E, V, C)\) を作る。図中の色は論文のもので、このページの色分けとは関係しない（論文 Fig. 1、CC BY-NC-ND 4.0、改変なし）。</figcaption>
+    </figure>
+    <p>完成したデータは 13,979,592 行で、1 行が 1 ユーザーにあたる。列は特徴量 12 個（連続値 4 個、カテゴリ 8 個）、処置の割り当て、広告への接触、訪問とコンバージョンの 2 つの二値ラベルである。カテゴリ特徴量の水準数は最大 3,743 ある（Table 2）。処置群の比率は 85% で、論文は、広告主が売上の機会損失を嫌って対照群を小さくとるのが典型的だと説明している。広告主の名前も特徴量の意味も公開せず、特徴量の値はランダムなベクトル空間にハッシュした。さらにラベルに不均一な負例サンプリングをかけ、元の効果の水準を推測できないようにしている。</p>
+    <p class="src">このページの数値は arXiv v1（2021 年 11 月 19 日）の本文と表による。Crossref で出版版は見つからなかった。</p>
+  </section>
+
+  <section id="validation">
+    <div class="kicker">妥当性の確認</div>
+    <h2>特徴量から処置を当てられないこと、特徴量で結果を予測できることを確かめた</h2>
+    <p>まず、処置が特徴量と独立であるかを分類器による 2 標本検定（C2ST）で調べた。特徴量から \(T\) を予測する分類器の対数損失は 0.42307 で、ランダムな分類器の損失の中央値 0.42269 と有意な差はなかった（片側検定の p 値 0.13667、Table 3）。帰無仮説 \(T \perp X\) は棄却されず、論文はこれを独立性が成り立つ根拠としている。</p>
+    <p>次に、記録した特徴量に予測力があるかを確かめた。訪問とコンバージョンを予測する分類器は、常に平均値を出す分類器に比べて、それぞれ 34.74% と 32.22% 性能が改善した（Table 4）。技術的に記録しやすい特徴量を選んで匿名化したので、自明な結果ではないと論文は述べている。</p>
+  </section>
+
+  <section id="uplift">
+    <div class="kicker">実験 1：アップリフトモデリング</div>
+    <h2>テストデータが 100 万件以上になって初めて、4 つのアップリフトモデルの差が見分けられた</h2>
+    <p>CRITEO-UPLIFTv2 を学習 80%、テスト 20% に分け、テストデータから既存のデータと同程度の件数（1,000、5,000、50,000）と 100 万件を抜き出し、テストデータ全体（約 280 万件）と合わせて AUUC を比べた。比べたのは Two-Model（TM）、Class Variable Transformation（CVT）、Modified Outcome Method（MOM）、Shared Data Representation（SDR）の 4 つで、正則化の強さを層化 5 分割交差検証で選んだ。</p>
+    <p>ラベルには訪問を使った。コンバージョンはラベルの偏りが大きく、アップリフトの信号が弱すぎるためである。評価指標は Devriendt らが処置の不均衡に頑健だとした「separate, relative」版の AUUC で、信頼区間は AUUC の test set bound で求めた。特徴量は連続値 4 個と、カテゴリ特徴量をランダムベクトルに射影した 100 個を one-hot 化したものである。</p>
+    <p>結果は図3のとおりで、テストデータが 100 万件より小さいうちは 4 手法の信頼区間がほぼ重なり、AUUC で区別できなかった。100 万件以上になると手法を区別でき、モデル選択ができるようになった。論文はこの難しいタスクには大きなデータが必要だと結論している。</p>
+    <figure>
+    <div class="pair">
+      <img src="assets/fig4a_auuc_all_sizes.png" alt="AUUC of TM, CVT, MOM and SDR against test data size from 1k to the full 2.8M, with confidence intervals. Intervals are wide and overlapping at 1k and 5k and shrink as the test size grows." loading="lazy">
+      <img src="assets/fig4b_auuc_large_sizes.png" alt="Zoom on test sizes 50k, 1M and 2.8M (full). Confidence intervals become narrow at 1M and the full test set." loading="lazy">
+    </div>
+    <figcaption>図3　テストデータの件数と AUUC。左は全件数、右は 50k 以上の拡大。縦棒は信頼区間。図中の色は手法を区別するもので、このページの色分けとは関係しない（論文 Fig. 4、CC BY-NC-ND 4.0、改変なし）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ite">
+    <div class="kicker">実験 2：ITE 予測</div>
+    <h2>応答曲面を変えると、<span style="white-space:nowrap">ITE モデル</span>の順位が入れ替わった</h2>
+    <p>ITE 予測用には実データの特徴量に人工の応答曲面と偏った処置の割り付けを組み合わせた半合成版 CRITEO-ITE を作った。応答曲面は 3 種類ある。Hill（2011）の Case A（\(\mu_0 = x\beta,\ \mu_1 = x\beta + 4\) で効果が一定）、Case B（\(\mu_0\) が指数関数、\(\mu_1\) が線形）、そして論文が新たに提案する<span class="B">多峰型</span>である。</p>
+    <div class="eq">\[ \mu_t(x) = \sum_{c \in \mathcal{C}} w_{t,c} \exp\!\left(-\frac{\lVert x - c \rVert^2}{2\sigma_c^2}\right),\ \ t \in \{0, 1\} \]</div>
+    <p>アンカー点 \(c\) の近くでは効果がほぼ \(w_{1,c} - w_{0,c}\) になり、離れるほど指数的に影響が弱まる。この形は実データのアップリフトを第 1 主成分に沿って見ると単調でなく、山が複数あったこと（図4）に着想を得ている。処置の割り付けは結果の予測に最も効く特徴量 1 つのシグモイド関数で偏らせ、確率を \([\delta, 1-\delta]\)（\(\delta = 0.01\)）に収めて重なりの仮定を保つ。</p>
+    <figure>
+      <img src="assets/fig3_pca_uplift.png" alt="Left: visit rate of treatment and control groups binned along the first principal component of the continuous features. Right: the corresponding average uplift, which is non-monotone with several peaks and turns negative at the right end." loading="lazy">
+      <figcaption>図4　連続特徴量の第 1 主成分に沿った訪問率（左、処置群と対照群）とアップリフト（右）。図中の色は論文のもので、このページの色分けとは関係しない（論文 Fig. 3、CC BY-NC-ND 4.0、改変なし）。</figcaption>
+    </figure>
+    <p>実験では連続値 4 個とランダム射影 5 個を one-hot 化した 32 次元の特徴量を使った。多峰型はアンカー点 5 個、\(\sigma_c = 1\) とし、重みを一様分布から引いたあと平均処置効果がほかの曲面と同じ約 4 になるよう調整した。各曲面で 10 回データを生成し、毎回 10 万件を抜き出して 5 分割交差検証で調整し、学習とテストを半分ずつに分けて \(\sqrt{\epsilon_{\mathrm{PEHE}}}\) を測った。</p>
+    <p>比べたのは T・X・R・DR-Learner（基本モデルはランダムフォレスト）と TARNet、CFRNet である。CFRNet は Case B と多峰型で最良、DR-Learner は Case A で最良だった。X-Learner は Hill の 2 つの曲面で R-Learner を上回ったが、多峰型では逆になった（0.413 対 0.356）。論文はこの結果から、多様な応答曲面を用意することが重要であり、多峰型はその一つになると述べている。</p>
+    <figure>
+      <svg class="fig" id="fig-rank" viewBox="0 0 640 360" role="img" aria-label="論文 Table 5 の平均 sqrt PEHE による順位を、Case A、Case B、多峰型の3列で結んだ図。CFRNet は Case B と多峰型で1位、DR-Learner は Case A で1位だが他では5位。X-Learner は Case A で4位、Case B で3位、多峰型で6位。R-Learner は Case A で5位、Case B で6位、多峰型で4位。"></svg>
+      <figcaption>図5　平均 \(\sqrt{\epsilon_{\mathrm{PEHE}}}\)（小さいほどよい）の順位。数字は 10 回の平均値で、論文には標準偏差も載っている。X-Learner（実線）と R-Learner（破線）は論文が本文で挙げた組（論文 Table 5 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>費用も予算も扱わず、二値の処置の効果を評価するためのデータと手順を示す</h2>
+    <p>この論文が推定・評価の対象にするのは、二値の処置（広告を出す群への割り当て）が訪問やコンバージョンに与えるアップリフト \(u(x)\) と、半合成版での CATE \(\tau(x)\) である。データには処置の割り当てとは別に広告への接触 \(E\) が入っているが、論文の実験では使っていない。</p>
+    <p>費用は扱っていない。データに広告費や売上の金額はなく、ラベルは訪問とコンバージョンの二値だけである。予算制約も出てこない。評価はアップリフトの順に並べたときの AUUC と、半合成データでの PEHE で行う。</p>
+    <p>ROI 順の割当て（ナップザック問題の連続緩和）で使う「効果 ÷ 費用」の比は、このデータからは直接作れない。ただし文献表の ROI 系の論文（DRP や rDRP など）は、訪問ラベルを費用、コンバージョンラベルを便益とみなしてこのデータを使っている（解説者の注）。その場合も、匿名化のために負例サンプリングをかけてあるので、データ上の効果の水準は元の広告の効果そのものではない点に注意が要る（解説者の注）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{diemert2021large,
+  title         = {A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling},
+  author        = {Diemert, Eustache and Betlei, Artem and Renaudin, Christophe and Amini, Massih-Reza and Gregoir, Th{\'e}ophane and Rahier, Thibaud},
+  year          = {2021},
+  eprint        = {2111.10106},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ML},
+  doi           = {10.48550/arXiv.2111.10106}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 2: dataset sizes, Table 1 of the paper (arXiv v1) ----------
+(function () {
+  var svg = document.getElementById('fig-size'); if (!svg) return; var el = mk(svg);
+  var rows = [['IHDP (Hill)', 747, 0], ['Jobs', 3212, 0], ['IHDP (ACIC 2017)', 4302, 0], ['Hillstrom', 42693, 0], ['CRITEO-UPLIFTv2', 13979592, 1]];
+  var X0 = 170, X1 = 610, Y0 = 34, DY = 44;
+  function px(v) { return X0 + (Math.log10(v) - 2) / 6 * (X1 - X0); }
+  [2, 4, 6, 8].forEach(function (k) {
+    el('line', { x1: px(Math.pow(10, k)), x2: px(Math.pow(10, k)), y1: Y0 - 18, y2: Y0 + DY * 4 + 18, stroke: '#D9DEE6' });
+    el('text', { x: px(Math.pow(10, k)), y: Y0 + DY * 4 + 42, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, ['100', '1万', '100万', '1億'][k / 2 - 1]);
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i, c = r[2] ? '#1D4ED8' : '#C2410C';
+    el('text', { x: X0 - 12, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('rect', { x: X0, y: y - 12, width: px(r[1]) - X0, height: 24, rx: 4, fill: c });
+    el('text', { x: px(r[1]) + 8, y: y + 5, 'font-size': 15, 'font-weight': 600, fill: c }, r[1].toLocaleString('en-US'));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 4 + 66, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '件数（対数軸）');
+})();
+
+// ---------- figure 5: ranks by mean sqrt(PEHE), Table 5 of the paper (arXiv v1) ----------
+(function () {
+  var svg = document.getElementById('fig-rank'); if (!svg) return; var el = mk(svg);
+  var models = {
+    'T-Learner': [0.317, 1.890, 0.333], 'X-Learner': [0.117, 1.883, 0.413], 'R-Learner': [0.272, 11.668, 0.356],
+    'DR-Learner': [0.047, 2.510, 0.379], 'TARNet': [0.104, 0.682, 0.195], 'CFRNet': [0.057, 0.239, 0.152]
+  };
+  var names = Object.keys(models), XS = [150, 300, 450], Y0 = 70, DY = 46;
+  var heads = [['Case A', '#5B6676'], ['Case B', '#5B6676'], ['多峰型（提案）', '#1D4ED8']];
+  function rank(j, n) { var v = models[n][j]; return names.filter(function (m) { return models[m][j] < v; }).length; }
+  heads.forEach(function (h, j) { el('text', { x: XS[j], y: 32, 'font-size': 15, 'font-weight': 600, fill: h[1], 'text-anchor': 'middle' }, h[0]); });
+  for (var r = 0; r < 6; r++) el('text', { x: 24, y: Y0 + DY * r + 5, 'font-size': 14, fill: '#5B6676' }, (r + 1) + ' 位');
+  names.forEach(function (n) {
+    var hl = n === 'X-Learner' || n === 'R-Learner', col = hl ? '#16202E' : '#B4BCC8';
+    var pts = [0, 1, 2].map(function (j) { return [XS[j], Y0 + DY * rank(j, n)]; });
+    var a = { points: pts.join(' '), fill: 'none', stroke: col, 'stroke-width': hl ? 3 : 2 };
+    if (n === 'R-Learner') a['stroke-dasharray'] = '7 5';
+    el('polyline', a);
+  });
+  names.forEach(function (n) {
+    var hl = n === 'X-Learner' || n === 'R-Learner', col = hl ? '#16202E' : '#8792A2';
+    [0, 1, 2].forEach(function (j) {
+      var y = Y0 + DY * rank(j, n);
+      el('circle', { cx: XS[j], cy: y, r: 6, fill: col });
+      el('text', { x: XS[j] + 11, y: y - 8, 'font-size': 13, fill: '#5B6676', stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke' }, models[n][j].toFixed(3));
+    });
+    el('text', { x: XS[2] + 64, y: Y0 + DY * rank(2, n) + 5, 'font-size': 15, 'font-weight': hl ? 600 : 400, fill: hl ? '#16202E' : '#5B6676' }, n);
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

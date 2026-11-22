@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オフラインの制約付き深層強化学習によるマーケティング予算配分（論文解説）</title>
+<meta name="description" content="Marketing Budget Allocation with Offline Constrained Deep Reinforcement Learning（WSDM 2023）の非公式の解説。クーポンの長期の効果を見るため予算配分を制約付き強化学習で学び、保存する方策の数を高々 m+2 個に抑える。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = short-term view and its costs: two-step methods (response model + LP) that
+                         optimise next-day response, and the original mixed policy whose stored policies grow
+            --b  (blue)   = long-term view and the paper's fix: offline constrained RL on multi-day DAU, and AIM
+                         policies that keep at most m+2 stored policies
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">WSDM · 2023</div>
+  <h1>Marketing Budget Allocation with Offline Constrained Deep Reinforcement Learning</h1>
+  <p class="subtitle">オフラインの制約付き深層強化学習によるマーケティング予算配分</p>
+
+  <ul class="authors">
+    <li><b>Tianchi Cai</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Jiyan Jiang</b><span>Tsinghua University, Beijing, China</span></li>
+    <li><b>Wenpeng Zhang</b><span>Ant Group, Beijing, China</span></li>
+    <li><b>Shiji Zhou</b><span>Tsinghua University, Beijing, China</span></li>
+    <li><b>Xierui Song</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Li Yu</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Lihong Gu</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Xiaodong Zeng</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Jinjie Gu</b><span>Ant Group, Hangzhou, China</span></li>
+    <li><b>Guannan Zhang</b><span>Ant Group, Hangzhou, China</span></li>
+  </ul>
+
+  <p class="lead">クーポンの効果は 1 週間かけて表れるのに、従来の方法は<span class="A">翌日の反応</span>だけを見て予算を配ってきた。この論文は予算配分を、過去のログから学ぶ制約付き強化学習として定式化し、収束が保証される混合方策の方法で解く。そのうえで、保存しておく方策の数を学習の長さによらず<span class="B">高々 \(m+2\) 個</span>に抑える AIM 方策を提案し、Alipay のキャンペーンでは週平均の DAU を 0.6% 高めた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3539597.3570486">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2309.02669">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。翌日の反応を見る従来の2段階の方法、論文 Table 1 の期間ごとのDAUの増分、混合方策の保存数とAIM方策、論文 Table 2 とオンライン実験の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">1 日 32% → 7 日 82%</span><span class="d">クーポンを 1 元から 3 元に増やしたときの DAU の増分が、非アクティブ層では活発な層より何割大きいか。見る期間を延ばすほど差が開いた（Table 1）。</span></li>
+    <li><span class="k">高々 \(m+2\) 個</span><span class="d">制約が \(m\) 本のとき、AIM 方策が保存する方策の数。元の混合方策の方法では学習のステップ数に比例して増える。</span></li>
+    <li><span class="k">週平均 DAU +0.6%</span><span class="d">1 週間のオンライン A/B テストで、DIN と線形計画による配分と比べた結果。クーポン費用は 0.8% 減った。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>クーポンの効果は数日かけて表れ、翌日の反応だけでは非アクティブな利用者への効果を小さく見積もる</h2>
+    <p>題材は Alipay が 2020 年第 4 四半期から 2021 年第 2 四半期にかけて行った決済アプリの販促キャンペーンである。利用者はアプリで支払うと 1 日 1 枚の現金クーポンを使え、翌日分のクーポンを受け取る。参加者は数千万人、配って使われたクーポンは 10 億元を超える。成果はアプリで決済した利用者の週平均 DAU で測る。</p>
+    <p>従来の方法は 2 段階で配る。まず応答モデルでクーポン額ごとの翌日の利用率などの短期の反応を予測し、次に予算の制約のもとで最適化問題を解いて配分を決める。この枠組みは大規模でも動くが、何度か使ううちに新しい支払いの習慣がつくといった<span class="B">長期の効果</span>は、翌日の反応だけを見る応答モデルでは捉えられない。</p>
+    <p>論文はランダムに配ったデータでこれを確かめている。クーポンを 1 元から 3 元に増やしたときの DAU の増分は、過去の DAU で分けた非アクティブ層のほうが大きく、その差は 1 日で見ると 32% だが、7 日で見ると 82% に広がった（Table 1）。<span class="A">短期の指標</span>だけを見ると、非アクティブ層に予算を多く回す価値を大きく過小評価する可能性が高い。</p>
+    <ul class="def">
+      <li>1 日：非アクティブ層 +0.15、活発な層 +0.11（論文の差 32%）</li>
+      <li>3 日：+0.54、+0.31（72%）</li>
+      <li>7 日：+1.24、+0.68（82%）</li>
+    </ul>
+    <p class="src">表の値（小数 2 桁に丸めた値）から計算すると、差は 1 日で約 36%、3 日で約 74% になるが、論文の表では 32%、72% となっている。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>予算配分を、累積コストの期待値に上限を置いた制約付きマルコフ決定過程として学ぶ</h2>
+    <p>論文は問題を制約付きマルコフ決定過程（CMDP）として書く。各時点で状態 \(s_t\) を見て行動 \(a_t\)（クーポン額）を選ぶと、報酬 \(r_t\) と、予算の消費を表す \(m\) 次元のコスト \(\mathbf{c}_t\) が生じる。割引率 \(\gamma\) のもとでの期待累積報酬を \(J_r\)、期待累積コストを \(J_{\mathbf{c}}\) とし、この 2 つを並べた \(m+1\) 次元の<strong>測定ベクトル</strong> \(\mathbf{x}(\pi) = [J_r(\pi), J_{\mathbf{c}}(\pi)]\) で方策を比べる。</p>
+    <div class="eq">\[ \max_{\mu \in \Delta(\Pi)} \; J_r(\mu) \quad \text{s.t.} \quad J_{\mathbf{c}}(\mu) \preceq \boldsymbol{\tau} \]</div>
+    <p>学習に使えるのは、過去の方策で集めた遷移のデータ \(D\) だけである（オフライン）。ここで \(\Delta(\Pi)\) は決定的な方策の上の確率分布、つまり<strong>混合方策</strong>で、エピソードの初めに方策を 1 つ抽選し、そのエピソードの間はそれに従う。制約がなければ決定的な方策で最適にできるが、制約があると最適な方策が決定的とは限らない。論文の例では、報酬 0・コスト 0 の行動と報酬 1・コスト 1 の行動があり、コストの上限が \(\tau \in (0,1)\) なら、後者を確率 \(\tau\) で選ぶのが最適になる。</p>
+    <p>この問題はラグランジュ乗数 \(\boldsymbol\lambda \ge 0\) を入れて、方策 \(\mu\) と乗数 \(\boldsymbol\lambda\) の二人ゼロ和ゲームの均衡を求める問題に書き換えられる。</p>
+    <div class="eq">\[ \max_{\mu}\,\min_{\boldsymbol\lambda \ge 0}\; L(\mu, \boldsymbol\lambda) = J_r(\mu) - \boldsymbol\lambda^{\top}\big(J_{\mathbf{c}}(\mu) - \boldsymbol\tau\big) \]</div>
+    <p>\(\boldsymbol\lambda\) を固定すれば、報酬を \(r - \boldsymbol\lambda^{\top}(\mathbf{c} - \boldsymbol\tau)\) に置き換えた制約なしの強化学習になり、Q 学習などのオフラインの手法でそのまま解ける。</p>
+  </section>
+
+  <section id="mixed-policy">
+    <div class="kicker">課題</div>
+    <h2>混合方策による解き方は最適な方策に収束するが、学習した方策をすべて保存する必要がある</h2>
+    <p>元の混合方策の方法（論文 Algorithm 1）では、乗数 \(\boldsymbol\lambda_t\) をオンライン勾配降下法（OGD）で更新し、そのつど \(\boldsymbol\lambda_t\) に対する最良応答の方策 \(\pi_t\) を強化学習で求める。出力は \(\pi_1, \dots, \pi_T\) を等確率で選ぶ混合方策で、双対ギャップは \(\boldsymbol\lambda\) 側の後悔を \(T\) で割った値 \(\mathrm{Regret}_T / T\) 以下に収まる（命題 1）。</p>
+    <p>乗数の平均はベクトル 1 本で保持できるが、方策の平均はそうはいかない。各方策は大規模なニューラルネットワークで、パラメータを平均しても方策の混合にはならないからである。そのため、<span class="A">学習した方策をすべて保存</span>しなければならず、必要なメモリは学習のステップ数に比例して増える。論文は、産業規模のマーケティングではこれが実装の妨げになると述べる。</p>
+  </section>
+
+  <section id="aim">
+    <div class="kicker">手法</div>
+    <h2>AIM 方策は、測定ベクトルがアフィン独立な高々 m+2 個の方策を混ぜて、同じ平均を再現する</h2>
+    <p>混合方策の測定ベクトルは混ぜた方策の測定ベクトルの凸結合である。そこで論文は、混ぜる方策の測定ベクトルが互いにアフィン独立になるように保つ <span class="B">AIM（Affinely Independent Mixed）方策</span>を提案する。測定ベクトルは \(m+1\) 次元なので、アフィン独立な点は高々 \(m+2\) 個しか取れない。目標の点がそれらの作る単体の中にあれば、重心座標を混合の確率に使うことで同じ測定ベクトルが得られる。</p>
+    <p><strong>AIM-mean</strong>（Algorithm 2）は、元の方法と同じ「これまでの方策の平均」を目標にする。新しい方策 \(\pi_t\) が来たら目標 \(\mathbf{x}_t\) を更新し、(i) \(\mathbf{x}_t\) が今の頂点のアフィン包の外なら \(\pi_t\) を頂点に加え、(ii) 単体の中なら頂点はそのままで重みだけを計算し直し、(iii) アフィン包の中だが単体の外なら、前の目標から新しい目標への線分が横切る面を探し、その面にない頂点を 1 つ外して \(\pi_t\) を入れる。測定ベクトルは元の方法とまったく同じなので、同じように最適な方策に収束する（系 1）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="制約が1本のときのAIM-meanの模式図。横軸は累積コスト、縦軸は累積報酬。古い三角形の頂点はπ1、π2、π3で、前の目標点は三角形の中にある。新しい方策π4が来て目標点が三角形の外に出ると、線分が横切る辺π2π3に乗らない頂点π1を外し、π2、π3、π4の三角形で新しい目標点を表す。">
+        <defs><marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker></defs>
+        <line x1="70" y1="340" x2="620" y2="340" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="70" y1="340" x2="70" y2="40" stroke="#16202E" stroke-width="1.5"/>
+        <text x="620" y="366" font-size="16" fill="#16202E" text-anchor="end">累積コスト <tspan class="mi">J</tspan><tspan font-size="12">c</tspan> →</text>
+        <text x="80" y="36" font-size="16" fill="#16202E">↑ 累積報酬 <tspan class="mi">J</tspan><tspan font-size="12">r</tspan></text>
+        <polygon points="300,90 430,300 580,150" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <polygon points="130,290 300,90 430,300" fill="none" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="6 5"/>
+        <line x1="413.3" y1="210" x2="580" y2="150" stroke="#9AA4B2" stroke-width="1.2" stroke-dasharray="3 4"/>
+        <line x1="330" y1="240" x2="406" y2="212.7" stroke="#1D4ED8" stroke-width="2" marker-end="url(#arB)"/>
+        <circle cx="130" cy="290" r="9" fill="#fff" stroke="#C2410C" stroke-width="3"/>
+        <line x1="122" y1="282" x2="138" y2="298" stroke="#C2410C" stroke-width="2.5"/>
+        <circle cx="300" cy="90" r="9" fill="#16202E"/>
+        <circle cx="430" cy="300" r="9" fill="#16202E"/>
+        <circle cx="580" cy="150" r="9" fill="#1D4ED8"/>
+        <circle cx="330" cy="240" r="6" fill="#5B6676"/>
+        <circle cx="413.3" cy="210" r="7" fill="#1D4ED8"/>
+        <circle cx="381.4" cy="221.5" r="4" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="112" y="320" font-size="16" fill="#C2410C" font-weight="600">π<tspan font-size="12">1</tspan>（外す）</text>
+        <text x="300" y="72" font-size="16" fill="#16202E" text-anchor="middle" font-weight="600">π<tspan font-size="12">2</tspan></text>
+        <text x="430" y="326" font-size="16" fill="#16202E" text-anchor="middle" font-weight="600">π<tspan font-size="12">3</tspan></text>
+        <text x="592" y="140" font-size="16" fill="#1D4ED8" font-weight="600">π<tspan font-size="12">4</tspan></text>
+        <text x="560" y="122" font-size="15" fill="#1D4ED8" text-anchor="middle">新しい方策</text>
+        <text x="322" y="266" font-size="15" fill="#5B6676" text-anchor="end">前の目標 <tspan class="mi">x</tspan><tspan font-size="11">t−1</tspan></text>
+        <text x="424" y="236" font-size="15" fill="#1D4ED8">新しい目標 <tspan class="mi">x</tspan><tspan font-size="11">t</tspan></text>
+        <text x="186" y="150" font-size="14" fill="#5B6676">破線：前の三角形</text>
+      </svg>
+      <figcaption>図1　制約が 1 本（\(m=1\)）のときの AIM-mean の更新（模式図。点の位置は解説者が置いた例）。測定ベクトルは（コスト、報酬）の 2 次元なので、保存する方策は高々 3 個になる。新しい目標が三角形の外に出たら、線分が横切る辺 π<sub>2</sub>π<sub>3</sub> に乗らない π<sub>1</sub> を外し、π<sub>4</sub> を加える。</figcaption>
+    </figure>
+    <p><strong>AIM-greedy</strong>（Algorithm 3）は、目標を平均にせず、前の目標と新しい方策を結ぶ線分の上で、制約を満たす範囲で報酬が最大になる点を選ぶ。両方が制約を満たすなら報酬の高いほう、どちらも満たさないなら制約までの距離が近いほう、片方だけ満たして満たさないほうの報酬が高いなら制約の境界上の点を選ぶ。収束の保証はないが、学習した方策のうち最もよい 1 つを選ぶ既存の工夫（single-best）より悪くならないことを示している（定理 1）。</p>
+    <p>さらに論文は、制約が \(m\) 本のとき、収束を保証するには少なくとも \(m+1\) 個の決定的な方策を混ぜる必要があることを示す（定理 2）。AIM の上限 \(m+2\) はこの下限に近く、要旨ではこれを「ほぼ最適」な方策の効率としている。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>ランダムに配った 420 万件のログで学習し、即時の予算をそろえてオフラインで比べた</h2>
+    <p>データは 2020 年 12 月の 1 週間に、一部の利用者に対して利用者単位でランダムにクーポン額を割り当てて集めた 420 万件である。平均のクーポン額は約 2.5 元で、ランダムな方策は最適でない可能性が高く、このデータの収集には実際に費用がかかっていると論文は述べる。各サンプルには年齢、性別、都市、行動の履歴など約 1,000 個の特徴量があり、ラベルは次の 1・3・7 日間の DAU である。全データ（約 56 GB）のほか、前日に参加したかどうかと活発さの水準の 2 特徴量だけの簡易版も作った。</p>
+    <p>比べたのは、短期の指標（1 日の DAU）を最適化する従来の 2 段階の方法（DeepFM と DIN）と、3 種類の強化学習（DDQN、EDRR、BCQ）それぞれで single-best・AIM-mean・AIM-greedy を使った方策である。公平に比べるため、どの方法も Q 値などを応答の予測とみなして線形計画で配分し、即時の予算を 3 元にそろえた。評価は重みを 20 で切り詰めた重点サンプリングによるオフラインの方策評価で、5 回の平均である。割引率は 0.8、学習とテストは利用者 ID のハッシュで 9 対 1 に分けた。</p>
+    <p class="src">以下の数値は arXiv v1（2023 年 9 月 6 日）の本文と表による。WSDM 掲載版（ACM）の本文は照合していない。</p>
+  </section>
+
+  <section id="offline">
+    <div class="kicker">実験の結果 1</div>
+    <h2>翌日の利用率では従来の方法が高いが、3 日と 7 日の DAU ではすべての強化学習の方策が上回った</h2>
+    <p>全データで 1 日の DAU（クーポンの利用率）が最も高いのは <span class="A">DIN</span>（0.6468）で、強化学習の方策で最も高い BCQ の AIM-greedy は 0.6205 だった。一方、7 日の DAU では DIN の 5.2237 に対し、<span class="B">BCQ の AIM-greedy</span> が 5.7020 と最も高い。3 日と 7 日の DAU では簡易版・全データのどちらでも、強化学習の 9 つの方策がすべて従来の 2 つを上回った。</p>
+    <p>強化学習の中では、AIM-greedy が 3 種類の手法と 6 つの指標の 18 通りすべてで single-best を上回った。AIM-mean は 18 通りのうち 17 通りで single-best より低い。論文は、AIM-mean の測定ベクトルは元の混合方策と同じなので、性能も元の方法と同じだと述べている。</p>
+    <figure>
+      <svg class="fig" id="fig-results" viewBox="0 0 640 470" role="img" aria-label="論文 Table 2 の全データの結果のドットプロット。左のパネルは1日のDAUで、DINの0.6468とDeepFMの0.6396が最も高い。右のパネルは7日のDAUで、BCQのAIM-greedyの5.7020が最も高く、DINとDeepFMは約5.2で最も低い。"></svg>
+      <figcaption>図2　全データでの 1 日の DAU（左）と 7 日の DAU（右）。<span class="A">●</span> 従来の 2 段階の方法、<span class="B">●</span> AIM-greedy、灰色はそれ以外の強化学習の方策。横軸の範囲はパネルごとに異なり、0 から始まらない（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <figure style="max-width:40rem">
+      <img src="assets/fig2_memory.png" alt="Training steps on the horizontal axis (0 to 10,000) and the number of stored model parameters on a log vertical axis. The original mixed policy method keeps growing with training steps, while AIM-mean and AIM-greedy stay roughly flat at a much lower level, with AIM-greedy lowest.">
+      <figcaption>図3　学習中に保存しているパラメータの数（BCQ、全データ、5 回の標準偏差つき）。元の方法（Original method）は学習とともに増え続け、AIM-mean と AIM-greedy はほぼ一定にとどまる。図中の色は論文のもので、このページの色分けとは対応しない（論文 Fig. 2、CC BY-NC-SA 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2</div>
+    <h2>オンラインの A/B テストでは、翌日の利用率は下がったが週平均の DAU が 0.6% 上がり、クーポン費用は 0.8% 減った</h2>
+    <p>本番では BCQ で学習し、乗数 \(\lambda\) を OGD で更新し、AIM-greedy で混合方策に加える方策を選ぶ。選ばれたモデルは重みとともに書き出され、オンラインの推論サーバーに読み込まれる。比較相手は DIN と線形計画による従来の配分で、利用者単位でランダムに分け、少ない流量から始めて徐々に増やした。</p>
+    <p>実験は 1 週間で、それぞれのモデルが 550 万枚のクーポンを配った。強化学習の方策は翌日のクーポン利用率では DIN を下回ったが、アプリの週平均 DAU を 0.6% 高め、クーポン費用を 0.8% 減らした。論文の事後分析によると、長期の価値を重視したため非アクティブな利用者に多くの予算が回り、その利用者の定着が増えたことで、活発な利用者で短期の指標が下がった分を補ったという。この方策はその後、キャンペーンの全流量に展開された。</p>
+    <figure style="max-width:40rem">
+      <img src="assets/fig3_deploy.png" alt="System diagram. Online request: users go through an A/B testing split, user features are fetched, and a real-time model makes the inference. Offline training: logged samples train a BCQ model; OGD updates lambda every 10 steps; AIM-greedy selects models, which are exported with their weights to the online inference.">
+      <figcaption>図4　オンラインの配信とオフラインの学習の流れ（論文 Fig. 3、CC BY-NC-SA 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は累積コストの期待値への制約としてラグランジュ乗数で扱い、処置効果は直接は推定しない</h2>
+    <p>この論文が学ぶのは、利用者の状態ごとに、クーポン額を選んだときの長期の価値（報酬からラグランジュ乗数で罰したコストを引いたものの割引累積）を表す Q 関数である。アップリフトや CATE を明示的には推定しないが、学習データは利用者単位でランダムに額を割り当てたログである。論文は報酬を DAU、コストをクーポンによる予算の消費として説明しているが、実験での報酬とコストの式は明示していない（解説者の注）。</p>
+    <p>処置は多値（クーポン額）で、毎日繰り返し配る逐次の決定として扱う。予算の制約は方策の期待累積コストに上限 \(\boldsymbol\tau\) を置く形で、総額の上限を確実に守る制約ではない。乗数 \(\boldsymbol\lambda\) を OGD で調整し、混合方策で期待値として制約を満たす。実験の比較では別途、線形計画で即時の予算を 3 元にそろえている。</p>
+    <p>\(\boldsymbol\lambda\) を固定したときの最良応答は、利用者ごとに「報酬 − \(\boldsymbol\lambda\) × コスト」が最大の額を選ぶことで、ナップザック問題（各利用者から額を 1 つ選ぶ多肢選択型）のラグランジュ緩和と同じ形をしている。配るか配らないかの二択なら、これは「増分の価値 ÷ 増分のコスト」が \(\lambda\) を超える人に配ることに当たり、ROI 順の割当てで比のしきい値を \(\lambda\) にしたものになる。論文の例 1 で、二つの行動を確率 \(\tau\) で混ぜるのが最適になるのも、連続緩和で境目の 1 品だけを分割して入れるのと同じ構造である（解説者の注）。違いは、価値とコストが翌日の反応ではなく割引累積の期待値で測られている点にある。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{cai2023marketing,
+  title     = {Marketing Budget Allocation with Offline Constrained Deep Reinforcement Learning},
+  author    = {Cai, Tianchi and Jiang, Jiyan and Zhang, Wenpeng and Zhou, Shiji and Song, Xierui and Yu, Li and Gu, Lihong and Zeng, Xiaodong and Gu, Jinjie and Zhang, Guannan},
+  booktitle = {Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining},
+  pages     = {186--194},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3539597.3570486}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 2: Table 2 of the paper (arXiv v1), full dataset, 1d and 7d DAU ----------
+(function () {
+  var svg = document.getElementById('fig-results'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  // [label, 1d DAU, 7d DAU, kind]  kind: a = classic two-step, b = AIM-greedy, g = other RL
+  var rows = [
+    ['DeepFM', 0.6396, 5.2114, 'a'], ['DIN', 0.6468, 5.2237, 'a'],
+    ['DDQN / Single-best', 0.5981, 5.6306, 'g'], ['DDQN / AIM-mean', 0.5779, 5.5759, 'g'], ['DDQN / AIM-greedy', 0.5998, 5.6361, 'b'],
+    ['EDRR / Single-best', 0.6156, 5.6390, 'g'], ['EDRR / AIM-mean', 0.6045, 5.6255, 'g'], ['EDRR / AIM-greedy', 0.6163, 5.6432, 'b'],
+    ['BCQ / Single-best', 0.6150, 5.6901, 'g'], ['BCQ / AIM-mean', 0.6159, 5.6685, 'g'], ['BCQ / AIM-greedy', 0.6205, 5.7020, 'b']
+  ];
+  var COL = { a: '#C2410C', b: '#1D4ED8', g: '#9AA4B2' };
+  var P = [{ x0: 200, x1: 385, lo: 0.57, hi: 0.66, ticks: [0.58, 0.62, 0.66], fmt: 2, i: 1, title: '1 日の DAU' },
+           { x0: 455, x1: 625, lo: 5.2, hi: 5.75, ticks: [5.2, 5.4, 5.6], fmt: 1, i: 2, title: '7 日の DAU' }];
+  var Y0 = 62, DY = 33, YB = Y0 + DY * 10;
+  P.forEach(function (p) {
+    function px(v) { return p.x0 + (v - p.lo) / (p.hi - p.lo) * (p.x1 - p.x0); }
+    p.px = px;
+    el('text', { x: (p.x0 + p.x1) / 2, y: 30, 'font-size': 16, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, p.title);
+    p.ticks.forEach(function (v) {
+      el('line', { x1: px(v), x2: px(v), y1: Y0 - 16, y2: YB + 16, stroke: '#D9DEE6' });
+      el('text', { x: px(v), y: YB + 40, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, v.toFixed(p.fmt));
+    });
+  });
+  [2, 5, 8].forEach(function (k) { el('line', { x1: 20, x2: 625, y1: Y0 + DY * (k - 0.5), y2: Y0 + DY * (k - 0.5), stroke: '#EEF0F3', 'stroke-width': 1 }); });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: P[0].x0 - 12, y: y + 5, 'font-size': 13.5, fill: '#16202E', 'text-anchor': 'end', 'font-weight': r[3] === 'g' ? 400 : 600 }, r[0]);
+    P.forEach(function (p) {
+      el('circle', { cx: p.px(r[p.i]), cy: y, r: 7, fill: COL[r[3]] });
+    });
+  });
+  el('text', { x: P[0].px(0.6468) - 12, y: Y0 + DY + 5, 'font-size': 13, fill: '#C2410C', 'text-anchor': 'end' }, '0.6468');
+  el('text', { x: P[1].px(5.7020) - 12, y: Y0 + DY * 10 + 5, 'font-size': 13, fill: '#1D4ED8', 'text-anchor': 'end' }, '5.7020');
+  el('text', { x: 412, y: YB + 64, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, '全データ、5 回の平均。即時の予算は 3 元にそろえてある');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
