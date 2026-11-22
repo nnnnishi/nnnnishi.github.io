@@ -167,6 +167,17 @@ papers:
     cost: 連続（処置量に比例）
     data: IHDP（半合成）
     note: 用量反応を因果機械学習で推定し、資源と公平性の制約のもとで整数計画により処置量を決める
+  - title: "Challenges and Methods of Causal Promotions Recommendation in E-commerce"
+    authors: "D. Goldenberg, A. Livne, C. Herrero-Gómez et al."
+    year: 2026
+    venue: "ACM TORS 5(2)"
+    url: "https://doi.org/10.1145/3769300"
+    code: ""
+    category: two-stage
+    treatment: 二値
+    cost: 購買時のみ
+    data: 自社データ（Booking.com）
+    note: Booking.com の販促運用をまとめる。購買者だけでの振り返り推定、比 CATE_Y/(−CATE_π) の分数貪欲法によるナップザック、取引ログだけで作るオフライン評価（Qini 曲線）と、継続的な実験の枠組みを示す
 
   # ---- 比の直接学習 ----
   - title: "定額のインセンティブ付与における予算制約を考慮したアップリフトモデリング"
@@ -488,6 +499,28 @@ papers:
     cost: 補助金率（補助金 ÷ 事業価値）に上限
     data: 自社データ（DiDi、観察データと RCT）
     note: カテゴリ別の割引ベクトルの各成分をクエリトークンにして効果を推定し、観察データでの事前学習と RCT での LoRA 適応をゲートで混ぜる。補助金率の上限つき割当てはラグランジュ緩和で解く
+  - title: "Converted Data is All You Need for Causal Optimization of e-Commerce Promotions"
+    authors: "D. Goldenberg, H. M. Proença, A. Livne et al."
+    year: 2025
+    venue: "CIKM 2025"
+    url: "https://doi.org/10.1145/3746252.3761573"
+    code: ""
+    category: multi-treatment
+    treatment: 多値
+    cost: 購買時のみ
+    data: 合成データ, Criteo, Hillstrom, 自社データ（Booking.com）
+    note: 報酬とコストが購買時にしか生じないとき、多肢選択ナップザックのラグランジュ緩和は購買者のデータ（処置の割合と購買時の報酬・コスト）と処置確率だけで解けることを示し、購買者だけで学習する Z-learner と3モデル法を提案する
+  - title: "Entire Chain Uplift Modeling with Context-Enhanced Learning for Intelligent Marketing"
+    authors: "Y. Huang, S. Wang, M. Gao et al."
+    year: 2024
+    venue: "WWW 2024 Companion"
+    url: "https://arxiv.org/abs/2402.03379v1"
+    code: ""
+    category: multi-treatment
+    treatment: 多値
+    cost: 扱わない
+    data: Criteo, MT-LIFT（公開）
+    note: impression → click → conversion の連鎖の各段で処置効果を推定し（ECUP）、クーポンの種類ごとの効果を特徴量の交互作用で表す。MT-LIFT データセットを公開した。arXiv 版の v2 は取り下げられている
 
   # ---- 方策学習 ----
   - title: "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice"
@@ -776,7 +809,7 @@ datasets:
     assignment: RCT（2か月）
     outcomes: click, conversion（0/1）
     size: 約554万行, 99特徴量
-    usage: 多値処置のまま、または「1水準 vs 対照」の二値にして使う。click をコスト、conversion を売上とみなす。クーポンを配る設定にいちばん近い
+    usage: 多値処置のまま、または「1水準 vs 対照」の二値にして使う。click をコスト、conversion を売上とみなす。クーポンを配る設定にいちばん近い。ECUP（WWW 2024 Companion）の著者が公開
     loader: ""
   - name: "Lazada（DESCN）"
     provider: "Lazada / DESCN の著者"
