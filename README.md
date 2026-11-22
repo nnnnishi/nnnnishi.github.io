@@ -9,6 +9,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/publications/` | `publications/index.html` | 論文・記事・書籍・特許（全件） |
 | `/talks/` | `talks/index.html` | 学会発表・招待講演（全件） |
 | `/cv/` | `cv/index.html` | 所属・職歴・授業・学歴・受賞 |
+| `/survey/budget-uplift/` | `survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。nav・トップからはリンクしていない（sitemap にも出ない）。中身は `_data/survey_budget_uplift.yml` |
 
 共通のヘッダー・ナビ・フッターは `_layouts/default.html`、ナビの項目は `_config.yml` の `nav`。
 
