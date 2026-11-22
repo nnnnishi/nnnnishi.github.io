@@ -11,6 +11,8 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/cv/` | `cv/index.html` | 所属・職歴・授業・学歴・受賞 |
 | `/survey/` | `survey/index.html` | 文献リストの一覧（nav の Survey） |
 | `/survey/budget-uplift/` | `survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。中身は `_data/survey_budget_uplift.yml`。解説ページは `papers/<slug>/` |
+| `/survey/pricing/` | `survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml` |
+| `/survey/reciprocal-rec/` | `survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml` |
 
 共通のヘッダー・ナビ・フッターは `_layouts/default.html`、ナビの項目は `_config.yml` の `nav`。
 

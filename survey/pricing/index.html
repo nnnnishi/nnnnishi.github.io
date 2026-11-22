@@ -1,0 +1,256 @@
+---
+layout: null
+title: "データ駆動の価格最適化 文献リスト"
+description: "需要の推定と価格の最適化を組み合わせる研究（予測してから最適化、動的価格、個別価格、頑健な価格最適化、価格の内生性など）の論文・データセット・評価指標・ライブラリを表にまとめた文献リスト。"
+---
+{%- assign d = site.data.survey_pricing -%}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }}</title>
+  <meta name="description" content="{{ page.description }}">
+  <link rel="canonical" href="{{ page.url | absolute_url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:description" content="{{ page.description }}">
+  <meta property="og:url" content="{{ page.url | absolute_url }}">
+  <meta name="twitter:card" content="summary">
+  <style>
+    /* 色は ~/homepage/style.css と同じ値。系統の色はバッジだけに使う */
+    :root {
+      --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --line: #e3e6ea;
+      --accent: #1a5fb4; --head: #f5f7fa; --row: #fafbfc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15181c; --fg: #e6e8eb; --muted: #9aa4af; --line: #2c3238;
+        --accent: #7fb2f0; --head: #1c2026; --row: #191c21;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 3.2rem; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+      font-size: 15px; line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+    .prose { max-width: 46rem; }
+
+    header.hero { background: var(--head); border-bottom: 1px solid var(--line); padding: 2.2rem 0 1.6rem; }
+    header.hero h1 { margin: 0 0 .4rem; font-size: 1.75rem; line-height: 1.35; }
+    header.hero .meta { color: var(--muted); font-size: .88rem; margin: .2rem 0 0; }
+    header.hero p.lead { margin: .8rem 0 0; }
+
+    nav.toc { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
+    nav.toc .wrap { display: flex; gap: 1.2rem; overflow-x: auto; white-space: nowrap; padding-top: .55rem; padding-bottom: .55rem; font-size: .9rem; }
+
+    section { padding: 1.6rem 0 .4rem; }
+    h2 { font-size: 1.3rem; margin: .6rem 0 .6rem; padding-bottom: .3rem; border-bottom: 2px solid var(--line); }
+    .note { color: var(--muted); font-size: .88rem; margin: .2rem 0 .8rem; }
+    .math { font-family: "STIX Two Math", "Cambria Math", serif; white-space: nowrap; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+    th, td { text-align: left; vertical-align: top; padding: .5rem .65rem; border-bottom: 1px solid var(--line); }
+    thead th { background: var(--head); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+    tbody tr:nth-child(even) { background: var(--row); }
+    tbody tr:last-child td { border-bottom: none; }
+    td.nowrap, th.nowrap { white-space: nowrap; }
+    td.title { min-width: 17rem; }
+    td.title a { font-weight: 600; }
+    td.title .authors { display: block; color: var(--muted); font-size: .82rem; }
+    td.title .summary { display: block; margin-top: .25rem; }
+    #paper-table td.title { min-width: 21rem; }
+    #paper-table td.mid { min-width: 7.5rem; }
+    td.wide { min-width: 16rem; }
+    td.mid { min-width: 10rem; }
+    td.venue { min-width: 6.5rem; }
+    td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .badge {
+      display: inline-block; font-size: .78rem; line-height: 1.5; white-space: nowrap;
+      padding: 0 .45rem; border-radius: 4px; border: 1px solid; background: var(--bg);
+    }
+    {%- for c in d.categories %}
+    .c-{{ c.id }} { color: {{ c.color }}; border-color: {{ c.color }}; }
+    {%- endfor %}
+
+    .filters { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0 .8rem; }
+    .filters button {
+      font: inherit; font-size: .82rem; cursor: pointer; color: var(--fg); background: var(--bg);
+      border: 1px solid var(--line); border-radius: 999px; padding: .15rem .75rem;
+    }
+    .filters button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .count { color: var(--muted); font-size: .85rem; margin-left: .3rem; }
+
+    footer { color: var(--muted); font-size: .85rem; padding: 2rem 0 3rem; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <h1>{{ page.title }}</h1>
+      <div class="prose">
+        <p class="lead">{{ d.intro }}</p>
+      </div>
+      <p class="meta">最終更新: {{ d.updated }}　作成: <a href="{{ '/' | relative_url }}">西村 直樹</a>　<a href="{{ '/survey/' | relative_url }}">Survey 一覧へ</a></p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="ページ内の目次">
+    <div class="wrap">
+      <a href="#categories">系統</a>
+      <a href="#papers">論文</a>
+      <a href="#datasets">データセット</a>
+      <a href="#metrics">評価指標</a>
+      <a href="#resources">ライブラリ・サーベイ・書籍</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section id="categories">
+      <h2>系統</h2>
+      <p class="note prose">{{ d.categories_note }}</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>系統</th><th>考え方</th><th>向いている設定</th><th>代表的な研究</th></tr></thead>
+          <tbody>
+          {%- for c in d.categories %}
+            <tr>
+              <td class="nowrap"><span class="badge c-{{ c.id }}">{{ c.label }}</span></td>
+              <td class="wide">{{ c.idea }}</td>
+              <td class="mid">{{ c.setting }}</td>
+              <td class="mid">{{ c.examples }}</td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="papers">
+      <h2>論文<span class="count" id="paper-count"></span></h2>
+      <p class="note prose">{{ d.papers_note }}</p>
+      <div class="filters" role="group" aria-label="系統で絞り込む">
+        <button type="button" data-cat="all" aria-pressed="true">すべて</button>
+        {%- for c in d.categories %}
+        <button type="button" data-cat="{{ c.id }}" aria-pressed="false">{{ c.label }}</button>
+        {%- endfor %}
+      </div>
+      <div class="table-wrap">
+        <table id="paper-table">
+          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>需要モデル</th><th>最適化・意思決定</th><th>制約・設定</th><th>実験データ</th><th>コード</th></tr></thead>
+          <tbody>
+          {%- assign papers = d.papers | sort: "year" | reverse %}
+          {%- for p in papers %}
+            {%- assign cat = d.categories | where: "id", p.category | first %}
+            <tr data-cat="{{ p.category }}">
+              <td class="num">{{ p.year }}</td>
+              <td class="venue">{{ p.venue }}</td>
+              <td class="title">{% if p.url and p.url != "" %}<a href="{{ p.url }}">{{ p.title }}</a>{% else %}{{ p.title }}{% endif %}<span class="authors">{{ p.authors }}</span><span class="summary">{{ p.note }}</span></td>
+              <td class="nowrap"><span class="badge c-{{ p.category }}">{{ cat.label }}</span></td>
+              <td class="mid">{{ p.demand }}</td>
+              <td class="mid">{{ p.method }}</td>
+              <td class="mid">{{ p.setting }}</td>
+              <td class="mid">{{ p.data }}</td>
+              <td class="nowrap">{% if p.code and p.code != "" %}<a href="{{ p.code }}">code</a>{% endif %}</td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="datasets">
+      <h2>データセット</h2>
+      <p class="note prose">{{ d.datasets_note }}</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>データ</th><th>価格</th><th>価格の決まり方</th><th>結果変数</th><th>規模</th><th>使われ方</th></tr></thead>
+          <tbody>
+          {%- for x in d.datasets %}
+            <tr>
+              <td class="title">{% if x.url and x.url != "" %}<a href="{{ x.url }}">{{ x.name }}</a>{% else %}<strong>{{ x.name }}</strong>{% endif %}<span class="authors">{{ x.provider }}</span></td>
+              <td class="mid">{{ x.price }}</td>
+              <td class="mid">{{ x.assignment }}</td>
+              <td class="mid">{{ x.outcomes }}</td>
+              <td class="mid">{{ x.size }}</td>
+              <td class="wide">{{ x.usage }}</td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="metrics">
+      <h2>評価指標</h2>
+      <p class="note prose">{{ d.metrics_note }}</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>指標</th><th>計算のしかた</th><th>何を測るか</th><th>主な文献</th></tr></thead>
+          <tbody>
+          {%- for m in d.metrics %}
+            <tr>
+              <td class="nowrap"><strong>{{ m.name }}</strong></td>
+              <td class="mid">{{ m.axes }}</td>
+              <td class="wide">{{ m.what }}</td>
+              <td class="mid">{{ m.refs }}</td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="resources">
+      <h2>ライブラリ・サーベイ・書籍</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>名前</th><th>種類</th><th>年</th><th>概要</th></tr></thead>
+          <tbody>
+          {%- for r in d.resources %}
+            <tr>
+              <td class="title"><a href="{{ r.url }}">{{ r.name }}</a></td>
+              <td class="nowrap">{{ r.kind }}</td>
+              <td class="num">{{ r.year }}</td>
+              <td class="wide">{{ r.note }}</td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>{{ d.footer }}</p>
+  </footer>
+
+  <script>
+    // 系統ボタンで論文の表を絞り込む
+    (function () {
+      var rows = document.querySelectorAll("#paper-table tbody tr");
+      var buttons = document.querySelectorAll(".filters button");
+      var count = document.getElementById("paper-count");
+      function apply(cat) {
+        var n = 0;
+        rows.forEach(function (r) {
+          var show = cat === "all" || r.dataset.cat === cat;
+          r.hidden = !show;
+          if (show) n++;
+        });
+        buttons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.cat === cat)); });
+        count.textContent = "（" + n + "本）";
+      }
+      buttons.forEach(function (b) { b.addEventListener("click", function () { apply(b.dataset.cat); }); });
+      apply("all");
+    })();
+  </script>
+</body>
+</html>

@@ -11,7 +11,7 @@ nav:
   - { label: "Survey", url: "/survey/" }
 
 # sitemap.xml に nav 以外で載せるページ
-sitemap_extra: ["/survey/budget-uplift/"]
+sitemap_extra: ["/survey/budget-uplift/", "/survey/pricing/", "/survey/reciprocal-rec/"]
 
 # 業績リストで太字にする自分の名前の表記
 me: ["西村直樹", "N. Nishimura", "Naoki Nishimura"]
