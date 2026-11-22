@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>観察データからの方策学習（論文解説）</title>
+<meta name="description" content="Policy Learning with Observational Data（Econometrica 2021）の非公式の解説。平均処置効果の二重頑健スコアをそのまま目的関数に使い、決められた形の処置ルールを観察データから学ぶ。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = inverse-propensity weighting (IPW, Kitagawa & Tetenov): only units with
+                         W = pi(X) count, weighted by 1/e(x); its guarantee slows when e is estimated
+            --b  (blue)   = the paper's approach: doubly robust (AIPW) scores Gamma_i plugged into
+                         argmax sum (2 pi(X_i) - 1) Gamma_i over the policy class Pi
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Econometrica · 2021</div>
+  <h1>Policy Learning with Observational Data</h1>
+  <p class="subtitle">観察データからの方策学習</p>
+
+  <ul class="authors">
+    <li><b>Susan Athey</b><span>Stanford Graduate School of Business, Stanford University</span></li>
+    <li><b>Stefan Wager</b><span>Stanford Graduate School of Business, Stanford University</span></li>
+  </ul>
+
+  <p class="lead">観察データから「誰に処置するか」のルールを学ぶとき、予算や公平性、ルールの単純さといった制約は、許すルールの集合（方策クラス \(\Pi\)）として指定できる。この論文は平均処置効果を推定するための<span class="B">二重頑健スコア</span>をそのまま目的関数に入れ、\(\Pi\) の中で最大化する方法を示す。傾向スコアが未知の場合や操作変数を使う場合でも、後悔は \(\sqrt{\mathrm{VC}(\Pi)/n}\) の速さで減る。従来の<span class="A">逆確率重みづけ</span>では、傾向スコアが既知でないとこの速さは保証されなかった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.3982/ECTA15732">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/1702.02896">arXiv</a>
+    <a class="btn" href="https://github.com/grf-labs/policytree">policytree</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。逆確率重みづけによる方策の評価、推定した傾向スコアによる重みの問題、二重頑健スコアを使った分割点の選び方、論文 Table 2 の改善量の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\sqrt{\mathrm{VC}(\Pi)/n}\)</span><span class="d">学んだ方策の後悔が減る速さ（漸近的な上界）。傾向スコアを推定する場合や、操作変数で効果を識別する場合にも成り立つ。</span></li>
+    <li><span class="k">下界 0.33・上界 60</span><span class="d">同じ \(\sqrt{S\,\mathrm{VC}(\Pi)/n}\) の形の下界と上界に付く定数。この速さは定数倍を除いて改善できない。</span></li>
+    <li><span class="k">0.091 対 0.043</span><span class="d">カリフォルニア州の就労支援プログラム GAIN のデータで、深さ 2 の決定木を二重頑健スコアで学んだ場合と逆確率重みづけで学んだ場合の改善量（Table 2）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>方策学習では、許された形のルールの中で最良のものとの差（後悔）を小さくしたい</h2>
+    <p>方策 \(\pi\) は個人の特徴 \(X_i\) を処置する・しないの判断 \(\pi(X_i) \in \{0, 1\}\) に写す関数である。実務では、予算、公平性（使ってよい変数の制限）、現場で使える単純さなどの制約がある。論文はこれらをあらかじめ決めた方策クラス \(\Pi\)（線形ルールや深さを決めた決定木など）で表す。</p>
+    <p>評価の基準は後悔（regret）である。誰にも処置しない場合と比べた方策の価値を \(V(\pi) = \mathbb{E}[Y_i(\pi(X_i)) - Y_i(0)]\) とし、後悔を \(\Pi\) の中で最良の方策との差で定める。</p>
+    <div class="eq">\[ R(\pi) = \max_{\pi' \in \Pi} V(\pi') - V(\pi), \qquad V(\pi) = \mathbb{E}\big[\pi(X_i)\,\tau(X_i)\big] \]</div>
+    <p>ここで \(\tau(x)\) は条件付き平均処置効果である。結果 \(Y_i\) は効用と解釈し、個人ごとに異なりうる処置の費用を差し引いた値でもよいとしている。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>傾向スコアを推定する観察データでは、逆確率重みづけの保証は \(1/\sqrt{n}\) より遅くなる</h2>
+    <p>Kitagawa and Tetenov の方法は、方策と同じ処置を実際に受けた人だけを取り出し、その処置を受ける確率の逆数で重みづけて方策の価値を見積もる（<span class="A">逆確率重みづけ</span>、IPW）。</p>
+    <div class="eq">\[ \hat\pi_{\mathrm{IPW}} = \operatorname*{argmax}_{\pi \in \Pi} \frac{1}{n}\sum_{i=1}^n \frac{\mathbf{1}\{W_i = \pi(X_i)\}\,Y_i}{P[W_i = \pi(X_i) \mid X_i]} \]</div>
+    <p>処置の割り当て確率（傾向スコア）が既知なら、この方法の後悔は \(\sqrt{\mathrm{VC}(\Pi)/n}\) の速さで減る。しかし観察データでは傾向スコアを推定するしかなく、そのとき保証は傾向スコアの推定精度に左右され、一般に \(1/\sqrt{n}\) より遅くなる。論文はさらに、治験での不遵守のように処置が内生的な場合や、価格のような連続的な処置の場合も扱える方法が必要だと述べる。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>平均効果を推定するための二重頑健スコアを、そのまま方策の目的関数に使う</h2>
+    <p>二値の処置で、観測された共変量で交絡を調整できる場合、各個体の<span class="B">二重頑健スコア</span>（AIPW スコア）は次の形になる。\(\hat m(x, w)\) は結果の回帰、\(\hat e(x)\) は傾向スコアの推定値で、どちらも交差適合（cross-fitting）で、その個体を含まない分割から作る。</p>
+    <div class="eq">\[ \hat\Gamma_i = \hat m(X_i, 1) - \hat m(X_i, 0) + \frac{W_i - \hat e(X_i)}{\hat e(X_i)\,(1 - \hat e(X_i))}\big(Y_i - \hat m(X_i, W_i)\big) \]</div>
+    <p>\(\hat\Gamma_i\) を平均すれば平均処置効果の推定量になる。論文は平均する代わりに次の量を \(\Pi\) の中で最大にする方策を選ぶ。</p>
+    <div class="eq">\[ \hat\pi = \operatorname*{argmax}_{\pi \in \Pi} \frac{1}{n}\sum_{i=1}^n \big(2\pi(X_i) - 1\big)\,\hat\Gamma_i \]</div>
+    <p>これは \(\hat\Gamma_i\) の符号をラベル、絶対値を重みとする重みつき分類と同じ問題なので、既存の分類の道具を使える。この枠組みは交絡を共変量で調整する二値処置のほか、連続的な処置をわずかに動かす介入（価格を少し下げるかどうかなど）と、操作変数で効果を識別する二値処置にも、スコアの重み関数を取り替えるだけで当てはまる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="手法の3段階の模式図。1で結果の回帰と傾向スコアなどの補助関数を交差適合で推定し、2で各個体の二重頑健スコアを作り、3で方策クラスの中から目的関数を最大にする方策を選ぶ。1で使う推定法と3で使う方策クラスは独立に選べる。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="14" y="40" width="180" height="130" rx="10" fill="#F2F4F7"/>
+        <text x="104" y="72" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">1　補助関数</text>
+        <text x="104" y="104" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">m</tspan>(<tspan class="mi">x</tspan>, <tspan class="mi">w</tspan>)、<tspan class="mi">e</tspan>(<tspan class="mi">x</tspan>)</text>
+        <text x="104" y="132" font-size="15" fill="#5B6676" text-anchor="middle">交差適合で推定</text>
+        <rect x="230" y="40" width="180" height="130" rx="10" fill="#E7EEFC"/>
+        <text x="320" y="72" font-size="17" font-weight="600" fill="#1D4ED8" text-anchor="middle">2　スコア</text>
+        <text x="320" y="104" font-size="17" fill="#16202E" text-anchor="middle"><tspan class="mi">Γ̂</tspan><tspan font-size="12" dy="4">i</tspan></text>
+        <text x="320" y="132" font-size="15" fill="#5B6676" text-anchor="middle">二重頑健（AIPW）</text>
+        <rect x="446" y="40" width="180" height="130" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="536" y="72" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">3　最大化</text>
+        <text x="536" y="104" font-size="16" fill="#16202E" text-anchor="middle">Σ (2<tspan class="mi">π</tspan> − 1) <tspan class="mi">Γ̂</tspan><tspan font-size="12" dy="4">i</tspan></text>
+        <text x="536" y="132" font-size="15" fill="#5B6676" text-anchor="middle"><tspan class="mi">π</tspan> ∈ <tspan class="mi">Π</tspan> の中で</text>
+        <path d="M194,105 L228,105" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M410,105 L444,105" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <text x="104" y="214" font-size="15" fill="#16202E" text-anchor="middle">ランダムフォレスト、</text>
+        <text x="104" y="238" font-size="15" fill="#16202E" text-anchor="middle">ブースティング、級数推定など</text>
+        <text x="536" y="214" font-size="15" fill="#16202E" text-anchor="middle">深さを決めた決定木、</text>
+        <text x="536" y="238" font-size="15" fill="#16202E" text-anchor="middle">線形ルールなど</text>
+        <text x="320" y="282" font-size="15" fill="#5B6676" text-anchor="middle">1 の推定法と 3 の方策クラスは別々に選べる</text>
+      </svg>
+      <figcaption>図1　論文の手順（Section 5 の 3 段階）の模式図。操作変数を使う場合は、2 の重み \(\frac{W_i - \hat e}{\hat e(1-\hat e)}\) が遵守率で割った重みに替わる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>後悔は \(\sqrt{\mathrm{VC}(\Pi)/n}\) の速さで減り、この速さは定数倍を除いて改善できない</h2>
+    <p>主定理（Theorem 1）は、補助関数の推定誤差が十分速く減ること（たとえば結果の回帰と重み関数がともに \(L_2\) 誤差 \(o(n^{-1/4})\)）、重み関数が有界であること（二値処置では傾向スコアが 0 と 1 から離れていること）、\(\Pi\) の VC 次元が \(n^{\beta}\)（\(\beta < 1/2\)）より速く増えないことを仮定する。このとき、学んだ方策の後悔について次が成り立つ。</p>
+    <div class="eq">\[ \limsup_{n\to\infty} \; \mathbb{E}\big[R(\hat\pi_n)\big] \Big/ \sqrt{\mathrm{VC}(\Pi_n)\, S_n^* / n} \;\le\; 60 \]</div>
+    <p>\(S_n^*\) は \(\Pi\) の中で最良の方策の価値を二重頑健推定量で評価するときの漸近分散で、推定量が効率的な場合はセミパラメトリック効率限界にあたる。式は信号対雑音比がとても大きい場合にだけ現れる対数の補正項を省いて書いた。結果は漸近的なもので、有限標本での上界を示した Kitagawa and Tetenov とはこの点が異なる。</p>
+    <p>下界（Theorem 2）は交絡なしの二値処置で、処置効果の大きさが \(1/\sqrt{n}\) の割合で小さくなる問題の列を考える。このとき、どんな学習法でも最悪の場合の後悔は \(0.33\sqrt{S_{\mathcal{P}}\,\mathrm{VC}(\Pi)/n}\) を下回らない。同じ問題の列で主定理の上界は \(60\sqrt{S_{\mathcal{P}}\,\mathrm{VC}(\Pi)/n}\) になるので、速さも \(S_{\mathcal{P}}\) への依存も定数倍を除いて最適である。一方、Kitagawa and Tetenov の上界は \(|Y_i| \le M\)、\(\eta \le e(X_i) \le 1-\eta\) のもとで \((M/\eta)\sqrt{\mathrm{VC}(\Pi)/n}\) の形で、下界との比はいくらでも大きくなりうる。</p>
+    <p>VC 次元が有限な例として、\(p\) 次元の線形ルール（VC 次元 \(p+1\)）と深さ \(L\) の決定木（おおよそ \(2^L \log p\)）が挙がっている。単調なルール全体は VC 次元が無限なので、この結果は当てはまらない。</p>
+  </section>
+
+  <section id="gain">
+    <div class="kicker">実験 1：GAIN</div>
+    <h2>就労支援プログラムのデータでは、深さ 2 の木を二重頑健スコアで学ぶと、逆確率重みづけの木より改善量が大きかった</h2>
+    <p>GAIN はカリフォルニア州の生活保護受給者向けの就労支援プログラムで、郡ごとにランダム化実験が行われた。論文は 4 郡（Alameda、Riverside、Los Angeles、San Diego）の 19,170 人、28 個の共変量を使い、結果は実験後 9 年間の四半期平均所得（千ドル）とした。郡によって処置群の割合（0.50〜0.86）も対照群の平均所得も違うので、データを合わせると交絡が生じる。論文はこれを半人工の観察研究とみなし、共変量で交絡を調整できると仮定した。</p>
+    <p>平均処置効果の推定値（±1 標準誤差）は、二重頑健推定量で 0.141 ± 0.026、郡ごとの真の処置割合を使った推定量で 0.146 ± 0.028、単純な平均の差で 0.208 ± 0.028 だった。補助関数は一般化ランダムフォレストで推定し、処置 1 件あたりの費用 \(C = 0.14\) をスコアから差し引いた。\(C\) は平均処置効果とほぼ同じ値に置き、効果の異質性を使わなければ価値を上げられない設定にしている。人種・民族・年齢・性別の変数は交絡の調整には使い、方策の分割には使っていない。</p>
+    <p class="src">このページの数値（定理の定数を含む）は arXiv v6（2020 年 9 月 4 日）の本文と表による。Econometrica 掲載版の本文は自動取得できなかったため、照合していない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="論文 Figure 1 の深さ2の方策木を描き直した図。3四半期前に収入がなかった人は、子どもがいるかどうかで分け、いない2,486人は処置せず、いる2,757人は処置する。収入があった人は高校を卒業しているかどうかで分け、卒業していない7,325人は処置せず、卒業している6,602人は処置する。">
+        <rect x="200" y="14" width="240" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="320" y="43" font-size="16" fill="#16202E" text-anchor="middle">3 四半期前に収入があった</text>
+        <path d="M280,60 L160,120" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M360,60 L480,120" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <text x="206" y="86" font-size="15" fill="#5B6676" text-anchor="middle">いいえ</text>
+        <text x="434" y="86" font-size="15" fill="#5B6676" text-anchor="middle">はい</text>
+        <rect x="60" y="120" width="200" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="160" y="149" font-size="16" fill="#16202E" text-anchor="middle">子どもがいる</text>
+        <rect x="380" y="120" width="200" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="480" y="149" font-size="16" fill="#16202E" text-anchor="middle">高校を卒業している</text>
+        <path d="M120,166 L84,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M200,166 L236,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M440,166 L404,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M520,166 L556,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <rect x="24" y="226" width="120" height="66" rx="10" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/>
+        <text x="84" y="254" font-size="16" fill="#5B6676" text-anchor="middle">処置しない</text>
+        <text x="84" y="279" font-size="15" fill="#5B6676" text-anchor="middle">2,486 人</text>
+        <rect x="176" y="226" width="120" height="66" rx="10" fill="#E7EEFC"/>
+        <text x="236" y="254" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">処置する</text>
+        <text x="236" y="279" font-size="15" fill="#16202E" text-anchor="middle">2,757 人</text>
+        <rect x="344" y="226" width="120" height="66" rx="10" fill="#fff" stroke="#CBD2DC" stroke-width="1.5"/>
+        <text x="404" y="254" font-size="16" fill="#5B6676" text-anchor="middle">処置しない</text>
+        <text x="404" y="279" font-size="15" fill="#5B6676" text-anchor="middle">7,325 人</text>
+        <rect x="496" y="226" width="120" height="66" rx="10" fill="#E7EEFC"/>
+        <text x="556" y="254" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">処置する</text>
+        <text x="556" y="279" font-size="15" fill="#16202E" text-anchor="middle">6,602 人</text>
+        <text x="320" y="320" font-size="14" fill="#5B6676" text-anchor="middle">2 段目の枝は左を「いいえ」、右を「はい」として描いた</text>
+      </svg>
+      <figcaption>図2　GAIN のデータで学んだ深さ 2 の方策木（論文 Figure 1 の右側を解説者が描き直したもの）。深さ 1 の木は「高校を卒業している」だけで分け、9,693 人を処置する。収入があった約 3/4 の人には、深さ 1 と深さ 2 の木が同じ判断をする。論文の図では 2 段目の枝にラベルがないため、ラベルのある 1 段目と深さ 1 の木の向き（左が「いいえ」）にならった。</figcaption>
+    </figure>
+    <p>木の深さの選択と方策の評価には、10 分割の交差検証を使った。各分割を除いたデータで方策を学び、除いた分割のスコアで改善量 \(\hat A_{\mathrm{CV}} = \frac{1}{n}\sum_i (2\hat\pi^{(-k(i))}(X_i) - 1)\,\hat\Gamma_i\) を求める。比べたのは、<span class="B">二重頑健スコア（AIPW）</span>で学んだ深さ 1・2 の木、同じ傾向スコアを使う<span class="A">逆確率重みづけ（IPW）</span>の木、形の制約なしに因果フォレストの予測が \(C\) を超える人に処置するプラグイン方策である。</p>
+    <figure>
+      <svg class="fig" id="fig-gain" viewBox="0 0 640 330" role="img" aria-label="論文 Table 2 のドットプロット。推定した傾向スコアによる評価では、AIPW 深さ2が0.091、プラグインが0.077、AIPW 深さ1が0.068、IPW 深さ1が0.065、IPW 深さ2が0.043。郡ごとの真の処置割合による評価ではそれぞれ0.080、0.063、0.050、0.048、0.029で、順位は同じ。"></svg>
+      <figcaption>図3　ランダムな割り当てに対する改善量（±1 標準誤差）。● は推定した傾向スコアのスコアによる評価、○ は郡ごとの真の処置割合を使ったスコアによる評価（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+    <p>深さ 2 の AIPW の木は深さ 1 の木よりはっきりよく、形の制約がないプラグイン方策とも同程度だった。論文はこの結果から深さ 2 の木を選んでいる。郡ごとの真の処置割合を使って評価し直すと、すべての値が下がったが、方法の順位は変わらなかった。論文は、推定した傾向スコアによる評価は順位を正しく示したが、学んだ方策の質をやや楽観的に見積もっていたと述べる。なお \(\hat A_{\mathrm{CV}}\) は \((2\pi - 1)\) を掛けた形なので、全員に確率 1/2 で処置する場合と比べた価値の差の 2 倍にあたる（解説者の注）。</p>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">実験 2：シミュレーション</div>
+    <h2>内生的な処置や連続的な処置でも、標本が増えるにつれて学んだ方策の価値が上がった</h2>
+    <p>操作変数のシミュレーションでは、処置が誤差項と相関する内生的な二値処置と、二値の操作変数を生成した。深さ 2 の木を 200 回の繰り返しで学ぶと、標本サイズとともに後悔が減り、クラス内で最良の値に近づいた（論文 Figure 2）。処置効果が符号の関数で不連続に跳ぶ設定では、\(n\) が 2,000 から 4,000 の間で、木が跳びの位置に近い分割を安定して選べるようになり、改善量が急に上がった。</p>
+    <p>補足資料では、価格を少し下げるような連続的な処置の微小な変化を扱う（Table 3、費用 \(C = 0.2\)）。学んだ方策の価値は、\(n\) が 600 から 16,200 に増えると、条件付き分布が正規の設定で 0.014 から 0.029、正規でない設定で 0.018 から 0.037 に上がった。ただし平均微分の二重頑健推定量はバイアスが大きく、論文はセミパラメトリック効率の漸近論がゆっくりとしか当てはまってこないとみている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は方策クラスで表せる制約の例に挙がるが、予算制約つきの定理や実験はない</h2>
+    <p>この論文が推定するのは、各個体の二重頑健スコア \(\hat\Gamma_i\) と、それを使った方策 \(\hat\pi \in \Pi\) である。条件付き平均処置効果の関数そのものを正確に推定することは目的にしていない。費用は結果 \(Y_i\) を便益から処置の費用を引いた効用と読むことで扱い、GAIN の実験では処置 1 件あたり一定の費用 \(C\) をスコアから差し引いている。</p>
+    <p>処置は二値（外生的または操作変数つきで内生的）と、連続的な処置の微小な変化で、どの場合も方策の出力は二値である。複数の処置から一つを選ぶ問題は扱っていない。</p>
+    <p>予算について論文は、方策クラス \(\Pi\) が表す制約の例として要旨と序論で挙げるが、処置割合や総費用の上限を \(\Pi\) にどう組み込むかは示していない。実験でも処置人数の上限は置かず、処置するかどうかは \(\hat\Gamma_i - C\) の符号と木の形の制約で決まる。目的関数 \(\sum_i \pi(X_i)(\hat\Gamma_i - C)\) は、予算制約にラグランジュ乗数 \(C\) を掛けて目的に入れた形とみることもでき、\(C\) を動かせば処置人数が変わる（解説者の注）。個人ごとの費用 \(c_i\) があり \(\hat\Gamma_i - \lambda c_i\) を使う場合、\(\Pi\) に形の制約がなければ、これは効果と費用の比 \(\hat\Gamma_i / c_i\) の順に処置するナップザック問題の連続緩和と同じ選び方になる（解説者の注）。論文はこうした読み替えをしていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{athey2021policy,
+  title   = {Policy Learning With Observational Data},
+  author  = {Athey, Susan and Wager, Stefan},
+  journal = {Econometrica},
+  volume  = {89},
+  number  = {1},
+  pages   = {133--161},
+  year    = {2021},
+  doi     = {10.3982/ECTA15732}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 3: Table 2 of the paper (arXiv v6), estimated improvement, ±1 s.e. ----------
+(function () {
+  var svg = document.getElementById('fig-gain'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  // [label, fitted, true, colour]; s.e. 0.026 (fitted) and 0.028 (true) for every row
+  var rows = [
+    ['AIPW 深さ 2', 0.091, 0.080, '#1D4ED8'], ['AIPW 深さ 1', 0.068, 0.050, '#1D4ED8'],
+    ['IPW 深さ 2', 0.043, 0.029, '#C2410C'], ['IPW 深さ 1', 0.065, 0.048, '#C2410C'],
+    ['プラグイン', 0.077, 0.063, '#5B6676']
+  ];
+  var X0 = 168, X1 = 612, LO = 0, HI = 0.12, Y0 = 60, DY = 46;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 4 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 4 + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v.toFixed(2));
+  });
+  el('circle', { cx: X0 + 6, cy: 20, r: 7, fill: '#16202E' }); el('text', { x: X0 + 20, y: 25, 'font-size': 15, fill: '#16202E' }, '推定した傾向スコア');
+  el('circle', { cx: X0 + 196, cy: 20, r: 6, fill: '#fff', stroke: '#16202E', 'stroke-width': 2.5 }); el('text', { x: X0 + 210, y: 25, 'font-size': 15, fill: '#16202E' }, '郡ごとの真の処置割合');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 14, y: y + 5, 'font-size': 15, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(r[1] - 0.026), x2: px(r[1] + 0.026), y1: y - 7, y2: y - 7, stroke: r[3], 'stroke-width': 1.5, opacity: 0.55 });
+    el('line', { x1: px(r[2] - 0.028), x2: px(r[2] + 0.028), y1: y + 7, y2: y + 7, stroke: r[3], 'stroke-width': 1.5, opacity: 0.55 });
+    el('circle', { cx: px(r[1]), cy: y - 7, r: 7, fill: r[3] });
+    el('circle', { cx: px(r[2]), cy: y + 7, r: 6, fill: '#fff', stroke: r[3], 'stroke-width': 2.5 });
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 4 + 66, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'ランダムな割り当てに対する改善量');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

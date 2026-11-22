@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BCORLE(λ)：予算つきクーポン配布のオフライン強化学習（論文解説）</title>
+<meta name="description" content="BCORLE(λ): An Offline Reinforcement Learning and Evaluation Framework for Coupons Allocation in E-commerce Market（NeurIPS 2021）の非公式の解説。ラグランジュ乗数 λ を入力に加えて、予算ごとの方策を一度の学習で得る。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the existing approach and what it costs: re-learning the policy at every
+                         lambda update, the coupon cost c, and the uplift-model + LP baselines
+            --b  (blue)   = BCORLE(lambda): lambda-generalization (learn once for all lambda), R-BCQ, REME,
+                         and the retention reward r
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">NeurIPS 2021</div>
+  <h1>BCORLE(λ): An Offline Reinforcement Learning and Evaluation Framework for Coupons Allocation in E-commerce Market</h1>
+  <p class="subtitle">EC 市場でのクーポン配布のためのオフライン強化学習と評価の枠組み</p>
+
+  <ul class="authors">
+    <li><b>Yang Zhang</b><span>Faculty of Electronics and Information, Xi’an Jiaotong University</span></li>
+    <li><b>Bo Tang</b><span>Alibaba Group</span></li>
+    <li><b>Qingyu Yang</b><span>Faculty of Electronics and Information, Xi’an Jiaotong University</span></li>
+    <li><b>Dou An</b><span>Faculty of Electronics and Information, Xi’an Jiaotong University</span></li>
+    <li><b>Hongyin Tang</b><span>Institute of Software, Chinese Academy of Sciences</span></li>
+    <li><b>Chenyang Xi</b><span>Alibaba Group</span></li>
+    <li><b>Xueying Li</b><span>Alibaba Group</span></li>
+    <li><b>Feiyu Xiong</b><span>Alibaba Group</span></li>
+  </ul>
+
+  <p class="lead">EC のクーポン配布は予算の範囲で利用者の翌日のログインを増やす問題として、ラグランジュ乗数 \(\lambda\) を使って解かれてきた。従来の方法は<span class="A">\(\lambda\) を更新するたびに方策を学び直す</span>ので、計算に時間がかかる。この論文は<span class="B">\(\lambda\) を学習データとネットワークの入力に加え、すべての \(\lambda\) の方策を一度に学ぶ</span>枠組み BCORLE(λ) を提案し、オフライン強化学習の手法 R-BCQ とオフ方策評価の手法 REME を組み合わせて、Taobao Deals アプリで評価している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.neurips.cc/paper_files/paper/2021/file/ab452534c5ce28c4fbb0e102d4a4fb2e-Paper.pdf">Paper</a>
+    <a class="btn" href="https://neurips.cc/virtual/2021/poster/26101">NeurIPS</a>
+    <a class="btn" href="https://openreview.net/forum?id=yUNQBMsLGA">OpenReview</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。λ を更新するたびに方策を学び直す従来の方法、λ を入力に加えて一度に学ぶ λ-汎化、予算に合う λ の選び方、論文 Table 3 の ROI の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">14,000 → 3,000</span><span class="d">シミュレーションで、同じ目標の AvgCost と AvgLogins に達するまでの学習エピソード数。\(\lambda\) を更新するたびに学び直す方法と λ-汎化を比べた。学習時間は 2.187 時間から 0.439 時間に減った（Table 1）。</span></li>
+    <li><span class="k">ROI +15.47%</span><span class="d">Taobao Deals での A/B テストの 1 週目に、LR+LP と比べた R-BCQ の ROI の改善率（2 週目は +13.18%）。7 日間の平均費用はどちらも約 4.06 元で、予算の 4.1 元に収まっている（Table 3）。</span></li>
+    <li><span class="k">誤差 0.0443 日</span><span class="d">実サービスで R-BCQ の方策の AvgLogins を事前に見積もったときの REME の誤差。IS、DM、DR、FQE の誤差は 0.14〜0.22 日だった（Table 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予算つきのクーポン配布はラグランジュ問題として解かれ、λ を更新するたびに方策を学び直していた</h2>
+    <p>Taobao や Amazon のような EC では、ログインした利用者に毎日クーポンを 1 枚配り、利用を続けてもらう。額が大きいほど翌日も来る人は増えるが、費用もかさむ。論文が扱うのは、決まった予算の中で利用者ごとに額を選び、利用の継続（リテンション）を最大にする問題である。利用者は数千万人、クーポンは数十種類あり、方策の候補は非常に多い。</p>
+    <p>この問題は制約付きマルコフ決定過程（CMDP）として定式化し、ラグランジュ双対問題に直して解くのが一般的である。既存研究は二分探索や勾配法で乗数 \(\lambda\) を探し、\(\lambda\) を決めるごとに強化学習で方策を学ぶ。配ったクーポンの費用は取り戻せないため、学習には過去のログだけを使うオフライン強化学習を用いる。ただし、予算を満たすまで \(\lambda\) を更新するたびに方策を学び直すので計算量が大きく、事業方針の変化にすばやく対応できない。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>報酬は翌日にログインしたかどうか、コストは配ったクーポンの額で、λ を掛けたコストを報酬から引く</h2>
+    <p>期間を \(T\) 日に分け、毎日ログインした利用者に 1 枚配る。状態 \(s\) は利用者の特徴と過去のリテンションの記録、行動 \(a\) はクーポンの額の候補である。報酬 \(r\) は翌日にログインすれば 0、しなければ −1 とし、コスト \(c\) は配ったクーポンの額とする。学習には過去の方策 \(\pi_b\) で集めたログ \(\mathcal D = \{(s_i, a_i, r_i, c_i, s_{i+1})\}_{i=1}^M\) を使う。</p>
+    <div class="eq">\[ \max_{\pi}\; J(\pi) = \mathbb E\Big[\sum_{t} \gamma^t r_t\Big] \quad \text{s.t.}\quad C(\pi) = \mathbb E\Big[\sum_{t} \gamma'^t c_t\Big] \le b \]</div>
+    <p>ラグランジュ関数 \(L(\pi,\lambda) = J(\pi) - \lambda\,(C(\pi) - b)\) を展開すると、コストを組み込んだ 1 本の報酬で書ける。</p>
+    <div class="eq">\[ r_\lambda(s,a) = \underbrace{r(s,a)}_{\color{#1D4ED8}{\text{翌日のログイン}}} \;-\; \lambda\,\underbrace{c(s,a)}_{\color{#C2410C}{\text{クーポンの額}}} \]</div>
+    <p>\(\lambda\) を固定すれば、\(r_\lambda\) を最大にするふつうの強化学習になる。ただし \(\lambda\) が変わると報酬が変わるので、最適な方策も変わる。論文は、予算より小さいコストで済む方策が存在する（Assumption 1）のでスレーター条件が成り立ち、問題は双対問題 \(\min_{\lambda\ge 0}\max_\pi L(\pi,\lambda)\) と同値になると述べている。なお、式 (1) には割引率 \(\gamma, \gamma'\) が付いているが、式 (4) の展開では割引を省いて書かれている。</p>
+  </section>
+
+  <section id="lambda-gen">
+    <div class="kicker">手法 1</div>
+    <h2>λ-汎化では λ を学習データとネットワークの入力に加え、すべての λ の方策を一度の学習で得る</h2>
+    <p>論文は多目的強化学習の考え方を借りて、\(\lambda\) の探索と方策の学習を一つにまとめる。候補の値 \(\lambda_1, \dots, \lambda_L\) を用意し、ログの各タプルを \(L\) 個に複製して、それぞれに \(\lambda_j\) と報酬 \(r^{\lambda_j}\) を付ける。データは元の \(L\) 倍になる。方策を学ぶネットワークと評価するネットワークはどちらも \((s, a, \lambda)\) を入力に取り、どの \(\lambda\) についても方策 \(\pi(s,\lambda)\) とそのコスト \(C(\pi(s,\lambda))\) を出せるようにする。</p>
+    <p>学習と評価が済んだら、推定したコストが予算のすぐ下の範囲 \(\mathbb E_s\, C(\pi(s,\lambda)) \in [b-\delta,\, b]\) に入る \(\lambda\) を選び、その方策を使う。予算が変わったときも学び直す必要はなく、\(\lambda\) を選び直すだけで済む。候補の \(\lambda\) の決め方は付録 C に書かれているとされるが、解説者は付録を入手できていない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="模式図。左は従来の方法で、方策の学習、コストの評価、λ の更新を予算に合うまで繰り返す。右は λ-汎化で、ログを λ ごとに複製し、λ を入力に取るネットワークを一度だけ学習・評価して、予算に合う λ を選ぶ。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker>
+        <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#C2410C"/></marker>
+        <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1D4ED8"/></marker></defs>
+        <text x="20" y="30" font-size="17" font-weight="600" fill="#C2410C">従来：λ を更新するたびに学び直す</text>
+        <rect x="20" y="52" width="250" height="44" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="145" y="80" font-size="16" fill="#16202E" text-anchor="middle">λ を固定して方策を学習</text>
+        <rect x="20" y="132" width="250" height="44" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="145" y="160" font-size="16" fill="#16202E" text-anchor="middle">方策のコストを評価</text>
+        <rect x="20" y="212" width="250" height="44" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="145" y="240" font-size="16" fill="#16202E" text-anchor="middle">予算の範囲に入ったか</text>
+        <rect x="20" y="292" width="250" height="44" rx="8" fill="#FCEBDF"/>
+        <text x="145" y="320" font-size="16" fill="#C2410C" text-anchor="middle">入らなければ λ を更新</text>
+        <path d="M145,96 L145,130" stroke="#5B6676" stroke-width="1.5" marker-end="url(#ar)"/>
+        <path d="M145,176 L145,210" stroke="#5B6676" stroke-width="1.5" marker-end="url(#ar)"/>
+        <path d="M145,256 L145,290" stroke="#5B6676" stroke-width="1.5" marker-end="url(#ar)"/>
+        <path d="M270,314 C306,314 306,74 272,74" stroke="#C2410C" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+        <text x="312" y="200" font-size="15" fill="#C2410C">繰り返す</text>
+        <text x="372" y="30" font-size="17" font-weight="600" fill="#1D4ED8">λ-汎化：一度だけ学ぶ</text>
+        <rect x="372" y="52" width="250" height="44" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="497" y="80" font-size="16" fill="#16202E" text-anchor="middle">ログを λ ごとに複製（L 倍）</text>
+        <rect x="372" y="132" width="250" height="44" rx="8" fill="#E7EEFC"/>
+        <text x="497" y="160" font-size="16" fill="#1D4ED8" text-anchor="middle">(<tspan class="mi">s</tspan>, <tspan class="mi">a</tspan>, <tspan class="mi">λ</tspan>) を入力に学習（R-BCQ）</text>
+        <rect x="372" y="212" width="250" height="44" rx="8" fill="#E7EEFC"/>
+        <text x="497" y="240" font-size="16" fill="#1D4ED8" text-anchor="middle">全 λ のコストを評価（REME）</text>
+        <rect x="372" y="292" width="250" height="44" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="497" y="320" font-size="16" fill="#16202E" text-anchor="middle">予算に合う λ を選ぶ</text>
+        <path d="M497,96 L497,130" stroke="#1D4ED8" stroke-width="1.5" marker-end="url(#arB)"/>
+        <path d="M497,176 L497,210" stroke="#1D4ED8" stroke-width="1.5" marker-end="url(#arB)"/>
+        <path d="M497,256 L497,290" stroke="#1D4ED8" stroke-width="1.5" marker-end="url(#arB)"/>
+      </svg>
+      <figcaption>図1　従来の λ を更新する方法と λ-汎化の流れ（論文 Fig. 2 の内容を解説者が描き直した模式図）。λ-汎化では予算が変わっても、最後の「λ を選ぶ」だけをやり直せばよい。</figcaption>
+    </figure>
+  </section>
+
+  <section id="rbcq">
+    <div class="kicker">手法 2</div>
+    <h2>R-BCQ は BCQ の行動の絞り込みと REM の多頭ネットワークを組み合わせ、REME は同じ構造で方策を評価する</h2>
+    <p>オフライン強化学習の BCQ はログにほとんど出てこない状態と行動の組を避けることで、外挿による Q 値の誤差を抑える。REM は複数のヘッドの凸結合で Q 値を推定し、頑健さと汎化の能力を得る。論文は、どちらがクーポン配布に向くかは事前に判断しにくいとして、両方を組み合わせた R-BCQ を提案している。</p>
+    <p>R-BCQ は行動方策を真似る生成モデル \(G(a \mid s, \lambda)\) で候補の行動を絞り、残った行動の中から \(H\) 個のヘッドの重みつき和が最大になるものを選ぶ。重み \(\alpha_i\) は正で、和は 1 である。</p>
+    <div class="eq">\[ \pi(s,\lambda) = \mathop{\arg\max}\limits_{a:\; G(a\mid s,\lambda)/\max_{\hat a} G(\hat a\mid s,\lambda) \,>\, \beta}\; \sum_{i=1}^{H} \alpha_i\, Q_i(s, a, \lambda) \]</div>
+    <p>方策の評価には、モデルを使わない直接法の REME を提案している。これも多頭のネットワークで、更新の目標値に max ではなく評価したい方策 \(\pi\) が選ぶ行動の値を使う。報酬 \(r\) の代わりにコスト \(c\) を入れれば、方策のコスト \(C(\pi)\) も見積もれる。手順の詳細は付録 D に書かれているとされる。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>1 万人のシミュレーションで比べたあと、Taobao Deals の 200 万人を超える記録で学習し、2 週間の A/B テストを行った</h2>
+    <p>シミュレーションでは、1 万人の利用者が 30 日間ログインする。翌日のログイン確率は一様分布から引き、配られたクーポンの額が大きいほど高くなるように設定した。状態は額ごとの受け取り日数と、受け取った翌日にログインした日数である。行動は 0.1 元から 2.1 元まで 0.1 元刻みの 21 通り、\(\lambda\) は 0 から 1 まで 0.05 刻みの 21 通りとした。評価指標は 30 日間の平均ログイン日数 AvgLogins、平均費用 AvgCost、その比 ROI（AvgLogins ÷ AvgCost）である。</p>
+    <p>実サービスは、Alibaba が 2020 年に始めたアプリ Taobao Deals（1 日のアクティブ利用者は 1,000 万人超）の毎日のチェックインで、その日初めてアプリを開いた人に 24 時間有効のクーポンを 1 枚配る。2021 年 1〜3 月の 200 万人を超える利用者の記録で学習した。状態には性別・年齢・地域などの属性とリテンションの記録を使う。行動は 0.5 元から 1.1 元まで 0.05 元刻みの 13 通り、1 エピソードは 7 日、予算は 1 人あたり 7 日で 4.1 元、\(\delta = 0.1\) である。比較相手は BCQ と REM に加え、Taobao Deals で使われているアップリフトモデルと線形計画の組合せ（LR+LP、GBDT+LP）である。</p>
+    <p class="src">以下の数値は NeurIPS 2021 の proceedings 版 PDF（proceedings.neurips.cc で公開されている本文 13 ページ）の本文と表による。付録（A〜G）と補足資料は proceedings のページに掲載がなく、OpenReview からも自動では取得できなかったため、付録の内容は確認していない。</p>
+  </section>
+
+  <section id="sim">
+    <div class="kicker">実験の結果 1</div>
+    <h2>シミュレーションでは学習に要するエピソード数が 14,000 から 3,000 に減り、REME の評価誤差が最も小さかった</h2>
+    <p>Table 1 では 2 つの方法とも R-BCQ を使い、AvgCost が 7.0 元、AvgLogins が 15 日に達するまでの学習量を比べている。\(\lambda\) を更新する方法は 14,000 エピソード・2.187 時間かかったのに対し、λ-汎化は 3,000 エピソード・0.439 時間で済んだ（Intel Core i7-8700K と GTX 1080 1 枚の同じ PC）。</p>
+    <p>方策の学習を比べると、\(\lambda = 0\)（コストを考えない）のとき、R-BCQ と REM は BCQ より AvgCost と AvgLogins がともに高かった。論文はコストを無視したときに期待される振る舞いに近いとしている。ROI は R-BCQ が REM と BCQ を上回った（Figure 3）。モデルベースの MOPO は AvgCost がほかより大幅に高く、論文はこの環境に向かないと判断して、実サービスでは使っていない。また、\(\lambda\) を大きくすると AvgCost と AvgLogins はどちらも下がり、ROI は上がった（Figure 4）。</p>
+    <p>オフ方策評価では、\(\lambda\)（0、0.5、1）と評価する方策の学習ステップ（1000、2000、4000）の 9 通りすべてで、REME の AvgLogins の誤差が最も小さかった（0.0082〜0.0158 日）。次に小さいのは DM（0.0191〜0.0204 日）と FQE で、IS と DR の誤差は大きかった。論文は、行動方策の確率を推定しない直接法のほうが有利だったと述べている。</p>
+    <figure>
+      <svg class="fig" id="fig-ope" viewBox="0 0 640 330" role="img" aria-label="論文 Table 2 のドットプロット（対数軸）。5つのオフ方策評価の手法について、9通りの設定での AvgLogins の誤差を示す。REME は0.0082から0.0158日で最も小さく、DM は約0.02日、FQE は0.019から0.21日、DR と IS は0.2日から3.8日。"></svg>
+      <figcaption>図2　シミュレーションでの AvgLogins の評価誤差（日、対数軸）。各行の 9 個の点は \(\lambda\) と学習ステップの 9 通りの設定。<span class="B">●</span> REME（論文 Table 2 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2</div>
+    <h2>Taobao Deals での 2 週間の A/B テストでは費用をほぼ同じにしたまま、R-BCQ の ROI が LR+LP より 13〜15% 高かった</h2>
+    <p>各手法で、推定したコストが \([b-\delta,\, b]\) に入る \(\lambda\) を選んだ。REM は 0.25、BCQ は 0.35、R-BCQ は 0.55 である（Figure 5）。これらを 2021 年 3 月 9 日から 22 日までの 2 週間、オンラインの A/B テストで比べた（Table 3）。</p>
+    <p>7 日間の AvgCost はどの手法も 4.05〜4.08 元で、予算の 4.1 元に収まっている。そのうえで 1 週目の AvgLogins は LR+LP が 5.04 日、R-BCQ が 5.83 日で、ROI は LR+LP の 1.2409 に対して R-BCQ が 1.4329（+15.47%）だった。2 週目も 1.3052 に対して 1.4773（+13.18%）である。3 つの強化学習の手法はいずれも 2 つのアップリフトの方法を上回り、その中では R-BCQ の ROI が最も高かった。論文はその理由を、アップリフトモデルに基づく方法が 1 日の利益だけを見て、将来の利益を考えないためだと説明している。</p>
+    <p>実サービスで R-BCQ の方策を評価した Table 4 では、REME の誤差が AvgLogins で 0.0443 日、AvgCost で 0.0221 元と最も小さく、次に小さい DM（0.1417 日）と FQE（0.1515 元）を大きく下回った。なお論文によると、\(\lambda\) を更新する方法は計算が重くて実サービスに載せられないため、実環境では学習量を比べていない。また、Table 3 の見出しではアプリ名が Taobao Special Offer Edition app となっている。</p>
+    <figure>
+      <svg class="fig" id="fig-online" viewBox="0 0 640 330" role="img" aria-label="論文 Table 3 のドットプロット。5つの手法の ROI を1週目と2週目で示す。R-BCQ が両週とも最も高く、1週目1.4329、2週目1.4773。LR+LP は1.2409と1.3052。"></svg>
+      <figcaption>図3　Taobao Deals での A/B テストの ROI（日/元）。● 1 週目、○ 2 週目。<span class="A">■</span> アップリフトモデル＋線形計画、<span class="B">■</span> R-BCQ。7 日間の AvgCost はどの手法も 4.05〜4.08 元（論文 Table 3 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算は累積コストの期待値への制約として λ で扱い、λ ごとの方策を学んでおいて予算に合うものを選ぶ</h2>
+    <p>この論文が学ぶのは、利用者の状態 \(s\)、クーポンの額 \(a\)、乗数 \(\lambda\) を入力に取り、「翌日のログイン − \(\lambda\) × クーポンの額」の割引累積を表す Q 関数 \(Q(s,a,\lambda)\) である。処置効果（アップリフト）は明示的には推定しない。比較相手の LR+LP と GBDT+LP は、額ごとに翌日のリテンションを予測するアップリフトモデルと線形計画を組み合わせた方法である。</p>
+    <p>コストは「配ったクーポンの額」と定義されている。利用者が実際にクーポンを使ったかどうかで費用が変わる点は、論文では議論されていない（解説者の注）。処置は多値（シミュレーションでは 21 通り、実サービスでは 13 通りの額）で、毎日ログインした全員に何らかの額を配る。配らないという選択肢は行動に含まれていない。決定は毎日繰り返す逐次のもので、翌日のログインを報酬にしている。</p>
+    <p>予算は期間全体の累積コストの期待値に上限 \(b\) を置く形で扱う。\(\lambda\) ごとの方策のコストを REME で見積もり、\([b-\delta,\, b]\) に入る \(\lambda\) を選ぶ。期待値で満たす制約なので、実際に配った総額が \(b\) を超えないことまでは保証しない（解説者の注）。</p>
+    <p>\(\lambda\) を固定すると、方策は利用者ごとに「価値 − \(\lambda\) × コスト」が最大になる額を選ぶ。これは利用者ごとに額を 1 つ選ぶ多肢選択型ナップザック問題のラグランジュ緩和と同じ形である。配るか配らないかの二択なら、「増分の価値 ÷ 増分のコスト」が \(\lambda\) を超える人に配ることに当たり、\(\lambda\) は ROI 順の割当て（ナップザック問題の連続緩和）で比を切るしきい値になる。λ-汎化はすべての \(\lambda\) について方策を前もって用意し、予算が変わったら選ぶ \(\lambda\) だけを変える。これは、ROI 順に並べた利得曲線を一度だけ作っておき、予算に応じて切る位置を動かすことに近い（解説者の注）。違いは、価値とコストを 1 日の反応ではなく Q 関数で将来の割引累積として測っている点にある。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhang2021bcorle,
+  title     = {{BCORLE}($\lambda$): An Offline Reinforcement Learning and Evaluation Framework for Coupons Allocation in E-commerce Market},
+  author    = {Zhang, Yang and Tang, Bo and Yang, Qingyu and An, Dou and Tang, Hongyin and Xi, Chenyang and Li, Xueying and Xiong, Feiyu},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor    = {M. Ranzato and A. Beygelzimer and Y. Dauphin and P.S. Liang and J. Wortman Vaughan},
+  volume    = {34},
+  pages     = {20410--20422},
+  publisher = {Curran Associates, Inc.},
+  year      = {2021},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2021/hash/ab452534c5ce28c4fbb0e102d4a4fb2e-Abstract.html}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+function svgMaker(svg) {
+  var NS = 'http://www.w3.org/2000/svg';
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+
+// ---------- figure 2: Table 2 of the paper (NeurIPS 2021 proceedings), AvgLogins error in days ----------
+(function () {
+  var svg = document.getElementById('fig-ope'); if (!svg) return;
+  var el = svgMaker(svg);
+  // order of the 9 values: lambda = 0, 0.5, 1; ls = 1000, 2000, 4000 within each lambda
+  var rows = [
+    ['IS',   [3.7837, 3.1353, 2.1883, 2.7559, 2.9531, 3.2068, 0.4299, 0.4299, 0.4301]],
+    ['DR',   [1.0126, 0.8014, 0.5139, 2.1328, 2.2951, 2.5462, 0.2258, 0.2252, 0.2258]],
+    ['FQE',  [0.2064, 0.1483, 0.0644, 0.2102, 0.1844, 0.1686, 0.0196, 0.0192, 0.0193]],
+    ['DM',   [0.0201, 0.0204, 0.0191, 0.0204, 0.0201, 0.0195, 0.0192, 0.0197, 0.0194]],
+    ['REME', [0.0135, 0.0127, 0.0158, 0.0118, 0.0085, 0.0093, 0.0100, 0.0082, 0.0091]]
+  ];
+  var X0 = 110, X1 = 612, LO = Math.log10(0.005), HI = Math.log10(5), Y0 = 40, DY = 54;
+  function px(v) { return X0 + (Math.log10(v) - LO) / (HI - LO) * (X1 - X0); }
+  [0.01, 0.1, 1].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 4 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 4 + 46, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, String(v));
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i, best = r[0] === 'REME';
+    el('text', { x: X0 - 16, y: y + 5, 'font-size': 15, fill: best ? '#1D4ED8' : '#16202E', 'font-weight': best ? 600 : 400, 'text-anchor': 'end' }, r[0]);
+    r[1].forEach(function (v) {
+      el('circle', { cx: px(v), cy: y, r: 7, fill: best ? '#1D4ED8' : '#9AA4B2', 'fill-opacity': 0.75 });
+    });
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 4 + 72, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'AvgLogins の評価誤差（日、対数軸）');
+})();
+
+// ---------- figure 3: Table 3 of the paper (NeurIPS 2021 proceedings), ROI in days/yuan ----------
+(function () {
+  var svg = document.getElementById('fig-online'); if (!svg) return;
+  var el = svgMaker(svg);
+  var rows = [
+    ['LR+LP', 1.2409, 1.3052, '#C2410C'], ['GBDT+LP', 1.2371, 1.3201, '#C2410C'],
+    ['BCQ', 1.3950, 1.4445, '#5B6676'], ['REM', 1.4051, 1.4509, '#5B6676'], ['R-BCQ', 1.4329, 1.4773, '#1D4ED8']
+  ];
+  var X0 = 130, X1 = 500, LO = 1.2, HI = 1.5, Y0 = 50, DY = 48;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [1.2, 1.3, 1.4, 1.5].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 24, y2: Y0 + DY * 4 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 4 + 46, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v.toFixed(1));
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 16, y: y + 5, 'font-size': 15, fill: r[3], 'font-weight': r[0] === 'R-BCQ' ? 600 : 400, 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(r[1]), x2: px(r[2]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+    el('circle', { cx: px(r[1]), cy: y, r: 8, fill: r[3] });
+    el('circle', { cx: px(r[2]), cy: y, r: 7, fill: '#fff', stroke: r[3], 'stroke-width': 3 });
+    el('text', { x: px(r[2]) + 16, y: y + 5, 'font-size': 14, fill: '#5B6676' }, r[1].toFixed(4) + ' / ' + r[2].toFixed(4));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 4 + 72, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'ROI（日/元）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

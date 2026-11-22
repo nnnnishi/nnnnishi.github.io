@@ -509,10 +509,11 @@ papers:
     year: 2021
     venue: "Econometrica"
     url: "https://arxiv.org/abs/1702.02896"
+    explainer: policy-learning-observational
     code: ""
     category: policy
     treatment: 二値
-    cost: 予算は方策クラスの制約として扱う
+    cost: 処置1件あたりの定額費用をスコアから引く（予算は方策クラスの制約の例として挙げるのみ）
     data: GAIN（California）
     note: 二重頑健なスコアで方策を学習し、後悔が 1/√n の速さで減ることを示す
   - title: "Treatment Allocation under Uncertain Costs"
@@ -520,12 +521,13 @@ papers:
     year: 2021
     venue: "arXiv"
     url: "https://arxiv.org/abs/2103.11066"
+    explainer: uncertain-costs
     code: ""
     category: policy
     treatment: 二値
     cost: 結果に依存（共変量で変わる不確実なコスト）
     data: 合成データ, Oregon Health Insurance Experiment
-    note: 予算のもとでの最適ルールが優先度スコアのしきい値規則になることを示し、そのスコアを学習する
+    note: 予算のもとでの最適ルールが効果と費用の期待値の比（優先度スコア）のしきい値規則になることを示し、そのスコアを操作変数法と同じ形で推定する
   - title: "PAC-Bayesian Treatment Allocation Under Budget Constraints"
     authors: "D. F. Pellatt"
     year: 2022
@@ -591,11 +593,12 @@ papers:
     year: 2021
     venue: "NeurIPS 2021"
     url: "https://neurips.cc/virtual/2021/poster/26101"
+    explainer: bcorle
     code: ""
     category: online
     treatment: 多値
     cost: クーポン予算（ラグランジュ乗数 λ）
-    data: EC の実データ
+    data: EC の実データ（Taobao Deals）, シミュレーション
     note: λ に汎化するオフライン強化学習とオフ方策評価で、予算つきのクーポン配布を学習する
   - title: "E-Commerce Promotions Personalization via Online Multiple-Choice Knapsack with Uplift Modeling"
     authors: "J. Albert, D. Goldenberg"
