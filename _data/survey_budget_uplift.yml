@@ -309,6 +309,7 @@ papers:
     year: 2020
     venue: "Marketing Science"
     url: "https://doi.org/10.1287/mksc.2020.1229"
+    explainer: managing-churn
     code: ""
     category: decision-focused
     treatment: 二値

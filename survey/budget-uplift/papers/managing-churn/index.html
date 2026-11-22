@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>利益を最大にする離反対策（論文解説）</title>
+<meta name="description" content="Managing Churn to Maximize Profits（Marketing Science 2020）の非公式の解説。特典を送ったときの利益リフトを予測の目的にし、利益への影響が大きい顧客の誤差を重く罰する損失関数で離反防止の対象を選ぶ。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = approaches that do not put profit into the loss: churn-risk ranking (classic loss),
+                         reordered classic loss, uplift model; other target-size rules
+            --b  (blue)   = profit lift E(pi_i) and the paper's profit-based loss / optimized target size
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Marketing Science · 2020</div>
+  <h1>Managing Churn to Maximize Profits</h1>
+  <p class="subtitle">利益を最大にする離反対策</p>
+
+  <ul class="authors">
+    <li><b>Aurélie Lemmens</b><span>Rotterdam School of Management, Erasmus University Rotterdam</span></li>
+    <li><b>Sunil Gupta</b><span>Harvard Business School</span></li>
+  </ul>
+
+  <p class="lead">離反防止キャンペーンの対象は、これまで<span class="A">離反しそうな順</span>か<span class="A">特典で離反が減る順</span>に選ばれてきた。この論文は特典を送ったときの<span class="B">利益の増分（利益リフト）</span>をそのまま予測の目的にし、利益への影響が大きい顧客ほど予測誤差を重く罰する損失関数を提案する。配る人数も検証データ上の利益で決め、2 つのフィールド実験で比較手法より高い利益を得ている。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/mksc.2020.1229">Paper</a>
+    <a class="btn" href="https://doi.org/10.2139/ssrn.2964906">SSRN</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。離反確率の順に配る従来のやり方、離反の減り方が同じでも利益リフトの符号が変わる例、利益ベースの損失による重みづけ、論文 Table 1 の検証利益、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">5,026 対 4,093 ユーロ</span><span class="d">テレビ配信の実験で、利益ベースの損失を使った方法の検証利益。損失を変えない uplift モデルより 23% 高かった（Table 1）。</span></li>
+    <li><span class="k">黒字は提案法だけ</span><span class="d">会員制団体の実験では比較した 3 手法の利益がどれも赤字で、提案法だけが 1,328 ドルの黒字だった（Table 1）。</span></li>
+    <li><span class="k">配る人数も利益で決める</span><span class="d">解約率や固定予算で人数を決めると、利益は最適化した場合より 17〜92% 少なかった（Table 2）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>離反確率の順でも離反リフトの順でも、特典を送って得をするかどうかは分からない</h2>
+    <p>離反防止の研究の多くは、離反しそうな顧客を当てる<span class="A">離反予測</span>に取り組んできた。近年は、特典を送ると離反確率がどれだけ下がるか（<span class="A">離反リフト</span>）を uplift ランダムフォレストなどで推定し、その順に配る方法も提案されている（Ascarza 2018 など）。</p>
+    <p>論文は、どちらの方法にも二つの欠点があると指摘する。一つは順位が離反だけで決まり、特典の費用や特典を送ったあとの売上を見ていないことである。離反が減っても、顧客の売上が小さければ特典代を回収できない。もう一つはどの顧客の予測誤差も同じ重さで扱うことである。利益への影響が大きい顧客を外したときの損失は、特典に反応しない顧客を外したときよりずっと大きい。</p>
+  </section>
+
+  <section id="profit-lift">
+    <div class="kicker">定義</div>
+    <h2>利益リフトは特典を送ったときと送らないときの残存顧客生涯価値の差から特典代を引いたものである</h2>
+    <p>顧客 \(i\) に費用 \(\delta\) の特典を送るかどうかを \(T_i \in \{0,1\}\) とする。論文は送ったときの利益の増分（<span class="B">利益リフト</span>）\(\pi_i\) を条件付き平均処置効果（CATE）として定義し、キャンペーン全体の利益を送った顧客の \(\pi_i\) の合計とする。</p>
+    <div class="eq">\[ E(\pi_i \mid \delta) = E(\mathrm{CLV}_i - \delta \mid X_i, T_i{=}1) - E(\mathrm{CLV}_i \mid X_i, T_i{=}0) \]</div>
+    <p>ここで CLV は介入後の期間だけを数える残存の顧客生涯価値である。実証では次の 1 期間だけを見るので、継続確率を \(r_i(1), r_i(0)\)、継続したときのキャッシュフローを \(m_i(1), m_i(0)\)、割引率を \(d\) とすると、利益リフトは次の形になる。</p>
+    <div class="eq">\[ E(\pi_i \mid \delta) = \frac{r_i(1)\,m_i(1) - r_i(0)\,m_i(0)}{1+d} \;-\; \frac{c_i\,\delta}{1+d}, \qquad c_i \in \{1,\; r_i(1)\} \]</div>
+    <p>費用の項は特典の種類で変わる。特典にはお礼の品のように誰にでも送れる<strong>無条件</strong>のものと、契約を更新した人だけが受け取る<strong>条件付き</strong>のものがある。本文では、特典を受け入れた顧客にだけ費用がかかるのは条件付きの場合だと説明している。一方、論文の式 (3)（無条件の特典とされる式）では費用に \(r_i(1)\) が掛かり、式 (4)（条件付き）では掛かっていない形になっている。上の式では \(c_i\) にまとめた。離反リフト \(r_i(1)-r_i(0)\) は、費用とキャッシュフローを無視したときの特殊な場合にあたる。</p>
+    <p>利益リフトは負にもなる。特典で不満を思い出した顧客がかえって離反する場合（いわゆる「寝た子を起こす」）や、離反リフトは正でも売上が小さく特典代を回収できない場合である。</p>
+  </section>
+
+  <section id="loss">
+    <div class="kicker">手法</div>
+    <h2>利益ベースの損失関数は予測の目的を利益リフトに替え、利益への影響が大きい顧客の誤差を重く罰する</h2>
+    <p>離反予測でよく使う二項損失は、離反なら \(y_i = 1\)、継続なら \(y_i = -1\) として、スコア \(F(x_i)\) との積（マージン）が小さいほど大きな損失を与える。論文はこの式の 2 か所を変える。</p>
+    <div class="eq">\[ \underbrace{\Psi_i = w_i \log\!\bigl(1 + e^{-2\,y_i F(x_i)}\bigr)}_{\color{#C2410C}{\text{従来：離反を当てる}}} \quad\longrightarrow\quad \underbrace{\Psi_i = w_i \log\!\bigl(1 + e^{-2\,E(\pi_i)\, F(x_i)}\bigr)}_{\color{#1D4ED8}{\text{提案：利益リフトで並べる}}} \]</div>
+    <ul class="def">
+      <li><strong>マージン</strong>：\(y_i\) を期待利益リフト \(E(\pi_i)\) に置き換える。利益リフトの大きい顧客ほど高いスコアを得るように学習する。</li>
+      <li><strong>重み</strong>：\(w_i = |E(\pi_i)|\) とし、利益への影響が正にも負にも大きい顧客の誤差を重く罰する（対称重み）。正の側だけ重くする右重み、負の側だけ重くする左重みも試している。論文の定義では、右重みは \(E(\pi_i) \ge 1\) のとき \(|E(\pi_i)|\)、それ以外は 1 と書かれている。</li>
+    </ul>
+    <p>推定には確率的勾配ブースティング（SGB、終端ノードは最大 8）を使う。損失を自由に差し替えられるからで、ロジスティック回帰の重みつき推定でも同じ損失を使えると述べている。付録のモンテカルロ実験では、重みつき推定は全体としては効率が落ちるが、重みの大きい顧客の予測は偏りが小さく効率も高くなり、その効果は予測精度が低いときやサンプルが小さいときに強いと報告している。</p>
+  </section>
+
+  <section id="pipeline">
+    <div class="kicker">手順</div>
+    <h2>推定・配る人数の決定・評価を別々のサンプルで行う</h2>
+    <p>データを 3 等分し、校正サンプルで推定し、検証サンプルで配る人数を決め、テストサンプルで利益を評価する。分け方を 100 通り変えて平均をとり、手法間の差の検定にも使う。</p>
+    <ul class="def">
+      <li><strong>推定</strong>：無作為化実験（処置群と対照群）のデータから、継続確率の差を uplift ランダムフォレストで、キャッシュフローの差を uplift kNN（\(k=1\)）で推定する。これを上の式に入れて \(E(\pi_i)\) を作り、利益ベースの損失を使う SGB でスコアを学習する。</li>
+      <li><strong>配る人数</strong>：検証サンプルの顧客をスコアの高い順に並べ、上位 \(S\) 人に配ったときの利益を \(S = 1, \dots, N\) のすべてで計算し、最大になる \(S^*\) を選ぶ。予測スコアが正の顧客の数をそのまま使わないのは、スコアの尺度に左右されないためである。</li>
+      <li><strong>評価</strong>：テストサンプルで、上位 \(S^*\) 人に配ったときの利益を計算する。</li>
+    </ul>
+    <p>上位 \(S\) 人の利益は実験で無作為に割り付けられた処置の有無を使ってオフラインで評価する。上位 \(S\) 人のうち実際に特典を受け取った \(N_t\) 人と受け取らなかった \(N_c\) 人の、継続した場合のキャッシュフローの平均の差から特典代を引き、人数 \(S\) を掛ける（無条件の特典の場合）。</p>
+    <div class="eq">\[ \Pi_S = S\left( \frac{1}{N_t}\sum_{i \in \text{処置}} m_i(1)\,\mathbb{1}[\text{継続}] \;-\; \frac{1}{N_c}\sum_{j \in \text{対照}} m_j(0)\,\mathbb{1}[\text{継続}] \;-\; \delta \right) \]</div>
+    <p>論文は条件付きの特典の式 (8a) も示しているが、論文に書かれた形では \(\delta\) を処置群の和の中で全員から引いており、式 (8b) と同じ値になる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="3段階の手順の模式図。校正サンプルで継続確率とキャッシュフローの差を推定し、特典代と合わせて期待利益リフトを作り、利益ベースの損失のSGBでスコアを学習する。検証サンプルで上位S人の利益が最大になる人数を選び、テストサンプルでその人数の利益を評価する。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <text x="20" y="28" font-size="16" font-weight="600" fill="#16202E">① 推定</text>
+        <text x="20" y="48" font-size="14" fill="#5B6676">校正サンプル</text>
+        <text x="258" y="28" font-size="16" font-weight="600" fill="#16202E">② 配る人数</text>
+        <text x="258" y="48" font-size="14" fill="#5B6676">検証サンプル</text>
+        <text x="458" y="28" font-size="16" font-weight="600" fill="#16202E">③ 評価</text>
+        <text x="458" y="48" font-size="14" fill="#5B6676">テストサンプル</text>
+        <rect x="20" y="62" width="206" height="58" rx="10" fill="#F2F4F7"/>
+        <text x="34" y="86" font-size="14" fill="#16202E">継続確率 <tspan class="mi">r̂</tspan>(1), <tspan class="mi">r̂</tspan>(0)</text>
+        <text x="34" y="108" font-size="13" fill="#5B6676">uplift ランダムフォレスト</text>
+        <rect x="20" y="130" width="206" height="58" rx="10" fill="#F2F4F7"/>
+        <text x="34" y="154" font-size="14" fill="#16202E">キャッシュフロー <tspan class="mi">m̂</tspan>(1), <tspan class="mi">m̂</tspan>(0)</text>
+        <text x="34" y="176" font-size="13" fill="#5B6676">uplift kNN</text>
+        <rect x="20" y="198" width="206" height="38" rx="10" fill="#F2F4F7"/>
+        <text x="34" y="222" font-size="15" fill="#16202E">特典代 <tspan class="mi">δ</tspan></text>
+        <path d="M123,238 L123,258" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="20" y="262" width="206" height="98" rx="10" fill="#E7EEFC"/>
+        <text x="34" y="288" font-size="15" font-weight="600" fill="#1D4ED8">期待利益リフト <tspan class="mi">E</tspan>(<tspan class="mi">π</tspan><tspan font-size="11" dy="4">i</tspan><tspan dy="-4">)</tspan></text>
+        <text x="34" y="316" font-size="14" fill="#16202E">利益ベースの損失で</text>
+        <text x="34" y="338" font-size="14" fill="#16202E">SGB を学習 → スコア <tspan class="mi">F̂</tspan>(<tspan class="mi">x</tspan>)</text>
+        <path d="M228,310 L254,200" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="258" y="62" width="178" height="236" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="272" y="90" font-size="14" fill="#16202E">スコアの高い順に並べ、</text>
+        <text x="272" y="114" font-size="14" fill="#16202E">上位 <tspan class="mi">S</tspan> 人に配ったときの</text>
+        <text x="272" y="138" font-size="14" fill="#16202E">利益 Π<tspan font-size="11" dy="4" class="mi">S</tspan><tspan dy="-4"> を</tspan></text>
+        <text x="272" y="162" font-size="14" fill="#16202E"><tspan class="mi">S</tspan> = 1, …, <tspan class="mi">N</tspan> で計算</text>
+        <g transform="translate(272,180)">
+          <polyline points="0,90 20,70 45,48 70,32 95,24 120,30 140,48 150,62" fill="none" stroke="#1D4ED8" stroke-width="2.5"/>
+          <line x1="0" y1="90" x2="150" y2="90" stroke="#5B6676" stroke-width="1"/>
+          <line x1="95" y1="24" x2="95" y2="90" stroke="#16202E" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text x="95" y="108" font-size="14" fill="#16202E" text-anchor="middle"><tspan class="mi">S</tspan>*</text>
+        </g>
+        <path d="M438,180 L454,180" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="458" y="62" width="168" height="236" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="472" y="90" font-size="14" fill="#16202E">上位 <tspan class="mi">S</tspan>* 人に</text>
+        <text x="472" y="114" font-size="14" fill="#16202E">配ったときの利益</text>
+        <text x="472" y="138" font-size="14" fill="#16202E">Π<tspan font-size="11" dy="4" class="mi">S</tspan><tspan font-size="11">*</tspan><tspan dy="-4"> を計算</tspan></text>
+        <text x="472" y="182" font-size="14" fill="#5B6676">推定にも人数の</text>
+        <text x="472" y="204" font-size="14" fill="#5B6676">決定にも使って</text>
+        <text x="472" y="226" font-size="14" fill="#5B6676">いない顧客で評価</text>
+        <text x="258" y="332" font-size="14" fill="#5B6676">データを 3 等分し、分け方を 100 通り</text>
+        <text x="258" y="354" font-size="14" fill="#5B6676">変えて平均する</text>
+      </svg>
+      <figcaption>図1　論文の 3 段階の手順（論文 Fig. 1 の構造を解説者が描き直したもの）。② の曲線は模式図で、データではない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>欧州のテレビ配信と北米の会員制団体で行われた 2 つのフィールド実験で評価した</h2>
+    <p><strong>Study 1</strong> は欧州の双方向テレビ配信サービスで、3 か月の無料体験の利用者の約 40% が更新しない。2006 年 8 月から 2007 年 7 月にかけて、更新を条件とする特典（1 人あたり約 12 ユーロ）を無料期間の終わる前に送った。割り付けのルールが分からないため、傾向スコアでマッチングした処置群 2,595 人と対照群 2,595 人を使う。</p>
+    <p><strong>Study 2</strong> は北米の会員制団体（年会費約 180 ドル）で、更新案内の手紙にお礼の品（1 人あたり約 12 ドル）を添える効果を 5 か月にわたって検証した。対象は 2,100 人で、そのうち 1,044 人に品を送った。毎月、更新時期の会員を処置群と対照群に無作為に半分ずつ分けている。</p>
+    <p>どちらも、離反とキャッシュフローは介入の 1 か月後で測る（3 か月後で測っても結論は変わらないと述べている）。比較手法は、SGB で離反確率を予測する従来の損失（classic loss）、その離反確率と推定キャッシュフローから利益リフトを計算して並べ直す方法（reordered classic loss）、提案法の第 1 段にあたる uplift モデル（損失は変えない）の 3 つである。</p>
+    <p class="src">以下の数値は Harvard Business School Working Paper 14-020（2019 年 12 月改訂、「Forthcoming at Marketing Science」と記載された版）の本文と表による。Marketing Science 掲載版の本文は自動取得できなかったため、掲載版の数値とは照合していない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果 1</div>
+    <h2>利益ベースの損失を使った方法はどちらの実験でも 3 つの比較手法より利益が高かった</h2>
+    <p>Study 1 では、提案法の検証利益は平均 5,026 ユーロで、従来の損失より 168%、並べ直し法より 300%、uplift モデルより 23% 高かった。Study 2 では比較した 3 手法の利益がどれも赤字で、提案法だけが 1,328 ドルの黒字になった。差はすべて 1% 水準で有意である。論文は、Study 2 の特典がもともと多くの顧客で利益を減らしていたにもかかわらず、提案法は利益が正になる人数を見つけられたと述べている。</p>
+    <p>離反確率の予測を利益リフトで並べ直しても、利益はほとんど改善しなかった。論文はこれを、離反の誤分類を減らすよう学習したモデルの順位は、あとから並べ直しても取り戻せないと解釈している。</p>
+    <p>提案法が配った人数は Study 1 で 1,085 人、Study 2 で 266 人で、1 人あたりの利益は 4.63 ユーロと 4.99 ドルになる。論文はこれを年間売上（1 人あたり約 588 ユーロ、年会費 180 ドル）のそれぞれ約 1% と約 3% にあたると見積もっている。</p>
+    <figure>
+      <svg class="fig" id="fig-table1" viewBox="0 0 640 400" role="img" aria-label="論文 Table 1 の横棒グラフ。Study 1 の検証利益は従来の損失1,872ユーロ、並べ直し1,254ユーロ、uplift モデル4,093ユーロ、提案法5,026ユーロ。Study 2 は従来の損失マイナス1,669ドル、並べ直しマイナス1,709ドル、uplift モデルマイナス1,305ドル、提案法1,328ドルで、提案法だけが黒字。"></svg>
+      <figcaption>図2　推定手法ごとの検証利益の平均（100 通りの分割の平均）。<span class="B">■</span> 利益ベースの損失（提案法）、<span class="A">■</span> 比較手法。論文 Table 1 の数値から解説者が作図。</figcaption>
+    </figure>
+  </section>
+
+  <section id="target-size">
+    <div class="kicker">実験の結果 2</div>
+    <h2>配る人数を検証データ上の利益で決めると、解約率や固定予算で決めるより利益が大きかった</h2>
+    <p>同じ提案法の順位を使い、配る人数の決め方だけを変えた比較が Table 2 である。人数を検証サンプルの解約率に合わせると利益は 17%（Study 1）と 77%（Study 2）少なく、例として置いた 1,000 ユーロ（ドル）の予算で配れる人数にすると 92% と 77% 少なかった。平均の処置効果から人数を決める Verbeke らの方法を拡張したものは 93% と 84% 少なかった。最適な人数に 10% の余裕を足すと、利益の出ない顧客が加わり、3% と 47% 減った。</p>
+    <figure>
+      <svg class="fig" id="fig-table2" viewBox="0 0 640 460" role="img" aria-label="論文 Table 2 の横棒グラフ。提案法の順位を使い、配る人数の決め方だけを変えた検証利益。Study 1 は解約率4,164、予算399、Verbeke 345、10%の余裕4,882、検証利益で最適化5,026ユーロ。Study 2 は309、305、208、700、1,328ドル。どちらも最適化が最も高い。"></svg>
+      <figcaption>図3　配る人数の決め方ごとの検証利益の平均。<span class="B">■</span> 検証利益で最適化（提案法）、<span class="A">■</span> ほかの決め方。論文 Table 2 の数値から解説者が作図。</figcaption>
+    </figure>
+    <p>人数を変えたときの利益の推移（論文 Fig. 2）を見ると、Study 1 では提案法の累積利益が対象の約 60% まで増え続け、ほかの手法より傾きが大きい。Study 2 では全員に配ると赤字になり、小さな人数で黒字になるのは提案法だけだった。</p>
+  </section>
+
+  <section id="mechanism">
+    <div class="kicker">実験の結果 3</div>
+    <h2>離反予測の精度は最も低いが、利益の出る顧客を上位に集めている</h2>
+    <p>離反予測の精度を表すジニ係数は、Study 1 で従来の損失が 0.277 と最も高く、提案法は 0.142 と最も低かった（Table 3）。論文は、離反を当てたいなら従来の損失がよく、キャンペーンの利益を最大にしたいなら提案法が向いていると結論している。順位の重なりも小さく、提案法の上位 10% のうち uplift モデルの上位 10% にも入る顧客は 30% 弱で、従来の損失や並べ直し法とはほぼ偶然と同じ程度しか重ならなかった。</p>
+    <p>重みのつけ方の優劣は利益リフトの分布で変わった。期待利益リフトが正の顧客は Study 1 で 68%、Study 2 で 17% である。Study 1 では 3 つの重みの利益がほぼ同じ（対称 4,967、右 4,945、左 5,026 ユーロ）だったのに対し、Study 2 では正の顧客を重くする右重みが 1,328 ドルで、対称重み（413 ドル）と左重み（−55 ドル）を大きく上回った。論文は、分布の中で少ない側を重くするほうがよいとまとめている。</p>
+    <p>推定法をロジスティック回帰に替えても、利益ベースの重みをつけた場合のほうが利益が有意に高かった（Study 1 で 3,331 対 4,907 ユーロ、Study 2 で −1,112 対 416 ドル）。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算の上限は置かず、検証データ上の利益が最大になる人数に配る</h2>
+    <p>この論文が推定するのは、特典を送ったときの 1 期間分の利益リフト \(E(\pi_i)\) である。継続確率の差とキャッシュフローの差を uplift モデルで推定して組み合わせ、それを目的変数にして利益ベースの損失で順位を学習し直す。費用は 1 人あたり一定の特典代 \(\delta\)（どちらの実験も約 12）で、更新した人にだけかかる条件付きの場合も式に含めている。処置は 1 種類の特典を送るかどうかの二値で、特典の種類や金額を顧客ごとに選ぶことは今後の課題としている。</p>
+    <p>予算制約は最適化に入っていない。配る人数は、検証サンプル上の利益 \(\Pi_S\) が最大になる \(S^*\) を全数探索で選ぶ。固定予算（1,000 ユーロまたはドル）で人数を決める方法は比較手法の一つとして扱われ、利益が大きく下がると報告されている。</p>
+    <p>特典代が全員同じ無条件の特典なら、利益リフトの順と「増分 CLV ÷ 特典代」の順は一致する。このため、予算が \(S^*\) 人分より少ないときに上位から予算の範囲で配れば、ROI 順の割り当て（ナップザック問題の連続緩和の解）と同じになる（解説者の注）。一方、更新した人にだけ費用がかかる条件付きの特典では期待費用 \(r_i(1)\,\delta\) が顧客ごとに違うので、利益リフトの順と ROI の順は一般に一致しない（解説者の注）。論文自身はこの対応には触れていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{lemmens2020managing,
+  title   = {Managing Churn to Maximize Profits},
+  author  = {Lemmens, Aur{\'e}lie and Gupta, Sunil},
+  journal = {Marketing Science},
+  volume  = {39},
+  number  = {5},
+  pages   = {956--973},
+  year    = {2020},
+  doi     = {10.1287/mksc.2020.1229}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figures 2 and 3: Tables 1 and 2 of the paper (HBS WP 14-020, rev. Dec 2019) ----------
+function drawBars(id, panels) {
+  var svg = document.getElementById(id); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var X0 = 218, X1 = 600, RH = 32;
+  function fmt(v) { return (v < 0 ? '−' : '') + Math.abs(v).toLocaleString('en-US'); }
+  panels.forEach(function (P) {
+    function px(v) { return X0 + (v - P.lo) / (P.hi - P.lo) * (X1 - X0); }
+    var top = P.y, n = P.rows.length, bottom = top + 18 + n * RH;
+    el('text', { x: 16, y: top, 'font-size': 16, 'font-weight': 600, fill: '#16202E' }, P.title);
+    P.ticks.forEach(function (v) {
+      el('line', { x1: px(v), x2: px(v), y1: top + 12, y2: bottom, stroke: v === 0 ? '#16202E' : '#D9DEE6', 'stroke-width': v === 0 ? 1.5 : 1 });
+      el('text', { x: px(v), y: bottom + 20, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, fmt(v));
+    });
+    P.rows.forEach(function (r, i) {
+      var y = top + 22 + i * RH, v = r[1], z = px(Math.max(P.lo, 0)), x = px(v);
+      el('text', { x: X0 - 12, y: y + 14, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end', 'font-weight': r[2] ? 600 : 400 }, r[0]);
+      el('rect', { x: Math.min(x, z), y: y, width: Math.abs(x - z), height: 20, rx: 3, fill: r[2] ? '#1D4ED8' : '#C2410C' });
+      el('text', { x: v >= 0 ? x + 6 : x - 6, y: y + 15, 'font-size': 14, fill: '#16202E', 'text-anchor': v >= 0 ? 'start' : 'end' }, fmt(v));
+    });
+  });
+}
+drawBars('fig-table1', [
+  { title: 'Study 1：テレビ配信（ユーロ）', y: 24, lo: 0, hi: 6000, ticks: [0, 2000, 4000, 6000],
+    rows: [['従来の損失', 1872, 0], ['並べ直し', 1254, 0], ['uplift モデル', 4093, 0], ['利益ベースの損失', 5026, 1]] },
+  { title: 'Study 2：会員制団体（ドル）', y: 226, lo: -2500, hi: 1500, ticks: [-2000, -1000, 0, 1000],
+    rows: [['従来の損失', -1669, 0], ['並べ直し', -1709, 0], ['uplift モデル', -1305, 0], ['利益ベースの損失', 1328, 1]] }
+]);
+drawBars('fig-table2', [
+  { title: 'Study 1：テレビ配信（ユーロ）', y: 24, lo: 0, hi: 6000, ticks: [0, 2000, 4000, 6000],
+    rows: [['解約率に合わせる', 4164, 0], ['予算 1,000 で配れる数', 399, 0], ['Verbeke らの方法', 345, 0], ['最適値 + 10%', 4882, 0], ['検証利益で最適化', 5026, 1]] },
+  { title: 'Study 2：会員制団体（ドル）', y: 250, lo: 0, hi: 1500, ticks: [0, 500, 1000, 1500],
+    rows: [['解約率に合わせる', 309, 0], ['予算 1,000 で配れる数', 305, 0], ['Verbeke らの方法', 208, 0], ['最適値 + 10%', 700, 0], ['検証利益で最適化', 1328, 1]] }
+]);
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
