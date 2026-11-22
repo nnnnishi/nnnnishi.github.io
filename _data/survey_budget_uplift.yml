@@ -172,6 +172,7 @@ papers:
     year: 2026
     venue: "ACM TORS 5(2)"
     url: "https://doi.org/10.1145/3769300"
+    explainer: causal-promotions
     code: ""
     category: two-stage
     treatment: 二値
@@ -504,6 +505,7 @@ papers:
     year: 2025
     venue: "CIKM 2025"
     url: "https://doi.org/10.1145/3746252.3761573"
+    explainer: converted-only
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -515,6 +517,7 @@ papers:
     year: 2024
     venue: "WWW 2024 Companion"
     url: "https://arxiv.org/abs/2402.03379v1"
+    explainer: ecup
     code: ""
     category: multi-treatment
     treatment: 多値

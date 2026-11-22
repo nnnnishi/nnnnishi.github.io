@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>購入者のデータだけで解く予算つきプロモーション配分（論文解説）</title>
+<meta name="description" content="Converted Data is All You Need for Causal Optimization of e-Commerce Promotions（CIKM 2025）の非公式の解説。報酬と費用が購入時にだけ生じるとき、予算つきの処置選択は購入者のデータと処置確率だけで解ける。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = non-converted sessions and the standard full-data models that need them
+            --b  (blue)   = converted sessions and the converted-only quantities / models
+                         (xi_t, R^{Phi=1}, C^{Phi=1}, treatment effect per conversion)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">CIKM 2025</div>
+  <h1>Converted Data is All You Need for Causal Optimization of e-Commerce Promotions</h1>
+  <p class="subtitle">EC のプロモーションの因果的最適化には購入データだけで足りる</p>
+
+  <ul class="authors">
+    <li><b>Dmitri Goldenberg</b><span>Booking.com; Ben Gurion University of the Negev</span></li>
+    <li><b>Hugo Manuel Proença</b><span>Booking.com</span></li>
+    <li><b>Amit Livne</b><span>Booking.com</span></li>
+    <li><b>Felipe Moraes</b><span>Booking.com</span></li>
+    <li><b>Javier Albert</b><span>Booking.com</span></li>
+    <li><b>Bracha Shapira</b><span>Ben Gurion University of the Negev</span></li>
+  </ul>
+
+  <p class="lead">割引クーポンの費用は、客が購入したときにだけ発生する。それでも標準のアップリフトモデルは全体の 90〜99% を占める<span class="A">購入しなかったセッション</span>まで学習に使う。この論文は、報酬と費用が購入時にだけ生じるなら、予算つきの処置選択は<span class="B">購入者のデータ</span>と処置確率だけで解けることを示し、Booking.com の運用で確かめている。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3746252.3761573">Paper</a>
+    <a class="btn" href="https://github.com/dimgold/converted">Supplement</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。全セッションで学習する標準の手法、購入しなかったセッションが90〜99%を占めること、購入者の中の処置群の割合から購入1件あたりの効果を求める仕組み、本文の数値、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">購入は全体の 1〜10%</span><span class="d">報酬と費用が購入時にだけ生じるなら、この購入セッションのデータと処置確率だけで、予算つきの処置選択の判定に要る量がそろう。</span></li>
+    <li><span class="k">学習は少なくとも 4〜10 倍速い</span><span class="d">公開データと合成データのベンチマークで、購入者だけで学習したモデルは標準の手法と同程度の報酬を出した。</span></li>
+    <li><span class="k">増分売上の約 80〜90%</span><span class="d">Booking.com の運用では予算を全員に配る場合の費用の 50% にしても、全員に配る場合の増分売上の約 80〜90% を得た。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>割引の費用は購入時にだけ発生するのに、標準のアップリフトモデルは購入しなかったセッションまで学習に使う</h2>
+    <p>EC のプロモーションでは割引クーポンのように、客が購入して初めて費用が発生するものが多い。一方、予算内で配る相手を決めるのに使われるアップリフトモデルは、購入しなかったセッションも含めたすべての接触データで学習する。購入セッションは全体の 1〜10% にとどまり、残りの 90〜99% は購入しなかったセッションである。</p>
+    <p>購入しなかったセッションには、ボットや眺めているだけの客のような、判断に役立たない接触が混じる。データ量が増えて学習が重くなり、どのセッションが購入につながったかの帰属も複雑になり、結果も大きく偏る。論文は購入セッションだけで学習すれば、学習時間が短くなり、セッションの追跡や帰属の手間も減らせると主張する。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>予算つきの処置選択は多肢選択ナップザック問題になり、ラグランジュ緩和すると各セッションで τ<sup>r</sup> − λτ<sup>c</sup> が最大の処置を選ぶ規則になる</h2>
+    <p>セッション \(i = 1,\dots,n\) に、\(m\) 種類のプロモーションと対照（\(t = 0\)）のうち 1 つを割り当てる。目的は報酬の増分 \(\tau^r_{it} = R_i(t) - R_i(0)\) の合計を最大にすることで、費用の増分 \(\tau^c_{it} = C_i(t) - C_i(0)\) の合計が予算 \(B\) を超えてはならない。これは多肢選択ナップザック問題（MCKP）である。</p>
+    <div class="eq">\[ \max_{z}\ \sum_{i=1}^{n}\sum_{t=0}^{m} z_{it}\,\tau^r_{it} \quad \text{s.t.}\ \sum_{i=1}^{n}\sum_{t=0}^{m} z_{it}\,\tau^c_{it} \le B,\quad \sum_{t=0}^{m} z_{it} = 1,\quad z_{it}\in\{0,1\} \]</div>
+    <p>MCKP は NP 困難なので、\(z_{it}\) を 0 から 1 の連続値に緩和して双対問題を解く。最適な乗数 \(\lambda^*\) は勾配法や二分探索で求められ、各セッションには次の規則で処置を割り当てる。</p>
+    <div class="eq">\[ \min_{\lambda\ge 0}\ \lambda B + \sum_{i=1}^{n}\max_{t}\bigl(\tau^r_{it} - \lambda\,\tau^c_{it}\bigr), \qquad z^*_{it} = 1 \iff t = \arg\max_{k}\bigl(\tau^r_{ik} - \lambda^*\tau^c_{ik}\bigr) \]</div>
+    <p>個人の \(\tau^r_{it}, \tau^c_{it}\) は観測できないので、RCT のデータから特徴 \(x\) ごとの条件付き平均処置効果（CATE）を推定して代わりに使う。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>報酬と費用が購入時にだけ生じるなら、判定に要る量は購入者のデータと処置確率から計算できる</h2>
+    <p>論文は購入しなかったセッション（\(\phi = 0\)）では報酬も費用もその処置効果も 0 になる場合を考え、これを「トリガー型の報酬と費用」と呼ぶ。このとき MCKP を解くのに要るのは、購入者についての 3 つの量と、処置確率 1 つである。</p>
+    <ul class="def">
+      <li><span class="B">購入者に占める処置群の割合</span> \(\xi_t(x) = \Pr(T = t \mid x, \phi = 1)\)。たとえば 0.6 なら、購入の 60% が処置群から来たことを表す。</li>
+      <li><span class="B">購入時の報酬の期待値</span> \(R^{\Phi=1}_t(x) = \mathbb{E}[R \mid x, T = t, \phi = 1]\)。割引つき予約の売上や利益など。</li>
+      <li><span class="B">購入時の費用の期待値</span> \(C^{\Phi=1}_t(x) = \mathbb{E}[C \mid x, T = t, \phi = 1]\)。割引つき予約にかかった費用など。</li>
+      <li>処置確率 \(e_t(x) = \Pr(T = t \mid x)\)。購入しなかったセッションを含む量はこれだけだが、RCT やバンディットなら実験の設計から分かる（50 対 50 の A/B テストなら 0.5）。</li>
+    </ul>
+    <p>ベイズの定理で \(\Pr(\Phi = 1 \mid x, T = t) = \xi_t(x)\Pr(\Phi = 1 \mid x)/e_t(x)\) と書けるので、処置効果を購入率 \(\Pr(\Phi = 1 \mid x)\) で割った<span class="B">購入 1 件あたりの処置効果</span>は、購入者の量と処置確率だけで表せる。</p>
+    <div class="eq">\[ \tau^{r,\Phi=1}_t(x) = \frac{\tau^r_t(x)}{\Pr(\Phi = 1 \mid x)} = \frac{\xi_t(x)\,R^{\Phi=1}_t(x)}{e_t(x)} - \frac{\xi_0(x)\,R^{\Phi=1}_0(x)}{e_0(x)} \]</div>
+    <p>費用についても \(R\) を \(C\) に置き換えて \(\tau^{c,\Phi=1}_t(x)\) を定義し、ラグランジュのスコアを \(\tau^{r,\Phi=1} - \lambda\,\tau^{c,\Phi=1}\) とする。報酬の代わりに効用を使う場合や、ROI 制約の場合にも同じ定式化が成り立つと論文は述べる。証明は先行研究（IPC の論文）の付録を参照している。</p>
+    <p>（解説者の注）元のスコア \(\tau^r - \lambda\tau^c\) を正の値 \(\Pr(\Phi = 1 \mid x)\) で割っても、同じ \(x\) の中でどの処置が最大になるかは変わらない。購入者だけのスコアで選んでも、\(\lambda\) が同じなら同じ処置が選ばれるのはこのためである。</p>
+    <figure>
+      <svg class="fig" id="fig-converted" viewBox="0 0 640 380" role="img" aria-label="模式図。処置群と対照群が100セッションずつあり、購入は処置群で6件、対照群で4件。購入しなかった190セッションを除き、購入した10件だけを見ると、処置群の割合は0.6。処置確率0.5で割った差 0.6/0.5 − 0.4/0.5 = 0.4 が購入1件あたりの処置効果になる。"></svg>
+      <figcaption>図1　購入者だけから処置効果を求める例（模式図。数値は解説者が置いた例）。報酬を購入そのもの（\(R = 1\)）とし、50 対 50 の A/B テストで処置群 100 件中 6 件、対照群 100 件中 4 件が購入したとする。全データで計算すると処置効果は 0.06 − 0.04 = 0.02、購入率は 10/200 = 0.05 で、その比 0.4 は購入者 10 件だけから求めた値と一致する。</figcaption>
+    </figure>
+  </section>
+
+  <section id="models">
+    <div class="kicker">手法</div>
+    <h2>購入者だけで学習する Z-learner と 3 モデル法を作り、標準の手法と同じ形のラグランジュのスコアで処置を選ぶ</h2>
+    <p>手法の違いだけを比べるため、論文は古典的なメタ学習器を使う。標準の手法（全データで学習）は次の 3 つで、報酬と費用の処置効果を別々に推定し、スコア \(\tau^r(x,t) - \lambda\,\tau^c(x,t)\) で組み合わせる。</p>
+    <ul class="def">
+      <li><span class="A">2 つの S-learner</span>：処置を特徴量に入れた 1 つのモデルで結果を予測し、処置したときとしないときの差をとる。報酬用と費用用の 2 つを作る。</li>
+      <li><span class="A">2 つの Z-learner</span>：結果を処置確率で割った変数 \(z_i\)（処置群は \(y_i/\hat e_i\)、対照群は \(-y_i/(1-\hat e_i)\)）に変換し、その期待値を処置効果とする。処置が複数あるときは対照群を処置の数だけ複製し、処置を特徴量に入れる。</li>
+      <li><span class="A">3 モデル法</span>：購入確率 \(\Pr(\Phi = 1 \mid x, T = t)\) と、購入時の報酬と費用の期待値を別々のモデルで推定し、掛け合わせて処置効果を求める。</li>
+    </ul>
+    <p>購入者だけで学習する手法では、購入しなかったセッションを学習データから除き、購入 1 件あたりの処置効果を推定する。</p>
+    <ul class="def">
+      <li><span class="B">購入者のみの 2 つの Z-learner</span>：購入者にだけ同じ変換をかけ、\(\mathbb{E}[Z \mid \Phi = 1, x, T = t]\) を購入 1 件あたりの処置効果とする。</li>
+      <li><span class="B">購入者のみの 3 モデル法</span>：購入者に占める処置群の割合 \(\xi_t(x)\) と、購入時の報酬と費用の期待値を推定し、上の式に入れる。</li>
+    </ul>
+    <p>S-learner を購入者だけで学習する手法は作らない。購入者だけに絞ると処置について合流点バイアスが入り、元の問題と同じにならないからだと論文は説明している。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>合成・公開・自社の 6 つの RCT データで、予算の上限での報酬と学習時間を比べた</h2>
+    <p>データは合成データ 2 つ（100 万件で 2 群、200 万件で 4 群）、公開データの Criteo と Hillstrom、Booking.com の実験データ 2 つである。Criteo（1,400 万件、購入率 0.3%、処置群 3%）は、処置群と対照群を同数に再標本化し、購入しなかった行の報酬と費用を 0 にして使う。Hillstrom（6 万 4,000 件）は購入額を報酬とし、費用は割引率（女性向け 10%、男性向け 20%）から計算する。自社データ 2 つは、どちらも処置 2 種類と対照からなる。</p>
+    <p>どの手法も LightGBM で作り、同じ範囲でハイパーパラメータを探す。予算は「最も安い処置を全員に配ったときの総費用の 50%」とし、乗数 \(\lambda\) は検証データ上で予算内の報酬が最大になるよう Optuna で \([0, 1]\) の範囲から探す。評価はテストデータで行い、予算の上限での報酬と学習時間を比べる。</p>
+    <p class="src">以下の数値は CIKM 2025 の出版版（ACM Digital Library）の本文による。ベンチマークの結果は論文 Fig. 1 に相対値のグラフとして示されるだけで、表はない。そのため、このページではデータごとの値を載せず、本文に書かれた記述と数値だけを示す。</p>
+  </section>
+
+  <section id="benchmark">
+    <div class="kicker">実験の結果 1</div>
+    <h2>購入者だけで学習しても報酬は標準の手法と同程度で、学習は少なくとも 4〜10 倍速かった</h2>
+    <p>合成データでは、標準の手法と購入者のみの手法の報酬は同程度だった。論文は、これが理論から期待される結果と一致すると述べる。Criteo と Production 2 では、購入者のみの手法のうち最良のものが標準の手法を上回った。論文は、どのデータでも最も報酬の高い手法は購入者のみの手法だったとまとめている。</p>
+    <p>購入率の極端に低い公開データ（Criteo 0.3%、Hillstrom 0.9%）では、手法の差が大きく、競争力のある報酬を出せない手法もあった（Criteo では購入者のみの 2 つの Z-learner と標準の 2 つの S-learner、Hillstrom では標準の 2 つの S-learner と 2 つの Z-learner）。論文は、報酬と費用の作り方や再標本化などの設計が、この結果の一般性を制限しうると断っている。</p>
+    <p>学習時間は、購入者のみの手法が少なくとも 4〜10 倍短かった。自社データの学習時間は機密のため示されていないが、数桁速いと述べられている。</p>
+    <figure>
+      <svg class="fig" id="fig-bench" viewBox="0 0 640 330" role="img" aria-label="6つのデータについて、規模と、報酬についての本文の記述をまとめた表。合成データ2つは全手法が同程度。Criteo と Production 2 は購入者のみの手法が標準を上回る。Hillstrom と Production 1 も購入者のみの手法が最良。"></svg>
+      <figcaption>図2　ベンチマークの報酬についての本文の記述（論文 5.1〜5.3 節の文章から解説者がまとめた表）。数値は論文 Fig. 1 のグラフにしかないため載せていない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="deployment">
+    <div class="kicker">実験の結果 2</div>
+    <h2>Booking.com の運用では、購入までの初期段階で出す施策で購入者のみのモデルが最も良かった</h2>
+    <p>Booking.com では全データのモデル、購入者のみのモデル、因果モデルを使わず 1 つの特徴量で並べるヒューリスティックの 3 系統を、ホールドアウトと全員に配る方策を基準に、継続的な実験で順に比べた。施策は探索の初期に出してすぐ使う割引、初期に出して後で関連商品に使う割引、購入後に出して次回以降に使う割引の 3 種類である。</p>
+    <p>オフラインでもオンラインでも、初期段階の施策では購入者のみのモデルが他を上回り、購入後の施策では全データのモデルがわずかに良かった。論文は、初期段階では特徴量が乏しく、データにノイズが多く、帰属も複雑なためだと説明する。予算を全員に配る場合の費用の 50% とすると、購入者のみのモデルは全員に配る場合の増分売上の約 80〜90% を得た。論文はこれを、予算を超えずに割引を受けられる客をほぼ倍にできることだと言い換えている。</p>
+    <p>オフラインとオンラインの差を一定期間（たとえば 1 週間）ごとに見ると、配る対象の割合の差はすべて負の側に出て偏りを示し、増分報酬の差は正負両方に散らばっていた（ばらつき）。論文は、前者はしきい値を運用中に調整すれば補正できるとしている。なお 6 章では、施策の種類を「Section 1 の Production 3」になぞらえる記述があるが、5.1 節で定義されている自社データは Production 1 と 2 だけとなっている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>総費用の予算を多肢選択ナップザック問題で扱い、ラグランジュ緩和の判定を購入者のデータだけで計算する</h2>
+    <p>この論文が推定するのは、処置ごとの報酬の増分 \(\tau^r\) と費用の増分 \(\tau^c\) で、実際には購入率で割った購入 1 件あたりの値を推定する。費用は購入時にだけ生じる型を前提とし、処置は多値（複数のプロモーションと対照）である。学習には RCT のデータが要る点を、論文自身も制約に挙げている。</p>
+    <p>予算制約は明示的に扱う。費用の増分の合計に上限 \(B\) を置いた MCKP を連続緩和し、検証データで選んだ \(\lambda\) を使って、各セッションで \(\tau^r - \lambda\tau^c\) が最大の処置を選ぶ。（解説者の注）処置と対照の二択で \(\tau^c > 0\) なら、この規則は \(\tau^r/\tau^c > \lambda\) の客に配ることと同じで、ナップザック問題の連続緩和で ROI の高い順に配る割当てと一致する。購入率で割っても比 \(\tau^r/\tau^c\) は変わらないので、購入者だけで推定した値でも同じ順位になる。</p>
+    <p>同じグループの先行研究に、購入者のデータから ROI 制約つきで配る<a href="../free-lunch/">振り返りアップリフト（Free Lunch!）</a>、購入 1 件あたりの増分利益を目的変数にする<a href="../ipc/">IPC</a>、オンライン MCKP で配る<a href="../online-mckp/">Albert と Goldenberg（CIKM 2022）</a>がある。この論文は購入者のデータを使う考え方を、多値の処置と予算制約を扱う一般的な枠組みに広げている。因果的なプロモーション推薦の課題と手法は、同じグループの<a href="../causal-promotions/">TORS の論文</a>が扱っている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{goldenberg2025converted,
+  title     = {Converted Data is All You Need for Causal Optimization of e-Commerce Promotions},
+  author    = {Goldenberg, Dmitri and Proen{\c{c}}a, Hugo Manuel and Livne, Amit and Moraes, Felipe and Albert, Javier and Shapira, Bracha},
+  booktitle = {Proceedings of the 34th ACM International Conference on Information and Knowledge Management},
+  series    = {CIKM '25},
+  pages     = {5666--5673},
+  year      = {2025},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  isbn      = {979-8-4007-2040-6},
+  doi       = {10.1145/3746252.3761573}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg, tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+function mkHTML(svg, a, html) { var e = mk(svg, 'text', a); e.innerHTML = html; return e; }
+var MIa = 'font-family="STIX Two Text, Times New Roman, serif" font-style="italic"';
+
+// ---------- figure 1: schematic, explainer-chosen toy numbers (6/100 vs 4/100 purchases) ----------
+(function () {
+  var svg = document.getElementById('fig-converted'); if (!svg) return;
+  var conv = { T: [7, 23, 41, 58, 76, 92], C: [14, 37, 63, 85] };
+  [['T', '処置群（100 件）', 24], ['C', '対照群（100 件）', 214]].forEach(function (g) {
+    mk(svg, 'text', { x: g[2], y: 40, 'font-size': 16, 'font-weight': 600, fill: '#16202E' }, g[1]);
+    for (var k = 0; k < 100; k++) {
+      var cx = g[2] + 8 + (k % 10) * 17, cy = 62 + Math.floor(k / 10) * 17;
+      var on = conv[g[0]].indexOf(k) >= 0;
+      if (on) mk(svg, 'circle', { cx: cx, cy: cy, r: 6.5, fill: g[0] === 'T' ? '#1D4ED8' : '#fff', stroke: '#1D4ED8', 'stroke-width': 2.5 });
+      else mk(svg, 'circle', { cx: cx, cy: cy, r: 5.5, fill: '#FCEBDF', stroke: '#E7A684', 'stroke-width': 1 });
+    }
+  });
+  mk(svg, 'text', { x: 24, y: 252, 'font-size': 15, fill: '#16202E' }, '購入 6 件');
+  mk(svg, 'text', { x: 214, y: 252, 'font-size': 15, fill: '#16202E' }, '購入 4 件');
+  mk(svg, 'circle', { cx: 32, cy: 282, r: 6.5, fill: '#1D4ED8' });
+  mk(svg, 'text', { x: 46, y: 287, 'font-size': 15, fill: '#16202E' }, '購入（処置群）');
+  mk(svg, 'circle', { cx: 172, cy: 282, r: 6.5, fill: '#fff', stroke: '#1D4ED8', 'stroke-width': 2.5 });
+  mk(svg, 'text', { x: 186, y: 287, 'font-size': 15, fill: '#16202E' }, '購入（対照群）');
+  mk(svg, 'circle', { cx: 32, cy: 312, r: 5.5, fill: '#FCEBDF', stroke: '#E7A684' });
+  mk(svg, 'text', { x: 46, y: 317, 'font-size': 15, fill: '#C2410C' }, '購入しなかった 190 件（学習に使わない）');
+  // arrow
+  mk(svg, 'path', { d: 'M404,150 L436,150', stroke: '#5B6676', 'stroke-width': 2, fill: 'none' });
+  mk(svg, 'path', { d: 'M436,144 L446,150 L436,156 z', fill: '#5B6676' });
+  // right panel: converted only
+  mk(svg, 'rect', { x: 452, y: 20, width: 176, height: 340, rx: 12, fill: '#E7EEFC' });
+  mk(svg, 'text', { x: 540, y: 48, 'font-size': 16, 'font-weight': 600, fill: '#1D4ED8', 'text-anchor': 'middle' }, '購入者 10 件だけ');
+  for (var k = 0; k < 10; k++) {
+    var cx = 478 + (k % 5) * 31, cy = 76 + Math.floor(k / 5) * 30;
+    mk(svg, 'circle', { cx: cx, cy: cy, r: 9, fill: k < 6 ? '#1D4ED8' : '#fff', stroke: '#1D4ED8', 'stroke-width': 2.5 });
+  }
+  mkHTML(svg, { x: 466, y: 154, 'font-size': 16, fill: '#16202E' }, '<tspan ' + MIa + '>ξ</tspan><tspan font-size="12" dy="4">1</tspan><tspan dy="-4"> = 6/10 = 0.6</tspan>');
+  mkHTML(svg, { x: 466, y: 182, 'font-size': 16, fill: '#16202E' }, '<tspan ' + MIa + '>ξ</tspan><tspan font-size="12" dy="4">0</tspan><tspan dy="-4"> = 4/10 = 0.4</tspan>');
+  mkHTML(svg, { x: 466, y: 210, 'font-size': 16, fill: '#16202E' }, '<tspan ' + MIa + '>e</tspan><tspan font-size="12" dy="4">1</tspan><tspan dy="-4"> = </tspan><tspan ' + MIa + '>e</tspan><tspan font-size="12" dy="4">0</tspan><tspan dy="-4"> = 0.5</tspan>');
+  mk(svg, 'text', { x: 466, y: 250, 'font-size': 15, fill: '#16202E' }, '購入 1 件あたりの効果');
+  mk(svg, 'text', { x: 466, y: 280, 'font-size': 16, fill: '#16202E' }, '0.6/0.5 − 0.4/0.5');
+  mk(svg, 'text', { x: 466, y: 316, 'font-size': 26, 'font-weight': 650, fill: '#1D4ED8' }, '= 0.4');
+  mk(svg, 'text', { x: 616, y: 346, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }, '模式図');
+})();
+
+// ---------- figure 2: what the paper's text (Sec. 5.1-5.3) says per dataset; no numbers read off Fig. 1 ----------
+(function () {
+  var svg = document.getElementById('fig-bench'); if (!svg) return;
+  var rows = [
+    ['Synthetic 1', '100 万件・2 群', '全手法が同程度', 0],
+    ['Synthetic 3', '200 万件・4 群', '全手法が同程度', 0],
+    ['Criteo', '1,400 万件・2 群', '購入者のみの最良の手法が標準を上回る', 2],
+    ['Hillstrom', '6.4 万件・3 群', '最良は購入者のみの手法', 1],
+    ['Production 1', '3 群', '最良は購入者のみの手法（同 3 モデル法は下回る）', 1],
+    ['Production 2', '3 群', '購入者のみの 3 モデル法が標準を上回る', 2]
+  ];
+  var Y0 = 34, DY = 46;
+  mk(svg, 'text', { x: 16, y: Y0, 'font-size': 14, 'font-weight': 600, fill: '#5B6676' }, 'データ');
+  mk(svg, 'text', { x: 136, y: Y0, 'font-size': 14, 'font-weight': 600, fill: '#5B6676' }, '規模・群数');
+  mk(svg, 'text', { x: 270, y: Y0, 'font-size': 14, 'font-weight': 600, fill: '#5B6676' }, '報酬についての本文の記述');
+  rows.forEach(function (r, i) {
+    var y = Y0 + 20 + DY * i;
+    mk(svg, 'line', { x1: 12, x2: 628, y1: y, y2: y, stroke: '#D9DEE6' });
+    var ty = y + 29;
+    mk(svg, 'text', { x: 16, y: ty, 'font-size': 15, fill: '#16202E' }, r[0]);
+    mk(svg, 'text', { x: 136, y: ty, 'font-size': 15, fill: '#5B6676' }, r[1]);
+    if (r[3] > 0) mk(svg, 'rect', { x: 262, y: y + 9, width: 362, height: 28, rx: 6, fill: r[3] === 2 ? '#E7EEFC' : '#F2F4F7' });
+    mk(svg, 'text', { x: 270, y: ty, 'font-size': 15, fill: r[3] > 0 ? '#1D4ED8' : '#16202E', 'font-weight': r[3] === 2 ? 600 : 400 }, r[2]);
+  });
+  mk(svg, 'line', { x1: 12, x2: 628, y1: Y0 + 20 + DY * 6, y2: Y0 + 20 + DY * 6, stroke: '#D9DEE6' });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
