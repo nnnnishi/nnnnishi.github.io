@@ -9,7 +9,8 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/publications/` | `publications/index.html` | 論文・記事・書籍・特許（全件） |
 | `/talks/` | `talks/index.html` | 学会発表・招待講演（全件） |
 | `/cv/` | `cv/index.html` | 所属・職歴・授業・学歴・受賞 |
-| `/survey/budget-uplift/` | `survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。nav・トップからはリンクしていない（sitemap にも出ない）。中身は `_data/survey_budget_uplift.yml` |
+| `/survey/` | `survey/index.html` | 文献リストの一覧（nav の Survey） |
+| `/survey/budget-uplift/` | `survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。中身は `_data/survey_budget_uplift.yml`。解説ページは `papers/<slug>/` |
 
 共通のヘッダー・ナビ・フッターは `_layouts/default.html`、ナビの項目は `_config.yml` の `nav`。
 
@@ -24,7 +25,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | Research Interests | `_data/research.yml` | テーマ・例・代表的な成果 |
 | 所属・職歴・学歴 | `cv/index.html` | 直接編集 |
 
-自分の名前（太字にする表記）は `_config.yml` の `me` に列挙。`sitemap.xml` はビルド時に自動生成。
+自分の名前（太字にする表記）は `_config.yml` の `me` に列挙。`sitemap.xml` はビルド時に自動生成（nav の項目と `_config.yml` の `sitemap_extra`）。
 
 ## ローカル確認
 ```sh

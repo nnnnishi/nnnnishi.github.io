@@ -9,4 +9,10 @@ layout: null
     <lastmod>{{ site.time | date: "%Y-%m-%d" }}</lastmod>
   </url>
 {%- endfor %}
+{%- for u in site.sitemap_extra %}
+  <url>
+    <loc>{{ u | absolute_url }}</loc>
+    <lastmod>{{ site.time | date: "%Y-%m-%d" }}</lastmod>
+  </url>
+{%- endfor %}
 </urlset>

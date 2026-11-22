@@ -8,6 +8,10 @@ nav:
   - { label: "Publications", url: "/publications/" }
   - { label: "Talks", url: "/talks/" }
   - { label: "CV", url: "/cv/" }
+  - { label: "Survey", url: "/survey/" }
+
+# sitemap.xml に nav 以外で載せるページ
+sitemap_extra: ["/survey/budget-uplift/"]
 
 # 業績リストで太字にする自分の名前の表記
 me: ["西村直樹", "N. Nishimura", "Naoki Nishimura"]
