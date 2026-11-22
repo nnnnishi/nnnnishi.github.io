@@ -209,7 +209,7 @@ footer p { max-width: none; }
   </figure>
 
   <ul class="points">
-    <li><span class="k">AUUC ＝ γ − 2 つの順位の損失</span><span class="d">AUUC の期待値は、処置群でペアを逆順に並べた割合と、ラベルを反転した対照群で同じく逆順に並べた割合の重み付き和を、定数 γ から引いた形に書ける（Proposition 1）。</span></li>
+    <li><span class="k">AUUC ＝ γ − 2 つの順位の損失</span><span class="d">AUUC の期待値は処置群でペアを逆順に並べた割合と、ラベルを反転した対照群で同じく逆順に並べた割合の重み付き和を、定数 γ から引いた形に書ける（Proposition 1）。</span></li>
     <li><span class="k">23 パラメータ、学習時間 0.17 倍</span><span class="d">Hillstrom で AUUC-max（\(s_{poly}\)）のテスト AUUC は .03065。ベースラインでは SDR（.03079、67 パラメータ）だけがこれを上回った。学習時間は TM を 1 としたときの値（Table 1）。</span></li>
     <li><span class="k">交差検証を下界で置き換える</span><span class="d">ハイパーパラメータを AUUC の下界で選んでも、5 分割交差検証で選んでもテスト AUUC はほぼ同じ（.03065 対 .03071）で、計算は分割数ぶん少なくて済む。</span></li>
   </ul>
@@ -224,7 +224,7 @@ footer p { max-width: none; }
 
   <section id="decomposition">
     <div class="kicker">理論 1</div>
-    <h2>AUUC は、処置群と、ラベルを反転した対照群の 2 つのペアの順位の損失に分解できる</h2>
+    <h2>AUUC は処置群と、ラベルを反転した対照群の 2 つのペアの順位の損失に分解できる</h2>
     <p>処置群 \(S^T\) と対照群 \(S^C\) の反応率を \(\bar y^T,\bar y^C\)、その分散を \(\lambda^g = \bar y^g(1-\bar y^g)\) とする。対照群のラベルを 0 と 1 で入れ替えた集合を \(\tilde S^C\) と書く。論文の Proposition 1 は、AUUC の期待値が次の形になることを示す。</p>
     <div class="eq">\[ \mathrm{AUUC}(f) = \gamma \;-\; \lambda^T\,\mathbb{E}\big[\hat R(f,S^T)\big] \;-\; \lambda^C\,\mathbb{E}\big[\hat R(f,\tilde S^C)\big], \qquad \gamma = \bar y^T - \tfrac{(\bar y^T)^2}{2} - \tfrac{(\bar y^C)^2}{2} \]</div>
     <div class="eq">\[ \hat R(f,S^g) = \frac{1}{n^g_+\,n^g_-}\sum_{(x_i,1)\in S^g}\;\sum_{(x_j,0)\in S^g} \mathbb{1}\big[f(x_i)\le f(x_j)\big] \]</div>
