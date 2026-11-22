@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文脈つきアップリフトモデリングの評価指標について（論文解説）</title>
+<meta name="description" content="About evaluation metrics for contextual uplift modeling（arXiv 2021）の非公式の解説。RCT でないデータや 50:50 でないデータでは AUUC がモデルを取り違えうることを示し、処置確率の逆数による重みづけと分散の小さい曲線の作り方を述べる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = AUUC computed as usual (V1 rule, no re-weighting) and the worse model it can favour
+            --b  (blue)   = the true uplift order (perfect model) and the paper's corrections:
+                         inverse-propensity weights 1/q_i and the mixed curve V_nu
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2021</div>
+  <h1>About evaluation metrics for contextual uplift modeling</h1>
+  <p class="subtitle">文脈つきアップリフトモデリングの評価指標について</p>
+
+  <ul class="authors">
+    <li><b>Christophe Renaudin</b></li>
+    <li><b>Matthieu Martin</b></li>
+  </ul>
+
+  <p class="lead">AUUC（アップリフト曲線の下の面積）は、アップリフトモデルの評価に広く使われている。この技術報告は、処置確率が特徴によって違うデータや、処置群と対照群が 50:50 でないデータでは、<span class="A">そのまま計算した AUUC</span> が完璧なモデルより劣るモデルを高く評価しうることを小さな例で示す。対策として各人の寄与を処置確率の逆数で<span class="B">重みづけし直す式</span>を導き、さらに AUUC の分散を下げる曲線の作り方を提案している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2107.00537">arXiv</a>
+    <a class="btn" href="https://github.com/criteo-research/uplift_modeling_metric">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。アップリフト曲線の作り方、処置確率が群ごとに違うときの AUUC の逆転、処置確率の逆数による重みづけ、V1 と V2 を混ぜた曲線、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図と計算を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">RCT 以外では使わない</span><span class="d">処置確率が特徴によって違うデータでは、劣ったモデルの AUUC が完璧なモデルを上回る例を作れる。論文はそのまま計算した AUUC を RCT のデータに限るよう勧める。</span></li>
+    <li><span class="k">重み \(1/q_i\)</span><span class="d">各人の寄与を、その人が実際に受けた処置の確率 \(q_i\) の逆数で重みづけする。曲線の縦軸と横軸の両方で、処置群と対照群のつり合いを取り直す。</span></li>
+    <li><span class="k">\(\nu^\ast = \Pr(Y{=}1)\)</span><span class="d">二つの作り方 V1 と V2 を \(1-\nu : \nu\) で混ぜた曲線は、どの \(\nu\) でも偏りがない。50:50 の RCT では、\(\nu\) を全体の反応率にすると分散が最小になる。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>アップリフト曲線と Qini 曲線には文献ごとに違う定義が並んでいる</h2>
+    <p>真の効果が分かる合成データなら、推定した CATE と真の値の二乗誤差（PEHE）でモデルを評価できる。実データでは個人の効果が観測できないので、モデルの推定値の大きい順に人を並べ、上位の何割かについて処置群と対照群の反応数の差を見る。この差を割合ごとに描いたのが Qini 曲線やアップリフト曲線で、曲線の下の面積を AUUC（Area Under the Uplift Curve）と呼ぶ。</p>
+    <p>論文は Devriendt ら（2020）の整理を引き、定義の違いを二つの軸で分ける。処置群と対照群を<strong>別々に並べるか、まとめて並べるか</strong>と、反応数を<strong>絶対数で数えるか、群の人数で割った相対値で数えるか</strong>である。さらに三つ目の違いとして、群の大きさの補正に全体の人数を使うか、上位 \(k\) 人の中の人数を使うかを挙げる。論文によれば、これらの違いの多くは、処置群と対照群の人数の偏りをどう補正するかという同じ問題への答え方の違いである。</p>
+    <p>前提として論文は Zhang ら（2020）の分解を使い、観測データから計算するアップリフト \(p_1(x)-p_0(x)\) が CATE と一致する条件を確認している。特徴 \(x\) で条件づければ潜在的結果が処置と独立であること（unconfoundedness）、どの \(x\) でも処置と対照の両方を受ける確率が正であること（overlap）、他人の処置が自分の結果に影響しないこと（SUTVA）の三つである。論文はクーポン共有サイトがある広告の場面では SUTVA が崩れうることにも触れている。</p>
+  </section>
+
+  <section id="definition">
+    <div class="kicker">定義</div>
+    <h2>AUUC はモデルの上位に入った人の真の効果を足し上げた量を推定している</h2>
+    <p>論文は理論上のアップリフト曲線を、モデル \(\hat u\) の推定値で上位の割合 \(r\) に入る人について、真の CATE \(\tau(x)\) を積分した量として定義する。</p>
+    <div class="eq">\[ V_N(r) = \int_{\mathcal X} \tau(x)\, \mathbb 1\!\left[\hat u(x) \ge \xi(r)\right] \mathrm d\mathbb P(x) \]</div>
+    <p>\(\xi(r)\) は上位 \(r\) に入るための推定値のしきい値である。\(V_N\) を 0 から \(p\) まで積分した量を、論文は AUNUC と呼ぶ。同じデータの上なら AUUC は AUNUC の定数倍にすぎないので、モデルの比較にはどちらを使っても同じ結果になる。</p>
+    <p>データから曲線を描くときは、推定値の大きい順に並べた人を左から一人ずつ見ていく。処置群で反応した人なら \(1/N\) 上がり、対照群で反応した人なら \(1/N\) 下がり、それ以外は水平に進む。論文はこの作り方を V1 と呼ぶ。最後に、原点と曲線の終点を結んだ直線（ランダムに配った場合）との間の面積を求め、これを ΔAUNUC とする。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="Schematic of how an uplift curve is built. Ten people sorted by predicted uplift; treated responders move the curve up by one, control responders move it down by one, others keep it flat. The resulting step curve rises to 3 and ends at 1; a dashed line from the origin to the end point is the random baseline.">
+        <g font-size="15" text-anchor="middle">
+          <circle cx="100" cy="40" r="15" fill="#16202E"/><text x="100" y="45" fill="#fff">1</text>
+          <circle cx="148" cy="40" r="15" fill="#16202E"/><text x="148" y="45" fill="#fff">1</text>
+          <circle cx="196" cy="40" r="14" fill="#fff" stroke="#16202E" stroke-width="2"/><text x="196" y="45" fill="#16202E">0</text>
+          <circle cx="244" cy="40" r="15" fill="#16202E"/><text x="244" y="45" fill="#fff">1</text>
+          <circle cx="292" cy="40" r="14" fill="#fff" stroke="#16202E" stroke-width="2"/><text x="292" y="45" fill="#16202E">1</text>
+          <circle cx="340" cy="40" r="15" fill="#16202E"/><text x="340" y="45" fill="#fff">0</text>
+          <circle cx="388" cy="40" r="14" fill="#fff" stroke="#16202E" stroke-width="2"/><text x="388" y="45" fill="#16202E">0</text>
+          <circle cx="436" cy="40" r="15" fill="#16202E"/><text x="436" y="45" fill="#fff">0</text>
+          <circle cx="484" cy="40" r="14" fill="#fff" stroke="#16202E" stroke-width="2"/><text x="484" y="45" fill="#16202E">1</text>
+          <circle cx="532" cy="40" r="15" fill="#16202E"/><text x="532" y="45" fill="#fff">0</text>
+          <text x="100" y="80" fill="#16202E">+1</text><text x="148" y="80" fill="#16202E">+1</text><text x="196" y="80" fill="#5B6676">0</text>
+          <text x="244" y="80" fill="#16202E">+1</text><text x="292" y="80" fill="#16202E">−1</text><text x="340" y="80" fill="#5B6676">0</text>
+          <text x="388" y="80" fill="#5B6676">0</text><text x="436" y="80" fill="#5B6676">0</text><text x="484" y="80" fill="#16202E">−1</text>
+          <text x="532" y="80" fill="#5B6676">0</text>
+        </g>
+        <line x1="76" y1="290" x2="590" y2="290" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="76" y1="290" x2="76" y2="100" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="76" y1="290" x2="556" y2="240" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="6 5"/>
+        <polyline points="76,290 124,240 172,190 220,190 268,140 316,190 364,190 412,190 460,190 508,240 556,240" fill="none" stroke="#16202E" stroke-width="3" stroke-linejoin="round"/>
+        <text x="66" y="295" font-size="15" fill="#5B6676" text-anchor="end">0</text>
+        <text x="66" y="245" font-size="15" fill="#5B6676" text-anchor="end">1</text>
+        <text x="66" y="195" font-size="15" fill="#5B6676" text-anchor="end">2</text>
+        <text x="66" y="145" font-size="15" fill="#5B6676" text-anchor="end">3</text>
+        <text x="590" y="316" font-size="16" fill="#16202E" text-anchor="end">推定値の大きい順に選んだ人数 →</text>
+        <text x="86" y="114" font-size="16" fill="#16202E">↑ 累積の増分（V1）</text>
+        <text x="540" y="274" font-size="15" fill="#5B6676" text-anchor="end">ランダムに配った場合</text>
+        <circle cx="430" cy="128" r="9" fill="#16202E"/><text x="446" y="133" font-size="15" fill="#16202E">処置群</text>
+        <circle cx="520" cy="128" r="8" fill="#fff" stroke="#16202E" stroke-width="2"/><text x="536" y="133" font-size="15" fill="#16202E">対照群</text>
+        <text x="430" y="160" font-size="15" fill="#5B6676">丸の中の数字は反応（1 / 0）</text>
+      </svg>
+      <figcaption>図1　V1 によるアップリフト曲線の作り方（模式図）。処置群で反応した人で 1 上がり、対照群で反応した人で 1 下がる。10 人の並びと反応は解説者が置いた例。</figcaption>
+    </figure>
+  </section>
+
+  <section id="non-rct">
+    <div class="kicker">落とし穴 1</div>
+    <h2>処置確率が特徴によって違うデータでは、完璧なモデルより劣ったモデルのほうが AUUC が高くなりうる</h2>
+    <p>論文は人数の等しい 4 つの群を置く。処置したときだけ反応する CO、いつも反応する ST、いつも反応しない LC、処置しないときだけ反応する SD である。真の効果は CO が 1、ST と LC が 0、SD が −1 なので、<span class="B">完璧なモデル</span>は CO、ST と LC、SD の順に並べる。</p>
+    <p>ここで、処置を受ける確率を群ごとに変える。CO は 1/4、ST は 5/6、LC は 5/12、SD は 1/2 で、全体の処置率は 0.5 になる。V1 の作り方では群の中での曲線の傾きがこの処置率で決まる（論文 Table 3）。CO の傾きは 1/4 だが、ST と LC を合わせた傾きは 5/6 − 1/2 = 1/3 で、効果が 0 の群のほうが急に上がる。そのため、ST と LC を先に、CO をその次に並べる<span class="A">劣ったモデル \(\hat u_n\)</span> のほうが、完璧なモデルより AUUC が大きくなる。</p>
+    <p>論文はこの例から、AUUC は RCT のデータ、つまり処置率が特徴によらないデータにだけ使うべきだと結論している。あわせて、この反例は処置確率の逆数で補正する式（IPS）を使えば解消できるとも述べている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="Uplift curves of toy example 1 built with the V1 rule. The perfect model (blue) rises slowly over CO, then faster over ST and LC; the worse model (orange) puts ST and LC first and stays above the perfect model until both meet at three quarters. Areas under the curves: 0.122 for the perfect model and 0.133 for the worse model.">
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="40" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="600" y2="195.8" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="6 5"/>
+        <polyline points="80,300 340,133.3 470,70.8 600,195.8" fill="none" stroke="#C2410C" stroke-width="3" stroke-linejoin="round"/>
+        <polyline points="80,300 210,237.5 470,70.8 600,195.8" fill="none" stroke="#1D4ED8" stroke-width="3" stroke-linejoin="round"/>
+        <text x="300" y="128" font-size="16" font-weight="600" fill="#C2410C" text-anchor="end">劣ったモデル <tspan class="mi">û</tspan><tspan class="mi" font-size="12" dy="4">n</tspan><tspan dy="-4">：ST・LC → CO → SD</tspan></text>
+        <text x="300" y="286" font-size="16" font-weight="600" fill="#1D4ED8">完璧なモデル：CO → ST・LC → SD</text>
+        <text x="80" y="322" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="210" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1/4</text>
+        <text x="340" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1/2</text>
+        <text x="470" y="322" font-size="15" fill="#5B6676" text-anchor="middle">3/4</text>
+        <text x="600" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="345" y="348" font-size="16" fill="#16202E" text-anchor="middle">上位に選んだ人の割合</text>
+        <text x="70" y="305" font-size="15" fill="#5B6676" text-anchor="end">0</text>
+        <text x="70" y="205" font-size="15" fill="#5B6676" text-anchor="end">0.1</text>
+        <text x="70" y="105" font-size="15" fill="#5B6676" text-anchor="end">0.2</text>
+        <text x="604" y="228" font-size="15" fill="#5B6676" text-anchor="end">ランダム</text>
+        <text x="90" y="54" font-size="16" fill="#16202E">↑ 累積の増分 ÷ 人数 N（V1）</text>
+      </svg>
+      <figcaption>図2　論文 5.2 節の例 1 の曲線。曲線の下の面積は、<span class="B">完璧なモデル</span>が 0.122、<span class="A">劣ったモデル</span>が 0.133 になる。論文が示す群ごとの処置率と傾きから、解説者が計算して作図した（論文 Fig. 8 に対応）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="unbalanced">
+    <div class="kicker">落とし穴 2</div>
+    <h2>RCT でも処置群と対照群が 50:50 でなければ、AUUC によるモデルの順位が入れ替わりうる</h2>
+    <p>処置率がどの群でも同じ \(q_0\) の RCT でも、\(q_0\) が 0.5 でなければ問題が残る。V1 での傾きは、CO が \(q_0\)、ST が \(2q_0-1\)、LC が 0、SD が \(q_0-1\) になる。\(q_0 = 3/4\) なら ST の傾きは 1/2 で、効果が同じ 0 の LC より大きい。このため、ST と LC を区別して ST を先に置くモデルのほうが、二つを区別しない完璧なモデルより AUUC が高くなる（解説者の計算では、曲線の下の面積が 0.234 対 0.219）。\(q_0 = 0.5\) なら ST の傾きも 0 になり、この問題は起きない。</p>
+    <p>この差はモデルの表現力の違いから来るのではないか、という反論に答えるため、論文は表現力が同じ例も示す。二つの群の反応をベルヌーイ分布とし、\(q_0 = 0.1\)、群 1 の処置時・非処置時の反応確率を 0.4 と 0.2、群 2 を 0.2 と 0.1 とする。真の効果は群 1（0.2）のほうが群 2（0.1）より大きい。ところが V1 での傾きは群 1 が −0.14、群 2 が −0.07 で、群 2 を先に並べるモデルのほうが AUUC は高くなる。\(q_0 = 0.5\) なら傾きは効果のちょうど半分になるので、この逆転は起きない。</p>
+    <p>論文のまとめは「AUUC を計算するときは、データの処置群と対照群をつり合わせておくべきだ」である。</p>
+  </section>
+
+  <section id="rebalancing">
+    <div class="kicker">補正</div>
+    <h2>各人の寄与を処置確率の逆数で重みづけし、曲線の縦軸と横軸の両方でつり合いを取り直す</h2>
+    <p>論文は観測データの分布から、処置を 50:50 で割り付けた仮想の分布の上での曲線を計算し直す式を導く。データを推定値の大きい順に並べ、\(q_i = \pi(t_i \mid x_i)\) を \(i\) さんが実際に受けた処置の確率とすると、次のようになる。</p>
+    <div class="eq">\[ V(k) = \sum_{i=1}^{k} \frac{1}{q_i}\left( y_i^{(1)} t_i - y_i^{(0)} (1-t_i) \right), \qquad \mathrm{AUUC}(k) = \frac{1}{N}\sum_{i=1}^{k} \frac{V(i)}{2\,q_i} \]</div>
+    <p>\(1/q_i\) は縦軸の重みで、曲線の高さを 50:50 のデータに換算する。AUUC の式にある \(1/(2q_i)\) は横軸の重みである。処置群と対照群をまとめて並べる場合、縦軸だけを補正して \(\sum_k V(k)\) を計算すると、人数の少ない群の寄与を過小に見積もる、と論文は指摘する。RCT なら \(q_i\) は処置群と対照群の人数だけで決まる。</p>
+    <p>推定値が同じ人が続く区間では、並び順が決まらないので曲線が揺れる。論文は同じ値の区間ごとに最後の点だけを残し、その間を線形補間してから AUUC を計算する手順を示している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="Toy example 1 again, with each contribution weighted by the inverse treatment probability (expected values). The perfect model (blue) rises to 0.25 over CO, stays flat over ST and LC, and falls over SD; the worse model (orange) stays at zero for the first half. Areas: 0.188 for the perfect model and 0.063 for the worse model.">
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="40" stroke="#16202E" stroke-width="1.5"/>
+        <polyline points="80,300 340,300 470,100 600,300" fill="none" stroke="#C2410C" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 6"/>
+        <polyline points="80,300 210,100 470,100 600,300" fill="none" stroke="#1D4ED8" stroke-width="3" stroke-linejoin="round"/>
+        <text x="220" y="88" font-size="16" font-weight="600" fill="#1D4ED8">完璧なモデル</text>
+        <text x="335" y="285" font-size="16" font-weight="600" fill="#C2410C" text-anchor="end">劣ったモデル <tspan class="mi">û</tspan><tspan class="mi" font-size="12" dy="4">n</tspan></text>
+        <text x="80" y="322" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="210" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1/4</text>
+        <text x="340" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1/2</text>
+        <text x="470" y="322" font-size="15" fill="#5B6676" text-anchor="middle">3/4</text>
+        <text x="600" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="345" y="348" font-size="16" fill="#16202E" text-anchor="middle">上位に選んだ人の割合</text>
+        <text x="70" y="305" font-size="15" fill="#5B6676" text-anchor="end">0</text>
+        <text x="70" y="105" font-size="15" fill="#5B6676" text-anchor="end">0.25</text>
+        <text x="90" y="54" font-size="16" fill="#16202E">↑ 重み 1/q をかけた累積の増分（期待値）</text>
+      </svg>
+      <figcaption>図3　図2 と同じ例 1 に重み \(1/q_i\) をかけた曲線（期待値）。どの群でも傾きが真の効果（CO は 1、ST と LC は 0、SD は −1）に等しくなり、<span class="B">完璧なモデル</span>の面積 0.188 が<span class="A">劣ったモデル</span>の 0.063 を上回る。論文は「IPS で解消できる」と述べるだけで、この図と数値は解説者が計算したもの。</figcaption>
+    </figure>
+  </section>
+
+  <section id="selection">
+    <div class="kicker">モデル選び</div>
+    <h2>AUUC が同じでも、予算や ROI の制約しだいで選ぶべきモデルは変わる</h2>
+    <p>論文は Radcliffe（2012）がモデル選びの基準に挙げた 6 項目を紹介する。AUUC の値、増分の単調性、最大の効果、カットオフでの効果、学習データと検証データでの曲線の近さ、予測値の幅である。そのうえで、AUUC が同じで曲線の形が違うモデルをどう選ぶかを問う。</p>
+    <p>論文によれば、実際の問題は「制約のもとで関心のある量を最大にする」形をとる。関心のある量は増分ユーザー数、増分利益、ROI など、制約は ROI の下限や配布人数（≈ 予算）などである。ここでの ROI は「増分ユーザー数 ÷ 処置したユーザー数」で、原点から曲線上の点へ引いた直線の傾きに当たる。</p>
+    <p>論文の Fig. 4・5 は、AUUC がまったく同じ 3 本の曲線でこの違いを説明する。費用が安く ROI の下限がなければ、頂点が最も高い曲線を選ぶ。予算を気にせず ROI を最大にしたいなら、頂点での ROI が最も高い曲線を選ぶ。ROI の下限がとても高いなら、立ち上がりが最も急な曲線を選ぶ。こうした違いは AUUC という一つの数では区別できない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="Schematic of three concave uplift curves with nearly equal areas. Curve A has the highest peak, late; curve B has the steepest line from the origin to its peak; curve C has the steepest start but a lower peak.">
+        <line x1="80" y1="300" x2="610" y2="300" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="80" y2="36" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="80" y1="300" x2="262" y2="97.5" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="4 4"/>
+        <polyline points="80,300 210,190 340,102.5 470,60 600,200" fill="none" stroke="#16202E" stroke-width="3" stroke-linejoin="round"/>
+        <polyline points="80,300 158,175 262,97.5 392,107.5 600,200" fill="none" stroke="#16202E" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="10 6"/>
+        <polyline points="80,300 121.6,180 236,125 392,110 600,200" fill="none" stroke="#5B6676" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="3 5"/>
+        <circle cx="470" cy="60" r="6" fill="#16202E"/><text x="482" y="58" font-size="17" font-weight="600" fill="#16202E">A</text>
+        <circle cx="262" cy="97.5" r="6" fill="#16202E"/><text x="262" y="82" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">B</text>
+        <text x="100" y="186" font-size="17" font-weight="600" fill="#5B6676">C</text>
+        <line x1="350" y1="226" x2="384" y2="226" stroke="#16202E" stroke-width="3"/><text x="394" y="231" font-size="15" fill="#16202E">A：頂点が最も高い</text>
+        <line x1="350" y1="252" x2="384" y2="252" stroke="#16202E" stroke-width="2.5" stroke-dasharray="10 6"/><text x="394" y="257" font-size="15" fill="#16202E">B：頂点での ROI が最大</text>
+        <line x1="350" y1="278" x2="384" y2="278" stroke="#5B6676" stroke-width="2.5" stroke-dasharray="3 5"/><text x="394" y="283" font-size="15" fill="#16202E">C：立ち上がりが最も急</text>
+        <text x="80" y="322" font-size="15" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="600" y="322" font-size="15" fill="#5B6676" text-anchor="middle">1</text>
+        <text x="345" y="322" font-size="16" fill="#16202E" text-anchor="middle">上位に選んだ人の割合（≈ 予算）</text>
+        <text x="90" y="50" font-size="16" fill="#16202E">↑ 増分ユーザー数</text>
+      </svg>
+      <figcaption>図4　面積がほぼ等しい 3 本の曲線（論文 Fig. 4・5 の考え方を解説者が描き直した模式図）。点線は原点から B の頂点への直線で、その傾きが頂点での ROI に当たる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="variance">
+    <div class="kicker">分散の削減</div>
+    <h2>曲線の作り方を V1 と V2 の混合に変えると、偏りを保ったまま分散を最小にできる</h2>
+    <p>V1 は処置群で反応した人で上がり、対照群で反応した人で下がる。いつも反応する ST はどちらにも現れ、平均すると打ち消し合う。論文はラベルを裏返した V2 も偏りのない推定量になることを付録 C で示す。V2 は対照群で反応しなかった人で上がり、処置群で反応しなかった人で下がる。こちらではいつも反応しない LC が打ち消し合う。</p>
+    <div class="eq">\[ V_\nu = (1-\nu)\,V_1 + \nu\, V_2, \qquad \nu^\ast = p_1(1-\alpha) + p_0\,\alpha \]</div>
+    <p>論文は二つを混ぜた \(V_\nu\) もどの点でも偏りがないことと、その分散を最小にする \(\nu\) が上の \(\nu^\ast\) になることを示す。\(\alpha\) は処置率、\(p_1, p_0\) は処置時・非処置時の反応率である。50:50 の RCT（\(\alpha = 0.5\)）では、\(\nu^\ast\) は全体の反応率 \(\Pr(Y{=}1)\) に等しい。反応率が低いデータでは \(\nu^\ast\) が 0 に近く、V1 に近い作り方のほうが分散が小さい（解説者の注）。</p>
+    <p>合成データの実験では、2 種類のアップリフトモデルについて、101 個のデータセットで \(V_\nu\) による AUUC の分布を描き、分散が \(\nu\) の 0 と 1 の間のどこかで最小になることを確かめている（図5）。分散がどれだけ減るかを示す数値の表は論文にはない。なお、図の縦軸のラベルでは V1V2(1.0) の箱が V1 と、V1V2(0.0) の箱が V2 と同じ位置にあり、本文の定義 \(V_\nu = (1-\nu)V_1 + \nu V_2\) とは \(\nu\) の向きが逆になっている。</p>
+    <figure style="max-width: 48rem">
+      <img src="assets/fig10_vnu_auuc.png" alt="Two box-plot panels (OneClassif, TwoClassif) of AUUC computed with V1, V2 and mixtures V1V2(nu) for nu from 0 to 1, over 101 datasets. The box widths change gradually with nu between the V1 and V2 ends." loading="lazy">
+      <figcaption>図5　\(V_\nu\) で計算した AUUC の分布。上下の図は 2 種類のアップリフトモデル（図中の OneClassif と TwoClassif）に対応する（論文 Fig. 10、CC BY 4.0）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>評価指標の論文で、予算はモデル選びの観点として触れるにとどまる</h2>
+    <p>この論文が推定するのは個人の効果ではなく、アップリフトモデルの良し悪しを測る AUUC と、その分散の小さい推定量である。処置は二値（配る・配らない）で、反応も主に二値を想定する。コストは式に入っておらず、曲線の縦軸は反応数の増分である。</p>
+    <p>予算制約は直接は扱っていない。導入で「予算制約の観点からは、処置による行動の変化が大きい顧客から順に配る」と述べ、ROI の下限や配布人数の制約によって選ぶべきモデルが変わることを模式図で示すだけである。</p>
+    <p>（解説者の注）全員のコストが同じなら、アップリフト曲線の上位 \(k\) 人で止めることは、配布人数に上限を置く予算制約に当たる。この場合、ROI 順の割当て（ナップザック問題の連続緩和）は推定効果の大きい順に配ることと一致し、予算での価値は曲線のその位置の高さで読める。AUUC はこの高さをすべての予算について平均した量なので、決まった予算で使うモデルを選ぶなら、論文が述べるとおり曲線のその位置を見る必要がある。コストが人によって違う場合は効果 ÷ コストの順に並べた曲線が要るが、この論文は扱っていない。また、過去の配布方策で集めたログのように処置率が人によって違うデータでモデルを比べるときは、上の重み \(1/q_i\) が必要になる。</p>
+    <p class="src">式と例は arXiv v3（2021 年 8 月 2 日）による。Crossref では出版版が見つからなかった。曲線の下の面積の値（0.122、0.133、0.188、0.063、0.234、0.219）は、論文が示す例の設定から解説者が計算した。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{renaudin2021about,
+  title         = {About evaluation metrics for contextual uplift modeling},
+  author        = {Renaudin, Christophe and Martin, Matthieu},
+  year          = {2021},
+  eprint        = {2107.00537},
+  archivePrefix = {arXiv},
+  primaryClass  = {math.OC},
+  doi           = {10.48550/arXiv.2107.00537}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

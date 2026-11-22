@@ -242,12 +242,13 @@ papers:
     year: 2021
     venue: "KDD 2021"
     url: "https://arxiv.org/abs/2012.09897"
+    explainer: uplift-generalization
     code: ""
     category: ranking
     treatment: 二値
     cost: 考慮しない
     data: Hillstrom, Criteo, Jobs
-    note: AUUC の汎化誤差の上界を導き、その微分可能な代理関数を直接最大化する
+    note: AUUC を処置群と対照群のペアの順位の損失に分解してデータ依存の下界を導き、その代理関数を最小化する線形モデルで交差検証を省く
   - title: "Learning to Rank for Uplift Modeling"
     authors: "F. Devriendt et al."
     year: 2022
@@ -663,12 +664,13 @@ papers:
     year: 2021
     venue: "arXiv"
     url: "https://arxiv.org/abs/2107.00537"
-    code: ""
+    explainer: uplift-metrics
+    code: "https://github.com/criteo-research/uplift_modeling_metric"
     category: evaluation
     treatment: 二値
     cost: ""
     data: ""
-    note: RCT でないデータでは AUUC が正しく評価できないことを示し、補正の方針を述べる
+    note: RCT でないデータや処置群と対照群が 50:50 でないデータでは AUUC がモデルの順位を取り違えうることを例で示し、処置確率の逆数による重みづけと、分散を小さくする曲線の作り方を導く
   - title: "A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling"
     authors: "E. Diemert et al."
     year: 2021
