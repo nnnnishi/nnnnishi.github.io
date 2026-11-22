@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>因果学習でユーザーの継続を高める（論文解説）</title>
+<meta name="description" content="Improve User Retention with Causal Learning（KDD 2019 Workshop, PMLR 104）の非公式の解説。継続への効果とコストへの効果の比で、クーポンを配る相手を順位づける。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = incremental cost tau^c (net cost) and the existing estimators / causal ratio
+                         (causal forest, R-learner)
+            --b  (blue)   = incremental value tau^r (retention) and the paper's Direct Ranking Model
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD 2019 Workshop on Causal Discovery · PMLR 104</div>
+  <h1>Improve User Retention with Causal Learning</h1>
+  <p class="subtitle">因果学習でユーザーの継続を高める</p>
+
+  <ul class="authors">
+    <li><b>Shuyang Du</b><span>Uber, Inc.</span></li>
+    <li><b>James Lee</b><span>Uber, Inc.</span></li>
+    <li><b>Farzin Ghaffarizadeh</b><span>Uber, Inc.</span></li>
+  </ul>
+
+  <p class="lead">ライドシェアのクーポンは利用の継続を増やす一方で、利用が増えれば会社の純コストも変わる。この論文は継続への効果（<span class="B">増分価値</span>）とコストへの効果（<span class="A">増分コスト</span>）をどちらも処置効果として扱い、予算のもとで配る相手を選ぶ問題を定式化する。既存の推定器をラグランジュ乗数で調整する方法と、集団全体の「増分コスト÷増分価値」を損失にして順位を直接学習する Direct Ranking Model（DRM）を提案し、Uber の無作為化実験のデータと本番のテストで比べている。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v104/du19a.html">Paper</a>
+    <a class="btn" href="https://proceedings.mlr.press/v104/du19a/du19a.pdf">PDF</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。離反リスク順の配布、継続とコストの2つの処置効果、DRM の損失、論文 Table 2 と Table 3 の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\bar\tau^{c}/\bar\tau^{r}\) を最小化</span><span class="d">個人ごとの効果を推定してから割るのではなくスコアで重みをつけた処置群と対照群の差から集団全体の比を作り、それを損失にして順位づけのスコアを学習する。</span></li>
+    <li><span class="k">テストの AUCC 0.65</span><span class="d">コスト曲線の下の面積で比べると、DRM が 0.65、因果フォレストが 0.61、R-learner が 0.59 だった（Table 2）。</span></li>
+    <li><span class="k">効率 +61.5〜101.2%</span><span class="d">本番の 3 都市で、無作為に配る探索群と比べた費用対効果の改善率。因果フォレストは +54.3〜80.4% だった（Table 3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>離反予測や経験則ではなくクーポンの処置効果で配る相手を選びたい</h2>
+    <p>新規ユーザーの獲得費用が上がるにつれ、ネット企業ではユーザーの継続（離反の防止）が重要になっている。不満の残る乗車の後にクーポンを配ると将来の利用が増えることは、Uber と Via での先行研究で示されている。ただし論文によれば、実務の配布判断は因果を考えない離反予測や、不満の残る体験にもとづく経験則に頼っており、クーポンの効果が人によって違うこと（効果の異質性）を直接最適化してはいなかった。</p>
+    <p>論文はもう一つ、コストの扱いを問題にする。多くの研究はクーポンの額面を固定のコストとして扱う。しかし継続への効果が同じ 2 人でも、利用の多い人のほうが増える利益は大きい。論文は、これを捉えるにはコストについても処置効果（純コストの増分）を測る必要があると述べ、配る相手を「増分価値÷増分コスト」の効率で決めることを提案する。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>予算 \(B\) のもとで継続への効果の合計を最大にする、0-1 ナップザック問題として定式化する</h2>
+    <p>サンプル \(i\) ごとに、乗車単位の特徴量 \(X_i\)、処置 \(W_i\in\{0,1\}\)（クーポンを配るか）と 2 つの結果を観測する。\(Y^{r}\) は一定期間にユーザーが 1 回以上乗車したか（継続なら 1、離反なら 0）、\(Y^{c}\) は同じ期間のユーザーの純コスト（各乗車の純コストの合計）である。それぞれの処置効果を \(\tau^{r}(x)\)、\(\tau^{c}(x)\) と書く。データは完全に無作為化した実験から得るので、処置の割り当ては潜在的結果と独立で、傾向スコアは全体の処置割合 \(p\) に等しい。</p>
+    <div class="eq">\[ \max_{z}\ \sum_{i=1}^{n} {\color{#1D4ED8}{\tau^{r}(x_i)}}\, z_i \quad \text{s.t.}\quad \sum_{i=1}^{n} {\color{#C2410C}{\tau^{c}(x_i)}}\, z_i \le B,\qquad z_i\in\{0,1\} \]</div>
+    <p>\(z_i\) はサンプル \(i\) を配る対象に選ぶかどうか、\(B\) はクーポンの予算である。論文は、処置群と対照群への分割は \(z_i\) を決めた後に行うので、\(z_i\) による選択バイアスは生じないと述べている。</p>
+  </section>
+
+  <section id="lagrangian">
+    <div class="kicker">手法 1</div>
+    <h2>既存の推定器では、比 \(\tau^{r}/\tau^{c}\) で並べるより、ラグランジュ乗数で 2 つの結果を 1 つにまとめるほうがよかった</h2>
+    <p>因果フォレストや R-learner で \(\tau^{r}\) と \(\tau^{c}\) を別々に推定すれば、問題は 0-1 ナップザック問題になる。サンプルが多すぎて厳密には解けないが、各サンプルの \(\tau^{c}\) は予算に比べて十分に小さく、予算から多少ずれてもよい。そこで論文は連続緩和（分数ナップザック問題）で近似し、比 \(S_i=\hat\tau^{r}(x_i)/\hat\tau^{c}(x_i)\) の大きい順に選ぶ貪欲法で十分だとする。論文はこれを因果比（causal ratio）と呼ぶ。</p>
+    <p>ただし因果比には問題がある。処置効果の推定値はノイズが非常に大きく、比をとるとそれが増幅される。効果が 0 に近いユーザーが多いので、分母が 0 に近くなりやすい。また、配りたい \(\tau^{r}>0,\ \tau^{c}<0\) の人と、配りたくない \(\tau^{r}<0,\ \tau^{c}>0\) の人を比の値では区別できない。モデルも継続とコストで 2 系統が要り、R-learner のような 2 段の手法では 4 つになる。</p>
+    <p>そこで論文は \(z_i\) を \(0\le z_i\le 1\) に緩め、予算制約にラグランジュ乗数 \(\lambda\) をかけて目的関数に入れる。\(\lambda\) を固定すると、\(\tau^{r}-\lambda\tau^{c}>0\) のサンプルを選ぶのが解になるので、この値をスコアにする。この式は結果について線形なので、\(Y^{S}=Y^{r}-\lambda Y^{c}\) を 1 つの結果として推定器に入れれば、モデルは 1 つで済む。</p>
+    <div class="eq">\[ S_i=\hat\tau^{S}(x_i)={\color{#1D4ED8}{\hat\tau^{r}(x_i)}}-\lambda\,{\color{#C2410C}{\hat\tau^{c}(x_i)}} \]</div>
+    <div class="eq">\[ \tau^{r}(x)-\lambda\tau^{c}(x)=\mathbb{E}\big[(Y^{r}(1)-\lambda Y^{c}(1))-(Y^{r}(0)-\lambda Y^{c}(0))\mid X=x\big] \]</div>
+    <p>\(\lambda\) は劣勾配法の反復で求めることもできるが、目的関数が \(\lambda\) について区分線形で反復が遅いため、論文は \(\lambda\) をハイパーパラメータとして探索している。なお、論文の更新式 (13) では、和の中の \(z_i\) が書かれていない（解説者の注）。論文の Fig. 2 は、因果フォレストを使ったとき、ラグランジュ版のテストデータのコスト曲線が因果比のものを上回ることを示している（曲線だけで、数値は本文にない）。</p>
+  </section>
+
+  <section id="drm">
+    <div class="kicker">手法 2</div>
+    <h2>Direct Ranking Model は推定と最適化を一段にまとめ、重みをつけた集団の「増分コスト÷増分価値」を最小にする</h2>
+    <p>上の方法は推定と最適化の 2 段からなる。しかし事業の目的は、予算のもとで継続の増分が最大になるユーザーや乗車の組み合わせを見つけることで、個人ごとの効果を正確に推定することではない。論文はこれを、検索のランキングとクリック率の点推定の違いになぞらえ、2 段をまとめた Direct Ranking Model（DRM）を提案する。</p>
+    <p>DRM は、選ぶかどうかの \(z_i\) を選ぶ確率 \(p_i\) で連続的に近似する。特徴量からスコア \(S_i=f(X_i)\) を出し、\(s_i=\tanh(S_i)\) としてから、処置群と対照群のそれぞれの中で softmax をとって \(p_i\) にする。\(p_i\) で重みをつけた処置群と対照群の結果の差が、選んだ「分数の集団」の効果になる。</p>
+    <div class="eq">\[ p_i=\frac{e^{s_i}}{\sum_{j=1}^{n}\mathbb{I}_{W_j=W_i}\,e^{s_j}} \]</div>
+    <div class="eq">\[ {\color{#1D4ED8}{\bar\tau^{r}}}=\sum_{i=1}^{n}Y^{r}_i\,p_i\,(\mathbb{I}_{W_i=1}-\mathbb{I}_{W_i=0}),\qquad {\color{#C2410C}{\bar\tau^{c}}}=\sum_{i=1}^{n}Y^{c}_i\,p_i\,(\mathbb{I}_{W_i=1}-\mathbb{I}_{W_i=0}) \]</div>
+    <div class="eq">\[ \hat f(\cdot)=\operatorname*{arg\,min}_{f}\ \left\{\frac{\color{#C2410C}{\bar\tau^{c}}}{\color{#1D4ED8}{\bar\tau^{r}}}+\Lambda_n(f(\cdot))\right\} \]</div>
+    <p>\(f\) は線形モデルでもニューラルネットでもよく、微分できれば形を問わない。実装には TensorFlow と Adam を使っている。\(\tanh\) は過学習を抑えるための工夫である。効果の大きい少数のサンプルに極端に高いスコアを与えると損失は下がるが、\(\tanh\) は絶対値が大きいところで飽和して勾配が消える。このため、そうした偏りが起きにくくなり、より大きな集団に当てはまるパターンを探すようになる。論文は、\(\tanh\) がないとすぐに過学習したと述べている。</p>
+    <p>なお、後の DRP の論文（Zhou ら, AAAI 2023）は、この損失（DRP の論文では Direct Rank と呼ぶ）が安定な極値点に収束しないことを付録で示している（<a href="../drp/">DRP の解説</a>）。また、Du と Lee を含む Uber の著者らによる 2020 年の arXiv 論文は、DRM に上位の割合や予算の制約を組み込む拡張を提案している（<a href="../heterogeneous-causal-learning/">異質因果学習の解説</a>）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="DRM の模式図。特徴量からスコアを出し、tanh と群ごとの softmax で重みにする。重みつきの処置群と対照群の差から増分価値と増分コストを作り、その比を損失として最小にする。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="14" y="110" width="110" height="80" rx="10" fill="#F2F4F7"/>
+        <text x="69" y="145" font-size="16" fill="#16202E" text-anchor="middle">特徴量</text>
+        <text x="69" y="170" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">X</tspan><tspan font-size="12" dy="4">i</tspan></text>
+        <rect x="160" y="110" width="130" height="80" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="225" y="142" font-size="16" fill="#16202E" text-anchor="middle"><tspan class="mi">s</tspan> = tanh(<tspan class="mi">f</tspan>(<tspan class="mi">X</tspan>))</text>
+        <text x="225" y="170" font-size="15" fill="#5B6676" text-anchor="middle">スコア</text>
+        <rect x="326" y="40" width="130" height="220" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="391" y="70" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">群ごとの</text>
+        <text x="391" y="92" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">softmax</text>
+        <text x="391" y="140" font-size="15" fill="#16202E" text-anchor="middle">処置群の重み</text>
+        <text x="391" y="162" font-size="15" fill="#5B6676" text-anchor="middle">（和が 1）</text>
+        <text x="391" y="206" font-size="15" fill="#16202E" text-anchor="middle">対照群の重み</text>
+        <text x="391" y="228" font-size="15" fill="#5B6676" text-anchor="middle">（和が 1）</text>
+        <rect x="492" y="40" width="134" height="86" rx="10" fill="#E7EEFC"/>
+        <text x="559" y="72" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">増分価値</text>
+        <text x="559" y="102" font-size="16" fill="#16202E" text-anchor="middle">（継続）</text>
+        <rect x="492" y="174" width="134" height="86" rx="10" fill="#FCEBDF"/>
+        <text x="559" y="206" font-size="16" font-weight="600" fill="#C2410C" text-anchor="middle">増分コスト</text>
+        <text x="559" y="236" font-size="16" fill="#16202E" text-anchor="middle">（純コスト）</text>
+        <text x="559" y="156" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">損失＝コスト÷価値</text>
+        <path d="M124,150 L158,150" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M290,150 L324,150" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M456,110 L490,90" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M456,190 L490,210" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <text x="320" y="290" font-size="15" fill="#5B6676" text-anchor="middle">重みつきの「処置群の結果 − 対照群の結果」で集団の効果を作る</text>
+      </svg>
+      <figcaption>図1　DRM の計算の流れ（論文の式 (16)〜(23) を解説者が図にした模式図）。損失を小さくするには、費用対効果のよいサンプルのスコアを上げて重みを集めればよい。</figcaption>
+    </figure>
+  </section>
+
+  <section id="cost-curve">
+    <div class="kicker">評価指標</div>
+    <h2>コスト曲線はスコア順に配る範囲を広げたときの増分コストと増分価値をたどる</h2>
+    <p>実データでは個人の真の効果が分からないので、論文はアップリフト曲線にならったコスト曲線を提案する。サンプルをスコアの高い順に並べ、上位 \(p\%\) について、処置群の人数にその集団の ATE（平均処置効果）をかけた値をコストと継続のそれぞれで求める。これを横軸（増分コスト）と縦軸（増分価値）にとると、原点（誰にも配らない）から右上の点（全員に配る）までの曲線になる。スコアは処置の有無に依存しないので、処置群と対照群の両方に付けられる。</p>
+    <p>スコアが無作為なら曲線は直線になり、よいモデルほど直線より上にふくらむ。AUCC（コスト曲線の下の面積）は、曲線と直線の間の面積 \(A\) を直線の下の面積 \(B\) で割った \(A/B\) で、論文はその範囲を \([0,1)\) としている。曲線が直線を下回るほど悪いモデルなら、スコアの順序を逆にすれば \(A\) は正になるので、最悪でも無作為と同じになると論文は述べる。なお、後続の arXiv 論文（Zou ら, 2020）は AUCC を \((A+B)/2B\) と定義しているので、両者の値をそのまま比べることはできない（解説者の注）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 380" role="img" aria-label="コスト曲線の模式図。横軸が増分コスト、縦軸が増分価値。原点から右上へ、無作為な順位の直線と、その上にふくらむモデルの曲線がある。曲線と直線の間が面積A、直線の下が面積B。">
+        <polygon points="90,320 570,50 570,320" fill="#F2F4F7"/>
+        <path d="M90,320 Q170,70 570,50 L90,320 Z" fill="#E7EEFC"/>
+        <line x1="90" y1="320" x2="600" y2="320" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="90" y1="320" x2="90" y2="30" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="90" y1="320" x2="570" y2="50" stroke="#5B6676" stroke-width="2" stroke-dasharray="7 5"/>
+        <path d="M90,320 Q170,70 570,50" stroke="#1D4ED8" stroke-width="3" fill="none"/>
+        <circle cx="570" cy="50" r="6" fill="#16202E"/>
+        <circle cx="90" cy="320" r="6" fill="#16202E"/>
+        <text x="250" y="190" font-size="22" font-weight="650" fill="#1D4ED8" text-anchor="middle">A</text>
+        <text x="470" y="275" font-size="22" font-weight="650" fill="#5B6676" text-anchor="middle">B</text>
+        <text x="300" y="80" font-size="16" fill="#1D4ED8" font-weight="600" text-anchor="end">モデルのスコア順</text>
+        <text x="420" y="190" font-size="16" fill="#5B6676">無作為な順位</text>
+        <text x="560" y="40" font-size="15" fill="#16202E" text-anchor="end">全員に配る</text>
+        <text x="100" y="345" font-size="15" fill="#16202E">誰にも配らない</text>
+        <text x="600" y="345" font-size="16" fill="#16202E" text-anchor="end">増分コスト →</text>
+        <text transform="translate(60,175) rotate(-90)" font-size="16" fill="#16202E" text-anchor="middle">増分価値（継続）→</text>
+        <text x="330" y="372" font-size="15" fill="#5B6676" text-anchor="middle">AUCC = <tspan class="mi">A</tspan> / <tspan class="mi">B</tspan></text>
+      </svg>
+      <figcaption>図2　コスト曲線と AUCC の模式図（論文 Fig. 1 の考え方を解説者が描き直したもの。曲線の形は架空）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>1 週間の完全無作為化実験で 100 万件を超える乗車単位のデータを集めた</h2>
+    <p>学習とオフライン評価のデータは、ユーザー単位の A/B テストとして行った完全無作為化の探索実験で集めた。入ってきたサンプルごとに一様乱数のスコアを発生させ、しきい値を超えたものを対象として記録し、その後で処置群か対照群かを確認する。対象を先に選んでから処置を分けるので、モデルで対象を選ぶ活用実験でも選択バイアスは生じないと論文は説明する。</p>
+    <p>各ユーザーは一度だけ対象になり、処置群の対象者だけが 1 回の乗車に使える 7 日間有効のクーポンを受け取る。実験期間は 1 週間で、その後の 4 週間は対象者に他のクーポンを配らない期間とし、この 4 週間の継続とコストを結果とした。集めたデータは 100 万件を超える乗車（ユーザー）単位のサンプルで、特徴量は約 70 個である。</p>
+    <p>オフライン評価ではデータを学習 50%、検証 20%、テスト 30% に分けた。学習データと検証データでハイパーパラメータを選んでから、両者を合わせて学習し直し、テストデータで評価する。処置効果の評価はノイズが大きいので、テストデータを大きめにとったと説明している。R-learner は基本推定器に Lasso を使い、因果フォレストは木 90 本、最小葉サイズ 1000 とした。どちらも手法 1 のラグランジュ版を使っている。DRM は多層パーセプトロンも試したが、線形モデルが最もよかったので線形とし、L1 と L2 の罰則を付けた。</p>
+    <p class="src">以下の数値は PMLR 104 に掲載された版（pp. 34–49）の本文と表による。arXiv 版は見つからなかった。</p>
+  </section>
+
+  <section id="offline">
+    <div class="kicker">実験の結果 1</div>
+    <h2>テストデータの AUCC は DRM が最も高く、学習データとの差も最も小さかった</h2>
+    <p>Table 2 のテストデータの AUCC は、DRM が 0.65、因果フォレストが 0.61、R-learner が 0.59 である。論文は、DRM が因果フォレストより 6%、R-learner より 11% よいとしている。ただし表の 2 桁の値から計算すると、R-learner との差は約 10% となる。論文はさらに、どのモデルも無作為な探索を大きく上回り、増分コストを全体の 1/5 に抑えたところでは無作為に選ぶ場合の 4 倍の継続の増分が得られると述べている。有意性の検定の結果は示されていない。</p>
+    <p>学習データの AUCC は、因果フォレストが 0.87、R-learner が 0.74、DRM が 0.68 だった。DRM は学習データでは最も低いが、テストデータでは最も高い。論文はこれを、DRM の性能がデータによらず安定しており、よく汎化していることの表れとみている。</p>
+    <figure>
+      <svg class="fig" id="fig-aucc" viewBox="0 0 640 300" role="img" aria-label="論文 Table 2 の棒グラフ。テストデータの AUCC は DRM 0.65、因果フォレスト 0.61、R-learner 0.59。学習データの AUCC は DRM 0.68、因果フォレスト 0.87、R-learner 0.74 で、DRM の差が最も小さい。"></svg>
+      <figcaption>図3　テストデータと学習データの AUCC（論文 Table 2 の数値から解説者が作図）。濃い棒がテストデータ、薄い棒が学習データ。</figcaption>
+    </figure>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2</div>
+    <h2>本番の 3 都市でも、DRM は探索群と比べた効率の改善率で因果フォレストを上回った</h2>
+    <p>本番では ε-greedy で、探索と活用を一定の割合で並行して動かす。どちらもスコアがしきい値を超えたときだけクーポンを配り、探索は乱数のスコアを、活用はモデルのスコアを使う。しきい値は予算から決める。</p>
+    <p>オンラインではコスト曲線の 1 点しか観測できないので、対象にした集団の比 \(R=\mathrm{ATE}^{r}/\mathrm{ATE}^{c}\)（原点とその点を結ぶ直線の傾き）を求め、探索群と比べた改善率 \((R_{\text{exploit}}-R_{\text{explore}})/R_{\text{explore}}\) で比べる。論文は、この指標は 2 つの ATE が十分に大きく、探索と活用で同じ程度の大きさのときだけ有効だとし、実際にそれを確かめたと述べている。</p>
+    <p>Table 3 の改善率は、都市 A で DRM が 75.3%、因果フォレストが 60.2%、都市 B で 61.5% と 54.3%、都市 C で 101.2% と 80.4% で、3 都市とも DRM が高かった。R-learner はまだ本番に入っていないため含まれていない。論文によれば、この手法は世界の複数の都市で本番運用されている。今後の課題には、繰り返し配るときの累積効果の推定、固定割合の無作為な探索をバンディットやベイズ最適化による探索に置き換えること、処置効果に特化した埋め込みの学習を挙げている。</p>
+    <figure>
+      <svg class="fig" id="fig-online" viewBox="0 0 640 230" role="img" aria-label="論文 Table 3 のドットプロット。3都市で、探索群と比べた効率の改善率を DRM と因果フォレストで比べる。都市 A は 75.3% と 60.2%、都市 B は 61.5% と 54.3%、都市 C は 101.2% と 80.4% で、どの都市も DRM が高い。"></svg>
+      <figcaption>図4　探索群と比べた効率の改善率。<span class="B">●</span> DRM、<span class="A">●</span> 因果フォレスト（論文 Table 3 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算制約を ROI 順の割当てとして明示し、その比を集団の損失として直接学習する</h2>
+    <p>手法 1 が推定するのは、個人ごとの継続への効果 \(\tau^{r}\) とコストへの効果 \(\tau^{c}\)（因果比）、またはそれらを \(\lambda\) でまとめた \(\tau^{r}-\lambda\tau^{c}\)（ラグランジュ版）である。DRM は個人ごとの効果を推定せず、順位づけのスコア関数 \(f\) を学習し、重みをつけた集団全体の比 \(\bar\tau^{c}/\bar\tau^{r}\) を損失にする。コストはクーポンの額面ではなく処置によって変わる純コストという結果として扱い、その増分を継続と同じ形で測る。処置は二値（1 回の乗車に使えるクーポンを配るかどうか）である。</p>
+    <p>予算制約は問題設定（0-1 ナップザック問題）にはっきり入っている。因果比で並べる方法は、論文自身が述べるとおり分数ナップザック問題の貪欲法で、ROI（増分価値÷増分コスト）の高い順に予算まで配る解と同じである。ラグランジュ版は \(\lambda\) を固定すると、\(\tau^{c}>0\) のサンプルでは \(\tau^{r}/\tau^{c}>\lambda\) のときに配るのと同じになり、比がしきい値を超える人に配る形になる（解説者の注）。ただし論文は \(\lambda\) を予算 \(B\) から決めず、ハイパーパラメータとして探索している。DRM の損失には予算が入っておらず、本番では予算から決めたしきい値でスコアを切って配る。</p>
+    <p>比を直接学習する系統の中では、DRM は初期の手法にあたる。後の <a href="../drp/">DRP</a> はこの損失が収束しないことを指摘して、収束点で出力が \(\tau^{r}/\tau^{c}\) に一致する凸な損失に改め、<a href="../roi-conformal/">rDRP</a> はそれをコンフォーマル予測で頑健にした。これらの論文も評価には本論文と同じ考え方のコスト曲線と AUCC を使っている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@InProceedings{pmlr-v104-du19a,
+  title     = {Improve User Retention with Causal Learning},
+  author    = {Du, Shuyang and Lee, James and Ghaffarizadeh, Farzin},
+  booktitle = {Proceedings of Machine Learning Research},
+  pages     = {34--49},
+  year      = {2019},
+  volume    = {104},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v104/du19a.html}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+function svgEl(svg, tag, a, txt) { var e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+
+// ---------- figure 3: Table 2 of the paper (PMLR 104), AUCC on test and train ----------
+(function () {
+  var svg = document.getElementById('fig-aucc'); if (!svg) return;
+  var el = function (t, a, x) { return svgEl(svg, t, a, x); };
+  var rows = [['DRM', 0.65, 0.68, '#1D4ED8', '#A9BEF1'], ['因果フォレスト', 0.61, 0.87, '#C2410C', '#F2B999'], ['R-learner', 0.59, 0.74, '#C2410C', '#F2B999']];
+  var X0 = 170, X1 = 610, Y0 = 46, DY = 78, BH = 24;
+  function px(v) { return X0 + v * (X1 - X0); }
+  [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 14, y2: Y0 + DY * 3 - 10, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 3 + 12, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, String(v));
+  });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 14, y: y + BH + 6, 'font-size': 16, fill: '#16202E', 'text-anchor': 'end', 'font-weight': 600 }, r[0]);
+    el('rect', { x: X0, y: y, width: px(r[1]) - X0, height: BH, fill: r[3], rx: 3 });
+    el('text', { x: px(r[1]) + 8, y: y + 18, 'font-size': 15, fill: '#16202E' }, 'テスト ' + r[1].toFixed(2));
+    el('rect', { x: X0, y: y + BH + 4, width: px(r[2]) - X0, height: BH, fill: r[4], rx: 3 });
+    el('text', { x: px(r[2]) + 8, y: y + BH + 22, 'font-size': 15, fill: '#5B6676' }, '学習 ' + r[2].toFixed(2));
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 3 + 36, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, 'AUCC（A / B）');
+})();
+
+// ---------- figure 4: Table 3 of the paper (PMLR 104), online efficiency gain (%) ----------
+(function () {
+  var svg = document.getElementById('fig-online'); if (!svg) return;
+  var el = function (t, a, x) { return svgEl(svg, t, a, x); };
+  var rows = [['都市 A', 75.3, 60.2], ['都市 B', 61.5, 54.3], ['都市 C', 101.2, 80.4]];
+  var X0 = 130, X1 = 600, LO = 40, HI = 110, Y0 = 56, DY = 46;
+  function px(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  [40, 60, 80, 100].forEach(function (v) {
+    el('line', { x1: px(v), x2: px(v), y1: Y0 - 22, y2: Y0 + DY * 2 + 22, stroke: '#D9DEE6' });
+    el('text', { x: px(v), y: Y0 + DY * 2 + 44, 'font-size': 15, fill: '#5B6676', 'text-anchor': 'middle' }, v + '%');
+  });
+  el('circle', { cx: X0 + 6, cy: 18, r: 7, fill: '#1D4ED8' }); el('text', { x: X0 + 20, y: 23, 'font-size': 15, fill: '#16202E' }, 'DRM');
+  el('circle', { cx: X0 + 86, cy: 18, r: 7, fill: '#C2410C' }); el('text', { x: X0 + 100, y: 23, 'font-size': 15, fill: '#16202E' }, '因果フォレスト');
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i;
+    el('text', { x: X0 - 16, y: y + 5, 'font-size': 16, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('line', { x1: px(r[2]), x2: px(r[1]), y1: y, y2: y, stroke: '#CBD2DC', 'stroke-width': 3 });
+    el('circle', { cx: px(r[2]), cy: y, r: 8, fill: '#C2410C' });
+    el('circle', { cx: px(r[1]), cy: y, r: 8, fill: '#1D4ED8' });
+    el('text', { x: px(r[1]) + 14, y: y + 5, 'font-size': 14, fill: '#1D4ED8' }, r[1].toFixed(1) + '%');
+    el('text', { x: px(r[2]) - 14, y: y + 5, 'font-size': 14, fill: '#C2410C', 'text-anchor': 'end' }, r[2].toFixed(1) + '%');
+  });
+  el('text', { x: (X0 + X1) / 2, y: Y0 + DY * 2 + 66, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '探索群と比べた効率 R の改善率');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

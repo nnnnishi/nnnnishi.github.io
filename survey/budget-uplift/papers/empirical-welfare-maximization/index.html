@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>経験厚生最大化による処置ルールの選択（論文解説）</title>
+<meta name="description" content="Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice（Econometrica 2018）の非公式の解説。処置ルールの候補を先に決め、その中で標本の社会厚生が最大のルールを選ぶ。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = plug-in rules: estimate the treatment effect by regression, then treat where it is positive
+            --b  (blue)   = Empirical Welfare Maximization (EWM): maximise the sample welfare directly over the
+                         class of feasible rules G
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Econometrica · 2018</div>
+  <h1>Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice</h1>
+  <p class="subtitle">誰を処置すべきか：経験厚生最大化による処置ルールの選択</p>
+
+  <ul class="authors">
+    <li><b>Toru Kitagawa</b><span>Cemmap and Department of Economics, University College London</span></li>
+    <li><b>Aleksey Tetenov</b><span>Department of Economics, University of Bristol</span></li>
+  </ul>
+
+  <p class="lead">実験や観察データから「誰に処置するか」を決めるとき、よく使われるのは、回帰で処置効果を推定して効果が正と出た人に処置する<span class="A">プラグインルール</span>である。この論文は採用できるルールの候補を先に決め、その中で標本の社会厚生が最大になるルールを選ぶ<span class="B">経験厚生最大化（EWM）</span>を調べる。傾向スコアが既知なら、EWM の厚生の損失はミニマックス最適な速さで縮むことを示し、職業訓練の実験データ（JTPA）に適用している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.3982/ECTA13288">Paper</a>
+    <a class="btn" href="https://discovery.ucl.ac.uk/10038909/14/Kitagawa_Published_ECTA13288.pdf">PDF (UCL Discovery)</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。回帰で効果を推定して符号で処置するプラグインルール、実務のルールに課される制約、しきい値を動かして標本の厚生が最大のルールを選ぶEWM、論文 Table I の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(n^{-1/2}\)</span><span class="d">傾向スコアが既知なら、EWM の厚生の損失は最悪の場合でもこの速さで縮む。どの推定ルールも、すべての分布に対してこれより速く縮めることはできない（定理 2.1、2.2）。</span></li>
+    <li><span class="k">処置率 69% 対 86%</span><span class="d">JTPA データで処置 1 件あたり 774 ドルの費用を差し引いたとき、EWM の線形ルールと線形回帰のプラグインルールが処置する割合。推定した厚生の増分は 1 人あたり 792 ドル対 527 ドルだった（Table I）。</span></li>
+    <li><span class="k">処置割合の上限 \(K\)</span><span class="d">処置できる人の割合に上限があっても、候補ルールを絞るか、超えた分を按分した厚生を最大にすれば、同じ \(n^{-1/2}\) の速さが保たれる（Remark 2.1）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>実際の処置ルールには、倫理・法律・予算から来る制約がかかる</h2>
+    <p>処置効果は人の特徴によって異なる。実証研究では回帰で個人ごとの効果を推定し、効果がありそうな人を処置の対象として勧めることが多い。しかし政策の現場では、採用できるルールそのものに制約がある。論文は次の 3 つを挙げる。</p>
+    <ul class="def">
+      <li>倫理・法律・政治上の理由で、使えるルールが外から制限される。</li>
+      <li>予算や定員のため、処置を受けられる人の割合に上限がある。</li>
+      <li>個人の特徴を 1 つまたは少数の資格スコアにまとめた、単純なルールが求められる。</li>
+    </ul>
+    <p>回帰から作るルールは回帰式が正しいことを前提にしている。論文の例では、線形回帰から作るルールも線形のルールの一つになるが、回帰式が誤っていれば、標本が大きくなっても線形ルールの中で最良の厚生には近づかない。論文は、政策担当者が最大にしたい厚生を標本で直接最大化する EWM を、こうした問題に合う方法として勧めている。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">問題設定</div>
+    <h2>目標は、候補ルールの集合の中で平均厚生が最大のルールを選ぶこと</h2>
+    <p>データは \(n\) 人分の \((Y_i, D_i, X_i)\) で、それぞれ処置後の結果、処置の有無（0 か 1）、処置前の特徴量である。特徴量を条件とすれば、処置は潜在結果と独立に割り当てられている（unconfoundedness）と仮定する。処置ルールは「処置する人の特徴量の集合」\(G\) で表し、候補の集まりを \(\mathcal{G}\) と書く。ルール \(G\) を使ったときの社会厚生は次のとおりである。</p>
+    <div class="eq">\[ W(G) = \mathbb{E}\big[\,Y_1 \mathbf{1}\{X \in G\} + Y_0 \mathbf{1}\{X \notin G\}\,\big] = \mathbb{E}[m_0(X)] + \mathbb{E}\big[\tau(X)\,\mathbf{1}\{X \in G\}\big] \]</div>
+    <p>\(\tau(x)\) は条件付き平均処置効果である。制約がなければ、\(\tau(x) \ge 0\) の人を全員処置するルール \(G^*_{FB}\)（first-best）が最良だが、これが \(\mathcal{G}\) に入っているとは限らない。そこで推定したルール \(\hat G\) の良さは、\(\mathcal{G}\) の中で達成できる最大の厚生 \(W^*_{\mathcal{G}}\) からの損失（regret）\(W^*_{\mathcal{G}} - \mathbb{E}[W(\hat G)]\) で測る。処置の費用は結果から費用を差し引いて \(Y\) を定義し直せば厚生に入る。</p>
+    <p>候補の集合として、論文は次のような例を挙げる。</p>
+    <ul class="def">
+      <li>線形の資格スコア：\(\beta_0 + x_{\mathrm{sub}}^\top \beta_{\mathrm{sub}} \ge 0\) なら処置する（VC 次元は \(d_{\mathrm{sub}}+1\)）。</li>
+      <li>一般化した資格スコア：既知の関数の線形結合 \(\sum_j \beta_j f_j(x) \ge g(x)\) で、境界が非線形になってもよい。</li>
+      <li>複数の資格スコアの組合せ：すべてのスコアがしきい値を超える人（共通部分）、またはどれか 1 つが超える人（和集合）を処置する。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>EWM は、逆確率重みで書いた厚生の標本版を、候補ルールの上で直接最大化する</h2>
+    <p>傾向スコア \(e(x) = \Pr(D=1 \mid X=x)\) を使うと、厚生は観測できる量だけで書ける。EWM はその期待値を標本平均 \(\mathbb{E}_n\) に置き換え、候補の中で最大になるルールを選ぶ。</p>
+    <div class="eq">\[ \hat G_{\mathrm{EWM}} \in \arg\max_{G \in \mathcal{G}} \; \mathbb{E}_n\!\left[ \frac{Y_i D_i}{e(X_i)} \mathbf{1}\{X_i \in G\} + \frac{Y_i (1-D_i)}{1-e(X_i)} \mathbf{1}\{X_i \notin G\} \right] \]</div>
+    <p>ランダム化実験のように傾向スコアが既知なら、結果のモデルを当てはめる必要はない。一方、<span class="A">プラグインルール</span>は \(\hat m_1(x) - \hat m_0(x) \ge 0\) となる人を処置するので、回帰の当てはまりに結果が左右される。</p>
+    <p>すべての結果に同じ定数を足すと、標本では選ばれるルールが変わりうる（Remark 2.3）。そこで論文は結果から標本平均を引いてから最大化する demeaned EWM を提案し、実証ではこちらを使う。観察データで傾向スコアが未知のときは、推定した回帰から作る \(\hat\tau_m\) を目的関数に入れる m-hybrid と、推定した傾向スコアで重みをつける e-hybrid を考える。集合の上の最大化は計算が重くなりうるが、Florios and Skouras (2008) の方法を拡張すれば、経済学の多くの問題では広く使われている最適化ソフトで厳密に解けると論文は述べている。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>傾向スコアが既知なら、厚生の損失は \(n^{-1/2}\) の速さで縮み、どの方法もこれより速くはできない</h2>
+    <p>仮定は 4 つである。unconfoundedness、結果が有界（\(|Y| \le M/2\)）、傾向スコアが 0 と 1 から離れている（\(e(x) \in [\kappa, 1-\kappa]\)）、候補の集合 \(\mathcal{G}\) の VC 次元 \(v\) が有限、である。このもとで、損失の最悪値に上界（定理 2.1）と、どの推定ルールにも当てはまる下界（定理 2.2、\(n \ge 16v\)）が得られる。</p>
+    <div class="eq">\[ \sup_{P}\, \mathbb{E}\big[W^*_{\mathcal{G}} - W(\hat G_{\mathrm{EWM}})\big] \le C_1 \frac{M}{\kappa} \sqrt{\frac{v}{n}}, \qquad \sup_{P}\, \mathbb{E}\big[W^*_{\mathcal{G}} - W(\hat G)\big] \ge \tfrac{1}{2} e^{-2\sqrt{2}} M \sqrt{\frac{v}{n}} \]</div>
+    <p>上界と下界の速さがそろうので、EWM はミニマックスの意味で収束率が最適である。上界は \(v\) とともに増える。候補のルールを複雑にするほど、標本への過適合で損失がばらつくことを表している。下界はどんな推定ルールにも当てはまり、ノンパラメトリックなプラグインルールも例外ではない（Remark 2.7）。</p>
+    <p>first-best が \(\mathcal{G}\) に入っていて、効果 \(\tau(X)\) が 0 の近くに集まりすぎないとき（margin 条件 \(\Pr(|\tau(X)| \le t) \le (t/\eta)^{\alpha}\)）は、上界が \(c\,(v/n)^{(1+\alpha)/(2+\alpha)}\) まで改善し、この速さもミニマックス最適である（定理 2.3、2.4）。\(\alpha\) が大きいほど速く、\(\tau(X)\) の分布が 0 の周りで途切れていれば \(n^{-1}\) に近づく。傾向スコアを推定する hybrid 版の上界は、推定誤差の縮む速さと \(n^{-1/2}\) のうち遅いほうで決まる（定理 2.5）。ノンパラメトリックに推定すると一般に \(n^{1/2}\) より遅い。hybrid 版の下界は示されておらず、今後の課題とされている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="margin 条件の係数 α を横軸、損失の収束率の指数 (1+α)/(2+α) を縦軸にとった曲線。α=0 で 0.5 から始まり、α=1/3 で 4/7、α=1 で 2/3、α が大きくなると 1 に近づく。">
+        <line x1="90" y1="270" x2="610" y2="270" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="90" y1="270" x2="90" y2="30" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="90" y1="50" x2="610" y2="50" stroke="#D9DEE6" stroke-dasharray="5 4"/>
+        <path id="ratecurve" d="" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+        <text x="80" y="275" font-size="16" fill="#5B6676" text-anchor="end">1/2</text>
+        <text x="80" y="55" font-size="16" fill="#5B6676" text-anchor="end">1</text>
+        <text x="90" y="292" font-size="16" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="610" y="292" font-size="16" fill="#5B6676" text-anchor="middle">8</text>
+        <text x="350" y="322" font-size="17" fill="#16202E" text-anchor="middle">margin 条件の係数 <tspan class="mi">α</tspan></text>
+        <text transform="translate(30,160) rotate(-90)" font-size="17" fill="#16202E" text-anchor="middle">損失の縮む速さ（指数）</text>
+        <g id="ratemarks"></g>
+        <text x="600" y="40" font-size="15" fill="#5B6676" text-anchor="end">0 の周りに空白がある分布では 1 に近づく</text>
+      </svg>
+      <figcaption>図1　損失の上界 \((v/n)^{(1+\alpha)/(2+\alpha)}\) の指数 \((1+\alpha)/(2+\alpha)\) を、定理 2.3 の式から解説者が描いたもの。印は論文の例：\(\tau(X)\) の密度が有界なら \(\alpha = 1\)（例 2.4、指数 2/3）、\(\tau(X) = (-X)^3\) なら \(\alpha = 1/3\)（例 2.5、指数 4/7）。\(\alpha \to 0\) で定理 2.1 の 1/2 に戻る。</figcaption>
+    </figure>
+  </section>
+
+  <section id="capacity">
+    <div class="kicker">処置割合の上限</div>
+    <h2>処置できる割合に上限があるときは、上限を超えた分を按分して数えた厚生を最大にする</h2>
+    <p>処置できる人の割合が \(K \in (0,1)\) 以下に限られるとする（Remark 2.1）。特徴量の分布 \(P_X\) が既知なら、候補を \(\mathcal{G}_K = \{G \in \mathcal{G} : P_X(G) \le K\}\) に絞ればよい。\(\mathcal{G}_K\) は \(\mathcal{G}\) より複雑にならないので、定理 2.1 がそのまま使える。</p>
+    <p>\(P_X\) が未知だと、推定したルールが上限を超えるおそれがある。論文は、超えたときは対象者の中から割合 \(K/P_X(G)\) だけを無作為に選んで処置すると考え、その場合の厚生の増分を次のように定義する。</p>
+    <div class="eq">\[ V_K(G) = \min\!\left\{1,\; \frac{K}{P_X(G)}\right\} \cdot \mathbb{E}\big[\tau(X)\,\mathbf{1}\{X \in G\}\big] \]</div>
+    <p>EWM はこの式の \(P_X\) を経験分布に、期待値を逆確率重みの標本平均に置き換えて最大化する。オンライン付録の定理 D.1 で、この場合も厚生が少なくとも \(n^{-1/2}\) の速さで最大値に近づくことが示されている。論文の脚注によると、Bhattacharya and Dupas (2012) のノンパラメトリックなプラグインルールは、標本を繰り返し取ったときの平均でしか上限を満たさない。</p>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>職業訓練の無作為化実験（JTPA）で、教育年数と前年の所得を使う処置ルールを比べた</h2>
+    <p>National JTPA Study は、職業訓練や求職支援などのサービスを 18 か月受けられる資格を無作為に割り当てた実験である。標本は 22 歳以上の成人 9,223 人で、処置に割り当てられる確率は 2/3 だった。EWM では傾向スコアを既知の 2/3 として、demeaned EWM を計算している。</p>
+    <p>結果の指標は 2 つある。割当て後 30 か月間の所得と、そこから処置に割り当てた人について 774 ドルを引いたものである。774 ドルは割当て 1 件あたりのサービス費用の平均で、前者は政府の費用を考慮しない立場、後者は参加者の利得と政府の費用を同じ重みで数える立場に当たる。効果は intention-to-treat として扱う。ルールに使う特徴量は教育年数と割当て前年の所得の 2 つで、人種・性別・年齢は使わない。どちらも確認できる情報であり、本人が操作できないことが大事だと論文は述べる。</p>
+    <p>EWM の候補は、2 つの特徴量のしきい値で決まる象限ルール、線形ルール、教育年数の 2 乗・3 乗を加えた線形ルールの 3 種類である。比較相手は線形回帰のプラグインルール（2 種類）と、カーネル回帰によるノンパラメトリックなプラグインルールである。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 350" role="img" aria-label="象限ルールの模式図。横軸は教育年数、縦軸は前年の所得。費用を考えないときは教育年数15年以下かつ前年の所得19,670ドル以下の人を処置し、774ドルの費用を差し引くと教育年数の上限が12年に下がる。">
+        <rect x="100" y="152" width="347" height="138" fill="#E7EEFC"/>
+        <rect x="100" y="152" width="231" height="138" fill="#1D4ED8" fill-opacity="0.28"/>
+        <line x1="100" y1="290" x2="610" y2="290" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="100" y1="290" x2="100" y2="30" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="447" y1="290" x2="447" y2="62" stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <line x1="331" y1="290" x2="331" y2="62" stroke="#1D4ED8" stroke-width="2.5"/>
+        <line x1="100" y1="152" x2="610" y2="152" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="215" y="215" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">費用込みでも処置</text>
+        <text x="389" y="200" font-size="15" fill="#1D4ED8" text-anchor="middle">費用なし</text>
+        <text x="389" y="220" font-size="15" fill="#1D4ED8" text-anchor="middle">なら処置</text>
+        <text x="331" y="310" font-size="16" fill="#16202E" text-anchor="middle">12</text>
+        <text x="447" y="310" font-size="16" fill="#16202E" text-anchor="middle">15</text>
+        <text x="90" y="157" font-size="16" fill="#16202E" text-anchor="end">19,670</text>
+        <text x="355" y="338" font-size="17" fill="#16202E" text-anchor="middle">教育年数（年）</text>
+        <text transform="translate(26,160) rotate(-90)" font-size="17" fill="#16202E" text-anchor="middle">前年の所得（ドル）</text>
+        <text x="600" y="100" font-size="16" fill="#5B6676" text-anchor="end">処置しない</text>
+        <text x="600" y="44" font-size="15" fill="#5B6676" text-anchor="end">模式図（データ点は描いていない）</text>
+      </svg>
+      <figcaption>図2　EWM が選んだ象限ルールの模式図。費用を考えないときは「教育年数 15 年以下かつ前年の所得 19,670 ドル以下」の人を処置し、774 ドルの費用を差し引くと、所得のしきい値はそのままで教育年数の上限が 12 年に下がる（しきい値は論文本文の値。軸の範囲と目盛りの位置は解説者が置いたもので、論文 Fig. 1 の描き直しではない）。</figcaption>
+    </figure>
+    <p class="src">このページの数値は Econometrica 掲載版（86 巻 2 号、591–616 ページ）の本文と Table I による。本文は UCL の機関リポジトリ UCL Discovery が公開している掲載版の PDF で読んだ。証明と計算方法の詳細がある補足資料・オンライン付録は読んでいない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>費用を差し引くと、EWM の線形ルールは回帰のルールより少ない人に処置し、推定した厚生は高かった</h2>
+    <p>費用を差し引いた場合、EWM の線形ルールは 69% に処置し、厚生の増分は 1 人あたり 792 ドルと推定された。線形回帰のプラグインルールは 86% に処置し、527 ドルだった。全員を処置すると 404 ドルである。費用を考えない場合は 96% 対 98%、1,364 ドル対 1,152 ドルで、このときは前年の所得に対する処置の向きが二つのルールで逆になっている（論文 Fig. 2、Fig. 3）。</p>
+    <p>教育年数の 2 乗・3 乗を加えると、EWM は境界の形を変え、教育年数 13 年の人には高い所得のしきい値を課した。カーネル回帰で推定した効果も、この人たちでは低い。線形回帰は加えた項を全体の当てはまりの改善に使い、この人たちを外さなかった。</p>
+    <p>推定した厚生が最も高かったのはノンパラメトリックなプラグインルール（1,693 ドル、費用込みで 996 ドル）である。ただし論文は、このルールは特徴量の空間をまだらに区切るため、明快なルールが求められる公共政策では実施しにくいと述べている。また、Table I の 95% 信頼区間は広く、費用込みでは、全員処置と EWM の各ルールの区間がいずれも 0 をまたいでいる（たとえば EWM の線形ルールは −177〜1,761 ドル）。</p>
+    <figure>
+      <svg class="fig" id="fig-table1" viewBox="0 0 640 370" role="img" aria-label="論文 Table I の横棒グラフ。7つの処置ルールについて、費用なしと費用774ドル込みの1人あたり厚生の増分と処置率を並べる。費用込みでは EWM の線形ルールが69%に処置して792ドル、線形回帰のプラグインルールは86%で527ドル。最も高いのはノンパラメトリックなプラグインルール。"></svg>
+      <figcaption>図3　1 人あたりの厚生の増分の推定値（ドル、誰も処置しない場合との差）と処置率。<span class="B">■</span> EWM、<span class="A">■</span> プラグインルール、灰色は全員処置（論文 Table I の数値から解説者が作図。信頼区間は省略）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>処置割合の上限は扱えるが、誰に配るかは ROI 順ではなく、候補ルールの中での厚生最大化で決まる</h2>
+    <p>この論文が推定するのは、効果の大きさではなく処置ルール（処置する人の集合）そのものである。厚生は結果の平均で、費用は結果から差し引いて入れる。JTPA の例では処置に割り当てた人に一律 774 ドルを課している。処置は二値で、3 つ以上の処置への拡張はオンライン付録で論じたと、論文は Remark 2.4 で述べている。</p>
+    <p>予算制約は「処置できる人の割合が \(K\) 以下」という定員の形で扱う（Remark 2.1）。人によって費用が違う場合の総額の上限は、この論文の枠組みには出てこない。</p>
+    <p>費用が全員同じで割合だけが限られる場合、予算制約つきの割当て（ナップザック問題の連続緩和）の最適解は、\(\tau(x)\) が正の人を大きい順に、割合 \(K\) に達するまで処置することであり、ROI 順の割当てと一致する。候補 \(\mathcal{G}\) に制限がなければ、EWM の目標 \(V_K\) を最大にするルールもこれと同じになる。候補が資格スコアなどに限られると、\(\mathcal{G}\) の中で厚生が最大のルールを選ぶことになり、効果の順位で上から取るとは限らない（解説者の注）。人ごとに費用が違うときの「効果 ÷ 費用」順の割当ては、論文の外にある。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{kitagawa2018should,
+  title   = {Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice},
+  author  = {Kitagawa, Toru and Tetenov, Aleksey},
+  journal = {Econometrica},
+  volume  = {86},
+  number  = {2},
+  pages   = {591--616},
+  year    = {2018},
+  doi     = {10.3982/ECTA13288}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(parent, tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; parent.appendChild(e); return e; }
+
+// ---------- figure 1: exponent (1+a)/(2+a) from Theorem 2.3 ----------
+(function () {
+  var path = document.getElementById('ratecurve'); if (!path) return;
+  var g = document.getElementById('ratemarks');
+  function px(a) { return 90 + a / 8 * 520; }
+  function py(r) { return 270 - (r - 0.5) / 0.5 * 220; }
+  var d = '';
+  for (var i = 0; i <= 160; i++) { var a = i / 20, r = (1 + a) / (2 + a); d += (i ? ' L' : 'M') + px(a).toFixed(1) + ',' + py(r).toFixed(1); }
+  path.setAttribute('d', d);
+  [[1 / 3, '4/7（例 2.5）', 16, 6], [1, '2/3（例 2.4）', 18, 24]].forEach(function (m) {
+    var a = m[0], r = (1 + a) / (2 + a), x = px(a), y = py(r);
+    mk(g, 'circle', { cx: x, cy: y, r: 7, fill: '#1D4ED8' });
+    mk(g, 'text', { x: x + m[2], y: y + m[3], 'font-size': 15, fill: '#16202E' }, m[1]);
+  });
+})();
+
+// ---------- figure 3: Table I of the paper (Econometrica 2018) ----------
+(function () {
+  var svg = document.getElementById('fig-table1'); if (!svg) return;
+  // [label, kind, share (no cost), gain (no cost), share (cost), gain (cost)]
+  var rows = [
+    ['全員を処置', 'g', 1, 1180, 1, 404],
+    ['EWM 象限ルール', 'b', 0.95, 1340, 0.8, 643],
+    ['EWM 線形ルール', 'b', 0.96, 1364, 0.69, 792],
+    ['EWM 線形（教育 3 次まで）', 'b', 0.88, 1489, 0.75, 897],
+    ['線形回帰プラグイン', 'a', 0.98, 1152, 0.86, 527],
+    ['同（教育 3 次まで）', 'a', 0.95, 1263, 0.91, 547],
+    ['ノンパラ・プラグイン', 'a', 0.91, 1693, 0.78, 996]
+  ];
+  var col = { g: '#CBD2DC', b: '#1D4ED8', a: '#C2410C' };
+  var L = 196, PW = 200, GAP = 20, Y0 = 70, DY = 44, HI = 1800;
+  [['費用なし', 2, 3], ['費用 774 ドル込み', 4, 5]].forEach(function (p, j) {
+    var x0 = L + j * (PW + GAP);
+    mk(svg, 'text', { x: x0, y: 26, 'font-size': 15, 'font-weight': 600, fill: '#16202E' }, p[0]);
+    mk(svg, 'line', { x1: x0, x2: x0, y1: 40, y2: Y0 + DY * 6 + 20, stroke: '#16202E' });
+    mk(svg, 'text', { x: x0 + 6, y: 54, 'font-size': 13, fill: '#5B6676' }, '厚生の増分（処置率）');
+    rows.forEach(function (r, i) {
+      var y = Y0 + DY * i, w = r[p[2]] / HI * (PW - 90);
+      mk(svg, 'rect', { x: x0, y: y - 10, width: w, height: 20, rx: 3, fill: col[r[1]] });
+      mk(svg, 'text', { x: x0 + w + 6, y: y + 5, 'font-size': 13, fill: '#16202E' },
+        '$' + r[p[2]].toLocaleString('en-US') + '（' + Math.round(r[p[1]] * 100) + '%）');
+    });
+  });
+  rows.forEach(function (r, i) {
+    mk(svg, 'text', { x: L - 10, y: Y0 + DY * i + 5, 'font-size': 14, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

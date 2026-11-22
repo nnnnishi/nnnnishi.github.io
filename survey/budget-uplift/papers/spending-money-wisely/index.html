@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リアルタイムの意図検出にもとづく電子クーポン配布（論文解説）</title>
+<meta name="description" content="Spending Money Wisely: Online Electronic Coupon Allocation based on Real-Time User Intent Detection（CIKM 2020）の非公式の解説。端末上で額ごとの購入確率を予測し、サーバーが予算の双対価格を差し引いて額を決める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = coupon cost: amount c_j, the dual price term alpha*c_j, the budget B,
+                         and the increment cost (cost per extra buyer)
+            --b  (blue)   = predicted purchase intent v_ij = pP(s,h,c_j) and the conversion rate it buys
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">CIKM · 2020</div>
+  <h1>Spending Money Wisely: Online Electronic Coupon Allocation based on Real-Time User Intent Detection</h1>
+  <p class="subtitle">お金を賢く使う：リアルタイムの意図検出にもとづくオンライン電子クーポン配布</p>
+
+  <ul class="authors">
+    <li><b>Liangwei Li</b><span>Alibaba Group, Hangzhou, Zhejiang</span></li>
+    <li><b>Liucheng Sun</b><span>Alibaba Group, Hangzhou, Zhejiang</span></li>
+    <li><b>Chenwei Weng</b><span>Alibaba Group, Hangzhou, Zhejiang</span></li>
+    <li><b>Chengfu Huo</b><span>Alibaba Group, Hangzhou, Zhejiang</span></li>
+    <li><b>Weijun Ren</b><span>Alibaba Group, Hangzhou, Zhejiang</span></li>
+  </ul>
+
+  <p class="lead">EC のクーポン配布では、数百万人の利用者に複数の額のどれを配るかを、予算の範囲内でその場で決める必要がある。この論文は配布を 2 段に分ける。端末上のニューラルネット IIDN が額ごとの<span class="B">購入確率</span>と離脱しやすさを予測し、サーバーは購入確率から<span class="A">額 × 予算の双対価格</span>を引いた値が最大の額を選ぶ。1688 の A/B テストでは、購入者を 1 人増やす費用が、全員に配る方策の 19.4 元に対して 10.8 元だった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3340531.3412745">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2008.09982">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。全員に無作為な額を配る従来の方策、IIDN による額ごとの購入確率の予測、購入確率から額×双対価格を引いて額を選ぶ規則、論文 Table 3 の A/B テスト結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">AUC 0.738</span><span class="d">購入意図の予測で、IIDN は比較手法をすべて上回った。滞在意図の補助タスクを外すと 0.707、ロジスティック回帰は 0.644（Table 2）。</span></li>
+    <li><span class="k">増分コスト 10.8 元</span><span class="d">購入者を 1 人増やすのにかかった費用。全員に配る方策は 19.4 元、アップリフト配布は 14.2 元（Table 3、予算 100 万元）。</span></li>
+    <li><span class="k">転換率 10.7% → 13.4%</span><span class="d">配らない群と比べた IIDN-MCKP の転換率。最も高いのは全員に配る方策の 13.7% だった（Table 3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>クーポンは、膨大な数の利用者に予算の範囲内でその場で配る必要がある</h2>
+    <p>EC のクーポンは注文を促す主要な手段になっている。論文はクーポン配布問題を、費用を予算 \(B\) 以内に収めながら、利用者全体の転換率（購入者の割合）を最大にする配布方策 \(\pi\) を求める問題として書く。</p>
+    <div class="eq">\[ \pi^* = \arg\max_{\pi}\, R(\mathcal U, \pi) \quad \text{s.t.}\quad {\color{#C2410C}{C(\mathcal U, \pi)}} \le {\color{#C2410C}{B}} \]</div>
+    <p>論文は難しさを 2 つ挙げる。1 つは規模である。大きな EC の常連利用者は数億人に達し、配るクーポンも複数種類あるので、方策の候補は組合せ的に多い。しかも予算を守りながら、その場で決めなければならない。もう 1 つは、同じ利用者が異なる方策のもとでどう反応するかを同時には観測できないことである。論文は資源配分の既存手法ではこれらに対処できないと述べ、配布を「利用者の意図の検出」と「配布の決定」の 2 段に分ける。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">問題設定</div>
+    <h2>配布は、利用者ごとに額を 1 つ選ぶ多肢選択ナップザック問題（MCKP）として書ける</h2>
+    <p>クーポン \(j\) の額を \(c_j\) とし、使える額は全利用者で共通で、事前に決まっているとする。利用者 \(i\) に額 \(c_j\) を配ったときの購入確率の予測を \(v_{ij}\)、まだプラットフォームに留まる確率（滞在確率）の予測を \(s_{ij}\) と書く。\(x_{ij}\) は額 \(j\) のクーポンを利用者 \(i\) に配るかどうかを表す。</p>
+    <div class="eq">\[ \max \sum_{i=1}^{M}\sum_{j=1}^{N} {\color{#1D4ED8}{v_{ij}}}\,x_{ij} \quad \text{s.t.}\quad \sum_{i=1}^{M}\sum_{j=1}^{N} {\color{#C2410C}{c_j}}\,x_{ij} \le {\color{#C2410C}{B}},\qquad \sum_{j} x_{ij} \le 1\;\;\forall i,\qquad x_{ij} \ge 0 \]</div>
+    <p>目的は<span class="B">予測した購入確率</span>の合計で、配ったクーポンの<span class="A">額の合計</span>が予算 \(B\) を超えないようにする。1 人に配るのは高々 1 枚である。この問題の対象は \(s_{ij} \le \gamma\) を満たす利用者、つまり離脱しそうな利用者に限る。まだプラットフォームに関心を持っている利用者に配るのを避けるためだと、論文は説明している。なお、本文では \(x_{ij}\) を 0 か 1 をとる変数と定義しているが、式 (5) の制約は \(x_{ij} \ge 0\) となっている。</p>
+  </section>
+
+  <section id="iidn">
+    <div class="kicker">手法 1：意図の検出</div>
+    <h2>IIDN は端末上の行動の並びから、額ごとの購入確率と離脱しやすさを同時に予測する</h2>
+    <p>購入する利用者は一部しかいないので、購入確率をそのまま学習するとラベルが大きく偏る。そこで論文は「買うには、まず留まっていなければならない」という関係を使い、購入確率を滞在確率と滞在したうえでの購入確率の積に分ける。</p>
+    <div class="eq">\[ \underbrace{p(\text{pay}\mid s,h,c)}_{\color{#1D4ED8}{pP(s,h,c)}} = \underbrace{p(\text{stay}\mid s,h,c)}_{pS(s,h,c)} \times \underbrace{p(\text{pay}\mid \text{stay},s,h,c)}_{pPS(s,h,c)} \]</div>
+    <p>利用者はいずれ必ずプラットフォームを離れるので、滞在のラベルには偏りがない。IIDN はこの滞在意図の予測を補助タスクとして同時に学習し、購入意図の予測に役立てる。損失は両者の交差エントロピーの和 \(\mathcal L = \mathcal L_s + \mathcal L_p\) である。</p>
+    <p>入力は 3 つある。端末で集めるリアルタイムの行動の並び \(s\)（お気に入りの数やページの滞在時間など 15 種、長さは最大 100）、サーバーに保存した静的な特徴 \(h\)（年齢層、VIP レベル、カテゴリの好みなど 89 種）、クーポン額 \(c\)（0 を含む）である。行動の並びを 2 層の LSTM で処理し、すべての時点の出力をアテンションでまとめる。エンコーダ（MLP）がこれを \(h\)、\(c\) と合わせて固定長のベクトルにし、RNN のデコーダが滞在確率と購入確率を出す。</p>
+    <p>アプリには 10 ms 未満の応答が求められ、端末からサーバーへデータを送っていては間に合わない。そこで IIDN は端末上で動かし、2 つの確率だけをサーバーに送る。サーバーは配布の決定だけを担う。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="システムの模式図。端末上で、リアルタイムの行動の並び、静的な特徴、クーポン額を IIDN に入れ、購入確率と滞在確率を出す。2つの確率をサーバーに送り、サーバーが予算のもとで MCKP により額を決める。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="10" y="14" width="384" height="272" rx="12" fill="none" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="6 4"/>
+        <text x="24" y="40" font-size="15" font-weight="600" fill="#5B6676">端末（スマートフォンなど）</text>
+        <rect x="24" y="58" width="150" height="62" rx="8" fill="#F2F4F7"/>
+        <text x="99" y="84" font-size="15" fill="#16202E" text-anchor="middle">行動の並び <tspan class="mi">s</tspan></text>
+        <text x="99" y="106" font-size="14" fill="#5B6676" text-anchor="middle">15 種・最大長 100</text>
+        <rect x="24" y="132" width="150" height="62" rx="8" fill="#F2F4F7"/>
+        <text x="99" y="158" font-size="15" fill="#16202E" text-anchor="middle">静的な特徴 <tspan class="mi">h</tspan></text>
+        <text x="99" y="180" font-size="14" fill="#5B6676" text-anchor="middle">89 種（起動時に受信）</text>
+        <rect x="24" y="206" width="150" height="62" rx="8" fill="#FCEBDF"/>
+        <text x="99" y="232" font-size="15" fill="#C2410C" text-anchor="middle">クーポン額 <tspan class="mi">c</tspan></text>
+        <text x="99" y="254" font-size="14" fill="#5B6676" text-anchor="middle">0, 1, 2, 3, 5 元</text>
+        <rect x="214" y="58" width="174" height="210" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="301" y="86" font-size="17" font-weight="600" fill="#16202E" text-anchor="middle">IIDN</text>
+        <text x="301" y="114" font-size="14" fill="#16202E" text-anchor="middle">LSTM 2 層</text>
+        <text x="301" y="138" font-size="14" fill="#16202E" text-anchor="middle">＋アテンション</text>
+        <text x="301" y="162" font-size="14" fill="#16202E" text-anchor="middle">＋エンコーダ（MLP）</text>
+        <text x="301" y="186" font-size="14" fill="#16202E" text-anchor="middle">＋RNN デコーダ</text>
+        <text x="301" y="224" font-size="15" fill="#1D4ED8" text-anchor="middle">購入確率 <tspan class="mi">pP</tspan></text>
+        <text x="301" y="250" font-size="15" fill="#16202E" text-anchor="middle">滞在確率 <tspan class="mi">pS</tspan></text>
+        <path d="M174,89 L212,120" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M174,163 L212,163" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M174,237 L212,206" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="454" y="78" width="176" height="170" rx="10" fill="#F2F4F7"/>
+        <text x="542" y="106" font-size="15" font-weight="600" fill="#5B6676" text-anchor="middle">サーバー</text>
+        <text x="542" y="138" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">MCKP で額を決める</text>
+        <text x="542" y="170" font-size="15" fill="#C2410C" text-anchor="middle">予算 <tspan class="mi">B</tspan>・双対価格 <tspan class="mi">α</tspan></text>
+        <text x="542" y="202" font-size="14" fill="#5B6676" text-anchor="middle">滞在確率で</text>
+        <text x="542" y="222" font-size="14" fill="#5B6676" text-anchor="middle">対象を絞る</text>
+        <path d="M388,163 L452,163" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <text x="424" y="152" font-size="13" fill="#5B6676" text-anchor="middle">2 つの値</text>
+      </svg>
+      <figcaption>図1　配布システムの模式図（論文 Fig. 1 と Fig. 2 の構造を解説者が描き直したもの）。IIDN は端末上で動き、サーバーには 2 つの確率だけが送られる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="allocation">
+    <div class="kicker">手法 2：配布の決定</div>
+    <h2>サーバーは購入確率から「額 × 双対価格」を引き、残りが最大の額を配る</h2>
+    <p>配布は利用者が来るたびにその場で決め、後から取り消せない。論文は利用者が定常な分布から来ると仮定し、Agrawal, Wang, Ye（2014）のオンライン線形計画の主双対法を使う。予算制約の双対変数を \(\alpha\) とすると、配布の規則は次の形になる。</p>
+    <div class="eq">\[ x_{ij} = \begin{cases} 1, & j = \arg\max_{j'} \bigl( {\color{#1D4ED8}{v_{ij'}}} - \alpha\, {\color{#C2410C}{c_{j'}}} \bigr) \\ 0, & \text{otherwise} \end{cases} \]</div>
+    <p>\(\alpha\) は予算 1 元あたりの価格にあたり、額の大きいクーポンほど多く差し引かれる。したがって \(\alpha\) が大きいほど、小さい額が選ばれやすい（解説者の注）。論文は、双対変数が得られればオンラインで解けると述べているが、\(\alpha\) をどのデータでどう求め、運用中に更新するかは書いていない。また、論文の式 (9) では arg max の添字が \(i\) となっているので、ここでは額についての最大化として \(j'\) と書いた。どの額でも値が負なら配らない、という条件は式には書かれていない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="1人の利用者について、額1・2・3・5元ごとに、予測購入確率の棒からα×額の部分を差し引いた模式図。α=0.03のとき残りは0.17、0.20、0.21、0.19で、3元が選ばれる。">
+        <text x="20" y="32" font-size="15" font-weight="600" fill="#16202E">ある利用者の額ごとの値（<tspan class="mi">α</tspan> = 0.03）</text>
+        <g font-size="16" fill="#16202E">
+          <text x="80" y="82" text-anchor="end">1 元</text>
+          <rect x="96" y="64" width="153" height="26" rx="3" fill="#1D4ED8"/>
+          <rect x="249" y="64" width="27" height="26" rx="3" fill="#C2410C"/>
+          <text x="294" y="82">0.20 − 0.03 = 0.17</text>
+          <text x="80" y="134" text-anchor="end">2 元</text>
+          <rect x="96" y="116" width="180" height="26" rx="3" fill="#1D4ED8"/>
+          <rect x="276" y="116" width="54" height="26" rx="3" fill="#C2410C"/>
+          <text x="348" y="134">0.26 − 0.06 = 0.20</text>
+          <rect x="6" y="160" width="626" height="42" rx="8" fill="none" stroke="#1D4ED8" stroke-width="2"/>
+          <text x="80" y="186" text-anchor="end" font-weight="700" fill="#1D4ED8">3 元</text>
+          <rect x="96" y="168" width="189" height="26" rx="3" fill="#1D4ED8"/>
+          <rect x="285" y="168" width="81" height="26" rx="3" fill="#C2410C"/>
+          <text x="384" y="186" font-weight="700">0.30 − 0.09 = 0.21</text>
+          <text x="570" y="186" font-weight="700" fill="#1D4ED8">← 選ぶ</text>
+          <text x="80" y="238" text-anchor="end">5 元</text>
+          <rect x="96" y="220" width="171" height="26" rx="3" fill="#1D4ED8"/>
+          <rect x="267" y="220" width="135" height="26" rx="3" fill="#C2410C"/>
+          <text x="420" y="238">0.34 − 0.15 = 0.19</text>
+        </g>
+        <rect x="96" y="268" width="16" height="16" rx="3" fill="#1D4ED8"/>
+        <text x="120" y="282" font-size="15" fill="#16202E">残り <tspan class="mi">v</tspan> − <tspan class="mi">αc</tspan></text>
+        <rect x="270" y="268" width="16" height="16" rx="3" fill="#C2410C"/>
+        <text x="294" y="282" font-size="15" fill="#16202E">差し引く <tspan class="mi">αc</tspan></text>
+        <text x="630" y="282" font-size="14" fill="#5B6676" text-anchor="end">棒全体が <tspan class="mi">v</tspan></text>
+      </svg>
+      <figcaption>図2　式 (9) の規則の模式図。棒全体が予測購入確率 \(v_{ij}\)、オレンジの部分が \(\alpha c_j\) で、残り（青）が最大の 3 元を配る。購入確率と \(\alpha\) の値は解説者が置いた例。</figcaption>
+    </figure>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>意図の予測は 120 万人分のデータで、配布は 500 万人を超える利用者のオンライン A/B テストで評価した</h2>
+    <p>意図の予測には Alibaba の EC プラットフォーム 1688 で 2 週間に集めた 120 万人分のデータを使った。比較相手はロジスティック回帰（LR）、GBDT、RNN+DNN と、IIDN から部品を 1 つずつ外した 3 種で、評価指標は AUC と Logloss である。</p>
+    <p>配布は Alibaba の 0331 プロモーションの期間に、500 万人を超える利用者を対象とした A/B テストで評価した。額は 1・2・3・5 元の 4 種、予算はどの方策も \(B\) = 100 万元である。比べたのは次の 4 つの方策である。</p>
+    <ul class="def">
+      <li>Non-allocation：誰にも配らない。</li>
+      <li>All-allocation：全員に、額を無作為に選んで配る。</li>
+      <li>Uplift-allocation：配らない場合との購入確率の差が最大の額を選び、差がしきい値以上のときだけ配る。</li>
+      <li>IIDN-MCKP：提案法。</li>
+    </ul>
+    <p>費用の効率は購入者を 1 人増やすのにかかった費用（増分コスト）で測る。</p>
+    <div class="eq">\[ ic_\pi = \frac{\color{#C2410C}{C_\pi}}{N_\pi \,(R_\pi - R_{\pi_0})} \]</div>
+    <p>\(C_\pi\) は方策 \(\pi\) の費用、\(N_\pi\) は対象の利用者数、\(R_\pi\) は転換率、\(R_{\pi_0}\) は配らない方策の転換率（自然な転換率）である。</p>
+    <p class="src">このページの数値は arXiv v1（2020 年 8 月 23 日）の本文と表による。arXiv の PDF は CIKM の書式で組まれているが、ACM Digital Library の掲載版の本文は自動取得できなかったため、照合していない。論文の図は再利用の許諾が確認できなかったので、このページの図はすべて論文の記述と表の数値から解説者が作成した。なお、論文の柱（ページ上部の著者表記）は「Li and Liu, et al.」となっているが、著者に Liu という名前はない。</p>
+  </section>
+
+  <section id="detection">
+    <div class="kicker">実験の結果 1</div>
+    <h2>滞在意図を補助タスクにした IIDN は、購入意図の予測で AUC 0.738 と比較手法を上回った</h2>
+    <p>Table 2 では、IIDN の AUC は 0.738、Logloss は 0.127 で、どちらもすべての比較手法より良かった。LR は 0.644 と 0.358、GBDT は 0.658 と 0.342、RNN+DNN は 0.692 と 0.168 である。</p>
+    <p>IIDN から部品を外したモデルでは、LSTM を 1 層にすると 0.703 と 0.155、アテンションを外すと 0.712 と 0.149、補助タスクを外すと 0.707 と 0.156 だった。補助タスクを外したときのほうがアテンションを外したときより悪いので、論文は滞在意図の補助タスクのほうが効いていると述べる。補助タスクによる改善は AUC で 4.38%、Logloss で 22.83% としている。</p>
+    <p>予測した購入確率は、額が大きいほど高くなるはずである。論文は Fig. 4 で額を 0〜5 元と変えて比べ、単調にならなかったのは LR だけだったと述べている。</p>
+  </section>
+
+  <section id="abtest">
+    <div class="kicker">実験の結果 2</div>
+    <h2>同じ予算 100 万元のもとで、IIDN-MCKP は購入者を 1 人増やす費用が最も低かった</h2>
+    <p>Table 3 によると、配らない群の転換率は 10.7% だった。全員に配る方策は転換率が 13.7% と最も高いが、増分コストも 19.4 元と最も高い。アップリフト配布は 13.0% と 14.2 元、IIDN-MCKP は 13.4% と 10.8 元だった。</p>
+    <p>論文は、IIDN-MCKP が転換率を最大 25.69% 押し上げ、増分コストも最も低いと述べている。表の丸めた転換率（10.7% と 13.4%）から計算すると、上げ幅は約 25% になる。各群の利用者数は 121 万〜140 万人で、そろっていない。</p>
+    <figure>
+      <svg class="fig" id="fig-ab" viewBox="0 0 640 270" role="img" aria-label="論文 Table 3 の棒グラフ。転換率は Non-allocation 10.7%、All-allocation 13.7%、Uplift-allocation 13.0%、IIDN-MCKP 13.4%。増分コストは 0、19.4、14.2、10.8 元で、IIDN-MCKP が最も低い。"></svg>
+      <figcaption>図3　オンライン A/B テストの結果。左が<span class="B">転換率</span>、右が<span class="A">増分コスト</span>（論文 Table 3 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget-sweep">
+    <div class="kicker">実験の結果 3</div>
+    <h2>予算を増やすと転換率は上がるが、購入者を 1 人増やす費用も上がる</h2>
+    <p>Table 4 は予算を 0 から 1,000 万元まで変えた結果である（利用者はどの予算でも 123 万人）。転換率は 10.8% から 16.2% に上がり、増分コストは 5.93 元（予算 5 万元）から 55.6 元（1,000 万元）に上がった。予算に余裕があると配布の選別が甘くなり、クーポンにあまり反応しない利用者にも配るためだと、論文は説明している。</p>
+    <p>予算 100 万元の行は転換率 13.5%、増分コスト 10.5 元で、Table 3 の IIDN-MCKP（13.4%、10.8 元）とわずかに異なる。Table 4 がどの実験で得られたか（オンラインか、どの期間か）は書かれていない。</p>
+    <figure>
+      <svg class="fig" id="fig-budget" viewBox="0 0 640 380" role="img" aria-label="論文 Table 4 の折れ線グラフ。予算が 0、5万、10万、50万、100万、500万、1000万元と増えると、転換率は 10.8% から 16.2% に、増分コストは 0 から 55.6 元に上がる。"></svg>
+      <figcaption>図4　予算と<span class="B">転換率</span>（上）・<span class="A">増分コスト</span>（下）。横軸は等間隔に並べた予算（元）で、比例尺ではない（論文 Table 4 の数値から解説者が作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>推定するのは増分ではなく額ごとの購入確率で、予算は双対価格 α として額の選択に入る</h2>
+    <p>この論文が推定するのは、額ごとの購入確率 \(v_{ij} = pP(s,h,c_j)\) と滞在確率 \(s_{ij}\) である。クーポン額を特徴量に入れた 1 つのモデルで各額の購入確率を予測し、処置効果（アップリフト）は明示的には推定しない。学習データで額がどう決まったか（無作為に配ったかどうか）は書かれていない。額の間の購入確率の差を効果と読むには、額の割り当てに交絡がないことが必要になる（解説者の注）。</p>
+    <p>コストはクーポンの額 \(c_j\) で、予算制約は配ったクーポンの額の合計 \(\sum_i\sum_j c_j x_{ij} \le B\) として書かれている。購入したときにだけ費用がかかる形にはしていない。処置は 1・2・3・5 元の 4 段階の額で、多値である。利用者が来るたびにオンラインで決め、予算は双対変数 \(\alpha\) を通じて扱う。</p>
+    <p>ROI 順の割り当てとの関係を補足する（解説者の注）。式 (5) の目的を、配らない場合の購入確率 \(v_{i0} = pP(s,h,0)\) との差 \(v_{ij} - v_{i0}\) に置き換え、配らない選択肢も含めると、式 (9) の形の規則は MCKP の連続緩和をラグランジュ緩和したものになる。額が 1 種類なら配る条件は \((v_{i1} - v_{i0})/c_1 > \alpha\) で、ROI の高い順に予算を詰めるナップザック問題の連続緩和と同じ形である。しかし論文の目的は購入確率そのもの \(v_{ij}\) で、\(v_{i0}\) を引いていない。このため式 (9) はクーポンで増える分ではなく購入確率の水準で額を選ぶ。比較手法の Uplift-allocation は差を使うが、額による費用の違いは考えない。差と費用を組み合わせた規則は、論文では扱っていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{li2020spending,
+  title     = {Spending Money Wisely: Online Electronic Coupon Allocation based on Real-Time User Intent Detection},
+  author    = {Li, Liangwei and Sun, Liucheng and Weng, Chenwei and Huo, Chengfu and Ren, Weijun},
+  booktitle = {Proceedings of the 29th ACM International Conference on Information \&amp; Knowledge Management},
+  series    = {CIKM '20},
+  pages     = {2597--2604},
+  year      = {2020},
+  publisher = {ACM},
+  doi       = {10.1145/3340531.3412745}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+function svgEl(svg, tag, a, txt) {
+  var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (var k in a) e.setAttribute(k, a[k]);
+  if (txt != null) e.textContent = txt;
+  svg.appendChild(e); return e;
+}
+
+// ---------- figure 3: Table 3 of the paper (arXiv v1), online A/B test ----------
+(function () {
+  var svg = document.getElementById('fig-ab'); if (!svg) return;
+  var el = function (t, a, s) { return svgEl(svg, t, a, s); };
+  var rows = [['Non-allocation', 10.7, 0], ['All-allocation', 13.7, 19.4], ['Uplift-allocation', 13.0, 14.2], ['IIDN-MCKP', 13.4, 10.8]];
+  var Y0 = 72, DY = 46, L0 = 160, LS = 13, R0 = 420, RS = 8.5;
+  el('text', { x: L0, y: 30, 'font-size': 15, 'font-weight': 600, fill: '#1D4ED8' }, '転換率（%）');
+  el('text', { x: R0, y: 30, 'font-size': 15, 'font-weight': 600, fill: '#C2410C' }, '増分コスト（元）');
+  el('line', { x1: L0, x2: L0, y1: 44, y2: Y0 + DY * 3 + 24, stroke: '#16202E' });
+  el('line', { x1: R0, x2: R0, y1: 44, y2: Y0 + DY * 3 + 24, stroke: '#16202E' });
+  rows.forEach(function (r, i) {
+    var y = Y0 + DY * i, hi = r[0] === 'IIDN-MCKP';
+    el('text', { x: L0 - 10, y: y + 5, 'font-size': 14, 'font-weight': hi ? 700 : 400, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+    el('rect', { x: L0, y: y - 13, width: r[1] * LS, height: 26, rx: 3, fill: '#1D4ED8', opacity: hi ? 1 : 0.45 });
+    el('text', { x: L0 + r[1] * LS + 6, y: y + 5, 'font-size': 14, 'font-weight': hi ? 700 : 400, fill: '#16202E' }, r[1].toFixed(1));
+    if (r[2] > 0) el('rect', { x: R0, y: y - 13, width: r[2] * RS, height: 26, rx: 3, fill: '#C2410C', opacity: hi ? 1 : 0.45 });
+    el('text', { x: R0 + r[2] * RS + 6, y: y + 5, 'font-size': 14, 'font-weight': hi ? 700 : 400, fill: '#16202E' }, r[2] === 0 ? '0' : r[2].toFixed(1));
+  });
+  el('text', { x: 630, y: 262, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }, '予算はどの方策も 100 万元（Non-allocation を除く）');
+})();
+
+// ---------- figure 4: Table 4 of the paper (arXiv v1), budget sweep ----------
+(function () {
+  var svg = document.getElementById('fig-budget'); if (!svg) return;
+  var el = function (t, a, s) { return svgEl(svg, t, a, s); };
+  var bud = ['0', '5万', '10万', '50万', '100万', '500万', '1000万'];
+  var cr = [10.8, 10.9, 11.1, 11.3, 13.5, 14.4, 16.2];
+  var ic = [0, 5.93, 6.13, 8.24, 10.5, 33.8, 55.6];
+  var X0 = 110, DX = 80;
+  function panel(vals, top, h, lo, hi, color, title, fmt, ticks) {
+    function py(v) { return top + h - (v - lo) / (hi - lo) * h; }
+    el('text', { x: 20, y: top - 14, 'font-size': 15, 'font-weight': 600, fill: color }, title);
+    ticks.forEach(function (t) {
+      el('line', { x1: X0 - 20, x2: X0 + DX * 6 + 20, y1: py(t), y2: py(t), stroke: '#D9DEE6' });
+      el('text', { x: X0 - 28, y: py(t) + 5, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }, String(t));
+    });
+    var d = vals.map(function (v, i) { return (i ? 'L' : 'M') + (X0 + DX * i) + ',' + py(v); }).join(' ');
+    el('path', { d: d, fill: 'none', stroke: color, 'stroke-width': 2.5 });
+    vals.forEach(function (v, i) {
+      el('circle', { cx: X0 + DX * i, cy: py(v), r: 6, fill: color });
+      el('text', { x: X0 + DX * i, y: py(v) - 12, 'font-size': 13, fill: '#16202E', 'text-anchor': 'middle' }, fmt(v));
+    });
+  }
+  panel(cr, 50, 110, 10, 17, '#1D4ED8', '転換率（%）', function (v) { return v.toFixed(1); }, [10, 12, 14, 16]);
+  panel(ic, 220, 110, 0, 60, '#C2410C', '増分コスト（元）', function (v) { return v === 0 ? '0' : String(v); }, [0, 20, 40, 60]);
+  bud.forEach(function (b, i) { el('text', { x: X0 + DX * i, y: 356, 'font-size': 13, fill: '#16202E', 'text-anchor': 'middle' }, b); });
+  el('text', { x: X0 + DX * 3, y: 376, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' }, '予算（元）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

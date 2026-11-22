@@ -98,6 +98,7 @@ papers:
     year: 2020
     venue: "EJOR"
     url: "https://arxiv.org/abs/1911.08729"
+    explainer: revenue-uplift-transformation
     code: ""
     category: foundation
     treatment: 二値
@@ -111,12 +112,13 @@ papers:
     year: 2020
     venue: "RecSys 2020"
     url: "https://arxiv.org/abs/2008.06293"
+    explainer: free-lunch
     code: ""
     category: two-stage
     treatment: 二値
     cost: 購買時のみ
     data: 自社データ（Booking.com）
-    note: 購買者のデータだけで増分を推定し、ROI 制約つきのナップザック問題として配布先を選ぶ
+    note: 予約者のうち特典を受けた割合から増分の比を推定し、ROI ≥ 0 の制約のもとで比の大きい順に配る（分数ナップザックの貪欲法）
   - title: "Targeting customers under response-dependent costs"
     authors: "J. Haupt, S. Lessmann"
     year: 2022
@@ -146,6 +148,7 @@ papers:
     year: 2019
     venue: "KDD 2019"
     url: "https://arxiv.org/abs/1902.01128"
+    explainer: unified-budget-allocation
     code: ""
     category: two-stage
     treatment: 連続
@@ -182,23 +185,25 @@ papers:
     year: 2019
     venue: "KDD 2019 WS (PMLR 104)"
     url: "https://proceedings.mlr.press/v104/du19a.html"
+    explainer: user-retention-causal
     code: ""
     category: direct-ratio
     treatment: 二値
     cost: 結果に依存（増分コスト）
     data: 自社データ（Uber）
-    note: 推定と最適化を一段で行い、処置効果の費用対効果を直接最適化する（Direct Rank）
+    note: 推定と最適化を一段で行い、処置効果の費用対効果を直接最適化する（Direct Ranking Model。増分コスト ÷ 増分価値の集団比を損失にする）
   - title: "Heterogeneous Causal Learning for Effectiveness Optimization in User Marketing"
     authors: "W. Y. Zou, S. Du, J. Lee et al."
     year: 2020
     venue: "arXiv"
     url: "https://arxiv.org/abs/2004.09702"
+    explainer: heterogeneous-causal-learning
     code: ""
     category: direct-ratio
     treatment: 二値
     cost: 結果に依存（増分コスト）
     data: 自社データ（Uber）, US Census 1990, Covertype
-    note: 増分コストと増分便益の比を直接最適化するランキングモデルに、予算制約の扱いを加える
+    note: 集団全体の増分コスト ÷ 増分価値を損失にして順位を直接学習し（DRM）、上位 q% や予算の境目を分位プーリングで損失に組み込む
   - title: "Direct Heterogeneous Causal Learning for Resource Allocation Problems in Marketing"
     authors: "H. Zhou, S. Li, G. Jiang et al."
     year: 2023
@@ -391,6 +396,7 @@ papers:
     year: 2019
     venue: "IEEE DSAA 2019"
     url: "https://arxiv.org/abs/1908.05372"
+    explainer: multi-treatment-cost
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -402,10 +408,11 @@ papers:
     year: 2021
     venue: "WWW 2021"
     url: "https://arxiv.org/abs/1901.10550"
-    code: ""
+    explainer: personalized-treatment-selection
+    code: "https://github.com/tuye0305/prophet"
     category: multi-treatment
     treatment: 多値
-    cost: ""
+    cost: ガードレール指標の上限（金額のコストはなし）
     data: 合成データ, 自社データ（LinkedIn）
     note: コホートごとの異質な処置効果を推定し、制約つき最適化で処置を選ぶ
   - title: "Multi-Treatment Multi-Task Uplift Modeling for Enhancing User Growth"
@@ -487,10 +494,11 @@ papers:
     year: 2018
     venue: "Econometrica"
     url: "https://doi.org/10.3982/ECTA13288"
+    explainer: empirical-welfare-maximization
     code: ""
     category: policy
     treatment: 二値
-    cost: 処置割合の上限を動機の1つとして扱う
+    cost: 処置割合の上限を按分つきで扱う。費用は結果から差し引く
     data: JTPA
     note: 経験厚生を最大化する処置ルールを学習し、ミニマックス最適な収束率を示す
   - title: "Cost-Effective Incentive Allocation via Structured Counterfactual Inference"
@@ -498,10 +506,11 @@ papers:
     year: 2020
     venue: "AAAI 2020"
     url: "https://arxiv.org/abs/1902.02495"
+    explainer: structured-counterfactual
     code: ""
     category: policy
     treatment: 多値
-    cost: 結果に依存
+    cost: 処置ごとに既知（1人あたり平均予算）
     data: 合成データ, ImageNet（半合成）
     note: 報酬の推定を構造つきのドメイン適応として解き、予算制約つきで方策を最適化する
   - title: "Policy Learning with Observational Data"
@@ -571,10 +580,11 @@ papers:
     year: 2019
     venue: "CIKM 2019"
     url: "https://arxiv.org/abs/2303.01049"
+    explainer: model-based-cmdp
     code: ""
     category: online
     treatment: 多値
-    cost: ""
+    cost: 紅包の額（使われたとき）
     data: 合成データ, 自社データ（Alipay）
     note: 逐次的なインセンティブ配布を制約付き MDP として定式化し、双対変数を二分探索で求める
   - title: "Spending Money Wisely: Online Electronic Coupon Allocation based on Real-Time User Intent Detection"
@@ -582,6 +592,7 @@ papers:
     year: 2020
     venue: "CIKM 2020"
     url: "https://arxiv.org/abs/2008.09982"
+    explainer: spending-money-wisely
     code: ""
     category: online
     treatment: 多値
