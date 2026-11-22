@@ -65,6 +65,13 @@
   url: "https://link.springer.com/chapter/10.1007/978-981-95-7072-0_40"
 
 - type: "refereed"
+  authors: ["D. Jobson", "Y. Li", "N. Nishimura", "K. Ohashi", "J. Yang", "T. Matsumoto"]
+  title: "Covariate ordered systematic sampling as an improvement to randomized controlled trials"
+  venue: "Proceedings of the 33rd ACM International Conference on Information and Knowledge Management (CIKM 2024), (2024), 3812–3816."
+  year: 2024
+  url: "https://doi.org/10.1145/3627673.3679892"
+
+- type: "refereed"
   authors: ["Y. Uehara", "N. Nishimura", "Y. Li", "J. Yang", "D. Jobson", "K. Ohashi", "T. Matsumoto", "N. Sukegawa", "Y. Takano"]
   title: "Robust portfolio optimization model for electronic coupon allocation"
   venue: "INFOR: Information Systems and Operational Research, 62 (2024), 646–660."
