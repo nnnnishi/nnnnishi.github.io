@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多値処置と一般の応答型に対するアップリフトモデリング（論文解説）</title>
+<meta name="description" content="Uplift Modeling with Multiple Treatments and General Response Types（SDM 2017）の非公式の解説。RCT データから任意のアップリフトモデルの期待応答を不偏に推定する方法と、その推定量を分割基準にした木のアンサンブル CTS を提案する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the existing practice: one response model per treatment (Separate Model
+                         Approach, SMA) and surrogate metrics such as qini / uplift curves
+            --b  (blue)   = the paper's contributions: the unbiased estimate of the expected response
+                         (later called EOM) and the CTS forest whose split criterion maximises it
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">SDM 2017 · SIAM International Conference on Data Mining</div>
+  <h1>Uplift Modeling with Multiple Treatments and General Response Types</h1>
+  <p class="subtitle">多値処置と一般の応答型に対するアップリフトモデリング</p>
+
+  <ul class="authors">
+    <li><b>Yan Zhao</b><span>Department of Electrical Engineering and Computer Science, Massachusetts Institute of Technology</span></li>
+    <li><b>Xiao Fang</b><span>Department of Electrical Engineering and Computer Science, Massachusetts Institute of Technology</span></li>
+    <li><b>David Simchi-Levi</b><span>Institute for Data, Systems, and Society, Department of Civil and Environmental Engineering, Operations Research Center, Massachusetts Institute of Technology</span></li>
+  </ul>
+
+  <p class="lead">アップリフトモデリングでは、対象ごとにどの処置が最適かをデータから直接確かめられない。素直な方法は<span class="A">処置ごとに応答の予測モデルを別々に作ること</span>で、評価には二値処置向けの Qini 曲線などの代理指標が使われてきた。この論文は<span class="B">どのモデルについても期待応答を RCT データから不偏に推定する方法</span>を示し、その推定にもとづく分割基準で木を育てるアンサンブル <span class="B">CTS</span> を提案した。どちらも処置の数や応答の型（二値・離散・連続）を問わず使える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1137/1.9781611974973.66">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/1705.08492">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。処置ごとに応答を予測する方法、1人につき1つの処置しか観測できないこと、推奨と実際の処置が一致した標本で期待応答を推定する方法、座席予約データでの1人あたり収益（最良の単一価格 1.87ドル、SMA-RF 2.37ドル、CTS 3.35ドル）、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">期待応答の不偏推定</span><span class="d">モデルの推奨と RCT で実際に受けた処置が一致した標本だけを使い、その応答を割付確率で割って全標本で平均する。処置の数、応答の型、割付確率の偏りを問わない。</span></li>
+    <li><span class="k">$1.87 → $3.35</span><span class="d">座席予約の価格実験（4 つの価格水準）で、1 人あたり収益は最良の単一価格で $1.87、処置ごとのランダムフォレスト（SMA-RF）で $2.37、CTS で $3.35 と推定された。</span></li>
+    <li><span class="k">€0.42 → €0.52</span><span class="d">優先搭乗の価格実験では €5 と €7 のどちらを全員に出しても 1 人あたり €0.42 だった。価格を個別化すると €0.52 に上がった（論文 Fig. 3 では CTS の値）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>どの対象でも結果を観測できる処置は 1 つだけなので、最適な処置という正解ラベルは学習データにもない</h2>
+    <p>無作為化実験（A/B テスト）は全体で最もよい処置を 1 つ選ぶのには役立つが、対象ごとの違いを無視する。全体で最も効く治療が一部の患者には効かないことも、全体でクリック率が最も高いメールが一部の顧客を遠ざけることもある。特徴量から対象ごとに最適な処置を予測する問題が、アップリフトモデリングである。</p>
+    <p>分類問題に似て見えるが、各対象について観測できるのは実際に受けた処置のもとでの応答だけである。予測したい「最適な処置」は学習データでも分からず、分類の見方ではデータにラベルがない。このことが学習と評価の両方を難しくする。</p>
+    <p>素直な方法は処置ごとに応答の予測モデルを作り、予測値が最大の処置を選ぶ <span class="A">Separate Model Approach（SMA）</span>である。既存の分類・回帰の手法をそのまま使えるが、学習の目的は応答の予測であって、処置による差（アップリフト）の予測ではない。論文によれば、実際のデータでいつもうまくいくとは限らず、データにノイズが多い場合やアップリフトが応答よりずっと小さい場合にはさらに難しくなる。差を直接モデル化する手法も提案されてきたが、そのほとんどは処置が 1 種類の場合に限られていた。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 290" role="img" aria-label="6人の対象と3つの処置（対照、処置1、処置2）の表の模式図。各行で値が入っているのは実際に受けた処置の1セルだけで、ほかは疑問符。右端の最適な処置の列もすべて疑問符。">
+        <text x="40" y="40" font-size="15" font-weight="600" fill="#5B6676">対象</text>
+        <text x="230" y="40" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">対照</text>
+        <text x="330" y="40" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">処置1</text>
+        <text x="430" y="40" font-size="15" font-weight="600" fill="#16202E" text-anchor="middle">処置2</text>
+        <text x="560" y="40" font-size="15" font-weight="600" fill="#C2410C" text-anchor="middle">最適な処置</text>
+        <line x1="30" x2="610" y1="54" y2="54" stroke="#D9DEE6"/>
+        <line x1="495" x2="495" y1="24" y2="270" stroke="#D9DEE6"/>
+        <g font-size="16" fill="#16202E">
+          <text x="40" y="85">1</text><text x="40" y="119">2</text><text x="40" y="153">3</text><text x="40" y="187">4</text><text x="40" y="221">5</text><text x="40" y="255">6</text>
+        </g>
+        <g fill="#F2F4F7">
+          <rect x="195" y="67" width="70" height="26" rx="5"/>
+          <rect x="295" y="101" width="70" height="26" rx="5"/>
+          <rect x="395" y="135" width="70" height="26" rx="5"/>
+          <rect x="195" y="169" width="70" height="26" rx="5"/>
+          <rect x="395" y="203" width="70" height="26" rx="5"/>
+          <rect x="295" y="237" width="70" height="26" rx="5"/>
+        </g>
+        <g font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">
+          <text x="230" y="85">3</text><text x="330" y="119">5</text><text x="430" y="153">2</text><text x="230" y="187">4</text><text x="430" y="221">6</text><text x="330" y="255">1</text>
+        </g>
+        <g font-size="16" fill="#9AA3AF" text-anchor="middle">
+          <text x="330" y="85">?</text><text x="430" y="85">?</text>
+          <text x="230" y="119">?</text><text x="430" y="119">?</text>
+          <text x="230" y="153">?</text><text x="330" y="153">?</text>
+          <text x="330" y="187">?</text><text x="430" y="187">?</text>
+          <text x="230" y="221">?</text><text x="330" y="221">?</text>
+          <text x="230" y="255">?</text><text x="430" y="255">?</text>
+        </g>
+        <g font-size="17" font-weight="700" fill="#C2410C" text-anchor="middle">
+          <text x="560" y="85">?</text><text x="560" y="119">?</text><text x="560" y="153">?</text><text x="560" y="187">?</text><text x="560" y="221">?</text><text x="560" y="255">?</text>
+        </g>
+      </svg>
+      <figcaption>図1　RCT のデータで観測できるもの（模式図。値は解説者が置いた例）。灰色のセルが実際に受けた処置のもとでの応答で、ほかの処置のもとでの応答は分からない。そのため、対象ごとの最適な処置も分からない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>アップリフトモデルは特徴量から処置への写像で、その性能はモデルどおりに処置したときの期待応答で測る</h2>
+    <p>特徴量を \(\mathbf X\)、処置を \(T\in\{0,1,\dots,K\}\)（\(T=0\) が対照）、応答を \(Y\) とする。\(Y\) は大きいほど望ましいとし、二値・離散・連続のどれでもよい。無作為化実験で集めた \(N\) 件のデータ \(\{(\mathbf x^{(i)}, t^{(i)}, y^{(i)})\}\) を使う。アップリフトモデル \(h\) は特徴量の空間から処置の集合への写像で、論文はその主要な性能指標を、モデルに従って処置を割り当てたときの期待応答とする。</p>
+    <div class="eq">\[ \mathrm{E}\bigl[\,Y \mid T=h(\mathbf X)\,\bigr] \]</div>
+    <div class="eq">\[ h^*(\mathbf x)\in\arg\max_{t=0,1,\dots,K}\ \mathrm{E}[\,Y\mid \mathbf X=\mathbf x,\ T=t\,] \]</div>
+    <p>到達できる最大の期待応答は、点ごとに条件付き期待応答が最大の処置を選ぶ \(h^*\) で決まる。分類や回帰で、達成できる精度の上限がデータの生成過程で決まるのと同じである。</p>
+    <p>（解説者の注）論文の記法 \(\mathrm{E}[Y\mid T=h(\mathbf X)]\) は「全員にモデルの推奨どおりの処置をしたときの期待応答」を指す。潜在アウトカムで書けば \(\mathrm{E}[Y(h(\mathbf X))]\) にあたる。論文の補題の証明は最終行を \(\mathrm{E}[Y\mid h(\mathbf X)=T]\) と書いているが、文字どおりの条件付き期待値と読むと、割付確率がすべて等しい場合を除いて直前の行と一致しない。直前の行の \(\sum_t \mathrm{E}[Y\mid h(\mathbf X)=t,\,T=t]\,P\{h(\mathbf X)=t\}\) が意図された量だと読むのがよい。</p>
+  </section>
+
+  <section id="evaluation">
+    <div class="kicker">評価法</div>
+    <h2>推奨と実際の処置が一致した標本の応答を割付確率で割り、全標本で平均すれば、期待応答を不偏に推定できる</h2>
+    <p>無作為化実験では、処置は特徴量と独立に割り当てられるが、処置ごとの割合が等しいとは限らない。処置 \(t\) が割り当てられる確率を \(p_t>0\) とする。論文の補題は、モデル \(h\) に対して次の確率変数 \(Z\) を定めると、その期待値がモデルの期待応答に等しいことを示す。証明は全期待値の法則による。</p>
+    <div class="eq">\[ Z=\sum_{t=0}^{K}\frac{1}{p_t}\,Y\,\mathbb I\{h(\mathbf X)=t\}\,\mathbb I\{T=t\} \]</div>
+    <div class="eq">\[ \mathrm{E}[Z]=\mathrm{E}\bigl[\,Y\mid T=h(\mathbf X)\,\bigr] \]</div>
+    <p>標本ごとの計算は単純である。モデルの推奨と実際の処置が一致すれば \(z^{(i)}=y^{(i)}/p_{t}\)、一致しなければ \(z^{(i)}=0\) とする。その標本平均 \(\bar z=\frac1N\sum_i z^{(i)}\) が \(\mathrm{E}[Y\mid T=h(\mathbf X)]\) の不偏推定量になる（定理 1）。\(\bar z\) の信頼区間を計算すれば、期待応答のとりうる範囲も見積もれる。</p>
+    <p>序論で論文は二値処置で使われてきた Qini 曲線やアップリフト曲線を問題にしている。これらが測るのは、対照だけを使う場合に比べた期待応答の増分に近いと期待される代理の量で、<span class="A">期待応答そのものではない</span>。この推定量は、処置が 3 つ以上でも、応答が連続でも、割付確率が偏っていても使える。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 390" role="img" aria-label="8人の対象について、RCTで受けた処置、応答、モデルの推奨、zの値を並べた表の模式図。推奨と処置が一致した4行が青く塗られ、zは応答を割付確率で割った値（4、20、16、4）、ほかの行は0。平均は44÷8で5.5。">
+        <g fill="#E7EEFC">
+          <rect x="24" y="56" width="596" height="28" rx="5"/>
+          <rect x="24" y="88" width="596" height="28" rx="5"/>
+          <rect x="24" y="152" width="596" height="28" rx="5"/>
+          <rect x="24" y="248" width="596" height="28" rx="5"/>
+        </g>
+        <g font-size="15" font-weight="600" fill="#5B6676">
+          <text x="40" y="36">対象</text>
+          <text x="170" y="36" text-anchor="middle">RCT の処置 <tspan class="mi">t</tspan></text>
+          <text x="280" y="36" text-anchor="middle">応答 <tspan class="mi">y</tspan></text>
+          <text x="395" y="36" text-anchor="middle">推奨 <tspan class="mi">h</tspan>(<tspan class="mi">x</tspan>)</text>
+          <text x="530" y="36" text-anchor="middle"><tspan class="mi">z</tspan></text>
+        </g>
+        <line x1="24" x2="620" y1="48" y2="48" stroke="#D9DEE6"/>
+        <g font-size="16" fill="#16202E">
+          <text x="40" y="76">1</text><text x="40" y="108">2</text><text x="40" y="140">3</text><text x="40" y="172">4</text>
+          <text x="40" y="204">5</text><text x="40" y="236">6</text><text x="40" y="268">7</text><text x="40" y="300">8</text>
+        </g>
+        <g font-size="16" fill="#16202E" text-anchor="middle">
+          <text x="170" y="76">0</text><text x="170" y="108">1</text><text x="170" y="140">0</text><text x="170" y="172">2</text>
+          <text x="170" y="204">0</text><text x="170" y="236">1</text><text x="170" y="268">0</text><text x="170" y="300">2</text>
+          <text x="280" y="76">2</text><text x="280" y="108">5</text><text x="280" y="140">1</text><text x="280" y="172">4</text>
+          <text x="280" y="204">3</text><text x="280" y="236">0</text><text x="280" y="268">2</text><text x="280" y="300">1</text>
+          <text x="395" y="76">0</text><text x="395" y="108">1</text><text x="395" y="140">2</text><text x="395" y="172">2</text>
+          <text x="395" y="204">1</text><text x="395" y="236">0</text><text x="395" y="268">0</text><text x="395" y="300">1</text>
+        </g>
+        <g font-size="16" text-anchor="middle">
+          <text x="530" y="76" fill="#1D4ED8" font-weight="600">2 ÷ 1/2 = 4</text>
+          <text x="530" y="108" fill="#1D4ED8" font-weight="600">5 ÷ 1/4 = 20</text>
+          <text x="530" y="140" fill="#5B6676">0</text>
+          <text x="530" y="172" fill="#1D4ED8" font-weight="600">4 ÷ 1/4 = 16</text>
+          <text x="530" y="204" fill="#5B6676">0</text>
+          <text x="530" y="236" fill="#5B6676">0</text>
+          <text x="530" y="268" fill="#1D4ED8" font-weight="600">2 ÷ 1/2 = 4</text>
+          <text x="530" y="300" fill="#5B6676">0</text>
+        </g>
+        <line x1="24" x2="620" y1="316" y2="316" stroke="#16202E" stroke-width="1.2"/>
+        <text x="40" y="348" font-size="17" font-weight="600" fill="#1D4ED8"><tspan class="mi">z̄</tspan> = (4 + 20 + 16 + 4) ÷ 8 = 5.5</text>
+        <text x="40" y="376" font-size="14" fill="#5B6676">割付確率 <tspan class="mi">p</tspan>₀ = 1/2、<tspan class="mi">p</tspan>₁ = <tspan class="mi">p</tspan>₂ = 1/4。一致しない行も 0 として分母 8 に数える。</text>
+      </svg>
+      <figcaption>図2　期待応答の推定量 \(\bar z\) の計算（模式図。値は解説者が置いた例）。青い行がモデルの推奨と RCT の処置が一致した標本で、応答を割付確率で割った値が \(z\) になる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="curve">
+    <div class="kicker">評価法の応用</div>
+    <h2>修正アップリフト曲線は、処置する人の割合を変えたときの期待応答を同じ推定量で描く</h2>
+    <p>処置には顧客体験を損なうことや思わぬ副作用といったリスクがあるので、処置する人の割合を抑えつつ個別化の利益をできるだけ得たい場面がある。論文はそのための <span class="B">修正アップリフト曲線</span>（modified uplift curve）を導入する。横軸は処置する人の割合、縦軸は期待応答である。</p>
+    <p>描き方は次のとおりである。テストデータの各対象について、モデルが最適と予測した処置のもとでの期待応答と、対照のもとでの期待応答の差を計算し、差の大きい順に並べる。割合 \(p\) に対して上位 \(p\)% にはモデルが予測した最適な処置を、残りには対照を割り当て、その割当ての期待応答を \(\bar z\) で推定する。論文は、この曲線がアップリフトモデルを公平に比べる方法になると述べる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 290" role="img" aria-label="模式図。8人の対象を予測した改善の大きい順に棒で並べ、上位50%の4人は推奨された処置（処置1、処置2）を受け、残りの4人は対照になる。">
+        <text x="40" y="30" font-size="15" font-weight="600" fill="#16202E">予測した改善（最適と予測した処置 − 対照）の大きい順</text>
+        <line x1="40" x2="600" y1="220" y2="220" stroke="#16202E" stroke-width="1.3"/>
+        <g fill="#1D4ED8">
+          <rect x="60" y="80" width="44" height="140" rx="3"/>
+          <rect x="126" y="115" width="44" height="105" rx="3"/>
+          <rect x="192" y="136" width="44" height="84" rx="3"/>
+          <rect x="258" y="157" width="44" height="63" rx="3"/>
+        </g>
+        <g fill="#CBD2DC">
+          <rect x="324" y="178" width="44" height="42" rx="3"/>
+          <rect x="390" y="192" width="44" height="28" rx="3"/>
+          <rect x="456" y="206" width="44" height="14" rx="3"/>
+          <rect x="522" y="217" width="44" height="3" rx="1"/>
+        </g>
+        <line x1="313" x2="313" y1="56" y2="272" stroke="#16202E" stroke-width="2" stroke-dasharray="7 5"/>
+        <text x="305" y="70" font-size="14" fill="#16202E" text-anchor="end">上位 <tspan class="mi">p</tspan> = 50%</text>
+        <g font-size="14" text-anchor="middle" fill="#1D4ED8" font-weight="600">
+          <text x="82" y="244">処置1</text><text x="148" y="244">処置2</text><text x="214" y="244">処置1</text><text x="280" y="244">処置1</text>
+        </g>
+        <g font-size="14" text-anchor="middle" fill="#5B6676">
+          <text x="346" y="244">対照</text><text x="412" y="244">対照</text><text x="478" y="244">対照</text><text x="544" y="244">対照</text>
+        </g>
+        <text x="40" y="272" font-size="13" fill="#5B6676">割り当てる処置</text>
+      </svg>
+      <figcaption>図3　修正アップリフト曲線の 1 点の求め方（模式図）。上位 \(p\)% の対象にはモデルが最適と予測した処置を、残りには対照を割り当て、その割当ての期待応答を \(\bar z\) で推定する。\(p\) を 0 から 100% まで動かすと曲線になる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="cts">
+    <div class="kicker">手法</div>
+    <h2>CTS は、分割で期待応答がどれだけ増えるかを分割基準にした木を育て、ランダムフォレストの形で束ねる</h2>
+    <p>CTS（Contextual Treatment Selection）は二分木を再帰的に育てる。葉に対応する特徴空間 \(\phi\) では、そこで最も期待応答の高い処置を割り当てるのが最善である。候補の分割 \(s\) で \(\phi\) を \(\phi_l\) と \(\phi_r\) に分けると、左右で別の処置を選べるぶん期待応答が増える。その増分の推定値が最大になる分割を選ぶ。</p>
+    <div class="eq">\[ \widehat{\Delta\mu}(s)=\hat p(\phi_l\mid\phi)\max_{t}\hat y_t(\phi_l)+\hat p(\phi_r\mid\phi)\max_{t}\hat y_t(\phi_r)-\max_{t}\hat y_t(\phi) \]</div>
+    <p>\(\hat p(\phi'\mid\phi)\) は標本の割合である。処置ごとの期待応答 \(\hat y_t(\phi')\) は、処置ごとに分けて推定するので使える標本が少なく、処置の割合が偏っていることも多い。そこで論文は 2 つのパラメータを使う。処置 \(t\) の標本数 \(n_t(\phi')\) が \(\mathtt{min\_split}\) より少なければ親ノードの推定値 \(\hat y_t(\phi)\) をそのまま受け継ぐ。そうでなければ、親の推定値を \(\mathtt{n\_reg}\) 件ぶんの仮の標本として加えた平均にする。</p>
+    <div class="eq">\[ \hat y_t(\phi')=\frac{\sum_i y^{(i)}\,\mathbb I\{\mathbf x^{(i)}\in\phi'\}\,\mathbb I\{t^{(i)}=t\}+\hat y_t(\phi)\cdot\mathtt{n\_reg}}{\sum_i \mathbb I\{\mathbf x^{(i)}\in\phi'\}\,\mathbb I\{t^{(i)}=t\}+\mathtt{n\_reg}} \]</div>
+    <p>根ノードでは標本平均を使う。外れ値の影響を抑えるための正則化で、論文は \(\mathtt{n\_reg}\) を小さな正の整数にすると多くの場合に役立つと述べる。ノードは、(1) どの処置も標本数が \(\mathtt{min\_split}\) 未満、(2) 推定した増分が非負になる分割がない、(3) 全標本の応答が同じ、のいずれかで葉になる。増分 0 の分割を許すのは、その先で利益の出る分割につながりうるからである。</p>
+    <p>1 本の木の過学習を抑えるため、CTS はランダムフォレストと同じ形をとる。処置ごとの比率を保って復元抽出した \(\mathtt B\) 件で各木を育て、各ノードでは無作為に選んだ \(\mathtt{mtry}\) 個の特徴量だけから分割を探す。予測では各処置の期待応答を全木で平均し、最大の処置を選ぶ。分割基準が直接最大にするのは、学習データの上で測った木の期待応答である。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 372" role="img" aria-label="模式図。親ノードの処置ごとの期待応答は対照5.0、処置1 5.2、処置2 4.9で最大5.2。左の子（40%）は5.6、4.9、4.6で最大5.6（対照）、右の子（60%）は4.6、5.4、5.1で最大5.4（処置1）。増分は0.4×5.6+0.6×5.4−5.2=0.28。">
+        <rect x="200" y="16" width="240" height="118" rx="10" fill="#fff" stroke="#D9DEE6" stroke-width="1.5"/>
+        <text x="212" y="40" font-size="15" font-weight="600" fill="#16202E">親ノード <tspan class="mi">φ</tspan></text>
+        <g font-size="14" fill="#16202E">
+          <text x="212" y="71">対照</text><text x="212" y="95">処置1</text><text x="212" y="119">処置2</text>
+        </g>
+        <rect x="270" y="59" width="60" height="16" rx="3" fill="#CBD2DC"/>
+        <rect x="270" y="83" width="72" height="16" rx="3" fill="#1D4ED8"/>
+        <rect x="270" y="107" width="54" height="16" rx="3" fill="#CBD2DC"/>
+        <g font-size="14">
+          <text x="336" y="72" fill="#16202E">5.0</text><text x="348" y="96" fill="#1D4ED8" font-weight="600">5.2</text><text x="330" y="120" fill="#16202E">4.9</text>
+        </g>
+        <line x1="320" y1="134" x2="160" y2="206" stroke="#16202E" stroke-width="1.5"/>
+        <line x1="320" y1="134" x2="480" y2="206" stroke="#16202E" stroke-width="1.5"/>
+        <text x="320" y="178" font-size="14" fill="#5B6676" text-anchor="middle">分割 <tspan class="mi">s</tspan></text>
+        <rect x="40" y="206" width="240" height="118" rx="10" fill="#fff" stroke="#D9DEE6" stroke-width="1.5"/>
+        <text x="52" y="230" font-size="15" font-weight="600" fill="#16202E">左 <tspan class="mi">φ</tspan><tspan font-size="11" dy="4">l</tspan><tspan dy="-4">（40%）</tspan></text>
+        <g font-size="14" fill="#16202E">
+          <text x="52" y="261">対照</text><text x="52" y="285">処置1</text><text x="52" y="309">処置2</text>
+        </g>
+        <rect x="110" y="249" width="96" height="16" rx="3" fill="#1D4ED8"/>
+        <rect x="110" y="273" width="54" height="16" rx="3" fill="#CBD2DC"/>
+        <rect x="110" y="297" width="36" height="16" rx="3" fill="#CBD2DC"/>
+        <g font-size="14">
+          <text x="212" y="262" fill="#1D4ED8" font-weight="600">5.6</text><text x="170" y="286" fill="#16202E">4.9</text><text x="152" y="310" fill="#16202E">4.6</text>
+        </g>
+        <rect x="360" y="206" width="240" height="118" rx="10" fill="#fff" stroke="#D9DEE6" stroke-width="1.5"/>
+        <text x="372" y="230" font-size="15" font-weight="600" fill="#16202E">右 <tspan class="mi">φ</tspan><tspan font-size="11" dy="4">r</tspan><tspan dy="-4">（60%）</tspan></text>
+        <g font-size="14" fill="#16202E">
+          <text x="372" y="261">対照</text><text x="372" y="285">処置1</text><text x="372" y="309">処置2</text>
+        </g>
+        <rect x="430" y="249" width="36" height="16" rx="3" fill="#CBD2DC"/>
+        <rect x="430" y="273" width="84" height="16" rx="3" fill="#1D4ED8"/>
+        <rect x="430" y="297" width="66" height="16" rx="3" fill="#CBD2DC"/>
+        <g font-size="14">
+          <text x="472" y="262" fill="#16202E">4.6</text><text x="520" y="286" fill="#1D4ED8" font-weight="600">5.4</text><text x="502" y="310" fill="#16202E">5.1</text>
+        </g>
+        <text x="320" y="360" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Δ<tspan class="mi">μ</tspan> = 0.4 × 5.6 + 0.6 × 5.4 − 5.2 = 0.28</text>
+      </svg>
+      <figcaption>図4　分割基準 \(\widehat{\Delta\mu}\) の計算（模式図。値は解説者が置いた例）。棒は処置ごとの期待応答の推定値で、青が各ノードで最大のもの。分割前は全体に処置1を割り当てるが、分割後は左に対照、右に処置1を割り当てられるので、期待応答が 0.28 増える。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験</div>
+    <h2>合成データでは標本が増えるほど、航空会社 2 社の価格実験ではどの割合でも、CTS が比べた方法を上回った</h2>
+    <p><strong>合成データ</strong>：特徴量は \([0,10]^{50}\) 上の一様分布、処置は 4 つで、応答は全処置に共通の複雑な項 \(f(X)\)、処置ごとの効果 \(\mathrm U[0, 0.4X_t]\)、ノイズ \(\mathrm N(0, 0.8^2)\) の和である。どの処置を全員に出しても期待応答は 5.18、最適な割当てなら 5.79 になる。CTS を SMA（ランダムフォレスト、K 近傍法、RBF カーネルの SVR、AdaBoost）と、1 処置あたり 500〜32,000 件で比べた。真のモデルを使ったモンテカルロ法で評価すると、CTS は 2,000 件で SMA を上回り、その差は件数とともに広がって、32,000 件では最適値にごく近かった。分割基準だけが違う SMA-RF は、最大のデータでも固定の処置をわずかに上回る程度だった（結果は Fig. 1 の図のみ）。</p>
+    <p><strong>優先搭乗</strong>：欧州の大手航空会社が優先搭乗の価格を €5（対照）と €7 で比べた実験で、どちらの価格でも 1 人あたり収益は €0.42 だった。9 つの特徴量を使い、1 処置あたり学習 225,000 件、テスト 75,000 件に分けた。SMA の 4 手法と R の uplift パッケージの upliftRF、CTS を比べると、修正アップリフト曲線ではどの割合でも CTS が最もよく、upliftRF が 2 番目だった。全員に予測した最適価格を出したときの収益は、論文本文によると €0.42 から €0.52 に上がる。</p>
+    <p><strong>座席予約</strong>：別の航空会社の座席予約で、4 つの価格水準（L、ML、MH、H）を比べた。収益は路線や購入席数で変わるので、応答は連続値として扱う。標本数は処置ごとに 213,488、176,637、160,576、214,515 件で、学習・検証・テストに 5:3:2 で分けた。SMA の中で優先搭乗データの成績が最もよかった SMA-RF と CTS を比べた（upliftRF は連続の応答に使えない）。修正アップリフト曲線でも、どの割合でも CTS が上回った。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 320" role="img" aria-label="横棒グラフ。座席予約の1人あたり収益は最良の単一価格Hで1.87ドル、SMA-RFで2.37ドル、CTSで3.35ドル。優先搭乗の1人あたり収益は単一価格（5ユーロまたは7ユーロ）で0.42ユーロ、個別化（CTS）で0.52ユーロ。">
+        <text x="30" y="30" font-size="15" font-weight="600" fill="#16202E">座席予約：1 人あたり収益（ドル）</text>
+        <g font-size="15" text-anchor="end">
+          <text x="200" y="75" fill="#5B6676">最良の単一価格（H）</text>
+          <text x="200" y="115" fill="#C2410C" font-weight="600">SMA-RF</text>
+          <text x="200" y="155" fill="#1D4ED8" font-weight="600">CTS</text>
+        </g>
+        <rect x="210" y="58" width="184.2" height="24" rx="3" fill="#CBD2DC"/>
+        <rect x="210" y="98" width="233.5" height="24" rx="3" fill="#C2410C"/>
+        <rect x="210" y="138" width="330" height="24" rx="3" fill="#1D4ED8"/>
+        <g font-size="15" font-weight="600" fill="#16202E">
+          <text x="402" y="75">1.87</text><text x="452" y="115">2.37</text><text x="548" y="155">3.35</text>
+        </g>
+        <line x1="210" x2="210" y1="50" y2="170" stroke="#16202E" stroke-width="1.2"/>
+        <text x="30" y="210" font-size="15" font-weight="600" fill="#16202E">優先搭乗：1 人あたり収益（ユーロ）</text>
+        <g font-size="15" text-anchor="end">
+          <text x="200" y="255" fill="#5B6676">単一価格（€5・€7）</text>
+          <text x="200" y="295" fill="#1D4ED8" font-weight="600">CTS</text>
+        </g>
+        <rect x="210" y="238" width="210" height="24" rx="3" fill="#CBD2DC"/>
+        <rect x="210" y="278" width="260" height="24" rx="3" fill="#1D4ED8"/>
+        <g font-size="15" font-weight="600" fill="#16202E">
+          <text x="428" y="255">0.42</text><text x="478" y="295">0.52</text>
+        </g>
+        <line x1="210" x2="210" y1="230" y2="310" stroke="#16202E" stroke-width="1.2"/>
+      </svg>
+      <figcaption>図5　テストデータで推定した 1 人あたり収益（論文 4.2・4.3 節本文の数値から解説者が作図。上下で目盛りが違う）。全員に、モデルが最適と予測した価格を出したときの値である。数値は arXiv v1（2017 年 5 月 23 日）による。</figcaption>
+    </figure>
+    <p>結論で論文は、2 つの価格データで CTS が非アップリフトの方法より 15〜40% 多い収益をもたらしたとまとめている。座席予約では SMA-RF に対して約 41%（3.35 ÷ 2.37）の増加にあたる。合成データの評価には真のモデルを使ったが、2 つの航空会社のデータでは学習時の交差検証も含めて \(\bar z\) で性能を測っている。CTS の実装は著者らによる R のもので、公開リポジトリは論文に示されていない。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算もコストも扱わないが、任意の方策の期待アウトカムを RCT データで推定する方法は、後の予算制約つきの研究で評価に使われている</h2>
+    <p><strong>推定するもの</strong>：CATE を直接推定するのではなく、処置ごとの条件付き期待応答 \(\mathrm{E}[Y\mid\mathbf X=\mathbf x, T=t]\) を推定し、最大の処置を選ぶ。対照も選択肢の 1 つである。CTS の葉は処置ごとの期待応答の推定値を持つ。修正アップリフト曲線では「最適と予測した処置と対照の差」で並べるので、処置ごとの CATE の最大値を順位に使っていることになる。</p>
+    <p><strong>コストと処置</strong>：処置を出すコストは扱わない。価格実験では処置が価格そのもので、応答を収益にすることで価格の違いが応答に入る。処置は多値（\(K\) 個の処置と対照）で、応答は二値・離散・連続のどれでもよい。</p>
+    <p><strong>予算制約と ROI 順</strong>：予算制約は明示的には扱わない。近いのは修正アップリフト曲線で、処置する人の割合を上限として、予測した改善が大きい順に処置する。（解説者の注）どの処置もコストが同じなら、この割合は予算と同じ役割をする。並べ替えの基準は改善量そのもので、コストで割った ROI ではない。処置ごとにコストが違えば、ROI 順や多肢選択ナップザック問題（MCKP）で割り当てる必要があり、それが後続の研究の主題になった。論文自身はコストのある割当てに触れていない。</p>
+    <p><strong>評価法（EOM）の出典として</strong>：後の論文はこの推定量を Expected Outcome Metric（EOM）と呼んで評価に使っている。補題は \(h\) がどんな写像でもよいので、ラグランジュ乗数で決まる予算制約つきの配分方策にもそのまま当てはまる。（解説者の注）応答 \(Y\) を各人のコストに置き換えれば、同じ式で方策の期待コストも推定できる。<a href="../dfcl/">DFCL</a> や <a href="../e2e-marketing-effectiveness/">Yan ら</a>の解説にあるように、後続の研究は推定コストが予算に合うように乗数を二分探索し、そのときの推定アウトカムで方策を比べたり、それを学習の目的に組み込んだりしている。論文自身は推定量をコストには使っていない。</p>
+    <div class="eq">\[ \bar z=\frac1N\sum_{t=0}^{K}\frac{1}{p_t}\sum_{i:\ t^{(i)}=t,\ h(\mathbf x^{(i)})=t} y^{(i)} \]</div>
+    <p>（解説者の注）後続の論文には、推奨と処置が一致した標本の単純平均で書くものがある（例：<a href="../e2e-marketing-effectiveness/">Yan ら</a>）。割付確率がすべて等しければ、どの対象も同じ確率で一致するので、単純平均も期待応答の推定になる。割付確率が処置によって違う場合は、処置ごとに一致した標本の平均をとり、方策がその処置を推奨した人数の割合で重み付けする必要がある。<a href="../funnelcausalnet/">FunnelCausalNet</a> は Hájek 型の逆確率重み付けで推定している。<a href="../lbcf/">LBCF</a> は、方策によって消費予算が変わるので Zhao らの Expected Outcome では方策どうしを比べられないと指摘し、方策が処置 \(j\) を推奨した人数で一致標本の平均を重み付けする PMG を提案した。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhao2017uplift,
+  title     = {Uplift Modeling with Multiple Treatments and General Response Types},
+  author    = {Zhao, Yan and Fang, Xiao and Simchi-Levi, David},
+  booktitle = {Proceedings of the 2017 SIAM International Conference on Data Mining},
+  pages     = {588--596},
+  year      = {2017},
+  publisher = {SIAM},
+  doi       = {10.1137/1.9781611974973.66}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

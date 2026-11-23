@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オフラインの多値方策学習（論文解説）</title>
+<meta name="description" content="Offline Multi-Action Policy Learning: Generalization and Optimization（Operations Research 2023）の非公式の解説。行動ごとの二重頑健スコアをベクトルに並べて方策を学び、多値の行動でも後悔が 1/√n の速さで減ることを示し、木の方策を厳密に最適化する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = inverse-propensity weighted learning (IPWL): only units whose observed
+                         action equals pi(X) count, weighted by 1/e_hat; slow when e is estimated
+            --b  (blue)   = the paper's CAIPWL: a d-dimensional doubly robust (AIPW) score vector
+                         Gamma_i per unit; the policy sums the components it picks
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+
+/* ---------- comparison table (this page only) ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.cmp { border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; min-width: 36rem; }
+table.cmp th, table.cmp td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); vertical-align: top; }
+table.cmp th { font-weight: 600; color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+table.cmp td:nth-child(2), table.cmp td:nth-child(3) { white-space: nowrap; }
+table.cmp tr.me td { background: var(--b-soft); }
+table.cmp td.slow { color: var(--a); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Operations Research · 2023</div>
+  <h1>Offline Multi-Action Policy Learning: Generalization and Optimization</h1>
+  <p class="subtitle">オフラインの多値方策学習：汎化と最適化</p>
+
+  <ul class="authors">
+    <li><b>Zhengyuan Zhou</b><span>Stern School of Business, New York University</span></li>
+    <li><b>Susan Athey</b><span>Graduate School of Business, Stanford University</span></li>
+    <li><b>Stefan Wager</b><span>Graduate School of Business, Stanford University</span></li>
+  </ul>
+
+  <p class="lead">観察データから、一人ひとりに複数の行動（広告、価格、手紙の文面、薬など）のどれを割り当てるかのルールを学ぶ。二値処置の方策学習は処置効果の符号を ±1 のラベルにして分類する形に頼っていたため、行動が 3 つ以上あるとそのままでは使えなかった。この論文は行動ごとの<span class="B">二重頑健スコア</span>をベクトルに並べ、方策が選んだ成分の和を最大にする。傾向スコアを推定する場合でも、後悔は \(1/\sqrt{n}\) の速さで減る。推定した傾向スコアで重みづける<span class="A">逆確率重みづけ</span>では、この速さは保証されない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/opre.2022.2271">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/1810.04778">arXiv</a>
+    <a class="btn" href="https://github.com/grf-labs/policytree">policytree</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。二値の方法が処置効果の符号で分類すること、多値の逆確率重みづけの遅さ、行動ごとの二重頑健スコアを使った木の分割点の選び方、論文 Table 2 の n = 2,500 での後悔の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(\kappa(\Pi)\sqrt{V_*/n}\)</span><span class="d">学んだ方策の後悔の上界（Theorem 3）。傾向スコアを推定しても \(1/\sqrt{n}\) の速さは変わらない。多値の行動でこの速さを示したのはこの論文が初めてだと著者らは述べる。</span></li>
+    <li><span class="k">0.039 対 0.215</span><span class="d">3 つの行動のシミュレーション（\(n = 2{,}500\)、400 回の平均）での後悔。前者は二重頑健スコア、後者は逆確率重みづけで学び、どちらも木を厳密に探索した（Table 2）。</span></li>
+    <li><span class="k">約 3 時間と 1 秒未満</span><span class="d">深さ 3 の木（10 次元、3 行動）を厳密に解くのにかかった時間。混合整数計画は 500 点で約 3 時間、論文の木探索は 1,000 点で 1 秒未満だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>二値処置の方策学習は処置効果を ±1 の分類に置き換える形に頼っており、行動が 3 つ以上あるとそのままでは使えない</h2>
+    <p>行動は \(d\) 個あり、\(a^1, \dots, a^d\) を \(d\) 次元の単位ベクトル（\(j\) 番目の成分だけが 1）で表す。データは特徴 \(X_i\)、実際に取られた行動 \(A_i\)、その結果 \(Y_i = Y_i(A_i)\) の組で、ほかの行動を取ったときの結果は観測されない。方策 \(\pi\) は特徴を行動に写す関数で、その価値と後悔を次のように定める。\(\pi^*\) は方策クラス \(\Pi\) の中で最良の方策である。</p>
+    <div class="eq">\[ Q(\pi) = \mathbb{E}\big[Y(\pi(X))\big], \qquad R(\pi) = Q(\pi^*) - Q(\pi) \]</div>
+    <p>仮定は共変量で交絡を調整できること、どの行動も確率 \(\eta > 0\) 以上で選ばれていたこと（\(e_a(x) \ge \eta\)）、結果が有界であることの 3 つである。ここで \(e_a(x)\) は特徴 \(x\) の人が行動 \(a\) を取る確率（傾向スコア）で、観察データでは推定するしかない。</p>
+    <p>二値処置では、<a href="../empirical-welfare-maximization/">Kitagawa and Tetenov</a> と <a href="../policy-learning-observational/">Athey and Wager</a> の一連の研究で、傾向スコアが未知でも後悔が \(1/\sqrt{n}\) の速さで減る方法がそろった。論文は、これらが多値にそのまま広がらない理由を二つ挙げる。一つは、二つの行動を \(+1\) と \(-1\) に対応させ、処置効果（行動の差）の推定値を中心に置いていることである。行動が多いとき、どう対応させればよいかははっきりしない。もう一つは証明の道具で、過学習の度合いを測るラデマッハ複雑度は二値なら一通りに定まるが、多値への一般化は複数あり、選び方を誤ると上界が悪くなる。多値の既存研究（Swaminathan and Joachims など）の上界は、どれも標本サイズ \(n\) への依存が最適ではなかった。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>行動ごとの二重頑健スコアをベクトルに並べ、方策が選んだ成分の和を最大にする</h2>
+    <p>提案法 CAIPWL（Cross-fitted Augmented Inverse Propensity Weighted Learning）は 3 段階からなる。まずデータを \(K\) 個に分け、各分割について残りの \(K-1\) 個から行動ごとの結果の回帰 \(\hat\mu_a\) と傾向スコア \(\hat e_a\) を推定する（交差適合）。次に、個体 \(i\) の<span class="B">二重頑健スコア</span>のベクトル \(\hat\Gamma_i \in \mathbb{R}^d\) を作る。その \(a\) 番目の成分は次のとおりである。\(k(i)\) は個体 \(i\) を含む分割を表す。</p>
+    <div class="eq">\[ \hat\Gamma_{i,a} = \hat\mu^{-k(i)}_a(X_i) + \mathbf{1}\{A_i = a\}\,\frac{Y_i - \hat\mu^{-k(i)}_a(X_i)}{\hat e^{-k(i)}_a(X_i)} \]</div>
+    <p>どの成分にも回帰の予測値が入り、実際に取られた行動の成分にだけ、予測の残差を傾向スコアで割った補正が足される。最後に、方策が各個体に選んだ成分の平均を価値の推定値とし、それを \(\Pi\) の中で最大にする。</p>
+    <div class="eq">\[ \hat Q(\pi) = \frac{1}{n}\sum_{i=1}^n \big\langle \pi(X_i), \hat\Gamma_i \big\rangle = \frac{1}{n}\sum_{i=1}^n \hat\Gamma_{i,\pi(X_i)} \]</div>
+    <div class="eq">\[ \hat\pi = \operatorname*{argmax}_{\pi \in \Pi}\; \hat Q(\pi) \]</div>
+    <p>スコアをベクトルで持つので、基準にする行動も ±1 の対応づけもいらない。行動が 2 つのときは \(\langle \pi(X_i), \hat\Gamma_i\rangle = \hat\Gamma_{i,0} + \pi(X_i)(\hat\Gamma_{i,1} - \hat\Gamma_{i,0})\) で、第 2 項の差は Athey and Wager の二重頑健スコアと同じ形になる（解説者の注）。一方、比較に使う<span class="A">逆確率重みづけ</span>（IPWL）は、実際の行動が方策と一致した個体の結果 \(Y_i\) だけを \(1/\hat e_{A_i}(X_i)\) で重みづけて足す。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 340" role="img" aria-label="5人の個体と3つの行動のスコア表の模式図。各行で実際に取られた行動のセルをオレンジの枠で、方策が選んだセルを青で塗っている。二重頑健スコアを使う方法は青いセルを全員分足して平均し、値は1.10になる。逆確率重みづけはオレンジの枠と青が重なる2人だけを使う。4人目では方策クラスの制約により、行の最大でない行動が選ばれている。">
+        <text x="40" y="34" font-size="15" fill="#5B6676">個体</text>
+        <text x="175" y="34" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle"><tspan class="mi">a</tspan><tspan font-size="11" dy="-7">1</tspan></text>
+        <text x="275" y="34" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle"><tspan class="mi">a</tspan><tspan font-size="11" dy="-7">2</tspan></text>
+        <text x="375" y="34" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle"><tspan class="mi">a</tspan><tspan font-size="11" dy="-7">3</tspan></text>
+        <text x="520" y="34" font-size="15" fill="#5B6676" text-anchor="middle">IPWL で使うか</text>
+        <!-- row 1: observed a2, pi = a2 -->
+        <text x="50" y="76" font-size="16" fill="#16202E"><tspan class="mi">i</tspan> = 1</text>
+        <rect x="135" y="52" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="175" y="76" font-size="16" fill="#16202E" text-anchor="middle">0.4</text>
+        <rect x="235" y="52" width="80" height="36" rx="6" fill="#E7EEFC" stroke="#C2410C" stroke-width="2.5"/><text x="275" y="76" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">1.3</text>
+        <rect x="335" y="52" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="375" y="76" font-size="16" fill="#16202E" text-anchor="middle">0.2</text>
+        <text x="520" y="76" font-size="15" fill="#C2410C" text-anchor="middle">使う</text>
+        <!-- row 2: observed a3, pi = a1 -->
+        <text x="50" y="124" font-size="16" fill="#16202E"><tspan class="mi">i</tspan> = 2</text>
+        <rect x="135" y="100" width="80" height="36" rx="6" fill="#E7EEFC"/><text x="175" y="124" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">0.9</text>
+        <rect x="235" y="100" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="275" y="124" font-size="16" fill="#16202E" text-anchor="middle">0.1</text>
+        <rect x="335" y="100" width="80" height="36" rx="6" fill="#F2F4F7" stroke="#C2410C" stroke-width="2.5"/><text x="375" y="124" font-size="16" fill="#16202E" text-anchor="middle">−0.6</text>
+        <text x="520" y="124" font-size="15" fill="#5B6676" text-anchor="middle">使わない</text>
+        <!-- row 3: observed a1, pi = a3 -->
+        <text x="50" y="172" font-size="16" fill="#16202E"><tspan class="mi">i</tspan> = 3</text>
+        <rect x="135" y="148" width="80" height="36" rx="6" fill="#F2F4F7" stroke="#C2410C" stroke-width="2.5"/><text x="175" y="172" font-size="16" fill="#16202E" text-anchor="middle">−0.2</text>
+        <rect x="235" y="148" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="275" y="172" font-size="16" fill="#16202E" text-anchor="middle">0.5</text>
+        <rect x="335" y="148" width="80" height="36" rx="6" fill="#E7EEFC"/><text x="375" y="172" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">1.1</text>
+        <text x="520" y="172" font-size="15" fill="#5B6676" text-anchor="middle">使わない</text>
+        <!-- row 4: observed a1, pi = a3 (not the row maximum) -->
+        <text x="50" y="220" font-size="16" fill="#16202E"><tspan class="mi">i</tspan> = 4</text>
+        <rect x="135" y="196" width="80" height="36" rx="6" fill="#F2F4F7" stroke="#C2410C" stroke-width="2.5"/><text x="175" y="220" font-size="16" fill="#16202E" text-anchor="middle">0.7</text>
+        <rect x="235" y="196" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="275" y="220" font-size="16" fill="#16202E" text-anchor="middle">0.3</text>
+        <rect x="335" y="196" width="80" height="36" rx="6" fill="#E7EEFC"/><text x="375" y="220" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">0.6</text>
+        <text x="520" y="220" font-size="15" fill="#5B6676" text-anchor="middle">使わない</text>
+        <!-- row 5: observed a3, pi = a3 -->
+        <text x="50" y="268" font-size="16" fill="#16202E"><tspan class="mi">i</tspan> = 5</text>
+        <rect x="135" y="244" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="175" y="268" font-size="16" fill="#16202E" text-anchor="middle">0.2</text>
+        <rect x="235" y="244" width="80" height="36" rx="6" fill="#F2F4F7"/><text x="275" y="268" font-size="16" fill="#16202E" text-anchor="middle">0.8</text>
+        <rect x="335" y="244" width="80" height="36" rx="6" fill="#E7EEFC" stroke="#C2410C" stroke-width="2.5"/><text x="375" y="268" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">1.6</text>
+        <text x="520" y="268" font-size="15" fill="#C2410C" text-anchor="middle">使う</text>
+        <text x="40" y="318" font-size="16" fill="#1D4ED8" font-weight="600"><tspan class="mi">Q̂</tspan>(<tspan class="mi">π</tspan>) = (1.3 + 0.9 + 1.1 + 0.6 + 1.6) / 5 = 1.10</text>
+      </svg>
+      <figcaption>図1　スコアの表と方策の選び方の模式図（値は解説者が置いた例）。行は個体、列は行動で、セルの値は \(\hat\Gamma_{i,a}\)。オレンジの枠は実際に取られた行動 \(A_i\)、青の塗りは方策 \(\pi\) が選んだ行動である。\(i = 4\) では方策クラスの制約のため、行の最大でない行動が選ばれている。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>後悔は \(\sqrt{V_*/n}\) の速さで減り、傾向スコアを推定してもこの速さは落ちない</h2>
+    <p>補助関数の推定には行動ごとに次の条件だけを課す。結果の回帰と傾向スコアの平均二乗誤差の積が \(o(1/n)\) であればよく、たとえば両方の平均二乗誤差が \(o(n^{-1/2})\) なら満たされる。片方の精度が低くても、もう片方が高ければ補える。</p>
+    <div class="eq">\[ \mathbb{E}\big[(\hat\mu_a(X) - \mu_a(X))^2\big] \cdot \mathbb{E}\big[(\hat e_a(X) - e_a(X))^2\big] = \frac{o(1)}{n} \]</div>
+    <p>方策クラスの大きさは、2 つの方策が異なる行動を選ぶ点の割合（ハミング距離）で測った被覆数のエントロピー積分 \(\kappa(\Pi)\) で表す。主定理（Theorem 3）は、被覆数が増えすぎないという条件のもとで、十分大きな \(n\) について確率 \(1 - 2\delta\) 以上で次が成り立つことを示す。</p>
+    <div class="eq">\[ R(\hat\pi) \le \Big(54.4\sqrt{2}\,\kappa(\Pi) + 435.2 + \sqrt{2\log(1/\delta)}\Big)\sqrt{\frac{V_*}{n}} \]</div>
+    <div class="eq">\[ V_* = \sup_{\pi_a, \pi_b \in \Pi} \mathbb{E}\Big[\big\langle \Gamma_i,\, \pi_a(X_i) - \pi_b(X_i)\big\rangle^2\Big] \]</div>
+    <p>\(V_*\) は 2 つの方策の価値の差を評価するときの最悪の分散である。2 つの方策が同じ行動を選ぶ個体では内積が 0 になるので、スコアのベクトル全体の大きさ \(\mathbb{E}\|\Gamma_i\|_2^2\) よりかなり小さくなりうる。証明では、価値そのものではなく 2 つの方策の価値の差が一様に集中することを示す。交差適合のおかげで、推定したスコアと真のスコアのずれは方策の組すべてについて一様に \(o_p(1/\sqrt{n})\) に収まる（Lemma 3）。論文は、この上界の定数はさらに小さくできると述べている。</p>
+    <p>行動が 2 つなら \(\kappa(\Pi) \le 2.5\sqrt{\mathrm{VC}(\Pi)}\) で、上界は \(\sqrt{V_*\,\mathrm{VC}(\Pi)/n}\) になる（Corollary 1）。深さ \(L\) の木では \(\kappa(\Pi_L) \le \sqrt{(2^L - 1)\log p + 2^L \log d} + \tfrac{4}{3}L^{1/4}\sqrt{2^L - 1}\) で（Lemma 4、Theorem 4）、行動の数 \(d\) は \(\log d\) の形でしか入らない。下界については、論文は Kitagawa and Tetenov の \(\Omega(1/\sqrt{n})\) を挙げ、速さは改善できないとしている。</p>
+    <div class="tblwrap">
+      <table class="cmp">
+        <thead><tr><th>方法</th><th>行動</th><th>傾向スコア</th><th>後悔の上界（論文 5.3 節の比較）</th></tr></thead>
+        <tbody>
+          <tr><td>Kitagawa and Tetenov</td><td>二値</td><td>既知</td><td>\((B/\eta)\sqrt{\mathrm{VC}(\Pi)/n}\)</td></tr>
+          <tr><td>Athey and Wager</td><td>二値</td><td>推定</td><td>\(\sqrt{\mathrm{VC}(\Pi)/n}\)（定数は \(\mathbb{E}\|\Gamma_i\|_2^2\) による）</td></tr>
+          <tr><td>Swaminathan and Joachims</td><td>多値</td><td>既知</td><td class="slow">\(\sqrt{V\log N_H(1/n, \Pi)/n}\)：二値でも少なくとも \(\sqrt{\log n}\) 倍遅い</td></tr>
+          <tr><td>Zhou ら（2017）</td><td>二値の設定</td><td>既知</td><td class="slow">最良の場合でも \(n^{-1/3}\)</td></tr>
+          <tr><td>Kallus</td><td>多値</td><td>推定</td><td class="slow">\(r(n) + \mathcal{R}_n(\Pi) + 1/n\)：補助関数が \(n^{-1/4}\) なら \(n^{-1/4}\)</td></tr>
+          <tr class="me"><td><b>この論文</b></td><td>多値</td><td>推定</td><td>\(\kappa(\Pi)\sqrt{V_*/n}\)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表は論文の比較を解説者がまとめたもの。\(B\) は \(|Y_i|\) の上限、\(r(n)\) は結果の回帰の誤差の速さ。論文によれば、逆確率重みづけに推定した傾向スコアを入れる方法では、補助関数の誤差が \(n^{-1/4}\) のとき後悔の上界も \(n^{-1/4}\) にとどまる。</p>
+  </section>
+
+  <section id="optimization">
+    <div class="kicker">最適化</div>
+    <h2>木の方策は混合整数計画で厳密に解けるが、大きなデータでは左右の部分木に分けて解く木探索のほうが速い</h2>
+    <p>論文は方策クラスとして深さを決めた決定木を考え、\(\hat Q(\pi)\) を厳密に最大にする木を求める方法を二つ示す。深さは葉の層も数え、深さ 3 の木は分割が 2 段で葉が 4 枚ある。</p>
+    <p>一つ目は混合整数計画（MIP）で、各分割に使う変数としきい値、各個体がどの葉に入るか、各葉にどの行動を割り当てるかを 0-1 変数などで表し、目的関数 \(\sum_i \sum_k \sum_t f_{it}\,p_{kt}\,\hat\Gamma_{ik}\) を最大にする（\(f_{it}\) は個体 \(i\) が葉 \(t\) に入るか、\(p_{kt}\) は葉 \(t\) に行動 \(k\) を割り当てるか）。市販のソルバーをそのまま使える一方、変数の数は \((p+1)(2^{L-1} - 1) + (n+d)\,2^{L-1}\) で \(n\) に比例して増え、解く時間は最悪の場合に変数の数の指数で増える。\(n = 500\)、\(p = 10\)、深さ 3、\(d = 3\)（変数 2,045 個）の問題は、ノートパソコンで解くのに約 3 時間かかり、1,000 点を超えると 1 日で終わらなかった。</p>
+    <p>二つ目は専用の木探索である。根の分割（変数と値）を一つ決めれば、残りは左の部分木と右の部分木を別々に最適化する二つの小さな問題に分かれる。これを再帰的に全通り試すと、連続な特徴で計算量は \(O(2^{L-1}(np)^{L-1}d + pn\log n)\) になり、深さを固定すれば \(n\) の多項式で済む。特徴がすべて二値なら、\(n\) についてほぼ線形になる。分割点を \(A\) 個おきにしか試さない近似（skip）も選べる。同じ環境で、\(n = 1{,}000\) の問題は 1 秒未満で解けた。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="木探索の模式図。根の分割の候補を全通り試し、候補ごとに左右の部分木を別々に最適化して、合計が最大の候補を選ぶ。葉では、その葉に入った個体のスコアを行動ごとに合計し、最大の行動を選ぶ。">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="190" y="16" width="260" height="62" rx="10" fill="#F2F4F7"/>
+        <text x="320" y="42" font-size="16" font-weight="600" fill="#16202E" text-anchor="middle">根の分割：<tspan class="mi">x</tspan>(<tspan class="mi">m</tspan>) &lt; <tspan class="mi">b</tspan></text>
+        <text x="320" y="66" font-size="14" fill="#5B6676" text-anchor="middle"><tspan class="mi">p</tspan> 個の変数 × 最大 <tspan class="mi">n</tspan> 個の値を全部試す</text>
+        <path d="M260,78 L170,128" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <path d="M380,78 L470,128" stroke="#5B6676" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+        <rect x="40" y="130" width="250" height="62" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="165" y="156" font-size="16" fill="#16202E" text-anchor="middle">左の部分木（深さ <tspan class="mi">L</tspan> − 1）</text>
+        <text x="165" y="180" font-size="14" fill="#5B6676" text-anchor="middle">左に入った個体だけで最適化</text>
+        <rect x="350" y="130" width="250" height="62" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="475" y="156" font-size="16" fill="#16202E" text-anchor="middle">右の部分木（深さ <tspan class="mi">L</tspan> − 1）</text>
+        <text x="475" y="180" font-size="14" fill="#5B6676" text-anchor="middle">右に入った個体だけで最適化</text>
+        <text x="320" y="166" font-size="22" fill="#5B6676" text-anchor="middle">＋</text>
+        <rect x="90" y="222" width="460" height="60" rx="10" fill="#E7EEFC"/>
+        <text x="320" y="248" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">葉：入った個体の <tspan class="mi">Γ̂</tspan><tspan font-size="11" dy="4">i,a</tspan><tspan dy="-4"> </tspan>を行動ごとに足し、</text>
+        <text x="320" y="272" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">合計が最大の行動を割り当てる</text>
+      </svg>
+      <figcaption>図2　木探索（論文 Algorithm 2）の考え方の模式図。分割を一つ決めると左右の問題が独立になるので、再帰的に解いて合計の最大を取る。実装では特徴の並べ替えを最初に一度だけ行い、部分問題の結果を保存して使い回す。</figcaption>
+    </figure>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">実験 1：シミュレーション</div>
+    <h2>シミュレーションでは、二重頑健スコアと厳密な木探索を組み合わせた方法の後悔が最も小さく、標本が増えるにつれて減った</h2>
+    <p>特徴は \([0,1]^{10}\) の一様分布で、行動は 0、1、2 の 3 つである。\(x_5\) と \(x_7\) で決まる 3 つの領域があり、領域 \(r\) では行動 \(r\) が最適になるように平均の結果 \(\mu_a(x)\) を置いた。行動の選ばれる確率は領域によって 0.2・0.6・0.2 か 0.4・0.2・0.4 で、結果には分散 4 の正規ノイズが乗る。結果の最大値 2 に対してノイズの標準偏差も 2 なので、信号がノイズに埋もれやすい設定である。方策クラスは深さ 3 の木とした。</p>
+    <p>比べたのは 7 つの方法である。スコアは<span class="B">二重頑健スコア（CAIPWL）</span>か<span class="A">逆確率重みづけ（IPWL、交差適合つき）</span>、木の最適化は厳密な探索（opt）、10 点おきの探索（skip）、各段で深さ 2 の木を仮定して分割を選ぶ貪欲法（greedy）の 3 通りで、これに行動を一様にランダムに選ぶ方策を加えた。傾向スコアは多項ロジスティック回帰、結果の回帰はランダムフォレストと一般化ランダムフォレストで推定した。各設定を 400 回繰り返し、15,000 点のテストデータで後悔を測った。</p>
+    <figure>
+      <svg class="fig" id="fig-sim" viewBox="0 0 640 350" role="img" aria-label="論文 Table 2 の後悔の折れ線グラフ。n が 1000 から 2500 に増えると、CAIPWL の厳密探索は 0.128 から 0.039、10点おきの探索は 0.127 から 0.040、貪欲法は 0.492 から 0.194 に下がる。IPWL の厳密探索は 0.212 から 0.215、10点おきは 0.213 から 0.214、貪欲法は 0.516 から 0.483 で、ほとんど下がらない。"></svg>
+      <figcaption>図3　学習データの大きさ \(n\) と後悔（400 回の平均）。青は二重頑健スコア、オレンジは逆確率重みづけで、実線は厳密な探索、破線は 10 点おきの探索、点線は貪欲法（論文 Table 2 の数値から解説者が作図）。ランダムな方策の後悔は 0.868 で、図の範囲の外にある。</figcaption>
+    </figure>
+    <p>最適化の方法をそろえると、二重頑健スコアのほうが後悔が小さかった。逆確率重みづけの後悔は \(n\) を増やしてもほぼ 0.21〜0.23 のままで、試行ごとのばらつきも大きかった。論文は、推定した傾向スコアが小さいとき重みが大きく振れることを理由に挙げる。厳密な探索と 10 点おきの探索の差は小さく、貪欲法はどちらのスコアでも大きく劣った。ノイズのない 10,000 点で学んでも、貪欲法の木は最初に \(x_7\) で分割し、最良の木（最初に \(x_5\) で分割する）と構造が違った。論文は、推定と最適化の一方が不十分でももう一方を改善すれば性能が上がるとし、実際には両方で最良の方法を組み合わせることが大切だとまとめている。</p>
+  </section>
+
+  <section id="voting">
+    <div class="kicker">実験 2：投票データ</div>
+    <h2>投票データでは、5 種類の働きかけから選ぶ木が最良の一律方策と同程度になり、人工的に入れた異質性も見つけた</h2>
+    <p>Gerber らが 2006 年 8 月のミシガン州の予備選挙で行ったフィールド実験のデータで、180,002 人（世帯ごとに 1 人）を使う。行動は、何もしない（Nothing）と、選挙前に送る 4 種類の手紙（Civic：市民の義務を訴える、Monitored：投票したかどうかが調べられると伝える、Self History：本人と世帯の過去の投票記録を載せる、Neighbors：近所の人の投票記録まで載せる）の 5 つである。行動は確率 10/18、2/18、2/18、2/18、2/18 でランダムに割り当てられた。結果は予備選挙で投票したかどうか、特徴は生年、性別、世帯人数、市、過去の選挙での投票の有無など 10 個である。</p>
+    <p>5 分割の交差検証で深さ 3 の木を学び、残した分割で一律の方策と比べた。学習では傾向スコアをランダムフォレストで推定し（下限 0.1 で切る）、評価には既知の割当て確率を使う二重頑健推定量を使った。CAIPWL の木の投票率の推定値は、ランダムな方策より 0.046、何もしない方策より 0.082 高かった。最良の一律方策は全員に Neighbors を送る方策で、CAIPWL の木との差は 0.00042 で有意ではなかった。一方、IPWL の木は Neighbors より 0.0038 低く、有意に劣った（\(p < 0.001\)）。論文はこの結果から、このデータには有意な異質性がないとみている。CAIPWL の木と Neighbors の差の \(p\) 値は、本文では 0.47、Table 3 の注では 0.27 と書かれている。14 万 4,000 点での木探索はノートパソコンで数秒で終わった。</p>
+    <p>次に、3 つのグループがそれぞれ別の手紙を好むように異質性を入れた。手紙を受け取った個体の結果を、好む手紙と一致すれば 0 から 1 へ、一致しなければ 1 から 0 へ、確率 0.07 で反転させる。50 歳未満で 2 人以下の世帯は Monitored、50 歳未満で 3 人以上の世帯は Self History、50 歳以上で 2 人以上の世帯は Civic を好む。このデータでは、CAIPWL の木は Neighbors より 0.027、IPWL の木は 0.021 だけ高かった（どちらも \(p < 0.0001\)）。CAIPWL は 5 回の学習すべてで、入れた 3 つのグループを正しく分ける同じ木を学んだ（図4）。IPWL の木は学習ごとに変わり、たいてい関係のない変数で分割していた。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="論文 Figure 7(a) の木を描き直した図。1956.5年より前に生まれた人のうち、1人世帯には Neighbors、2人以上の世帯には Civic を送る。それ以降に生まれた人のうち、2人以下の世帯には Monitored、3人以上の世帯には Self History を送る。">
+        <rect x="210" y="14" width="220" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="320" y="43" font-size="16" fill="#16202E" text-anchor="middle">生年 &lt; 1956.5</text>
+        <path d="M280,60 L160,120" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M360,60 L480,120" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <text x="206" y="86" font-size="15" fill="#5B6676" text-anchor="middle">はい</text>
+        <text x="434" y="86" font-size="15" fill="#5B6676" text-anchor="middle">いいえ</text>
+        <rect x="60" y="120" width="200" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="160" y="149" font-size="16" fill="#16202E" text-anchor="middle">世帯人数 &lt; 1.5</text>
+        <rect x="380" y="120" width="200" height="46" rx="10" fill="#F2F4F7"/>
+        <text x="480" y="149" font-size="16" fill="#16202E" text-anchor="middle">世帯人数 &lt; 2.5</text>
+        <path d="M120,166 L84,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M200,166 L236,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M440,166 L404,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <path d="M520,166 L556,226" stroke="#5B6676" stroke-width="1.5" fill="none"/>
+        <text x="94" y="200" font-size="14" fill="#5B6676" text-anchor="end">はい</text>
+        <text x="226" y="200" font-size="14" fill="#5B6676" text-anchor="start">いいえ</text>
+        <text x="414" y="200" font-size="14" fill="#5B6676" text-anchor="end">はい</text>
+        <text x="546" y="200" font-size="14" fill="#5B6676" text-anchor="start">いいえ</text>
+        <rect x="14" y="226" width="140" height="56" rx="10" fill="#E7EEFC"/>
+        <text x="84" y="260" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Neighbors</text>
+        <rect x="166" y="226" width="140" height="56" rx="10" fill="#E7EEFC"/>
+        <text x="236" y="260" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Civic</text>
+        <rect x="334" y="226" width="140" height="56" rx="10" fill="#E7EEFC"/>
+        <text x="404" y="260" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Monitored</text>
+        <rect x="486" y="226" width="140" height="56" rx="10" fill="#E7EEFC"/>
+        <text x="556" y="260" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Self History</text>
+      </svg>
+      <figcaption>図4　異質性を入れたデータで CAIPWL が学んだ深さ 3 の木（論文 Figure 7(a) を解説者が描き直したもの）。論文の図の枝にはラベルがないため、条件を満たすと左に進むという論文の木の定義にならって「はい」「いいえ」を付けた。50 歳以上の 1 人世帯には異質性を入れていないので、Neighbors が最良のまま残る。</figcaption>
+    </figure>
+    <p class="src">このページの数値は arXiv v2（2018 年 11 月 19 日）の本文と表による。Operations Research 掲載版（71 巻 1 号、148–183 ページ）の本文は自動取得できなかったため、照合していない。所属は掲載版の書誌情報（Crossref）による。arXiv 版では Zhou は Stanford University の電気工学科となっている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算制約は要旨で触れるだけで、定式化にも木の最適化にも予算の制約は入っていない</h2>
+    <p>この論文が推定するのは、各個体の行動ごとの二重頑健スコア \(\hat\Gamma_{i,a}\)（行動 \(a\) を取ったときの結果の推定値）と、それを使った方策 \(\hat\pi \in \Pi\) である。行動間の条件付き平均処置効果を関数として推定することは目的にしていない。処置は「何もしない」を含む有限個の離散的な行動で（多値）、連続的な行動は今後の課題に挙げている。</p>
+    <p>コストは扱っていない。結果 \(Y_i\) は報酬として最大化するだけで、行動ごとの費用を差し引く項も、実験での費用の設定もない。投票データの手紙にも費用は付けていない。</p>
+    <p>予算について、要旨は方策が予算制約を満たす必要がある場合を対象に含めると述べ、序論は Kitagawa and Tetenov にならって、方策クラス \(\Pi\) で「資源の範囲を超えて処置しない」といった制約を表せると書く。しかし、予算を満たす方策の集合をどう作るか、その集合が被覆数の条件を満たすかは示しておらず、MIP と木探索にも処置人数や費用の上限は入っていない。予算を明示的に扱う方策学習は、<a href="../empirical-welfare-maximization/">Kitagawa and Tetenov</a>（処置割合の上限を按分つきで扱う）や <a href="../combination-itr/">Xu ら</a>（1 人あたりの平均予算のもとで多肢選択ナップザック問題を解く）を参照されたい。</p>
+    <p>（解説者の注）行動 \(k\) に既知の費用 \(c_k\) があるなら、スコアを \(\hat\Gamma_{i,k} - \lambda c_k\) に置き換えるだけで、木探索も定理もそのまま使える。\(\lambda\) を動かして総費用を予算に合わせれば、予算制約をラグランジュ緩和した多肢選択ナップザック問題と同じ形になる。方策クラスに形の制約がなければ、各個体は、より費用の高い行動に移るときの効果の増分と費用の増分の比が \(\lambda\) を上回る限り、その行動に進む（二値なら ROI の順に配る割当てにあたる）。一方、予算そのものを制約として MIP に足すことはできても、制約が全員にかかるので、左右の部分木を別々に解く木探索の分解は成り立たなくなる。論文自身はこうした拡張を述べていない。多値処置を予算の関数として評価する方法は <a href="../multi-armed-qini/">Sverdrup らの Qini 曲線</a>、オンラインで予算に合わせてしきい値を動かす方法は <a href="../online-mckp/">Albert and Goldenberg</a> の解説にまとめた。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{zhou2023offline,
+  title   = {Offline Multi-Action Policy Learning: Generalization and Optimization},
+  author  = {Zhou, Zhengyuan and Athey, Susan and Wager, Stefan},
+  journal = {Operations Research},
+  volume  = {71},
+  number  = {1},
+  pages   = {148--183},
+  year    = {2023},
+  doi     = {10.1287/opre.2022.2271}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- figure 3: Table 2 of the paper (arXiv v2), average regret over 400 runs ----------
+(function () {
+  var svg = document.getElementById('fig-sim'); if (!svg) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var N = [1000, 1500, 2000, 2500];
+  // [values at n = 1000, 1500, 2000, 2500], colour, dash, label, label y-offset
+  var S = [
+    [[0.1280957, 0.0767156, 0.0525168, 0.0393409], '#1D4ED8', '', 'CAIPWL opt / skip', 4],
+    [[0.1266719, 0.0774815, 0.0544816, 0.0399413], '#1D4ED8', '6 4', null, 0],
+    [[0.4923080, 0.3267238, 0.2479887, 0.1943858], '#1D4ED8', '2 4', 'CAIPWL greedy', 16],
+    [[0.2115385, 0.2276709, 0.2173981, 0.2154734], '#C2410C', '', 'IPWL opt / skip', -8],
+    [[0.2133970, 0.2297918, 0.2184838, 0.2143081], '#C2410C', '6 4', null, 0],
+    [[0.5159509, 0.4955450, 0.4888422, 0.4827773], '#C2410C', '2 4', 'IPWL greedy', 5]
+  ];
+  var X0 = 70, X1 = 450, YT = 24, YB = 290, HI = 0.55;
+  function px(n) { return X0 + (n - 1000) / 1500 * (X1 - X0); }
+  function py(v) { return YB - v / HI * (YB - YT); }
+  [0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach(function (v) {
+    el('line', { x1: X0, x2: X1, y1: py(v), y2: py(v), stroke: '#D9DEE6' });
+    el('text', { x: X0 - 10, y: py(v) + 5, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'end' }, v.toFixed(1));
+  });
+  N.forEach(function (n) {
+    el('text', { x: px(n), y: YB + 22, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, n.toLocaleString('en-US'));
+  });
+  el('text', { x: (X0 + X1) / 2, y: YB + 46, 'font-size': 15, fill: '#16202E', 'text-anchor': 'middle' }, '学習データの大きさ n');
+  el('text', { x: X0 - 50, y: YT - 6, 'font-size': 15, fill: '#16202E' }, '後悔');
+  S.forEach(function (s) {
+    var d = s[0].map(function (v, i) { return (i ? 'L' : 'M') + px(N[i]).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ');
+    var a = { d: d, fill: 'none', stroke: s[1], 'stroke-width': 2.5 };
+    if (s[2]) a['stroke-dasharray'] = s[2];
+    el('path', a);
+    s[0].forEach(function (v, i) { el('circle', { cx: px(N[i]), cy: py(v), r: s[2] ? 3 : 4.5, fill: s[1] }); });
+    if (s[3]) el('text', { x: X1 + 12, y: py(s[0][3]) + s[4] + 1, 'font-size': 14, fill: s[1], 'font-weight': 600 }, s[3] + '  ' + s[0][3].toFixed(3));
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

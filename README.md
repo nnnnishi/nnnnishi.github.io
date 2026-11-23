@@ -25,6 +25,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | 授業 | `_data/teaching.yml` | 上から順に表示。`links` に年度ごとのシラバス |
 | News | `_data/news.yml` | 新しいものを先頭に。トップには上から5件 |
 | Research Interests | `_data/research.yml` | テーマ・例・代表的な成果 |
+| 文献リストの系譜の図 | `_data/survey_budget_uplift.yml` | 論文に `short`（図での呼び名）を付け、`lineage` に `from`・`to`・`kind`（`ext` か `base`）・`why` を1行足す。レーンの並びは `lineage_lanes` |
 | 所属・職歴・学歴 | `cv/index.html` | 直接編集 |
 
 自分の名前（太字にする表記）は `_config.yml` の `me` に列挙。`sitemap.xml` はビルド時に自動生成（nav の項目と `_config.yml` の `sitemap_extra`）。

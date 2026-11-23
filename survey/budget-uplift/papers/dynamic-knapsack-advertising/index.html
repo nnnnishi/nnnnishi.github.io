@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>動的ナップザック最適化による逐次広告の予算配分（論文解説）</title>
+<meta name="description" content="Dynamic Knapsack Optimization Towards Efficient Multi-Channel Sequential Advertising（ICML 2020）の非公式の解説。予算内で広告を見せる利用者と利用者ごとの入札方策を同時に選ぶ問題を動的ナップザック問題として定式化し、コスト性能比のしきい値1つで、利用者ごとの強化学習としきい値による選択に分解する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = myopic bidding on the immediate revenue of each exposure, and the naive
+                         per-user rule "maximise each user's CPR" (Contextual Bandit, Greedy+maxCPR)
+            --b  (blue)   = the paper's MSBCB: long-term value, reward v - CPR_thr * c, and the
+                         policy / user selection decided by the single threshold CPR_thr
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.lab svg { display: block; width: 100%; height: auto; }
+.lab svg text { font-family: var(--font-ja); }
+.readout { font-size: 0.92rem; line-height: 1.65; display: flex; flex-direction: column; gap: 0.5rem; }
+.readout p { margin: 0; }
+.readout .sel { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2020</div>
+  <h1>Dynamic Knapsack Optimization Towards Efficient Multi-Channel Sequential Advertising</h1>
+  <p class="subtitle">効率的なマルチチャネル逐次広告に向けた動的ナップザック最適化</p>
+
+  <ul class="authors">
+    <li><b>Xiaotian Hao*</b><span>Tianjin University</span></li>
+    <li><b>Zhaoqing Peng*</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Yi Ma*</b><span>Tianjin University</span></li>
+    <li><b>Guan Wang</b><span>Tsinghua University</span></li>
+    <li><b>Junqi Jin</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Jianye Hao</b><span>Tianjin University</span></li>
+    <li><b>Shan Chen</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Rongquan Bai</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Mingzhou Xie</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Miao Xu</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Zhenzhe Zheng</b><span>Shanghai Jiao Tong University</span></li>
+    <li><b>Chuan Yu</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Han Li</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Jian Xu</b><span>Alimama, Alibaba Group</span></li>
+    <li><b>Kun Gai</b><span>Alimama, Alibaba Group</span></li>
+  </ul>
+  <p class="src">* 共同第一著者。所属の部局名（College of Intelligence and Computing など）は論文の脚注を参照。</p>
+
+  <p class="lead">EC の広告では、同じ利用者に何度か広告を見せて初めて購入に至ることが多いのに、既存の入札は<span class="A">表示 1 回ごとの即時の収益</span>を最大にしている。この論文は予算内で広告を見せる利用者と利用者ごとの入札方策を同時に選ぶ問題を「動的ナップザック問題」として定式化した。そして<span class="B">コスト性能比のしきい値を 1 つ決めれば、利用者ごとの強化学習と、しきい値による利用者の選択に分けて解ける</span>ことを示した。Taobao の A/B テストでは本番のモデルとほぼ同じ費用で収益を 10.08% 増やしている。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v119/hao20b.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2006.16312">arXiv</a>
+    <a class="btn" href="https://github.com/tjuHaoXiaotian/ICML-2020-MSBCB">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。表示1回ごとの収益で入札する既存の方法、価値とコストが方策で変わるナップザック問題、しきい値 CPR_thr による方策の選択、論文 Table 1 と Table 3 の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(v - \mathrm{CPR}_{\mathrm{thr}}\,c\)</span><span class="d">各リクエストで得る収益 \(v\) から、費用 \(c\) のしきい値倍を引いた値を強化学習の報酬にする。\(2^N\) 通りの利用者の選び方が、しきい値という 1 つの数の調整に置き換わる（定理 1）。</span></li>
+    <li><span class="k">最適解の 98.50%</span><span class="d">1 万人のシミュレーション（予算 12,000）で、動的計画法による最適解に対する累積収益の比。各利用者の CPR を最大にする方法は 93.70%、近視眼的な文脈付きバンディットは 84.15%（Table 1、10 回の平均）。</span></li>
+    <li><span class="k">収益 +10.08%</span><span class="d">Taobao の利用者 1 億 3,586 万人を 3 群に分けた A/B テスト（2019 年 12 月 10〜20 日）。本番の CEM と比べ、費用 −0.20% で収益が 10.08%、ROI が 10.31% 増えた（Table 3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>購入は何度もの広告表示の積み重ねで起きるので、表示 1 回ごとの収益を最大にする入札では最適にならない</h2>
+    <p>EC の広告はリアルタイム入札（RTB）で配信される。利用者のリクエストが来るたびに広告主が入札し、最高額の広告主が表示の権利を得て、2 番目に高い入札額を費用として払う（一般化第二価格オークション）。広告主の目的は一定期間の予算のもとで累積の収益を最大にすることである。</p>
+    <p>利用者はニュース、SNS、検索、EC アプリなど複数のチャネルで広告に触れ、そのたびに関心が変わり、最後に購入に至る。ところが既存の入札システムの多くは<span class="A">表示 1 回ごとの即時の収益</span>を最大にしており、それまでの表示が購入にどれだけ効いたかを考えない、と論文は指摘する。すべてのリクエストを 1 本の制約つきマルコフ決定過程（CMDP）で扱う方法もあるが、利用者ごとの関心の変化を考えず、学習の効率も悪い。マルチタッチアトリビューションは各表示の貢献を測るだけで戦略の最適化はせず、チャネル単位の予算配分は利用者ごとの表示の順序までは最適化しない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 270" role="img" aria-label="ある利用者とある広告のやり取りの模式図。t1 にニュースアプリで広告を表示、t2 にクリックして商品ページへ、t4 に EC アプリのバナーで再び表示、t6 に購入。既存の入札は表示ごとの即時の収益で評価し、MSBCB は購入までの累積の収益と費用で評価する。">
+        <path d="M80,74 L80,62 L520,62 L520,74" fill="none" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="300" y="50" font-size="15" font-weight="600" fill="#1D4ED8" text-anchor="middle">購入までの累積の収益 <tspan class="mi">G</tspan> と費用 <tspan class="mi">C</tspan></text>
+        <line x1="30" x2="610" y1="120" y2="120" stroke="#16202E" stroke-width="1.5"/>
+        <text x="610" y="108" font-size="14" fill="#5B6676" text-anchor="end">時間 →</text>
+        <circle cx="80" cy="120" r="9" fill="#1D4ED8"/>
+        <text x="80" y="100" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">t</tspan><tspan font-size="11" dy="4">1</tspan></text>
+        <text x="80" y="152" font-size="14" fill="#16202E" text-anchor="middle">ニュースアプリ</text>
+        <text x="80" y="172" font-size="14" fill="#16202E" text-anchor="middle">で広告を表示</text>
+        <circle cx="190" cy="120" r="6" fill="#CBD2DC" stroke="#5B6676" stroke-width="1.2"/>
+        <text x="190" y="100" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">t</tspan><tspan font-size="11" dy="4">2</tspan></text>
+        <text x="190" y="152" font-size="14" fill="#5B6676" text-anchor="middle">クリックして</text>
+        <text x="190" y="172" font-size="14" fill="#5B6676" text-anchor="middle">商品ページへ</text>
+        <circle cx="350" cy="120" r="9" fill="#1D4ED8"/>
+        <text x="350" y="100" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">t</tspan><tspan font-size="11" dy="4">4</tspan></text>
+        <text x="350" y="152" font-size="14" fill="#16202E" text-anchor="middle">EC アプリのバナー</text>
+        <text x="350" y="172" font-size="14" fill="#16202E" text-anchor="middle">で再び表示</text>
+        <rect x="511" y="111" width="18" height="18" fill="#16202E"/>
+        <text x="520" y="100" font-size="15" fill="#16202E" text-anchor="middle"><tspan class="mi">t</tspan><tspan font-size="11" dy="4">6</tspan></text>
+        <text x="520" y="152" font-size="14" fill="#16202E" text-anchor="middle">購入</text>
+        <path d="M58,190 L58,198 L102,198 L102,190" fill="none" stroke="#C2410C" stroke-width="2"/>
+        <path d="M328,190 L328,198 L372,198 L372,190" fill="none" stroke="#C2410C" stroke-width="2"/>
+        <rect x="40" y="226" width="14" height="14" fill="#C2410C"/>
+        <text x="62" y="238" font-size="14" fill="#16202E">既存の入札：表示 1 回ごとの即時の収益で評価する</text>
+        <rect x="40" y="248" width="14" height="14" fill="#1D4ED8"/>
+        <text x="62" y="260" font-size="14" fill="#16202E">この論文：購入までの累積の収益と費用で評価する</text>
+      </svg>
+      <figcaption>図1　ある利用者とある広告のやり取り（解説者による模式図。論文 Fig. 1 の例をもとに描いた）。最初の表示は購入に直接つながらないが、関心を高めて後の表示と購入に効いている。</figcaption>
+    </figure>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>利用者ごとの方策で価値とコストが変わるナップザック問題として書くと、利用者の選択と方策の二重の最適化になる</h2>
+    <p>ある広告について、期間中に来る \(N\) 人の利用者それぞれに別の MDP を立て、利用者 \(i\) への入札方策を \(\pi_i\) とする。方策 \(\pi_i\) のもとで、この利用者から得る累積の収益の期待値を \(V_G(i\mid\pi_i)\)、累積の費用の期待値を \(V_C(i\mid\pi_i)\) と書く。広告主の問題は予算 \(B\) のもとで広告を出す利用者 \(x_i\in\{0,1\}\) と方策 \(\pi_i\) を選び、収益の合計を最大にすることである。</p>
+    <div class="eq">\[ \max_{\Pi}\ \max_{\mathcal X}\ \sum_{i=1}^{N} x_i\, {\color{#1D4ED8}V_G(i\mid\pi_i)} \quad \text{s.t.}\quad \sum_{i=1}^{N} x_i\, V_C(i\mid\pi_i) \le B \]</div>
+    <p>方策を固定すれば、利用者を品物とする普通の 0-1 ナップザック問題になる。ただし品物の価値と重さが方策によって変わるので、論文はこれを動的ナップザック問題と呼ぶ。利用者の間では互いの行動に影響しないと仮定するので、各利用者の価値と費用は自分の方策だけで決まる。</p>
+    <p>難しさは二つある。利用者の選び方は数億人について \(2^N\) 通りあり、入札額は連続なので方策の空間も連続で、組み合わせは直接には探せない。また \(V_G\) と \(V_C\) は未知で、限られたサンプルからオンラインで推定しなければならない。</p>
+  </section>
+
+  <section id="greedy">
+    <div class="kicker">分解の土台</div>
+    <h2>利用者 1 人の費用は予算よりずっと小さいので、CPR の高い順に選ぶ貪欲法でほぼ最適になり、選択はしきい値 1 つで決まる</h2>
+    <p>リクエストはリアルタイムに 1 件ずつ届くので、全利用者の価値と費用がそろってから動的計画法で解くことはできない。そこで論文は貪欲法を使う。利用者ごとのコスト性能比 \(\mathrm{CPR}_i = V_G(i\mid\pi_i)/V_C(i\mid\pi_i)\) の高い順に並べ、費用の累積が予算を超える直前まで選ぶ。最後に選ばれた利用者の CPR を \(\mathrm{CPR}_{\mathrm{thr}}\) とすると、選ばれるのは \(\mathrm{CPR}_i \ge \mathrm{CPR}_{\mathrm{thr}}\) の利用者である。しきい値さえ前もって推定できれば、全利用者を見なくてもその場で選べる。</p>
+    <p>Dantzig（1957）によれば、どの品物の重さも \((1-\lambda)B\) 以下なら、貪欲法の解は最適解の \(\lambda\) 倍以上になる。論文は 2020 年 2 月 3 日の Taobao の統計を示し、利用者と広告の組 1 件が使う費用の最大値は平均で予算の 0.07068%、費用の大きい上位 5 広告でも 0.03% 未満だったと述べる。この場合の \(\lambda\) は 99.9% を大きく上回る。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="貪欲法の模式図。利用者を CPR の高い順に下から積み上げる。各帯の幅が CPR、高さが費用、面積が収益。予算の線より下の6人が選ばれ、最後に選ばれた利用者の CPR がしきい値になる。">
+        <line x1="70" x2="590" y1="290" y2="290" stroke="#16202E" stroke-width="1.3"/>
+        <line x1="70" x2="70" y1="290" y2="30" stroke="#16202E" stroke-width="1.3"/>
+        <rect x="70" y="263.0" width="480.0" height="27.0" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="241.4" width="400.0" height="21.6" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="209.0" width="360.0" height="32.4" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="184.7" width="320.0" height="24.3" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="155.0" width="300.0" height="29.7" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="128.0" width="280.0" height="27.0" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.2"/>
+        <rect x="70" y="106.4" width="240.0" height="21.6" fill="#fff" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <rect x="70" y="79.4" width="200.0" height="27.0" fill="#fff" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <rect x="70" y="47.0" width="160.0" height="32.4" fill="#fff" stroke="#5B6676" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <line x1="70" x2="590" y1="128.0" y2="128.0" stroke="#16202E" stroke-width="2" stroke-dasharray="7 5"/>
+        <text x="590" y="120.0" font-size="15" fill="#16202E" text-anchor="end">予算 <tspan class="mi">B</tspan></text>
+        <line x1="350" x2="350" y1="296" y2="40" stroke="#1D4ED8" stroke-width="2" stroke-dasharray="5 4"/>
+        <text x="356" y="52" font-size="15" font-weight="600" fill="#1D4ED8">CPR<tspan font-size="11" dy="4">thr</tspan></text>
+        <text x="590" y="314" font-size="14" fill="#5B6676" text-anchor="end">利用者の CPR（幅）→</text>
+        <text x="76" y="40" font-size="14" fill="#5B6676">↑ 費用の累積（高さ）</text>
+        <text x="70" y="314" font-size="14" fill="#5B6676" text-anchor="middle">0</text>
+      </svg>
+      <figcaption>図2　貪欲法による利用者の選択（解説者による模式図。論文 Fig. 2 と Fig. 4 と同じ構成で、値は解説者が置いた例）。利用者を CPR の高い順に下から積む。帯の幅が CPR、高さが費用、面積が収益にあたる。予算の線より下の<span class="B">青い帯</span>が選ばれ、最後に選ばれた帯の幅がしきい値 \(\mathrm{CPR}_{\mathrm{thr}}\) になる。</figcaption>
+    </figure>
+  </section>
+
+  <section id="theorem">
+    <div class="kicker">定理 1</div>
+    <h2>各利用者の CPR を最大にするのは誤りで、しきい値で測った利得 <span style="white-space:nowrap">V<sub>G</sub> − CPR<sub>thr</sub>·V<sub>C</sub></span> を最大にする方策が最適になる</h2>
+    <p>貪欲法は CPR の高い利用者を好むので、<span class="A">各利用者の CPR を最大にする方策</span>を選べばよいように見える。論文はこれが誤りであることを、図 2 の面積で説明する。ある利用者の費用を \(\Delta V_C\) だけ増やすと収益も \(\Delta V_G\) 増える。予算は一定なので、しきい値付近の帯が高さ \(\Delta V_C\) だけ押し出され、面積 \(\mathrm{CPR}_{\mathrm{thr}}\cdot\Delta V_C\) を失う。したがって \(\Delta V_G > \mathrm{CPR}_{\mathrm{thr}}\cdot\Delta V_C\) なら、CPR が下がっても全体の収益は増える。</p>
+    <div class="eq">\[ \pi_i^{*} = \operatorname*{argmax}_{\pi_i}\ \Big[\, {\color{#1D4ED8}V_G(i\mid\pi_i) - \mathrm{CPR}_{\mathrm{thr}}\, V_C(i\mid\pi_i)} \,\Big] \]</div>
+    <p>定理 1 はしきい値を与えたとき、上の式で決まる方策の組が貪欲法の枠組みでの最適解を与えると述べる。証明は背理法で、改善できる利用者がいれば上の式の最大性に反することを示す。ただし押し出される面積を幅 \(\mathrm{CPR}_{\mathrm{thr}}\) の細い帯とみなす近似（各利用者の費用が予算よりずっと小さいこと）に依存している。この結果、利用者の選択は \(2^N\) 通りから、1 次元の連続量 \(\mathrm{CPR}_{\mathrm{thr}}\) の調整に置き換わる。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label>
+          <span class="row"><span>しきい値 CPR<sub>thr</sub></span><output id="thrOut">5.1</output></span>
+          <input type="range" id="thr" min="0.5" max="10.1" step="0.2" value="5.1" aria-describedby="labNote">
+        </label>
+        <div class="readout" id="readout" aria-live="polite"></div>
+      </div>
+      <svg id="labsvg" viewBox="0 0 440 320" role="img" aria-label="1人の利用者の方策を費用と収益の平面に置いた模式図。しきい値を動かすと、収益から費用のしきい値倍を引いた値が最大の方策が選ばれる。"></svg>
+      <p class="note" id="labNote">解説者による模式図。点は 1 人の利用者がとりうる方策の \((V_C, V_G)\) で、値は解説者が置いた例（論文 Fig. 14 と同じ見方）。原点は広告を出さない場合。<span class="A">オレンジの輪</span>は CPR が最大の方策、<span class="B">青い点</span>は \(V_G - \mathrm{CPR}_{\mathrm{thr}} V_C\) が最大の方策。黒い破線は原点を通る傾き \(\mathrm{CPR}_{\mathrm{thr}}\) の直線で、青い点からこの直線までの縦の距離が \(V_G - \mathrm{CPR}_{\mathrm{thr}} V_C\) にあたる。論文の定理 4 も、この直線から最も離れた点が最適な方策だと述べている。</p>
+    </div>
+  </section>
+
+  <section id="learning">
+    <div class="kicker">手法</div>
+    <h2>報酬を <span style="white-space:nowrap">v − CPR<sub>thr</sub>·c</span> とする強化学習で方策を学び、入札額は表示するかどうかの価値の差から直接計算する</h2>
+    <p>期待値の線形性から、定理 1 の目的は各リクエストの報酬 \(r_t = v_t - \mathrm{CPR}_{\mathrm{thr}}\, c_t\) の累積和の期待値に書き直せる。状態はリクエストの状況、広告の情報、利用者と広告のやり取りの履歴、RTB の環境で、行動は \([0, \mathrm{bid}_{\max}]\) の入札額である。エピソードは利用者と広告の最初の接触で始まり、購入か最大ステップ数で終わる。この MDP は DQN、DDPG、PPO などで解ける。利用者を選ぶには \(\mathrm{CPR}_i\) が要るので、Q 関数のほかに累積の収益と費用の価値関数 \(V_G(s)\)、\(V_C(s)\) も学習する。</p>
+    <p>連続の入札額を探索するのは効率が悪い。ところがどの入札額でも、結果は「表示される」か「されない」かの二つしかない。そこで論文は行動を表示するかどうかの二値 \(\hat a_t\in\{0,1\}\) に縮め、収益と費用の行動価値 \(Q_G(s,\hat a)\)、\(Q_C(s,\hat a)\) を学ぶ。CPM 課金なら表示したときの即時の費用は 2 番目の入札額 \(\mathrm{bid}^{\mathrm{2nd}}_t\) なので、「表示する」が得になる条件を書き直すと、次の入札額に行き着く。</p>
+    <div class="eq">\[ b_t^{*} = \left(\frac{{\color{#1D4ED8}Q_G(s,1)}}{\mathrm{CPR}_{\mathrm{thr}}} - Q_C^{\mathrm{next}}(s,1)\right) - \left(\frac{{\color{#1D4ED8}Q_G(s,0)}}{\mathrm{CPR}_{\mathrm{thr}}} - Q_C^{\mathrm{next}}(s,0)\right) \]</div>
+    <p>\(Q_C^{\mathrm{next}}\) は次のリクエスト以降の費用の期待値である。第二価格オークションでは、\(b_t^*\) で入札すると、表示したほうが得なときだけ落札し、そうでないときは落札しない（定理 3）。CPC や CPS の課金でも、即時の費用の期待値をクリック率や購入率を掛けたものに置き換えれば同じように求まる。</p>
+    <p>しきい値の正しい値は事前には分からない。論文は実際の費用と予算の差を見て、期ごとにしきい値を掛け算で更新する。</p>
+    <div class="eq">\[ \mathrm{CPR}_{\mathrm{thr}} \leftarrow \mathrm{CPR}_{\mathrm{thr}} \times \left[\, 1 + \alpha_1\!\left(\frac{\mathrm{cost}_t}{B} - 1\right) + \alpha_2\!\left(\frac{\mathrm{cost}_{t-n:t}}{nB} - 1\right) \right] \]</div>
+    <p>費用が予算を超えればしきい値が上がって選ばれる利用者が減り、余れば下がって増える。第 1 項は直近の変化に追随し、第 2 項は直近 \(n\) 期の合計で学習を安定させる。論文はこれを PID 制御器と呼んでいる。方策の学習としきい値の更新を交互に繰り返す全体の収束については、両者の学習率が十分小さければ収束するという説明と、実験での確認にとどまる。本番では、PID のモジュールが広告ごとのしきい値の表を定期的に更新し、配信のたびに長期の収益と費用の予測値（7 日先までのラベルで学習）と合わせて選択と入札額を決める。</p>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">実験の結果 1</div>
+    <h2>シミュレーションでは MSBCB は最適解の 98.50% に達し、CPR を最大にする方法や制約つき MDP を上回った</h2>
+    <p>シミュレーションは Ie ら（2019）の推薦の環境にならい、利用者 1 万人、広告 2,000 本、商品カテゴリ 20 個で作った。広告を見るたびに利用者の関心が確率的に変わり、関心と満足度からクリック率と購入率が決まる。予算は全手法で 12,000、結果は 10 回の平均である。最適解は利用者ごとにすべての方策を列挙し、動的計画法で解いて求めた。</p>
+    <p>MSBCB の収益は 87,947.99 で、各利用者の CPR を最大にする <span class="A">Greedy+maxCPR</span> より 5.11% 多く、定理 1 を実験で確かめた形になっている。すべてのリクエストを 1 本の CMDP で扱う Constrained+DQN などは文脈付きバンディットにも届かなかった。RL の部分を方策の列挙に置き換えた MSBCB (enum) は 99.96% で、論文はこれを MSBCB の理論上の上限としている。なお本文は MSBCB の比を 98.53%（±0.36%）と書いており、Table 1 の 98.50%（±0.33%）とわずかに異なる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 372" role="img" aria-label="論文 Table 1 の横棒グラフ。最適解に対する累積収益の比。Manual Bid 43.5%、Contextual Bandit 84.15%、Constrained + PPO 69.31%、DDPG 83.17%、DQN 79.14%、Greedy + maxCPR 93.70%、Greedy + PPO 86.20%、DDPG 90.07%、DQN 94.21%、MSBCB 98.50%、MSBCB (enum) 99.96%、Offline Optimal 100%。">
+        <line x1="190" x2="190" y1="14" y2="368" stroke="#16202E" stroke-width="1.2"/>
+        <text x="180" y="35" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Manual Bid</text>
+        <rect x="190" y="22" width="156.6" height="16" fill="#C2410C"/>
+        <text x="354.6" y="35" font-size="14" font-weight="600" fill="#C2410C">43.5%</text>
+        <text x="180" y="61" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Contextual Bandit</text>
+        <rect x="190" y="48" width="302.9" height="16" fill="#C2410C"/>
+        <text x="500.9" y="61" font-size="14" font-weight="600" fill="#C2410C">84.15%</text>
+        <line x1="16" x2="624" y1="73" y2="73" stroke="#D9DEE6"/>
+        <text x="180" y="95" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Constrained + PPO</text>
+        <rect x="190" y="82" width="249.5" height="16" fill="#CBD2DC"/>
+        <text x="447.5" y="95" font-size="14" font-weight="400" fill="#16202E">69.31%</text>
+        <text x="180" y="121" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Constrained + DDPG</text>
+        <rect x="190" y="108" width="299.4" height="16" fill="#CBD2DC"/>
+        <text x="497.4" y="121" font-size="14" font-weight="400" fill="#16202E">83.17%</text>
+        <text x="180" y="147" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Constrained + DQN</text>
+        <rect x="190" y="134" width="284.9" height="16" fill="#CBD2DC"/>
+        <text x="482.9" y="147" font-size="14" font-weight="400" fill="#16202E">79.14%</text>
+        <line x1="16" x2="624" y1="159" y2="159" stroke="#D9DEE6"/>
+        <text x="180" y="181" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Greedy + maxCPR</text>
+        <rect x="190" y="168" width="337.3" height="16" fill="#C2410C"/>
+        <text x="535.3" y="181" font-size="14" font-weight="600" fill="#C2410C">93.70%</text>
+        <line x1="16" x2="624" y1="193" y2="193" stroke="#D9DEE6"/>
+        <text x="180" y="215" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Greedy + PPO</text>
+        <rect x="190" y="202" width="310.3" height="16" fill="#CBD2DC"/>
+        <text x="508.3" y="215" font-size="14" font-weight="400" fill="#16202E">86.20%</text>
+        <text x="180" y="241" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Greedy + DDPG</text>
+        <rect x="190" y="228" width="324.3" height="16" fill="#CBD2DC"/>
+        <text x="522.3" y="241" font-size="14" font-weight="400" fill="#16202E">90.07%</text>
+        <text x="180" y="267" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Greedy + DQN</text>
+        <rect x="190" y="254" width="339.2" height="16" fill="#CBD2DC"/>
+        <text x="537.2" y="267" font-size="14" font-weight="400" fill="#16202E">94.21%</text>
+        <line x1="16" x2="624" y1="279" y2="279" stroke="#D9DEE6"/>
+        <text x="180" y="301" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">MSBCB</text>
+        <rect x="190" y="288" width="354.6" height="16" fill="#1D4ED8"/>
+        <text x="552.6" y="301" font-size="14" font-weight="600" fill="#1D4ED8">98.50%</text>
+        <text x="180" y="327" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">MSBCB (enum)</text>
+        <rect x="190" y="314" width="359.9" height="16" fill="#1D4ED8" opacity="0.45"/>
+        <text x="557.9" y="327" font-size="14" font-weight="400" fill="#1D4ED8">99.96%</text>
+        <line x1="16" x2="624" y1="339" y2="339" stroke="#D9DEE6"/>
+        <text x="180" y="361" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">Offline Optimal</text>
+        <rect x="190" y="348" width="360.0" height="16" fill="none" stroke="#16202E" stroke-width="1.3" stroke-dasharray="4 3"/>
+        <text x="558.0" y="361" font-size="14" font-weight="400" fill="#16202E">100.00%</text>
+      </svg>
+      <figcaption>図3　最適解に対する累積収益の比（論文 Table 1 の数値から解説者が作図）。<span class="A">オレンジ</span>は近視眼的な方法と各利用者の CPR を最大にする方法、灰色は同じ報酬を使う他の RL 手法と CMDP の方法、<span class="B">青</span>が MSBCB。</figcaption>
+    </figure>
+    <p>行動を二値に縮めた効果も大きい。収益 75,000 に届くまでのエポック数は、MSBCB が 61、Greedy+DDPG が 154、Greedy+DQN が 373、Greedy+PPO が 817 だった。収益 85,000 に届いたのは MSBCB（104 エポック）だけである（Table 2）。付録によれば、学習した方策のうち 53.3% は列挙で求めた最適な方策と一致した。</p>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 2</div>
+    <h2>Taobao の A/B テストでは本番のモデルとほぼ同じ費用で収益を 10.08% 増やした</h2>
+    <p>Taobao で 2019 年 12 月 10 日から 20 日まで、利用者 1 億 3,585 万 8,118 人を無作為に 3 群に分け、186 の広告主（広告商品 7 万 2,147 件）がそれぞれ本番の CEM（即時の報酬を最適化する交差エントロピー法）、文脈付きバンディット、MSBCB を使った。CEM と比べると、MSBCB は費用 −0.20% で収益 +10.08%、ROI +10.31% だった。文脈付きバンディットの収益の増加は 0.91% にとどまる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 338" role="img" aria-label="論文 Table 3 の横棒グラフ。本番の CEM に対する変化率。文脈付きバンディットは収益 +0.91%、費用 −3.26%、CVR +4.78%、PV 数 +4.62%、ROI +4.31%。MSBCB は収益 +10.08%、費用 −0.20%、CVR +6.04%、PV 数 +15.37%、ROI +10.31%。">
+        <line x1="250" x2="250" y1="44" y2="324" stroke="#16202E" stroke-width="1.3"/>
+        <rect x="190" y="14" width="14" height="14" fill="#C2410C"/><text x="210" y="26" font-size="14" fill="#16202E">Contextual Bandit</text>
+        <rect x="380" y="14" width="14" height="14" fill="#1D4ED8"/><text x="400" y="26" font-size="14" fill="#16202E">MSBCB</text>
+        <text x="24" y="72" font-size="15" fill="#16202E">収益</text>
+        <rect x="250.0" y="58" width="18.2" height="15" fill="#C2410C"/>
+        <text x="274.2" y="70" font-size="13.5" fill="#C2410C" font-weight="600">+0.91%</text>
+        <rect x="250.0" y="78" width="201.6" height="15" fill="#1D4ED8"/>
+        <text x="457.6" y="90" font-size="13.5" fill="#1D4ED8" font-weight="600">+10.08%</text>
+        <text x="24" y="128" font-size="15" fill="#16202E">費用</text>
+        <rect x="184.8" y="114" width="65.2" height="15" fill="#C2410C"/>
+        <text x="178.8" y="126" font-size="13.5" fill="#C2410C" font-weight="600" text-anchor="end">−3.26%</text>
+        <rect x="246.0" y="134" width="4.0" height="15" fill="#1D4ED8"/>
+        <text x="240.0" y="146" font-size="13.5" fill="#1D4ED8" font-weight="600" text-anchor="end">−0.20%</text>
+        <text x="24" y="184" font-size="15" fill="#16202E">CVR</text>
+        <rect x="250.0" y="170" width="95.6" height="15" fill="#C2410C"/>
+        <text x="351.6" y="182" font-size="13.5" fill="#C2410C" font-weight="600">+4.78%</text>
+        <rect x="250.0" y="190" width="120.8" height="15" fill="#1D4ED8"/>
+        <text x="376.8" y="202" font-size="13.5" fill="#1D4ED8" font-weight="600">+6.04%</text>
+        <text x="24" y="240" font-size="15" fill="#16202E">PV 数</text>
+        <rect x="250.0" y="226" width="92.4" height="15" fill="#C2410C"/>
+        <text x="348.4" y="238" font-size="13.5" fill="#C2410C" font-weight="600">+4.62%</text>
+        <rect x="250.0" y="246" width="307.4" height="15" fill="#1D4ED8"/>
+        <text x="563.4" y="258" font-size="13.5" fill="#1D4ED8" font-weight="600">+15.37%</text>
+        <text x="24" y="296" font-size="15" fill="#16202E">ROI</text>
+        <rect x="250.0" y="282" width="86.2" height="15" fill="#C2410C"/>
+        <text x="342.2" y="294" font-size="13.5" fill="#C2410C" font-weight="600">+4.31%</text>
+        <rect x="250.0" y="302" width="206.2" height="15" fill="#1D4ED8"/>
+        <text x="462.2" y="314" font-size="13.5" fill="#1D4ED8" font-weight="600">+10.31%</text>
+      </svg>
+      <figcaption>図4　本番の CEM に対する変化率（論文 Table 3 の数値から解説者が作図）。どちらの手法も CEM と同じ予算で動かしている。</figcaption>
+    </figure>
+    <p>付録では、文脈付きバンディットと比べて ROI が上がった広告主は 85.1% で、残りの広告主も PV 数の増加が ROI の低下を上回ったと述べている。参加した広告主は全体の約 0.2% なので、ひとつの広告から見た RTB の環境はほぼ定常とみなせる、と論文は説明する。多くの広告主が MSBCB を使えばこの仮定は崩れ、マルチエージェントとしての扱いが要るとも認めている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>広告の入札でも予算はコスト性能比のしきい値 1 つで扱い、それは ROI 順の割当てのしきい値にあたる</h2>
+    <p>この論文は広告主の入札と配信の問題を扱っており、クーポン配布もアップリフト（処置効果）も論じていない。推定するのは、方策のもとでの長期の累積の収益と費用（\(V_G\)、\(V_C\)）と、表示した場合としない場合の行動価値 \(Q_G(s,\hat a)\)、\(Q_C(s,\hat a)\) である。これらはログから MC 法や TD 法で学習する価値関数で、無作為化実験による効果の推定ではない。コストはオークションで決まる 2 番目の入札額で、CPM なら表示時、CPC ならクリック時、CPS なら購入時に発生する。他の広告主の入札と利用者の反応に依存し、事前には分からない。処置は各リクエストで表示するかどうかの二値（入札額を二値の決定に縮めたもの）で、同じ利用者に何度も繰り返す。</p>
+    <p>予算制約は明示的に扱う。期間の予算 \(B\) に対し、CPR の高い順に選ぶ貪欲法をしきい値 \(\mathrm{CPR}_{\mathrm{thr}}\) で表し、そのしきい値を実際の費用へのフィードバックで調整する。\(\mathrm{CPR} = V_G/V_C\) は論文が Table 3 で使う ROI（収益 ÷ 費用）と同じ形なので、貪欲法は ROI の高い順の割当てそのものである。</p>
+    <p>ここからは解説者の注である。報酬 \(v - \mathrm{CPR}_{\mathrm{thr}}\,c\) は、予算制約をラグランジュ緩和したときのラグランジアンと同じ形で、\(\mathrm{CPR}_{\mathrm{thr}}\) は予算 1 単位あたりの双対価格（ラグランジュ乗数）にあたる。論文自身はラグランジュ双対という言葉を使わず、貪欲法の面積の議論から導いている。それでも <a href="../drp/">DRP</a> や <a href="../roi-conformal/">rDRP</a> はこの論文を、ラグランジュ双対で広告の入札方策を計算した例として挙げている。報酬を \(r - \lambda c\) とする <a href="../model-based-cmdp/">Xiao ら</a>の制約つき MDP や、乗数を PID 制御で動かす <a href="../realtime-coupon/">Dai ら</a>のクーポン配布とも同じ形である。</p>
+    <p>クーポン配布のアップリフトとの違いも、解説者の注として整理しておく。第一に、論文の式では選ばれない利用者の価値を 0 とおいており、広告がなくても起きる購入（処置しない場合の基準値）をどう数えるかは論じていない。一方、入札額 \(b_t^*\) は表示した場合としない場合の \(Q_G\) の差で決まるので、リクエストの単位では処置した場合としない場合の差を見ていることになる。ただし論文はこの差を交絡の補正なしにログから学ぶ価値関数として扱っている。第二に、コストがクーポンの額のように配る側の決める値ではなく、オークションで他者の入札により決まる。第三に、同じ利用者への処置を繰り返し、各回の効果が後の購入に及ぶことを MDP で扱う点は、1 回限りの配布を前提とする多くのアップリフトの手法と異なる。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{hao2020dynamic,
+  title     = {Dynamic Knapsack Optimization Towards Efficient Multi-Channel Sequential Advertising},
+  author    = {Hao, Xiaotian and Peng, Zhaoqing and Ma, Yi and Wang, Guan and Jin, Junqi and Hao, Jianye and Chen, Shan and Bai, Rongquan and Xie, Mingzhou and Xu, Miao and Zheng, Zhenzhe and Yu, Chuan and Li, Han and Xu, Jian and Gai, Kun},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {119},
+  pages     = {4060--4070},
+  year      = {2020},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v119/hao20b.html}
+}</pre>
+    </div>
+    <p class="src">このページの数値は PMLR の掲載版（arXiv v1 と同じ内容であることを確認）の本文と表による。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- interactive figure: one user's policies and the threshold CPR_thr (toy values) ----------
+(function () {
+  var NS = 'http://www.w3.org/2000/svg', A = '#C2410C', B = '#1D4ED8', INK = '#16202E', MU = '#5B6676';
+  var P = [[0, 0], [1, 9], [2, 15.4], [3, 19.6], [4, 22], [6, 24], [3, 14], [5, 18.5]];   // (V_C, V_G); P[0] = no ad
+  var svg = document.getElementById('labsvg'), inp = document.getElementById('thr');
+  var out = document.getElementById('thrOut'), ro = document.getElementById('readout');
+  function X(c) { return 56 + c * 52; } function Y(g) { return 280 - g * 10; }
+  function el(t, a, p) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  el('line', { x1: X(0), x2: X(7.3), y1: Y(0), y2: Y(0), stroke: INK, 'stroke-width': 1.3 });
+  el('line', { x1: X(0), x2: X(0), y1: Y(0), y2: Y(26.5), stroke: INK, 'stroke-width': 1.3 });
+  el('text', { x: X(7.3), y: Y(0) + 26, 'font-size': 14, fill: MU, 'text-anchor': 'end' }).innerHTML = '累積の費用 <tspan class="mi">V</tspan><tspan font-size="10" dy="3">C</tspan> →';
+  el('text', { x: X(0) + 8, y: Y(26.5) + 4, 'font-size': 14, fill: MU }).innerHTML = '↑ 累積の収益 <tspan class="mi">V</tspan><tspan font-size="10" dy="3">G</tspan>';
+  var line0 = el('line', { stroke: INK, 'stroke-width': 1.6, 'stroke-dasharray': '6 5' });
+  var line1 = el('line', { stroke: B, 'stroke-width': 1.6, 'stroke-dasharray': '6 5' });
+  var gap = el('line', { stroke: B, 'stroke-width': 3 });
+  P.forEach(function (p, i) {
+    el('circle', i === 0 ? { cx: X(0), cy: Y(0), r: 6, fill: '#fff', stroke: MU, 'stroke-width': 1.5 } : { cx: X(p[0]), cy: Y(p[1]), r: 6, fill: '#CBD2DC' });
+  });
+  el('circle', { cx: X(1), cy: Y(9), r: 11, fill: 'none', stroke: A, 'stroke-width': 2.5 });
+  var best = el('circle', { r: 7, fill: B });
+  function clip(k, b) {   // segment of y = k x + b inside the box [0, 7.3] x [0, 26.5]
+    var x0 = Math.max(0, b < 0 ? -b / k : 0), x1 = Math.min(7.3, (26.5 - b) / k);
+    return [x0, x1];
+  }
+  function f(v) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(1); }
+  function update() {
+    var t = parseFloat(inp.value), bi = 0, bv = 0;
+    P.forEach(function (p, i) { var v = p[1] - t * p[0]; if (v > bv + 1e-9) { bv = v; bi = i; } });
+    out.textContent = t.toFixed(1);
+    var s = clip(t, 0); line0.setAttribute('x1', X(s[0])); line0.setAttribute('x2', X(s[1])); line0.setAttribute('y1', Y(t * s[0])); line0.setAttribute('y2', Y(t * s[1]));
+    var q = P[bi], s1 = clip(t, bv);
+    line1.setAttribute('opacity', bi ? 1 : 0); gap.setAttribute('opacity', bi ? 1 : 0);
+    if (bi) {
+      line1.setAttribute('x1', X(s1[0])); line1.setAttribute('x2', X(s1[1])); line1.setAttribute('y1', Y(t * s1[0] + bv)); line1.setAttribute('y2', Y(t * s1[1] + bv));
+      gap.setAttribute('x1', X(q[0])); gap.setAttribute('x2', X(q[0])); gap.setAttribute('y1', Y(q[1])); gap.setAttribute('y2', Y(t * q[0]));
+    }
+    best.setAttribute('cx', X(q[0])); best.setAttribute('cy', Y(q[1]));
+    var m = 9 - t, html;
+    if (bi === 0) {
+      html = '<p class="sel" style="color:' + B + '">どの方策でも V<sub>G</sub> − CPR<sub>thr</sub>·V<sub>C</sub> が 0 以下なので、この利用者には広告を出さない。</p>' +
+             '<p>CPR が最大の方策（費用 1、収益 9、CPR 9.0）でも、しきい値に届かない。</p>';
+    } else {
+      html = '<p class="sel" style="color:' + B + '">選ぶ方策：費用 ' + q[0] + '、収益 ' + q[1] + '（CPR ' + (q[1] / q[0]).toFixed(1) + '）。V<sub>G</sub> − CPR<sub>thr</sub>·V<sub>C</sub> = ' + f(bv) + '</p>' +
+             (bi === 1 ? '<p>CPR が最大の方策と一致する。</p>'
+                       : '<p style="color:' + A + '">CPR が最大の方策（費用 1、収益 9）なら ' + f(m) + ' にとどまる。</p>') +
+             '<p>CPR ' + (q[1] / q[0]).toFixed(1) + ' はしきい値 ' + t.toFixed(1) + ' 以上なので、この利用者は選ばれる。</p>';
+    }
+    ro.innerHTML = html;
+  }
+  inp.addEventListener('input', update); update();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

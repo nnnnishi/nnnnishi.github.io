@@ -89,6 +89,45 @@ description: "予算制約・コストを考慮したアップリフトモデリ
     .count { color: var(--muted); font-size: .85rem; margin-left: .3rem; }
 
     footer { color: var(--muted); font-size: .85rem; padding: 2rem 0 3rem; }
+    /* 系譜の図。系統の色は .c-<id> の color をそのまま使う */
+    .lineage-wrap svg { display: block; width: 100%; min-width: 1080px; height: auto; font-family: inherit; }   /* min-width は図の幅に合わせて JS で上書きする */
+    .lin-band { fill: var(--row); }
+    .lin-band.alt { fill: none; }
+    .lin-lane { font-size: 13px; font-weight: 600; fill: currentColor; }
+    .lin-year { font-size: 12px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+    .lin-grid { stroke: var(--line); }
+    .lin-grid.gap { stroke: var(--muted); stroke-dasharray: 2 3; }
+    .lin-node { transition: opacity .12s; }
+    .lin-node:hover { text-decoration: none; }
+    .lin-node rect { fill: var(--bg); stroke: currentColor; stroke-width: 1.3; }
+    .lin-node text { fill: var(--fg); font-size: 12.5px; }
+    .lin-node.nolink rect { stroke-dasharray: 3 2; }
+    .lin-edge { fill: none; transition: opacity .12s; }
+    .lin-edge.ext { stroke: var(--fg); stroke-width: 1.6; marker-end: url(#lin-ar-ext); }
+    .lin-edge.base { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; marker-end: url(#lin-ar-base); }
+    .lin-ar-ext { fill: var(--fg); }
+    .lin-ar-base { fill: var(--muted); }
+    svg.dim .lin-node:not(.on) { opacity: .2; }
+    svg.dim .lin-edge:not(.on) { opacity: .06; }
+    svg.dim .lin-node.self rect { stroke-width: 2.6; }
+    svg.dim .lin-node.self text { font-weight: 700; }
+    svg.dim .lin-node.grp rect { stroke-width: 2.4; }
+    svg.dim .lin-edge.base.on { stroke: var(--fg); opacity: 1; }
+    .lin-legend { display: flex; flex-wrap: wrap; gap: .2rem 1.4rem; align-items: center; font-size: .85rem; color: var(--muted); margin: .2rem 0 .5rem; }
+    .lin-legend svg { width: 44px; height: 10px; vertical-align: middle; margin-right: .35rem; }
+    .lin-groups { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin: .1rem 0 .6rem; font-size: .82rem; }
+    .lin-groups .lab { color: var(--muted); margin-right: .2rem; }
+    .lin-groups button {
+      font: inherit; cursor: pointer; color: var(--fg); background: var(--bg);
+      border: 1px solid var(--line); border-radius: 999px; padding: .1rem .7rem;
+    }
+    .lin-groups button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .lin-groups .n { color: var(--muted); margin-left: .25rem; font-variant-numeric: tabular-nums; }
+    .lin-groups button[aria-pressed="true"] .n { color: inherit; opacity: .75; }
+    #lineage-readout { min-height: 6.2em; margin: .5rem 0 .2rem; font-size: .88rem; }
+    #lineage-readout b { font-weight: 600; }
+    details.lin-why { margin: .4rem 0 0; }
+    details.lin-why summary { cursor: pointer; font-size: .88rem; color: var(--accent); margin-bottom: .5rem; }
   </style>
 </head>
 <body>
@@ -105,6 +144,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
   <nav class="toc" aria-label="ページ内の目次">
     <div class="wrap">
       <a href="#categories">系統</a>
+      <a href="#lineage">系譜</a>
       <a href="#papers">論文</a>
       <a href="#datasets">データセット</a>
       <a href="#metrics">評価指標</a>
@@ -131,6 +171,52 @@ description: "予算制約・コストを考慮したアップリフトモデリ
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section id="lineage">
+      <h2>系譜<span class="count">（矢印 {{ d.lineage | size }}本）</span></h2>
+      <p class="note prose">{{ d.lineage_note }}</p>
+      <p class="lin-legend">
+        <span><svg viewBox="0 0 44 10" aria-hidden="true"><path d="M1,5 H36" class="lin-edge ext"/></svg>引き継いで発展</span>
+        <span><svg viewBox="0 0 44 10" aria-hidden="true"><path d="M1,5 H36" class="lin-edge base"/></svg>比較・出発点</span>
+        <span>破線の枠は解説ページのない論文</span>
+      </p>
+      <div class="lin-groups" id="lineage-groups" role="group" aria-label="研究グループで論文を強調する"><span class="lab">研究グループ</span></div>
+      <div class="table-wrap lineage-wrap">
+        <svg id="lineage-svg" role="img" aria-label="掲載論文の系譜の図。横は年、縦は系統。矢印は古い論文から、それを引き継いだ新しい論文へ向かう。矢印の一覧は図の下の表にある。">
+          <defs>
+            <marker id="lin-ar-ext" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,1 L10,5 L0,9 z" class="lin-ar-ext"/></marker>
+            <marker id="lin-ar-base" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,1 L10,5 L0,9 z" class="lin-ar-base"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <p class="note" id="lineage-readout" aria-live="polite">論文にカーソルを合わせると、その論文と矢印でつながる論文だけが残ります。クリックすると解説ページへ移動します。</p>
+      <details class="lin-why">
+        <summary>矢印の根拠を一覧で見る</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>先行</th><th>後続</th><th>関係</th><th>根拠（後続の論文での扱い）</th></tr></thead>
+            <tbody>
+            {%- for e in d.lineage %}
+              {%- assign a = d.papers | where: "explainer", e.from | first %}
+              {%- assign b = d.papers | where: "explainer", e.to | first %}
+              <tr>
+                <td class="nowrap"><a href="papers/{{ a.explainer }}/">{{ a.short }}</a> <span class="count">{{ a.year }}</span></td>
+                <td class="nowrap"><a href="papers/{{ b.explainer }}/">{{ b.short }}</a> <span class="count">{{ b.year }}</span></td>
+                <td class="nowrap">{% if e.kind == "ext" %}引き継いで発展{% else %}比較・出発点{% endif %}</td>
+                <td class="wide">{{ e.why }}</td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <script type="application/json" id="lineage-data">
+{"cats":[{%- for cid in d.lineage_lanes -%}{%- assign c = d.categories | where: "id", cid | first -%}{"id":{{ c.id | jsonify }},"label":{{ c.label | jsonify }}}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}],
+"papers":[{%- for p in d.papers -%}{%- assign pid = p.id | default: p.explainer -%}{"id":{{ pid | jsonify }},"short":{{ p.short | jsonify }},"year":{{ p.preprint_year | default: p.year }},"pub":{{ p.year }},"cat":{{ p.category | jsonify }},"title":{{ p.title | jsonify }},"venue":{{ p.venue | jsonify }},"link":{%- if p.explainer -%}{{ p.explainer | prepend: "papers/" | append: "/" | jsonify }}{%- else -%}null{%- endif -%},"groups":{{ p.groups | default: "" | jsonify }}}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}],
+"groups":{{ d.lineage_groups | jsonify }},
+"edges":{{ d.lineage | jsonify }}}
+      </script>
     </section>
 
     <section id="papers">
@@ -252,6 +338,194 @@ description: "予算制約・コストを考慮したアップリフトモデリ
       }
       buttons.forEach(function (b) { b.addEventListener("click", function () { apply(b.dataset.cat); }); });
       apply("all");
+    })();
+  </script>
+  <script>
+    // 系譜の図：_data/survey_budget_uplift.yml の papers と lineage から SVG を組み立てる
+    (function () {
+      var src = document.getElementById("lineage-data"), svg = document.getElementById("lineage-svg");
+      if (!src || !svg) return;
+      var D = JSON.parse(src.textContent), NS = "http://www.w3.org/2000/svg";
+      var LW = 96, CW = 116, NW = 94, NH = 24, RG = 12, LP = 11, TOP = 28, GUT = CW - NW;
+      function mk(tag, attrs, parent, text) {
+        var e = document.createElementNS(NS, tag);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (text != null) e.textContent = text;
+        (parent || svg).appendChild(e);
+        return e;
+      }
+      // 2017 年以前の論文は左端の1列にまとめる。2018 年からは1年1列
+      var FIRST = 2018, yMin = Infinity, yMax = -Infinity;
+      D.papers.forEach(function (p) { yMin = Math.min(yMin, p.year); yMax = Math.max(yMax, p.year); });
+      var early = yMin < FIRST, years = [];
+      for (var yy = Math.max(yMin, FIRST); yy <= yMax; yy++) years.push(yy);
+      function colOfYear(yr) { return yr < FIRST ? 0 : (early ? 1 : 0) + yr - Math.max(yMin, FIRST); }
+      var NCOL = years.length + (early ? 1 : 0);
+      var W = LW + NCOL * CW + 4;
+      function colX(c) { return LW + c * CW; }
+
+      // 系統ごとのレーン。同じ年・同じ系統の論文は縦に積む（段の高さはレーン内でそろえる）
+      var pos = {}, nodes = [], lanes = [], y = TOP;
+      D.cats.forEach(function (c, ci) {
+        var cells = {}, rows = 1;
+        D.papers.forEach(function (p) {
+          if (p.cat !== c.id) return;
+          var ck = colOfYear(p.year);   // 2017 年以前は同じ列に積む
+          (cells[ck] = cells[ck] || []).push(p);
+          rows = Math.max(rows, cells[ck].length);
+        });
+        var h = rows * (NH + RG) - RG + 2 * LP;
+        lanes.push({ c: c, y: y, h: h, alt: ci % 2 === 1 });
+        Object.keys(cells).forEach(function (ck) {
+          var list = cells[ck].sort(function (a, b) { return a.year - b.year; }), off = Math.floor((rows - list.length) / 2);
+          list.forEach(function (p, k) {
+            var n = { p: p, col: +ck, x: colX(+ck) + GUT / 2, y: y + LP + (k + off) * (NH + RG), ins: [], outs: [] };
+            n.cy = n.y + NH / 2;
+            pos[p.id] = n; nodes.push(n);
+          });
+        });
+        y += h;
+      });
+      var H = y + 4;
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+      lanes.forEach(function (l) {
+        mk("rect", { x: 0, y: l.y, width: W, height: l.h, "class": "lin-band" + (l.alt ? " alt" : "") });
+        var parts = l.c.label.length > 7 && l.c.label.indexOf("・") > 0 ? [l.c.label.split("・")[0] + "・", l.c.label.split("・")[1]] : [l.c.label];
+        var t = mk("text", { x: 10, y: l.y + l.h / 2 + 4.5 - (parts.length - 1) * 8, "class": "lin-lane c-" + l.c.id });
+        parts.forEach(function (s, i) { mk("tspan", { x: 10, dy: i ? 16 : 0 }, t, s); });
+      });
+      for (var c = 0; c < NCOL; c++) {
+        var label = early && c === 0 ? "〜" + (FIRST - 1) : years[c - (early ? 1 : 0)];
+        mk("line", { x1: colX(c), y1: TOP, x2: colX(c), y2: H - 4, "class": "lin-grid" + (early && c === 1 ? " gap" : "") });
+        mk("text", { x: colX(c) + CW / 2, y: 18, "text-anchor": "middle", "class": "lin-year" }, null, label);
+      }
+      svg.style.minWidth = Math.round(W * 0.8) + "px";
+
+      // 矢印の経路。先行の論文の段を横に進み、後続の論文のすぐ左の列間で縦に曲がる。
+      // 横に進む途中に別の論文があるときは、段のすき間を通す。同じ後続に入る矢印は縦の線を共有する
+      var edges = D.edges.filter(function (e) { return pos[e.from] && pos[e.to]; });
+      edges.forEach(function (e) {
+        var a = pos[e.from], b = pos[e.to];
+        a.outs.push(e); b.ins.push(e);
+        e.runY = a.cy;
+        if (b.col > a.col) {
+          var blocked = nodes.some(function (n) { return n !== a && n.col > a.col && n.col < b.col && Math.abs(n.cy - a.cy) < NH / 2 + 2; });
+          if (blocked) e.runY = a.cy + (b.cy > a.cy ? 1 : -1) * (NH + RG) / 2;
+        }
+      });
+      var gutters = {};
+      nodes.forEach(function (b) {
+        var ins = b.ins.filter(function (e) { return pos[e.from].col < b.col; });
+        if (!ins.length) return;
+        var ys = ins.map(function (e) { return e.runY; }).concat([b.cy]);
+        (gutters[b.col] = gutters[b.col] || []).push({ b: b, lo: Math.min.apply(null, ys), hi: Math.max.apply(null, ys) });
+      });
+      Object.keys(gutters).forEach(function (c) {
+        var list = gutters[c].sort(function (p, q) { return p.lo - q.lo; }), slots = [];
+        list.forEach(function (t) {
+          var s = 0;
+          while (slots[s] != null && slots[s] > t.lo - 6) s++;
+          slots[s] = t.hi; t.slot = s;
+        });
+        var n = slots.length, step = n > 1 ? Math.min(4, 13 / (n - 1)) : 0;
+        list.forEach(function (t) { t.b.trunkX = colX(+c) + 4 - (n - 1 - t.slot) * step - (n > 1 ? 0 : 6); });
+      });
+      function rounded(pts, r) {
+        pts = pts.filter(function (p, i) { return !i || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]; });
+        var d = "M" + pts[0];
+        for (var i = 1; i < pts.length - 1; i++) {
+          var p0 = pts[i - 1], p = pts[i], p1 = pts[i + 1];
+          var l0 = Math.hypot(p[0] - p0[0], p[1] - p0[1]), l1 = Math.hypot(p1[0] - p[0], p1[1] - p[1]);
+          var rr = Math.min(r, l0 / 2, l1 / 2);
+          d += " L" + [p[0] - (p[0] - p0[0]) / l0 * rr, p[1] - (p[1] - p0[1]) / l0 * rr] +
+               " Q" + p + " " + [p[0] + (p1[0] - p[0]) / l1 * rr, p[1] + (p1[1] - p[1]) / l1 * rr];
+        }
+        return d + " L" + pts[pts.length - 1];
+      }
+      function path(e) {
+        var a = pos[e.from], b = pos[e.to], ax = a.x + NW;
+        if (b.col <= a.col) {   // 同じ年どうしは、右側から回り込む
+          return rounded([[ax, a.cy], [ax + 9, a.cy], [ax + 9, b.cy], [b.x + NW + 1, b.cy]], 5);
+        }
+        return rounded([[ax, a.cy], [ax + 5, a.cy], [ax + 5, e.runY], [b.trunkX, e.runY], [b.trunkX, b.cy], [b.x - 1, b.cy]], 5);
+      }
+      var gE = mk("g", {}), gN = mk("g", {});
+      edges.sort(function (a, b) { return (a.kind === "ext") - (b.kind === "ext"); });   // 実線を上に重ねる
+      edges.forEach(function (e) {
+        e.el = mk("path", { d: path(e), "class": "lin-edge " + e.kind }, gE);
+        mk("title", {}, e.el, pos[e.from].p.short + " → " + pos[e.to].p.short + "：" + e.why);
+      });
+
+      // 論文のノード
+      var readout = document.getElementById("lineage-readout"), idle = readout.innerHTML;
+      function names(list, key, kind) {
+        return list.filter(function (e) { return e.kind === kind; }).map(function (e) { return pos[e[key]].p.short; }).join("、") || "なし";
+      }
+      function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+      var groupLabel = {}, active = null;
+      (D.groups || []).forEach(function (g) { groupLabel[g.id] = g.label; });
+      function groupsOf(p) { return Array.isArray(p.groups) ? p.groups : []; }
+      function focus(n) {
+        svg.classList.add("dim");
+        n.el.classList.add("on", "self");
+        n.ins.concat(n.outs).forEach(function (e) {
+          e.el.classList.add("on"); pos[e.from].el.classList.add("on"); pos[e.to].el.classList.add("on");
+        });
+        readout.innerHTML = "<b>" + esc(n.p.short) + "</b>　" + esc(n.p.title) + "（" + esc(n.p.venue) + (/\d{4}/.test(n.p.venue) ? "" : " " + n.p.pub) + "）" +
+          "<br>先行　実線：" + esc(names(n.ins, "from", "ext")) + "　破線：" + esc(names(n.ins, "from", "base")) +
+          "<br>後続　実線：" + esc(names(n.outs, "to", "ext")) + "　破線：" + esc(names(n.outs, "to", "base")) +
+          (groupsOf(n.p).length ? "<br>研究グループ：" + esc(groupsOf(n.p).map(function (g) { return groupLabel[g]; }).join("、")) : "");
+      }
+      // 研究グループを選ぶと、そのグループの論文と、グループ内の矢印だけを残す
+      function showGroup(gid) {
+        var members = nodes.filter(function (n) { return groupsOf(n.p).indexOf(gid) >= 0; });
+        svg.classList.add("dim");
+        members.forEach(function (n) { n.el.classList.add("on", "grp"); });
+        edges.forEach(function (e) {
+          if (groupsOf(pos[e.from].p).indexOf(gid) >= 0 && groupsOf(pos[e.to].p).indexOf(gid) >= 0) e.el.classList.add("on");
+        });
+        members.sort(function (a, b) { return a.p.year - b.p.year; });
+        readout.innerHTML = "<b>" + esc(groupLabel[gid]) + "</b>　" + members.length + "本：" +
+          esc(members.map(function (n) { return n.p.short + "（" + n.p.pub + "）"; }).join("、")) +
+          "<br>もう一度押すと元に戻ります。";
+      }
+      function clear() {
+        svg.classList.remove("dim");
+        svg.querySelectorAll(".on").forEach(function (e) { e.classList.remove("on", "self", "grp"); });
+      }
+      function blur() {
+        clear();
+        if (active) showGroup(active); else readout.innerHTML = idle;
+      }
+      var bar = document.getElementById("lineage-groups");
+      if (bar) (D.groups || []).forEach(function (g) {
+        var n = D.papers.filter(function (p) { return groupsOf(p).indexOf(g.id) >= 0; }).length;
+        if (!n) return;
+        var b = document.createElement("button");
+        b.type = "button"; b.setAttribute("aria-pressed", "false"); b.dataset.group = g.id;
+        b.innerHTML = esc(g.label) + '<span class="n">' + n + "</span>";
+        b.addEventListener("click", function () {
+          active = active === g.id ? null : g.id;
+          bar.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.group === active)); });
+          blur();
+        });
+        bar.appendChild(b);
+      });
+      nodes.forEach(function (n) {
+        var p = n.p;
+        var g = p.link ? mk("a", { href: p.link, "class": "lin-node c-" + p.cat }, gN) : mk("g", { "class": "lin-node nolink c-" + p.cat, tabindex: 0 }, gN);
+        n.el = g;
+        mk("title", {}, g, p.title + "（" + p.venue + "）");
+        mk("rect", { x: n.x, y: n.y, width: NW, height: NH, rx: 5 }, g);
+        var t = mk("text", { x: n.x + NW / 2, y: n.cy + 4.3, "text-anchor": "middle" }, g, p.short + (p.year !== p.pub ? "＊" : ""));
+        var w = t.getComputedTextLength ? t.getComputedTextLength() : 0;   // 長い名前は枠に収まるまで縮める
+        if (w > NW - 8) t.style.fontSize = Math.max(10, 12.5 * (NW - 8) / w).toFixed(2) + "px";
+        g.addEventListener("mouseenter", function () { clear(); focus(n); });
+        g.addEventListener("mouseleave", blur);
+        g.addEventListener("focus", function () { clear(); focus(n); });
+        g.addEventListener("blur", blur);
+      });
     })();
   </script>
 </body>

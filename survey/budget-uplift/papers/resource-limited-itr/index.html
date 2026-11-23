@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資源が限られる場合の最適な個別化処置（論文解説）</title>
+<meta name="description" content="Optimal Individualized Treatments in Resource-Limited Settings（The International Journal of Biostatistics 2016）の非公式の解説。処置できる割合に上限があるときの最適な個別化処置ルールが効果の分位点をしきい値とする規則になることを示し、その価値を TMLE で効率的に推定する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the unconstrained optimal rule: treat whenever the blip is positive
+                         (threshold 0) and what it would need / reach
+            --b  (blue)   = the resource-constrained rule: threshold tau0 = max(kappa-quantile, 0),
+                         randomisation at the boundary stratum, the extra gradient term
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">The International Journal of Biostatistics · 2016</div>
+  <h1>Optimal Individualized Treatments in Resource-Limited Settings</h1>
+  <p class="subtitle">資源が限られる場合の最適な個別化処置</p>
+
+  <ul class="authors">
+    <li><b>Alexander R. Luedtke</b><span>Division of Biostatistics, University of California, Berkeley</span></li>
+    <li><b>Mark J. van der Laan</b><span>Division of Biostatistics, University of California, Berkeley</span></li>
+  </ul>
+
+  <p class="lead">制約のない最適な個別化処置ルールは、<span class="A">効果が少しでも正の人を全員処置する</span>。処置できる人数に上限があると、このルールは実行できない。この論文は、処置できる割合を κ 以下に限ったときの最適なルールが、<span class="B">条件付き効果の上側 κ 分位点をしきい値にして、それを上回る人を処置する規則</span>になることを示す。さらに、このルールのもとでの結果の平均（価値）を効率的に推定し、信頼区間を作る方法を与える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1515/ijb-2015-0007">Paper</a>
+    <a class="btn" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6052884/">PMC（著者稿）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。効果が正の人を全員処置する制約なしのルール、処置できる割合の上限、効果の分位点をしきい値にするルール、論文のシミュレーション 2 の価値、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">効果の上側 κ 分位点</span><span class="d">処置できる割合が κ までなら、条件付き効果が \(\tau_0=\max\{\eta_0,0\}\) を上回る人を処置するのが最適である。\(\eta_0\) は効果の上側 κ 分位点で、境目ちょうどの層は無作為に処置する（定理 1・2）。</span></li>
+    <li><span class="k">\(-\tau_0\,(d-\kappa)\) の項</span><span class="d">制約が効くとき（\(\tau_0>0\)）、最適な価値の正準勾配には、制約のない場合にはない項が加わる（定理 3）。これを解く TMLE は正則で漸近線形な推定量のなかで効率的になる（定理 4）。</span></li>
+    <li><span class="k">0.583 → 0.337</span><span class="d">全員に効果が正のシミュレーション 2 で、制約なしの最適な価値は 0.583、処置できる割合を 10% に限ると 0.337 だった。処置なしの価値は 0.3（論文 6.1.2 節）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>制約のない最適ルールは効果の符号だけで決まり、効果がわずかでも正なら全員を処置してしまう</h2>
+    <p>個別化処置ルール（ITR）は共変量 \(W\) の要約 \(V\) を見て二値の処置 \(A\in\{0,1\}\) を決める規則である。全員がそのルールに従ったときの結果 \(Y\) の平均をルールの価値と呼び、価値が最大のルールを最適なルールと呼ぶ。処置が無制限に使えるなら、最適なルールは条件付き平均処置効果、論文の呼び方では blip 関数</p>
+    <div class="eq">\[ \bar Q_{b}(v)=\mathbb{E}\bigl[\,\bar Q(1,W)-\bar Q(0,W)\mid V=v\,\bigr],\qquad \bar Q(a,w)=\mathbb{E}[\,Y\mid A=a,\,W=w\,] \]</div>
+    <p>の符号を見て、正なら処置する規則になる。そのため、処置がどの層にもわずかでも効くなら、全員を処置することになる。社会や教育のプログラムのように資源が限られる処置では、最適なルールが実際にはほとんど役に立たないおそれがある。Murphy（2003）への討論で Arjas がこの点を指摘していたが、制約つきの問題の解は示されていなかった。</p>
+    <p>論文は処置できる人の割合に上限 \(\kappa\in(0,1)\) を置く。資源配分は数理モデルの分野でより多く研究されてきた。CDC の HIV 予防予算の配分（Lasry ら）や性感染症の検診の配分（Tao ら）がその例で、Tao らは（弱）NP 困難なナップザック問題に直面している。論文は主に確率的なルールを考えることで、これを多項式時間で解ける分数ナップザック問題に帰着させ、難しさの大半を避ける。</p>
+  </section>
+
+  <section id="rule">
+    <div class="kicker">最適なルール</div>
+    <h2>処置できる割合が κ までなら、効果の上側 κ 分位点を上回る層を処置するのが最適になる</h2>
+    <p>結果 \(Y\) は \([0,1]\) に収まるとし、ルール \(d\) が処置する人の割合 \(\mathbb{E}[d(V)]\) を \(\kappa\) 以下に保ちながら価値を最大にする。効果の生存関数を \(S(\tau)=\Pr(\bar Q_b(V)>\tau)\) とし、しきい値を次のように定める。</p>
+    <div class="eq">\[ \begin{gathered} \eta_0=\inf\{\tau:\ S_0(\tau)\le\kappa\},\qquad \color{#1D4ED8}{\tau_0=\max\{\eta_0,\,0\}} \\ \tilde d_0(v)=I\bigl(\bar Q_{b,0}(v)>\tau_0\bigr) \end{gathered} \]</div>
+    <p>\(\eta_0\) は効果の上側 \(\kappa\) 分位点で、効果がこれを上回る人がちょうど割合 \(\kappa\) になる。効果がちょうど \(\tau_0\) になる層の確率が 0 なら、\(\tilde d_0\) が決定的なルールのなかで最適になる（定理 1）。効果が正の人の割合が \(\kappa\) に届かないときは \(\eta_0<0\) となり、しきい値は 0 で止まる。このとき制約は効いておらず（\(\tau_0=0\)）、ルールは制約のない最適なルールと一致する。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label for="kappa"><span class="row"><span>処置できる割合 \(\kappa\)</span><output id="kOut">0.30</output></span>
+          <input type="range" id="kappa" min="0.05" max="0.95" step="0.01" value="0.30"></label>
+        <div class="grid" style="grid-template-columns: 1fr auto;">
+          <span>しきい値 \(\tau_0\)</span><output id="tOut"></output>
+          <span>処置する割合</span><output id="sOut"></output>
+          <span>価値の上積み</span><output id="vOut"></output>
+          <span>制約なしの上積み</span><output id="uOut"></output>
+        </div>
+        <p class="note" id="state"></p>
+      </div>
+      <svg id="labsvg" viewBox="0 0 560 300" role="img" aria-label="Schematic density of the conditional treatment effect (normal, mean 0.1, sd 0.15). The shaded right tail above the threshold is treated; the threshold moves right as kappa decreases and stops at zero when kappa exceeds the share with positive effect."></svg>
+    </div>
+    <p class="src">図1　処置できる割合 \(\kappa\) としきい値 \(\tau_0\) の関係（解説者による模式図）。効果の分布は解説者が置いた例（平均 0.1、標準偏差 0.15 の正規分布）で、論文の数値ではない。価値の上積みは処置なしと比べた \(\mathbb{E}[\tilde d_0(V)\,\bar Q_{b,0}(V)]\) で、論文の補題 6 の式による。</p>
+  </section>
+
+  <section id="stochastic">
+    <div class="kicker">確率的なルール</div>
+    <h2>境目の層に重みがあるときは、その層を無作為に処置する確率的なルールが最適になる</h2>
+    <p>\(V\) が離散で、効果がちょうど \(\tau_0\) になる層に正の確率があると、決定的なルールは層ごとに全員を処置するか誰も処置しないかしか選べない。効果が全層で正なら、問題は 0–1 ナップザック問題の特殊な場合になる。この問題は NP 困難だが、この種の問題のなかでは易しい部類とされる。論文は決定的なルールのこの場合を扱わない。</p>
+    <p>代わりに、外部の乱数 \(U\) を使って処置を決める確率的なルールを考える。境目の層だけを一定の確率で処置し、処置する人の割合の期待値をちょうど \(\kappa\) にするルール \(d_0\) が、確率的なルールのなかで最適になる（定理 2）。これは各層を「重さ＝層の割合、価値＝効果×層の割合」の品物とみた分数ナップザック問題で、離散の場合には Dantzig（1957）の議論からすぐに従うと論文は述べている。決定的なルールも確率的なルールの一種なので、確率的なルールの最適な価値は決定的なルールの最適な価値以上になる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="Schematic of five strata sorted by effect, width equal to stratum share and height equal to effect. With kappa = 0.35, strata 1 and 2 are treated, stratum 3 at the threshold is treated with probability 0.5, giving value gain 0.078 versus 0.063 for the best deterministic rule.">
+        <defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#E7EEFC"/><line x1="0" y1="0" x2="0" y2="8" stroke="#1D4ED8" stroke-width="3"/></pattern></defs>
+        <text x="40" y="26" font-size="15" font-weight="600" fill="#16202E">層を効果の大きい順に並べる（幅＝層の割合、高さ＝効果）</text>
+        <rect x="60" y="70" width="50" height="150" fill="#1D4ED8"/>
+        <rect x="110" y="110" width="75" height="110" fill="#1D4ED8"/>
+        <rect x="185" y="145" width="100" height="75" fill="url(#hatch)" stroke="#1D4ED8" stroke-width="1.5"/>
+        <rect x="285" y="180" width="125" height="40" fill="#CBD2DC"/>
+        <rect x="410" y="220" width="150" height="25" fill="#CBD2DC"/>
+        <line x1="50" x2="590" y1="220" y2="220" stroke="#16202E" stroke-width="1.3"/>
+        <line x1="50" x2="590" y1="145" y2="145" stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="590" y="139" font-size="14" fill="#1D4ED8" text-anchor="end">しきい値 τ₀ = 0.15</text>
+        <line x1="235" x2="235" y1="50" y2="262" stroke="#16202E" stroke-width="2" stroke-dasharray="7 5"/>
+        <text x="241" y="62" font-size="14" fill="#16202E">κ = 0.35</text>
+        <text x="85" y="62" font-size="14" fill="#16202E" text-anchor="middle">0.30</text>
+        <text x="147" y="102" font-size="14" fill="#16202E" text-anchor="middle">0.22</text>
+        <text x="347" y="172" font-size="14" fill="#5B6676" text-anchor="middle">0.08</text>
+        <text x="485" y="262" font-size="14" fill="#5B6676" text-anchor="middle">−0.05</text>
+        <text x="85" y="240" font-size="13" fill="#5B6676" text-anchor="middle">層1</text>
+        <text x="147" y="240" font-size="13" fill="#5B6676" text-anchor="middle">層2</text>
+        <text x="215" y="240" font-size="13" fill="#5B6676" text-anchor="middle">層3</text>
+        <text x="347" y="240" font-size="13" fill="#5B6676" text-anchor="middle">層4</text>
+        <text x="485" y="214" font-size="13" fill="#5B6676" text-anchor="middle">層5</text>
+        <text x="40" y="290" font-size="15" fill="#16202E">確率的なルール：層1・層2 は全員、層3 は確率 0.5 で処置 → 上積み <tspan font-weight="600" fill="#1D4ED8">0.078</tspan></text>
+        <text x="40" y="316" font-size="15" fill="#16202E">決定的なルールの最善：層1＋層2 か 層2＋層3 → 上積み 0.063</text>
+      </svg>
+      <figcaption>図2　境目の層を無作為に処置する確率的なルール（解説者による模式図。層の割合は 0.10・0.15・0.20・0.25・0.30、効果は 0.30・0.22・0.15・0.08・−0.05 と置いた）。層3 だけを確率 0.5 で処置すると、処置する割合の期待値がちょうど 0.35 になる。</figcaption>
+    </figure>
+    <p class="src">PMC の著者稿では、境目の層を処置する確率が \(\kappa-S_P(\tau_P)\) と書かれている。式 (4) の \(\mathbb{E}[d_P]=\kappa\) が成り立つには、これを境目の層の確率 \(\Pr(\bar Q_{b,P}(V)=\tau_P)\) で割る必要がある（解説者の注）。図2 はこの割り算をした値を使っている。</p>
+    <p>ただし、論文の推論の結果はすべて、効果がちょうど \(\tau_0\) になる層の確率が 0 であることを仮定している。このとき最適な確率的なルールは決定的なルールと（ほとんど確実に）一致する。これは、制約のない問題で効果がちょうど 0 になる層がないとする「例外的でない分布」の仮定にあたるが、\(V\) が連続で制約が効いているときは、効果が \(\kappa\) で決まる任意の値 \(\tau_0>0\) に集中するとは考えにくいので、ずっと成り立ちやすい仮定だと論文は述べている。</p>
+  </section>
+
+  <section id="estimation">
+    <div class="kicker">推定</div>
+    <h2>効果の推定値から経験分位点でしきい値を決め、そのルールの価値を TMLE で推定する</h2>
+    <p>論文の主な目的は最適なルールそのものよりも、最適なルールのもとでの価値 \(\Psi(P_0)\) を推定し、信頼区間を作ることにある。推定の手順は次のとおりである。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="Flow of the estimator in four boxes: estimate outcome regression, blip and propensity with super learner; take the empirical kappa-quantile of the estimated blip to get tau_n; form the plug-in rule d_n; run a TMLE logistic fluctuation and average to get the value estimate.">
+        <defs><marker id="arK" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="20" y="20" width="285" height="118" rx="10" fill="#F2F4F7"/>
+        <text x="36" y="48" font-size="15" font-weight="600" fill="#16202E">1. 局外関数を推定する</text>
+        <text x="36" y="76" font-size="14" fill="#16202E">結果の回帰 Q̄ₙ、効果 Q̄<tspan font-size="11" dy="3">b,n</tspan><tspan dy="-3">、</tspan></text>
+        <text x="36" y="98" font-size="14" fill="#16202E">傾向スコア gₙ を super learner で</text>
+        <text x="36" y="120" font-size="14" fill="#5B6676">（無作為化実験なら gₙ = g₀）</text>
+        <rect x="335" y="20" width="285" height="118" rx="10" fill="#E7EEFC"/>
+        <text x="351" y="48" font-size="15" font-weight="600" fill="#1D4ED8">2. しきい値を決める</text>
+        <text x="351" y="76" font-size="14" fill="#16202E">推定した効果の経験分布の</text>
+        <text x="351" y="98" font-size="14" fill="#16202E">上側 κ 分位点 ηₙ をとり、</text>
+        <text x="351" y="120" font-size="14" fill="#16202E">τₙ = max{ηₙ, 0}</text>
+        <rect x="335" y="162" width="285" height="118" rx="10" fill="#E7EEFC"/>
+        <text x="351" y="190" font-size="15" font-weight="600" fill="#1D4ED8">3. ルールを作る</text>
+        <text x="351" y="218" font-size="14" fill="#16202E">dₙ(v) = I(Q̄<tspan font-size="11" dy="3">b,n</tspan><tspan dy="-3">(v) &gt; τₙ)</tspan></text>
+        <text x="351" y="240" font-size="14" fill="#16202E">（境目の層は無作為に処置）</text>
+        <rect x="20" y="162" width="285" height="118" rx="10" fill="#F2F4F7"/>
+        <text x="36" y="190" font-size="15" font-weight="600" fill="#16202E">4. TMLE で価値を推定する</text>
+        <text x="36" y="218" font-size="14" fill="#16202E">共変量 H = Pr(dₙ = a)/gₙ(a | w) の</text>
+        <text x="36" y="240" font-size="14" fill="#16202E">ロジスティック回帰で Q̄ₙ を更新し、</text>
+        <text x="36" y="262" font-size="14" fill="#16202E">dₙ のもとでの平均を Ψ̂ とする</text>
+        <line x1="305" x2="331" y1="79" y2="79" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+        <line x1="477" x2="477" y1="138" y2="158" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+        <line x1="335" x2="309" y1="221" y2="221" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+      </svg>
+      <figcaption>図3　最適な価値の推定量の手順（論文 3 節の記述を解説者が図にしたもの）。2 と 3 が資源制約に固有の部分で、それ以外は制約のない場合の推定と同じ形をしている。</figcaption>
+    </figure>
+    <p>手順 4 は推定したルール \(d_n\) に依存するデータ依存のパラメータ \(\Psi_{d_n}(P_0)\) に対する TMLE である。初期推定 \(\bar Q_n\) をオフセットにして共変量 \(H\) の係数 \(\varepsilon_n\) を推定し、\(\bar Q_n^*=\operatorname{logit}^{-1}(\operatorname{logit}\bar Q_n+\varepsilon_n H)\) で更新してから、経験分布で平均をとる。論文は局外関数の推定に、パラメトリックなモデルとデータ適応的な手法を混ぜた super learner を勧めている。データ適応性が心配なら、交差検証つきの TMLE やオンラインの one-step 推定量に置き換えればよいとも述べる。</p>
+  </section>
+
+  <section id="inference">
+    <div class="kicker">推論</div>
+    <h2>制約が効くと正準勾配に −τ₀(d − κ) の項が加わり、TMLE はそれを解いて効率的な推定量になる</h2>
+    <p>ルール \(d\) を固定したときの価値の効率的影響関数を \(IC_d\) とする。論文は、最適な価値 \(\Psi\) の正準勾配が次の形になることを示す（定理 3）。</p>
+    <div class="eq">\[ D_0(o)=IC_{d_0}(P_0)(o)\;\color{#1D4ED8}{-\;\tau_0\bigl(\mathbb{E}_{P_U}[d_0(U,v)]-\kappa\bigr)} \]</div>
+    <p>第 2 項は \(d_0\) を推定していること、しかも \(d_0\) が制約の境界にあることから生じる部分で、制約が効かない（\(\tau_0=0\)）ときは消える。この項があると分散は大きくなることも小さくなることもあり、論文はどちらの例も作れると述べている。条件は、正値性（C1）、効果の分布が \(\eta_0\) で正の有限な密度をもつこと（C2）、生存関数が \(\eta_0\) の近くで連続なこと（C3）、\(\tau_0\) の近くのどの値にも効果が集中しないこと（C4）である。</p>
+    <p>手順 2・3 の置き換え推定のおかげで、\(\tau_n>0\) なら推定したルールは処置する割合がちょうど \(\kappa\) になり、第 2 項の経験平均は 0 になる。TMLE の更新が第 1 項を解くので、推定量は推定方程式を解く。局外関数の一致性、強い正値性、Donsker 条件、剰余項が \(o_P(n^{-1/2})\) という条件のもとで、\(\hat\Psi\) は影響関数 \(D_0\) をもつ漸近線形な推定量になり、正則で漸近線形な推定量のなかで効率的になる（定理 4）。信頼区間は \(\hat\Psi\pm z_{1-\alpha/2}\,\sigma_n/\sqrt n\) で作れる。</p>
+    <p>剰余項のうちルールの推定による部分は、効果がしきい値の近くにある確率に関するマージン条件のもとで、\(\bar Q_{b,n}-\tau_n\) の誤差の高次の項になる（定理 6）。効果の分布がしきい値で有限な密度をもてば、\(L^2\) の誤差が \(o_P(n^{-3/8})\)、または一様な誤差が \(o_P(n^{-1/4})\) であれば十分である。</p>
+    <p class="src">PMC の著者稿では、この 2 つの速さが \(o_{P_0}(n^{3/8})\)、\(o_{P_0}(n^{1/4})\) と、指数の符号なしで書かれている。定理 6 の上界から、ここでは負の指数として読んだ（解説者の注）。</p>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">シミュレーション</div>
+    <h2>大標本ではどの設定も名目に近い被覆率になり、制約が強い κ = 0.1 では小標本でもよく被覆した</h2>
+    <p>2 つのデータ生成過程で、標本サイズ 100・200・1,000、制約 \(\kappa=0.1\)・\(0.9\) を組み合わせ、それぞれ 2,000 回繰り返した。処置は確率 1/2 の無作為割り付けで、\(g_0\) は既知として使っている。シミュレーション 1 は 4 個の共変量をもち、\(V=W_3\) と \(V=(W_1,\dots,W_4)\) の 2 通りを試した。\(\kappa=0.9\) では制約が効いていない。シミュレーション 2 は共変量が 1 個で、効果がすべての \(W\) で正なので、どんな制約でも最適な価値は制約なしの 0.583 から下がる。</p>
+    <p>95% 信頼区間の被覆率は \(\kappa=0.1\) ではすべての標本サイズでよかった。\(\kappa=0.9\) では標本サイズ 1,000 でよかったものの、小さい標本では下がった。シミュレーション 1 では \(V=W_3\) で約 90%、\(V=(W_1,\dots,W_4)\) で 80%（\(n=100\)）と 84%（\(n=200\)）だった。シミュレーション 2 は 91% を超えた。信頼区間の平均の幅はどの設定でも \(n=100\) で 0.25〜0.26、\(n=200\) で 0.17〜0.18、\(n=1000\) で約 0.08 だった。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 360" role="img" aria-label="Horizontal bars of optimal resource-constrained value minus the no-treatment value for six settings: 0.029, 0.072, 0.047, 0.099, 0.037, 0.272. Orange ticks show the unconstrained optimum. Dashed lines mark half the average confidence-interval width at n = 1000 (0.04), 200 (about 0.09) and 100 (about 0.13).">
+        <text x="20" y="24" font-size="15" font-weight="600" fill="#16202E">処置なしの価値 μ₀ からの上積み Ψ(P₀) − μ₀</text>
+        <line x1="230" x2="230" y1="40" y2="312" stroke="#16202E" stroke-width="1.3"/>
+        <line x1="282.0" x2="282.0" y1="40" y2="312" stroke="#5B6676" stroke-dasharray="4 4"/>
+        <text x="282.0" y="328" font-size="12" fill="#5B6676" text-anchor="middle">n=1000</text>
+        <line x1="343.8" x2="343.8" y1="40" y2="312" stroke="#5B6676" stroke-dasharray="4 4"/>
+        <text x="343.8" y="328" font-size="12" fill="#5B6676" text-anchor="middle">n=200</text>
+        <line x1="395.8" x2="395.8" y1="40" y2="312" stroke="#5B6676" stroke-dasharray="4 4"/>
+        <text x="395.8" y="328" font-size="12" fill="#5B6676" text-anchor="middle">n=100</text>
+        <text x="230.0" y="350" font-size="12" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="360.0" y="350" font-size="12" fill="#5B6676" text-anchor="middle">0.1</text>
+        <text x="490.0" y="350" font-size="12" fill="#5B6676" text-anchor="middle">0.2</text>
+        <text x="620.0" y="350" font-size="12" fill="#5B6676" text-anchor="middle">0.3</text>
+        <text x="20" y="66" font-size="13.5" fill="#16202E">シミュ1・V=W₃・κ=0.1</text>
+        <rect x="230" y="52" width="37.7" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="275.7" y="67" font-size="13" fill="#16202E" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">0.029</text>
+        <text x="20" y="110" font-size="13.5" fill="#16202E">シミュ1・V=W₃・κ=0.9</text>
+        <rect x="230" y="96" width="93.6" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="331.6" y="111" font-size="13" fill="#16202E" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">0.072（制約は効かない）</text>
+        <text x="20" y="154" font-size="13.5" fill="#16202E">シミュ1・V=W₁..₄・κ=0.1</text>
+        <rect x="230" y="140" width="61.1" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="299.1" y="155" font-size="13" fill="#16202E" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">0.047</text>
+        <text x="20" y="198" font-size="13.5" fill="#16202E">シミュ1・V=W₁..₄・κ=0.9</text>
+        <rect x="230" y="184" width="128.7" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="366.7" y="199" font-size="13" fill="#16202E" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">0.099（制約は効かない）</text>
+        <text x="20" y="242" font-size="13.5" fill="#16202E">シミュ2・κ=0.1</text>
+        <rect x="230" y="228" width="48.1" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="286.1" y="243" font-size="13" fill="#16202E" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">0.037</text>
+        <line x1="597.9" x2="597.9" y1="224" y2="252" stroke="#C2410C" stroke-width="3"/>
+        <text x="20" y="286" font-size="13.5" fill="#16202E">シミュ2・κ=0.9</text>
+        <rect x="230" y="272" width="353.6" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="575.6" y="287" font-size="13" fill="#fff" text-anchor="end">0.272</text>
+        <line x1="597.9" x2="597.9" y1="268" y2="296" stroke="#C2410C" stroke-width="3"/>
+        <text x="589.9" y="243" font-size="13" fill="#C2410C" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round" text-anchor="end">制約なしの最適 0.283</text>
+      </svg>
+      <figcaption>図4　6 つの設定での最適な価値の上積み（論文 6.1 節の \(\Psi(P_0)\) と \(\mu_0\) の値から解説者が差をとって作図）。μ₀ はシミュレーション 1 で約 0.464、シミュレーション 2 で 0.3。破線は論文 7 節の信頼区間の平均の幅を半分にした目安（\(n=1000\) で約 0.04、\(n=200\) で 0.085〜0.09、\(n=100\) で 0.125〜0.13）。<span class="A">オレンジ</span>の線はシミュレーション 2 の制約なしの最適な価値の上積み（0.583 − 0.3 = 0.283）。</figcaption>
+    </figure>
+    <p>論文は上積みと信頼区間の幅を比べて、信頼区間が役に立つかどうかを述べている。シミュレーション 1・\(V=W_3\)・\(\kappa=0.1\) では最適な価値が約 0.493、処置なしが約 0.464 で、\(n=1000\) でも信頼区間からはほとんど情報が得られない。シミュレーション 2・\(\kappa=0.9\) では 0.572 対 0.3 で、\(n=100\) の信頼区間でも役に立つだろうという。\(\mu_0\) を既知としたときの \(H_0:\Psi(P_0)=\mu_0\) の片側検定（\(\alpha=0.025\)）の検出力は、標本サイズと \(\kappa\) とともに増えた（論文 Fig. 2）。推定方程式にもとづく推定量も試したところ TMLE と同程度だったが、正値性がほぼ破れる場合に頑健なことから、論文は TMLE を勧めている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>一律のコストで処置できる割合に上限を置き、効果の分位点をしきい値にする規則を導いて、その価値を推論する</h2>
+    <p>この論文が推定するのは、共変量の要約 \(V\) を条件とする平均処置効果（blip 関数）\(\bar Q_b(v)\) と、それにもとづく最適なルールの価値 \(\Psi(P_0)\) である。主な目的はルールよりも価値の推定と信頼区間で、推定したルール \(d_n\) の性能は今後の課題とされている。</p>
+    <p>コストは全員一律で、制約は処置する人の割合の上限 \(\mathbb{E}[d(U,V)]\le\kappa\) である。個人ごとのコストは本論では扱っていない。処置は二値で、結果は \([0,1]\) に収まる量（シミュレーションでは 0/1）とする。予算制約は明示的に扱い、最適なルールは効果のしきい値規則になる。しきい値は効果の上側 \(\kappa\) 分位点と 0 の大きいほうで、境目の層だけを無作為に処置する。</p>
+    <p>個人ごとのコストについては、論文は 8 節で今後の課題として触れるだけである。\(V=W\) とし、コスト関数 \(c(w)\ge 0\) を使った制約 \(\mathbb{E}[c(W)\,d(U,W)]\le\kappa\) のもとでは、\(\tau_0>0\) なら最適なルールが \(I(\bar Q_{b,0}(w)>\tau_0\,c(w))\) の形になり、残りの資源を境目の人に一様に無作為に配ると述べている。ただし証明は示していない。</p>
+    <p>ROI 順の割当てとの関係を補足する（解説者の注）。コストが一律なら、効果 ÷ コストの順は効果の順と同じなので、本論の分位点のしきい値規則は ROI 順に上から処置して割合 \(\kappa\) で止める割当てにあたる。8 節の \(\bar Q_{b,0}(w)>\tau_0\,c(w)\) は \(c(w)>0\) なら \(\bar Q_{b,0}(w)/c(w)>\tau_0\) と書け、ROI のしきい値規則そのものである。\(\tau_0\) はナップザック問題の連続緩和でのラグランジュ乗数にあたり、正準勾配の \(-\tau_0(d-\kappa)\) の項も、制約にこの乗数を掛けた形をしている。ただし論文自身は \(\tau_0\) をラグランジュ乗数とは呼んでいない。リストの <a href="../uncertain-costs/">Uncertain Costs</a> は、費用が人によって違い事前に分からない場合について、効果と費用の期待値の比のしきい値規則を導いている。<a href="../combination-itr/">Xu ら</a> は二値処置の分位点の規則を特殊な場合として含む、組合せ処置の多選択ナップザック問題を扱っている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・定理番号・式は PubMed Central の著者稿（PMC6052884、NIHMS979194）による。De Gruyter の出版版の本文は自動取得できなかったため、照合していない。書誌は Crossref で確認した。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{luedtke2016optimal,
+  title     = {Optimal Individualized Treatments in Resource-Limited Settings},
+  author    = {Luedtke, Alexander R. and van der Laan, Mark J.},
+  journal   = {The International Journal of Biostatistics},
+  volume    = {12},
+  number    = {1},
+  pages     = {283--303},
+  year      = {2016},
+  publisher = {Walter de Gruyter GmbH},
+  doi       = {10.1515/ijb-2015-0007}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- interactive figure: kappa -> threshold (schematic blip ~ N(0.1, 0.15^2)) ----------
+(function () {
+  var MU = 0.1, SD = 0.15, NS = 'http://www.w3.org/2000/svg';
+  function phi(z) { return Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI); }
+  function Phi(z) { // Abramowitz-Stegun 7.1.26
+    var t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2), y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
+    return z >= 0 ? (1 + y) / 2 : (1 - y) / 2;
+  }
+  function S(tau) { return 1 - Phi((tau - MU) / SD); }
+  function eta(k) { var lo = -1, hi = 1; for (var i = 0; i < 60; i++) { var m = (lo + hi) / 2; if (S(m) > k) lo = m; else hi = m; } return hi; }
+  function gain(tau) { var z = (tau - MU) / SD; return MU * S(tau) + SD * phi(z); }
+  var svg = document.getElementById('labsvg');
+  function mk(t, a) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; }
+  var X0 = 40, X1 = 540, LO = -0.4, HI = 0.6, Y0 = 250, YS = 75;
+  function x(v) { return X0 + (v - LO) / (HI - LO) * (X1 - X0); }
+  function y(v) { return Y0 - phi((v - MU) / SD) / SD * YS / 2.66 * 2.2; }
+  var pts = []; for (var v = LO; v <= HI + 1e-9; v += 0.005) pts.push(x(v).toFixed(1) + ',' + y(v).toFixed(1));
+  var area = mk('path', { fill: '#E7EEFC', stroke: 'none' });
+  mk('polyline', { points: pts.join(' '), fill: 'none', stroke: '#16202E', 'stroke-width': 2 });
+  mk('line', { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.3 });
+  [-0.4, -0.2, 0, 0.2, 0.4, 0.6].forEach(function (v) {
+    mk('line', { x1: x(v), x2: x(v), y1: Y0, y2: Y0 + 5, stroke: '#16202E' });
+    var t = mk('text', { x: x(v), y: Y0 + 22, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' }); t.textContent = v.toFixed(1).replace('-', '−');
+  });
+  var tz = mk('text', { x: X1, y: Y0 + 44, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }); tz.textContent = '条件付き効果 →';
+  var zl = mk('line', { x1: x(0), x2: x(0), y1: 30, y2: Y0, stroke: '#C2410C', 'stroke-width': 1.5, 'stroke-dasharray': '3 4' });
+  var zt = mk('text', { x: x(0) - 6, y: 34, 'font-size': 13, fill: '#C2410C', 'text-anchor': 'end' }); zt.textContent = '制約なしのしきい値 0';
+  var tl = mk('line', { x1: 0, x2: 0, y1: 30, y2: Y0, stroke: '#1D4ED8', 'stroke-width': 2.5 });
+  var tt = mk('text', { x: 0, y: 58, 'font-size': 14, 'font-weight': 600, fill: '#1D4ED8' });
+  var inp = document.getElementById('kappa');
+  function upd() {
+    var k = +inp.value, e = eta(k), tau = Math.max(e, 0), s = S(tau);
+    var p = ['M' + x(tau).toFixed(1) + ',' + Y0];
+    for (var v = tau; v <= HI + 1e-9; v += 0.005) p.push('L' + x(v).toFixed(1) + ',' + y(v).toFixed(1));
+    p.push('L' + x(HI).toFixed(1) + ',' + Y0 + 'Z');
+    area.setAttribute('d', p.join(' '));
+    tl.setAttribute('x1', x(tau)); tl.setAttribute('x2', x(tau));
+    tt.setAttribute('x', x(tau) + 6); tt.textContent = 'τ₀ = ' + tau.toFixed(3);
+    document.getElementById('kOut').textContent = k.toFixed(2);
+    document.getElementById('tOut').textContent = tau.toFixed(3);
+    document.getElementById('sOut').textContent = s.toFixed(2);
+    document.getElementById('vOut').textContent = gain(tau).toFixed(3);
+    document.getElementById('uOut').textContent = gain(0).toFixed(3);
+    document.getElementById('state').textContent = e > 0
+      ? '制約が効いている（τ₀ > 0）。処置する割合はちょうど κ になる。'
+      : '制約は効いていない（τ₀ = 0）。効果が正の人を全員処置しても割合は κ に届かない。';
+  }
+  inp.addEventListener('input', upd); upd();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

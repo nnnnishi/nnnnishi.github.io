@@ -1,5 +1,7 @@
 # /survey/budget-uplift/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
+# short は「系譜」の図での呼び名（論文を足すときは必ず付ける）。図の矢印は lineage に足す。
+# preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
 
 updated: "2026-11-23"
 
@@ -79,6 +81,115 @@ categories:
     setting: 手法を比べる実験を設計するとき
     examples: Yadlowsky et al. (2025), Sverdrup et al. (2024)
 
+# ---- 系譜（/survey/budget-uplift/ の「系譜」の図）----
+# from → to は「to が from を引き継いだ」。slug は papers の explainer（解説のない論文は id）。
+# kind: ext = 引き継いで発展（直接の拡張・改良、同じグループの続編）、base = 比較・出発点（ベースライン、最も近い先行研究）。
+# why は論文本文の記述にもとづく一言。データセットや評価指標を使っただけの関係は載せない。
+# lineage_lanes は図の上から下への系統の並び。実線の矢印が短くなる順にしている。
+lineage_lanes: [ranking, evaluation, policy, foundation, tree, decision-focused, direct-ratio, two-stage, online, multi-treatment]
+
+# lineage_groups は図の上の「研究グループ」のボタン。論文の groups に id を書く（解説ページの著者の所属から決める。共同研究は両方に入れる）。
+lineage_groups:
+  - { id: booking, label: "Booking.com" }
+  - { id: meituan, label: "Meituan" }
+  - { id: alibaba, label: "Alibaba" }
+  - { id: ant, label: "Ant Group" }
+  - { id: uber, label: "Uber" }
+  - { id: kuaishou, label: "Kuaishou" }
+  - { id: tencent, label: "Tencent" }
+  - { id: criteo, label: "Criteo" }
+  - { id: linkedin, label: "LinkedIn" }
+  - { id: didi, label: "Didi" }
+  - { id: ku-leuven, label: "KU Leuven（Verbeke）" }
+  - { id: hu-berlin, label: "HU Berlin（Lessmann）" }
+  - { id: stanford, label: "Stanford（Athey・Wager）" }
+
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は手法や結果を直接拡張・改良した関係か、同じグループの続編です。破線は実験で比較した関係か、最も近い先行研究・出発点に挙げた関係です。論文の本文や解説ページで確認できた関係だけを描いており、データセットや評価指標を使っただけの関係は描いていません。＊のついた論文は arXiv の初版の年に置いています。2017 年以前の論文は左端の1列にまとめています。研究グループは解説ページに載せた著者の所属から決めており、共同研究の論文は両方のグループに入れています。"
+
+lineage:
+  - { from: user-retention-causal, to: heterogeneous-causal-learning, kind: ext, why: "同じ著者らが DRM を拡張し、上位 q% や予算の境目を損失に組み込む" }
+  - { from: user-retention-causal, to: drp, kind: ext, why: "Direct Rank の損失が安定な極値点に収束しないことを示し、凸な損失に改める" }
+  - { from: drp, to: roi-conformal, kind: ext, why: "DRP の点推定をコンフォーマル予測の区間で補正する" }
+  - { from: drp, to: dfcl, kind: ext, why: "第一著者が同じ。最も近い先行研究に挙げ、多値処置の MCKP の決定損失を学習に組み込む" }
+  - { from: dfcl, to: bi-dfcl, kind: ext, why: "RCT データだけで学習する DFCL を、観察データも使う二段階最適化に拡張する" }
+  - { from: free-lunch, to: online-mckp, kind: ext, why: "同じグループの続編。二値の配布から、複数のプロモーションをオンラインで選ぶ MCKP に広げる" }
+  - { from: free-lunch, to: causal-promotions, kind: ext, why: "同じグループ。振り返り推定を含む Booking.com の運用をまとめる" }
+  - { from: online-mckp, to: causal-promotions, kind: ext, why: "多選択の場合の解法を先行の論文に委ねる" }
+  - { from: free-lunch, to: converted-only, kind: ext, why: "同じグループ。購買者のデータだけで推定する考え方を多値処置の MCKP に広げる" }
+  - { from: ipc, to: converted-only, kind: ext, why: "同じグループ。証明で IPC の論文の付録を参照する" }
+  - { from: empirical-welfare-maximization, to: policy-learning-observational, kind: ext, why: "EWM を特殊な場合として含む設定（観察データ、二重頑健なスコア）に一般化する" }
+  - { from: uncertain-costs, to: pac-bayes-allocation, kind: ext, why: "定理 3.1 が、費用が不確実な場合の結果を一般化している" }
+  - { from: rate, to: multi-armed-qini, kind: ext, why: "二値処置の Qini 曲線の中心極限定理をもとに、複数の処置へ拡張する" }
+  - { from: ltr-uplift, to: ranking-metalearners, kind: ext, why: "Z-Learner での AUQC の最適化を、任意のメタラーナーに一般化する" }
+  - { from: unified-budget-allocation, to: drp, kind: base, why: "二段階法のベースラインの出典に挙げる" }
+  - { from: lbcf, to: drp, kind: base, why: "二段階法のベースライン（TPM-CF）の出典に挙げる" }
+  - { from: free-lunch, to: ipc, kind: base, why: "購買者のデータだけを使う、著者らの知る唯一の先行研究に挙げ、振り返り推定と比較する" }
+  - { from: revenue-uplift-transformation, to: ipc, kind: base, why: "目的変数の変換が近い手法に挙げ、RDT・CRVTW と比較する" }
+  - { from: haupt-lessmann, to: ipc, kind: base, why: "最も近い指標（利益の CATE）に挙げる" }
+  - { from: user-retention-causal, to: roi-conformal, kind: base, why: "比を直接学習する先行手法（Direct Rank）に挙げる" }
+  - { from: drp, to: e2e-marketing-effectiveness, kind: base, why: "決定因子を学習する同時期の手法に挙げ、評価の設定を踏襲する" }
+  - { from: user-retention-causal, to: e2e-marketing-effectiveness, kind: base, why: "ベースライン（Direct Rank）として比較する" }
+  - { from: unified-budget-allocation, to: e2e-marketing-effectiveness, kind: base, why: "二段階法のベースラインの出典に挙げる" }
+  - { from: lbcf, to: e2e-marketing-effectiveness, kind: base, why: "二段階法のベースラインの出典に挙げる" }
+  - { from: user-retention-causal, to: dfcl, kind: base, why: "最も近い先行研究に挙げ、AUCC で比較する" }
+  - { from: unified-budget-allocation, to: dfcl, kind: base, why: "二段階法の出典に挙げる" }
+  - { from: lbcf, to: dfcl, kind: base, why: "二段階法の出典に挙げ、期待アウトカム指標（EOM）の計算にも使う" }
+  - { from: e2e-marketing-effectiveness, to: dfcl, kind: base, why: "主問題の MCKP にもとづくブラックボックス最適化は計算量が大きいと指摘し、改良の出発点にする" }
+  - { from: drp, to: bi-dfcl, kind: base, why: "最も近い先行研究（DHCL）に挙げ、ベースラインとして比較する" }
+  - { from: unified-budget-allocation, to: bi-dfcl, kind: base, why: "二段階法のベースライン（TSM-SL）として比較する" }
+  - { from: lbcf, to: bi-dfcl, kind: base, why: "二段階法のベースライン（TSM-CF）として比較する" }
+  - { from: drp, to: e3ir, kind: base, why: "ベースライン（DRP）として比較する" }
+  - { from: user-retention-causal, to: e3ir, kind: base, why: "ベースライン（Direct Rank）として比較する" }
+  - { from: unified-budget-allocation, to: e3ir, kind: base, why: "ベースライン（TPM-SL）として比較する" }
+  - { from: ipc, to: network-interference-profit, kind: base, why: "IPC をクラスタ単位の干渉に合わせて作り替え、比較に使う" }
+  - { from: revenue-uplift-transformation, to: network-interference-profit, kind: base, why: "CRVTW をクラスタ単位の干渉に合わせて作り替え、比較に使う" }
+  - { from: managing-churn, to: haupt-lessmann, kind: base, why: "比較対象に挙げ、増分利益を因果ハードルモデルで推定する点を違いとする" }
+  - { from: decision-vs-estimation, to: continuous-pto, kind: base, why: "効果の推定を意思決定の一部とみなす見方を、枠組みの出発点にする" }
+  - { from: personalized-treatment-selection, to: lbcf, kind: base, why: "推奨された2手法（CT.ST、CF.DT）をベースラインにし、同じ評価指標を使う" }
+  - { from: online-mckp, to: converted-only, kind: base, why: "同じグループの先行研究（オンライン MCKP による配布）に挙げる" }
+  - { from: ecup, to: funnelcausalnet, kind: base, why: "ベースラインとして比較する。公開データ MT-LIFT を、最も近い多段階クーポンの RCT に挙げる" }
+  - { from: rankability-revenue, to: funnelcausalnet, kind: base, why: "ベースライン（RERUM）として比較する" }
+  - { from: e2e-marketing-effectiveness, to: funnelcausalnet, kind: base, why: "予算つきの方策を評価する手順（EOM）を採用する" }
+  - { from: mtmt, to: funnelcausalnet, kind: base, why: "二値処置のモデルを多値に広げる方法を踏襲する" }
+  - { from: empirical-welfare-maximization, to: pac-bayes-allocation, kind: base, why: "仮定と処置ルールの設定を踏襲する" }
+  - { from: empirical-welfare-maximization, to: combination-itr, kind: base, why: "二値処置で総量の制約を扱った既存研究に挙げ、組合せ処置へ広げる" }
+  - { from: policy-learning-observational, to: action-centered-bandits, kind: base, why: "オフラインでの初期学習に最も近い先行研究に挙げる" }
+  - { from: model-based-cmdp, to: bcorle, kind: base, why: "制約付き MDP の双対問題で λ を探索する関連研究に挙げる" }
+  - { from: model-based-cmdp, to: offline-constrained-rl, kind: base, why: "この系統の代表的な手法に挙げ、単一の方策を使う方法と比較する" }
+  - { from: online-mckp, to: realtime-coupon, kind: base, why: "個人ごとのクーポン額を決める同様の設定の先行研究に挙げる" }
+  - { from: e2e-marketing-effectiveness, to: realtime-coupon, kind: base, why: "個人ごとのクーポン額を決める同様の設定の先行研究に挙げる" }
+  - { from: free-lunch, to: budget-causal-bandits, kind: base, why: "二段階のオフライン手法の代表に挙げ、オンラインのバンディットで補う対象にする" }
+  - { from: multi-treatment-cost, to: budget-causal-bandits, kind: base, why: "標準的な二段階のオフライン手法として比較の基準にする" }
+  - { from: e3ir, to: budget-causal-bandits, kind: base, why: "標準的な二段階のオフライン手法として比較の基準にする" }
+  - { from: ltr-uplift, to: uplift-generalization, kind: base, why: "AUUC をランキング学習で最適化する近い定式化（PCG）に挙げ、比較する" }
+  - { from: uplift-generalization, to: ranking-metalearners, kind: base, why: "最適化した目的にしか汎化が保証されないという指摘を動機にする" }
+  - { from: ipc, to: ranking-metalearners, kind: base, why: "目的変数の変換（IPC）を利益の順位づけに使い、データ生成過程も参考にする" }
+  - { from: cost-sensitive-causal, to: ranking-metalearners, kind: base, why: "点推定を後処理で順位づけする方法（causal profit ranker）として対比する" }
+  - { from: ranking-metalearners, to: rank-learner, kind: base, why: "順位を直接学習する数少ない先行研究に挙げ、ソフトな順位損失を参照する" }
+  - { from: ltr-uplift, to: uplift-metrics, kind: base, why: "AUUC の定義の違いを整理した内容を出発点にする" }
+  - { from: ltr-uplift, to: rct-uplift-evaluation, kind: base, why: "Qini 曲線と AUUC の計算方法を整理した内容を参照する" }
+  - { from: rate, to: rct-uplift-evaluation, kind: base, why: "順位指標の先行研究として詳しく取り上げ、二重頑健な推定との関係を示す" }
+  - { from: rate, to: uncertain-costs, kind: base, why: "二重頑健な推定と推論の結果を利用する" }
+  - { from: criteo-benchmark, to: deep-uplift-benchmark, kind: base, why: "関連の深いベンチマークに挙げ、Criteo のデータで評価し直す" }
+  - { from: resource-limited-itr, to: uncertain-costs, kind: ext, why: "定理 1 の証明で、一律のコストでの議論を個人ごとに違うコストへ一般化する" }
+  - { from: resource-limited-itr, to: combination-itr, kind: base, why: "二値処置で総量の制約を扱い、効果の分位点で区切る規則を示した既存研究に挙げ、組合せ処置へ広げる" }
+  - { from: resource-limited-itr, to: multi-armed-qini, kind: base, why: "効果 ÷ コストの大きい順に予算が尽きるまで配る規則の出典に挙げる" }
+  - { from: welfare-budget-assignment, to: budget-coverage-policy, kind: base, why: "予算制約のもとで最適な割当てがしきい値規則になることを示した最も近い研究に挙げ、最低カバー率の制約を加える" }
+  - { from: welfare-budget-assignment, to: pac-bayes-allocation, kind: base, why: "処置できる数の制約という、費用が変わる場合より単純な設定の先行研究に挙げ、同じ蚊帳の実験を応用例にする" }
+  - { from: welfare-budget-assignment, to: uncertain-costs, kind: base, why: "予算の役割を論じた先行研究に挙げ、コストが一律という仮定を外す" }
+  - { from: contextual-treatment-selection, to: e2e-marketing-effectiveness, kind: ext, why: "期待アウトカム（EOM）の推定法で予算ごとの反応 Q を作り、学習の目的にする" }
+  - { from: contextual-treatment-selection, to: dfcl, kind: ext, why: "期待アウトカム（EOM）で決定損失を不偏に推定し、ブラックボックス最適化で学習する" }
+  - { from: contextual-treatment-selection, to: e3ir, kind: base, why: "期待アウトカム（EOM）に着想を得て、配分の部分の損失を設計する" }
+  - { from: contextual-treatment-selection, to: lbcf, kind: base, why: "期待アウトカムの評価法では方策ごとに消費する予算が変わると指摘し、RCT の参加者全員で評価する方法を作る" }
+  - { from: contextual-treatment-selection, to: drp, kind: base, why: "多値処置の木モデルの先行研究に挙げ、TPM-CF をベースラインにする" }
+  - { from: contextual-treatment-selection, to: multi-treatment-cost, kind: base, why: "CTS を多値処置の既存手法として比較に含める" }
+  - { from: policy-learning-observational, to: multi-action-policy-learning, kind: ext, why: "二値の処置に限られていた二重頑健な方策学習を、多値の行動に拡張する" }
+  - { from: empirical-welfare-maximization, to: multi-action-policy-learning, kind: base, why: "後悔の上界の比較対象と、1/√n の下界の出典に挙げる" }
+  - { from: multi-action-policy-learning, to: multi-armed-qini, kind: base, why: "多値処置の二重頑健スコアの形と、3 処置のシミュレーションの設定を借りる" }
+  - { from: multi-action-policy-learning, to: roi-conformal, kind: base, why: "資源の制約をラグランジュ乗数で報酬に入れる方策学習の例に挙げ、予算が変わるたびに学習し直す必要がある点を課題にする" }
+  - { from: disco, to: budget-causal-bandits, kind: base, why: "最も近い同時期の研究に挙げ、CATE を推定しない点を違いとする" }
+  - { from: disco, to: action-centered-bandits, kind: base, why: "応用で最も近いシステムに挙げ、報酬モデルを学ぶ点とリグレットの保証がない点を違いとする" }
+
 papers:
   # ---- 基礎 ----
   - title: "Causal Decision Making and Causal Effect Estimation Are Not the Same…and Why It Matters"
@@ -87,6 +198,7 @@ papers:
     venue: "INFORMS J. Data Science"
     url: "https://arxiv.org/abs/2104.04103"
     explainer: decision-vs-estimation
+    short: "Fernández-Loría ら"
     code: ""
     category: foundation
     treatment: 二値
@@ -99,6 +211,8 @@ papers:
     venue: "EJOR"
     url: "https://arxiv.org/abs/1911.08729"
     explainer: revenue-uplift-transformation
+    short: "Gubela ら"
+    groups: [hu-berlin]
     code: ""
     category: foundation
     treatment: 二値
@@ -113,6 +227,8 @@ papers:
     venue: "RecSys 2020"
     url: "https://arxiv.org/abs/2008.06293"
     explainer: free-lunch
+    short: "Free Lunch"
+    groups: [booking]
     code: ""
     category: two-stage
     treatment: 二値
@@ -125,6 +241,8 @@ papers:
     venue: "EJOR"
     url: "https://arxiv.org/abs/2003.06271"
     explainer: haupt-lessmann
+    short: "Haupt & Lessmann"
+    groups: [hu-berlin]
     code: "https://github.com/Humboldt-WI/response-dependent-costs"
     category: two-stage
     treatment: 二値
@@ -137,6 +255,8 @@ papers:
     venue: "EJOR"
     url: "https://doi.org/10.1016/j.ejor.2022.03.049"
     explainer: cost-sensitive-causal
+    short: "Verbeke ら"
+    groups: [ku-leuven]
     code: ""
     category: two-stage
     treatment: 二値
@@ -149,6 +269,8 @@ papers:
     venue: "KDD 2019"
     url: "https://arxiv.org/abs/1902.01128"
     explainer: unified-budget-allocation
+    short: "Zhao ら"
+    groups: [alibaba]
     code: ""
     category: two-stage
     treatment: 連続
@@ -161,6 +283,8 @@ papers:
     venue: "EJOR"
     url: "https://arxiv.org/abs/2412.09232"
     explainer: continuous-pto
+    short: "De Vos ら"
+    groups: [ku-leuven, hu-berlin]
     code: "https://github.com/SimonDeVos/UMCT"
     category: two-stage
     treatment: 連続
@@ -173,6 +297,8 @@ papers:
     venue: "ACM TORS 5(2)"
     url: "https://doi.org/10.1145/3769300"
     explainer: causal-promotions
+    short: "Goldenberg ら"
+    groups: [booking]
     code: ""
     category: two-stage
     treatment: 二値
@@ -185,6 +311,8 @@ papers:
     authors: "松井諒生, 吉住宗朔, 西村直樹, 小林健, 中田和秀"
     year: 2023
     venue: "日本OR学会 2023年春季研究発表会"
+    id: matsui-or2023
+    short: "松井ら"
     url: ""
     code: ""
     category: direct-ratio
@@ -198,6 +326,8 @@ papers:
     venue: "KDD 2019 WS (PMLR 104)"
     url: "https://proceedings.mlr.press/v104/du19a.html"
     explainer: user-retention-causal
+    short: "Direct Rank"
+    groups: [uber]
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -210,6 +340,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2004.09702"
     explainer: heterogeneous-causal-learning
+    short: "DRM"
+    groups: [uber]
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -222,6 +354,8 @@ papers:
     venue: "AAAI 2023"
     url: "https://arxiv.org/abs/2211.15728"
     explainer: drp
+    short: "DRP"
+    groups: [meituan]
     code: ""
     category: direct-ratio
     treatment: 二値・多値
@@ -234,6 +368,8 @@ papers:
     venue: "KDD 2023 WS"
     url: "https://arxiv.org/abs/2306.13759"
     explainer: ipc
+    short: "IPC"
+    groups: [booking]
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -246,6 +382,7 @@ papers:
     venue: "ICDE 2024"
     url: "https://arxiv.org/abs/2407.01065"
     explainer: roi-conformal
+    short: "rDRP"
     code: ""
     category: direct-ratio
     treatment: 二値
@@ -260,6 +397,8 @@ papers:
     venue: "KDD 2021"
     url: "https://arxiv.org/abs/2012.09897"
     explainer: uplift-generalization
+    short: "Betlei ら"
+    groups: [criteo]
     code: ""
     category: ranking
     treatment: 二値
@@ -272,6 +411,9 @@ papers:
     venue: "IEEE TKDE"
     url: "https://arxiv.org/abs/2002.05897"
     explainer: ltr-uplift
+    short: "Devriendt ら"
+    groups: [ku-leuven]
+    preprint_year: 2020
     code: ""
     category: ranking
     treatment: 二値
@@ -284,6 +426,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2405.02183"
     explainer: ranking-metalearners
+    short: "Vanderschueren ら"
+    groups: [booking, ku-leuven]
     code: ""
     category: ranking
     treatment: 二値
@@ -296,6 +440,8 @@ papers:
     venue: "KDD 2024"
     url: "https://arxiv.org/abs/2405.15301"
     explainer: rankability-revenue
+    short: "RERUM"
+    groups: [tencent]
     code: "https://github.com/BokwaiHo/revenue_uplift"
     category: ranking
     treatment: 二値
@@ -308,6 +454,7 @@ papers:
     venue: "ICML 2026"
     url: "https://arxiv.org/abs/2602.03517"
     explainer: rank-learner
+    short: "Rank-Learner"
     code: "https://github.com/henriarnoUG/rank-learner"
     category: ranking
     treatment: 二値
@@ -322,6 +469,7 @@ papers:
     venue: "Marketing Science"
     url: "https://doi.org/10.1287/mksc.2020.1229"
     explainer: managing-churn
+    short: "Lemmens & Gupta"
     code: ""
     category: decision-focused
     treatment: 二値
@@ -334,6 +482,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2302.04477"
     explainer: e2e-marketing-effectiveness
+    short: "Yan ら"
+    groups: [kuaishou]
     code: ""
     category: decision-focused
     treatment: 多値
@@ -346,6 +496,8 @@ papers:
     venue: "KDD 2024"
     url: "https://arxiv.org/abs/2407.13664"
     explainer: dfcl
+    short: "DFCL"
+    groups: [meituan]
     code: ""
     category: decision-focused
     treatment: 多値
@@ -358,6 +510,8 @@ papers:
     venue: "RecSys 2024"
     url: "https://arxiv.org/abs/2408.11623"
     explainer: e3ir
+    short: "E3IR"
+    groups: [tencent]
     code: ""
     category: decision-focused
     treatment: 多値
@@ -370,6 +524,8 @@ papers:
     venue: "NeurIPS 2025"
     url: "https://arxiv.org/abs/2510.19517"
     explainer: bi-dfcl
+    short: "Bi-DFCL"
+    groups: [meituan]
     code: ""
     category: decision-focused
     treatment: 多値
@@ -382,6 +538,8 @@ papers:
     venue: "RecSys 2025 WS"
     url: "https://arxiv.org/abs/2509.01558"
     explainer: network-interference-profit
+    short: "van den Akker"
+    groups: [booking]
     code: ""
     category: decision-focused
     treatment: 二値
@@ -396,6 +554,8 @@ papers:
     venue: "WWW 2022"
     url: "https://arxiv.org/abs/2201.12585"
     explainer: lbcf
+    short: "LBCF"
+    groups: [kuaishou]
     code: "https://github.com/www2022paper/WWW-2022-PAPER-SUPPLEMENTARY-MATERIALS"
     category: tree
     treatment: 多値
@@ -410,6 +570,8 @@ papers:
     venue: "IEEE DSAA 2019"
     url: "https://arxiv.org/abs/1908.05372"
     explainer: multi-treatment-cost
+    short: "Zhao & Harinen"
+    groups: [uber]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -422,6 +584,8 @@ papers:
     venue: "WWW 2021"
     url: "https://arxiv.org/abs/1901.10550"
     explainer: personalized-treatment-selection
+    short: "Tu ら"
+    groups: [linkedin]
     code: "https://github.com/tuye0305/prophet"
     category: multi-treatment
     treatment: 多値
@@ -434,6 +598,8 @@ papers:
     venue: "Neurocomputing"
     url: "https://arxiv.org/abs/2408.12803"
     explainer: mtmt
+    short: "MTMT"
+    groups: [tencent]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -446,6 +612,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2506.00959"
     explainer: hidden-rep-clustering
+    short: "Wang ら"
+    groups: [meituan]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -458,6 +626,7 @@ papers:
     venue: "IJCAI 2025"
     url: "https://arxiv.org/abs/2609.20699"
     explainer: tradeoff-curve
+    short: "Cong ら"
     code: "https://github.com/congyu711/incentive-allocation-supplementaries"
     category: multi-treatment
     treatment: 多値
@@ -470,6 +639,8 @@ papers:
     venue: "CIKM 2026"
     url: "https://arxiv.org/abs/2608.11675"
     explainer: funnelcausalnet
+    short: "FunnelCausalNet"
+    groups: [alibaba]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -482,6 +653,8 @@ papers:
     venue: "CIKM 2026"
     url: "https://arxiv.org/abs/2602.12972"
     explainer: debiased-ctr-uplift
+    short: "Yang ら"
+    groups: [kuaishou]
     code: ""
     category: multi-treatment
     treatment: 連続
@@ -494,6 +667,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2610.26199"
     explainer: taqformer
+    short: "TaQFormer"
+    groups: [didi]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -506,6 +681,8 @@ papers:
     venue: "CIKM 2025"
     url: "https://doi.org/10.1145/3746252.3761573"
     explainer: converted-only
+    short: "Converted-only"
+    groups: [booking]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -518,6 +695,8 @@ papers:
     venue: "WWW 2024 Companion"
     url: "https://arxiv.org/abs/2402.03379v1"
     explainer: ecup
+    short: "ECUP"
+    groups: [meituan]
     code: ""
     category: multi-treatment
     treatment: 多値
@@ -549,6 +728,19 @@ papers:
     data: "自社データ（iFood、本番ログと RCT）"
     note: "取引データでファインチューニングした LLM で、プロモーションの水準に対して単調な反応曲線を学習する。本番の A/B テストで、既存手法より転換率を1%上げ、プロモーションの費用を6%下げた"
 
+  - title: "Uplift Modeling with Multiple Treatments and General Response Types"
+    authors: "Y. Zhao, X. Fang, D. Simchi-Levi"
+    year: 2017
+    venue: "SDM 2017"
+    url: "https://arxiv.org/abs/1705.08492"
+    explainer: contextual-treatment-selection
+    short: "CTS"
+    code: ""
+    category: multi-treatment
+    treatment: 多値
+    cost: ""
+    data: "合成データ, 航空会社2社の価格実験"
+    note: 任意の処置割当てモデルの期待応答を RCT データから不偏に推定する方法（EOM）を示し、それを分割基準にした木のアンサンブル CTS を提案する
   # ---- 方策学習 ----
   - title: "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice"
     authors: "T. Kitagawa, A. Tetenov"
@@ -556,6 +748,7 @@ papers:
     venue: "Econometrica"
     url: "https://doi.org/10.3982/ECTA13288"
     explainer: empirical-welfare-maximization
+    short: "EWM"
     code: ""
     category: policy
     treatment: 二値
@@ -568,6 +761,8 @@ papers:
     venue: "AAAI 2020"
     url: "https://arxiv.org/abs/1902.02495"
     explainer: structured-counterfactual
+    short: "Lopez ら"
+    groups: [ant]
     code: ""
     category: policy
     treatment: 多値
@@ -580,6 +775,8 @@ papers:
     venue: "Econometrica"
     url: "https://arxiv.org/abs/1702.02896"
     explainer: policy-learning-observational
+    short: "Athey & Wager"
+    groups: [stanford]
     code: ""
     category: policy
     treatment: 二値
@@ -592,6 +789,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2103.11066"
     explainer: uncertain-costs
+    short: "Uncertain Costs"
+    groups: [didi, stanford]
     code: ""
     category: policy
     treatment: 二値
@@ -604,6 +803,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2212.09007"
     explainer: pac-bayes-allocation
+    short: "Pellatt"
     code: ""
     category: policy
     treatment: 二値
@@ -616,6 +816,7 @@ papers:
     venue: "JRSS-B"
     url: "https://arxiv.org/abs/2303.11507"
     explainer: combination-itr
+    short: "Xu ら"
     code: ""
     category: policy
     treatment: 多値
@@ -628,6 +829,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2605.12235"
     explainer: budget-coverage-policy
+    short: "Cerulli"
     code: ""
     category: policy
     treatment: 二値
@@ -659,6 +861,46 @@ papers:
     data: "自社データ（求人マーケット、クラスタ単位の実験）"
     note: "求人掲載の無料枠のしきい値を求人のセグメントごとに決める。目的の指標とガードレールの指標を別々のモデルで順位づけし、2つの処置水準しかない実験から、未実験の水準の効果を線形に外挿する"
 
+  - title: "Inferring Welfare Maximizing Treatment Assignment under Budget Constraints"
+    authors: "D. Bhattacharya, P. Dupas"
+    year: 2012
+    venue: "J. Econometrics"
+    url: "https://doi.org/10.1016/j.jeconom.2011.11.007"
+    explainer: welfare-budget-assignment
+    short: "Bhattacharya ら"
+    code: ""
+    category: policy
+    treatment: 二値
+    cost: 処置できる割合の上限（1件あたり定額）。共変量ごとに違う費用への拡張も論じる
+    data: ケニア西部の蚊帳の価格実験（Dupas 2009）
+    note: 処置できる割合に上限があるとき、最適な割当てが CATE のしきい値規則になり、しきい値が予算の潜在価格に等しいことを示す。規則の厚生と、必要な最小予算の信頼区間も導く
+  - title: "Optimal Individualized Treatments in Resource-Limited Settings"
+    authors: "A. R. Luedtke, M. J. van der Laan"
+    year: 2016
+    venue: "Int. J. Biostatistics"
+    url: "https://doi.org/10.1515/ijb-2015-0007"
+    explainer: resource-limited-itr
+    short: "Luedtke ら"
+    code: ""
+    category: policy
+    treatment: 二値
+    cost: 処置できる割合の上限（全員一律のコスト）
+    data: 合成データ
+    note: 処置できる割合に上限があるときの最適なルールが、効果の上側 κ 分位点をしきい値とする規則（境目の層は無作為化）になることを示し、その価値を TMLE で推定して信頼区間を作る
+  - title: "Offline Multi-Action Policy Learning: Generalization and Optimization"
+    authors: "Z. Zhou, S. Athey, S. Wager"
+    year: 2023
+    venue: "Operations Research"
+    url: "https://arxiv.org/abs/1810.04778"
+    explainer: multi-action-policy-learning
+    short: "CAIPWL"
+    groups: [stanford]
+    code: ""
+    category: policy
+    treatment: 多値
+    cost: ""
+    data: "合成データ, Gerber らの投票の実験（Michigan 2006）"
+    note: 行動ごとの二重頑健スコアをベクトルに並べて方策を学習し、多値の行動でも後悔が 1/√n の速さで減ることを示す。深さを決めた木を厳密に解く木探索も提案する
   # ---- オンライン・逐次 ----
   - title: "Model-based Constrained MDP for Budget Allocation in Sequential Incentive Marketing"
     authors: "S. Xiao, L. Guo, Z. Jiang et al."
@@ -666,6 +908,8 @@ papers:
     venue: "CIKM 2019"
     url: "https://arxiv.org/abs/2303.01049"
     explainer: model-based-cmdp
+    short: "Xiao ら"
+    groups: [ant]
     code: ""
     category: online
     treatment: 多値
@@ -678,6 +922,8 @@ papers:
     venue: "CIKM 2020"
     url: "https://arxiv.org/abs/2008.09982"
     explainer: spending-money-wisely
+    short: "Li ら"
+    groups: [alibaba]
     code: ""
     category: online
     treatment: 多値
@@ -690,6 +936,8 @@ papers:
     venue: "NeurIPS 2021"
     url: "https://neurips.cc/virtual/2021/poster/26101"
     explainer: bcorle
+    short: "BCORLE(λ)"
+    groups: [alibaba]
     code: ""
     category: online
     treatment: 多値
@@ -702,6 +950,8 @@ papers:
     venue: "CIKM 2022"
     url: "https://arxiv.org/abs/2108.13298"
     explainer: online-mckp
+    short: "Online MCKP"
+    groups: [booking]
     code: ""
     category: online
     treatment: 多値
@@ -714,6 +964,8 @@ papers:
     venue: "WSDM 2023"
     url: "https://arxiv.org/abs/2309.02669"
     explainer: offline-constrained-rl
+    short: "Cai ら"
+    groups: [ant]
     code: ""
     category: online
     treatment: 多値
@@ -726,6 +978,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2406.05987"
     explainer: realtime-coupon
+    short: "Dai ら"
+    groups: [meituan]
     code: ""
     category: online
     treatment: 多値
@@ -738,6 +992,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2604.26169"
     explainer: budget-causal-bandits
+    short: "Pillai"
     code: ""
     category: online
     treatment: 二値
@@ -750,6 +1005,8 @@ papers:
     venue: "WSDM 2027"
     url: "https://arxiv.org/abs/2611.08990"
     explainer: action-centered-bandits
+    short: "Lin ら"
+    groups: [linkedin]
     code: ""
     category: online
     treatment: 多値
@@ -781,6 +1038,33 @@ papers:
     data: "自社データ, 合成データ（疲労を考慮した環境）"
     note: "インセンティブの額の決定を条件つき系列生成として定式化する。ROI の制約の強さを入力にした1つの生成方策で、再学習せずにさまざまな制約に対応する"
 
+  - title: "Dynamic Knapsack Optimization Towards Efficient Multi-Channel Sequential Advertising"
+    authors: "X. Hao, Z. Peng, Y. Ma et al."
+    year: 2020
+    venue: "ICML 2020"
+    url: "https://proceedings.mlr.press/v119/hao20b.html"
+    explainer: dynamic-knapsack-advertising
+    short: "MSBCB"
+    groups: [alibaba]
+    code: "https://github.com/tjuHaoXiaotian/ICML-2020-MSBCB"
+    category: online
+    treatment: 二値
+    cost: オークションの第2価格（課金方式により表示・クリック・購入のとき）
+    data: "シミュレーション, 自社データ（Taobao の A/B テスト）"
+    note: 予算内の広告配信を動的ナップザック問題とし、コスト性能比のしきい値1つを使って、問題を報酬 v − CPR_thr·c の強化学習による入札と、しきい値による利用者の選択に分ける
+  - title: "DISCO: An End-to-End Bandit Framework for Personalised Discount Allocation"
+    authors: "J. S. Zhang, B. Howson, P. Savva et al."
+    year: 2024
+    venue: "ECML PKDD 2024"
+    url: "https://arxiv.org/abs/2406.06433"
+    explainer: disco
+    short: "DISCO"
+    code: ""
+    category: online
+    treatment: 多値
+    cost: 購入時（割引の深さ × 購入額）
+    data: "自社データ（ASOS.com）, オンライン A/B テスト"
+    note: 割引の深さを RBF で表したベイズ対数線形回帰からトンプソン抽出で報酬を引き、深さごとの配布人数の上限を守る整数計画で割引コードを配る
   # ---- 評価方法 ----
   - title: "About evaluation metrics for contextual uplift modeling"
     authors: "C. Renaudin et al."
@@ -788,6 +1072,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2107.00537"
     explainer: uplift-metrics
+    short: "Renaudin ら"
+    groups: [criteo]
     code: "https://github.com/criteo-research/uplift_modeling_metric"
     category: evaluation
     treatment: 二値
@@ -800,6 +1086,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2111.10106"
     explainer: criteo-benchmark
+    short: "Criteo Uplift"
+    groups: [criteo]
     code: "https://github.com/criteo-research/large-scale-ITE-UM-benchmark"
     category: evaluation
     treatment: 二値
@@ -812,6 +1100,8 @@ papers:
     venue: "EJOR"
     url: "https://arxiv.org/abs/2210.02152"
     explainer: rct-uplift-evaluation
+    short: "Bokelmann ら"
+    groups: [hu-berlin]
     code: ""
     category: evaluation
     treatment: 二値
@@ -824,6 +1114,8 @@ papers:
     venue: "J. Comput. Graph. Stat."
     url: "https://arxiv.org/abs/2306.11979"
     explainer: multi-armed-qini
+    short: "Sverdrup ら"
+    groups: [stanford]
     code: "https://github.com/grf-labs/maq"
     category: evaluation
     treatment: 多値
@@ -836,6 +1128,8 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2406.00335"
     explainer: deep-uplift-benchmark
+    short: "Liu ら"
+    groups: [tencent]
     code: ""
     category: evaluation
     treatment: 二値
@@ -848,6 +1142,9 @@ papers:
     venue: "JASA"
     url: "https://arxiv.org/abs/2111.07966"
     explainer: rate
+    short: "RATE"
+    groups: [stanford]
+    preprint_year: 2021
     code: "https://github.com/grf-labs/grf"
     category: evaluation
     treatment: 二値
@@ -860,6 +1157,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2608.00915"
     explainer: upliftbench
+    short: "UpliftBench"
     code: "https://github.com/binshuangli/uplift-bench"
     category: evaluation
     treatment: 二値
