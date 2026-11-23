@@ -1,4 +1,4 @@
-# /survey/budget-uplift/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
+# /misc/survey/budget-uplift/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 # short は「系譜」の図での呼び名（論文を足すときは必ず付ける）。図の矢印は lineage に足す。
 # preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
@@ -81,7 +81,7 @@ categories:
     setting: 手法を比べる実験を設計するとき
     examples: Yadlowsky et al. (2025), Sverdrup et al. (2024)
 
-# ---- 系譜（/survey/budget-uplift/ の「系譜」の図）----
+# ---- 系譜（/misc/survey/budget-uplift/ の「系譜」の図）----
 # from → to は「to が from を引き継いだ」。slug は papers の explainer（解説のない論文は id）。
 # kind: ext = 引き継いで発展（直接の拡張・改良、同じグループの続編）、base = 比較・出発点（ベースライン、最も近い先行研究）。
 # why は論文本文の記述にもとづく一言。データセットや評価指標を使っただけの関係は載せない。

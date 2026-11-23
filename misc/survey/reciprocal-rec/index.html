@@ -1,9 +1,9 @@
 ---
 layout: null
-title: "データ駆動の価格最適化 文献リスト"
-description: "需要の推定と価格の最適化を組み合わせる研究（予測してから最適化、動的価格、個別価格、頑健な価格最適化、価格の内生性など）の論文・データセット・評価指標・ライブラリを表にまとめた文献リスト。"
+title: "双方向市場の推薦（相互推薦・マッチング） 文献リスト"
+description: "求人サービスやオンラインデートなど、利用者に別の利用者を推薦する双方向市場の推薦（相互推薦・マッチング）の論文・データセット・評価指標・ライブラリを表にまとめた文献リスト。"
 ---
-{%- assign d = site.data.survey_pricing -%}
+{%- assign d = site.data.survey_reciprocal_rec -%}
 <!doctype html>
 <html lang="ja">
 <head>
@@ -65,11 +65,13 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
     td.title a { font-weight: 600; }
     td.title .authors { display: block; color: var(--muted); font-size: .82rem; }
     td.title .summary { display: block; margin-top: .25rem; }
-    #paper-table td.title { min-width: 21rem; }
+    #paper-table td.title { min-width: 18rem; }
     #paper-table td.mid { min-width: 7.5rem; }
     td.wide { min-width: 16rem; }
     td.mid { min-width: 10rem; }
     td.venue { min-width: 6.5rem; }
+    td.dom { min-width: 6.5rem; }
+    td.mname { min-width: 9rem; }
     td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     .badge {
@@ -98,7 +100,7 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
       <div class="prose">
         <p class="lead">{{ d.intro }}</p>
       </div>
-      <p class="meta">最終更新: {{ d.updated }}　作成: <a href="{{ '/' | relative_url }}">西村 直樹</a>　<a href="{{ '/survey/' | relative_url }}">Survey 一覧へ</a></p>
+      <p class="meta">最終更新: {{ d.updated }}　作成: <a href="{{ '/' | relative_url }}">西村 直樹</a>　<a href="{{ '/misc/' | relative_url }}">Misc 一覧へ</a></p>
     </div>
   </header>
 
@@ -108,7 +110,7 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
       <a href="#papers">論文</a>
       <a href="#datasets">データセット</a>
       <a href="#metrics">評価指標</a>
-      <a href="#resources">ライブラリ・サーベイ・書籍</a>
+      <a href="#resources">ライブラリ・サーベイ</a>
     </div>
   </nav>
 
@@ -144,7 +146,7 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
       </div>
       <div class="table-wrap">
         <table id="paper-table">
-          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>需要モデル</th><th>最適化・意思決定</th><th>制約・設定</th><th>実験データ</th><th>コード</th></tr></thead>
+          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>領域</th><th>双方の選好</th><th>評価</th><th>実験データ</th><th>コード</th></tr></thead>
           <tbody>
           {%- assign papers = d.papers | sort: "year" | reverse %}
           {%- for p in papers %}
@@ -154,9 +156,9 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
               <td class="venue">{{ p.venue }}</td>
               <td class="title">{% if p.url and p.url != "" %}<a href="{{ p.url }}">{{ p.title }}</a>{% else %}{{ p.title }}{% endif %}<span class="authors">{{ p.authors }}</span><span class="summary">{{ p.note }}</span></td>
               <td class="nowrap"><span class="badge c-{{ p.category }}">{{ cat.label }}</span></td>
-              <td class="mid">{{ p.demand }}</td>
-              <td class="mid">{{ p.method }}</td>
-              <td class="mid">{{ p.setting }}</td>
+              <td class="dom">{{ p.domain }}</td>
+              <td class="mid">{{ p.prefs }}</td>
+              <td class="dom">{{ p.eval }}</td>
               <td class="mid">{{ p.data }}</td>
               <td class="nowrap">{% if p.code and p.code != "" %}<a href="{{ p.code }}">code</a>{% endif %}</td>
             </tr>
@@ -171,16 +173,16 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
       <p class="note prose">{{ d.datasets_note }}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>データ</th><th>価格</th><th>価格の決まり方</th><th>結果変数</th><th>規模</th><th>使われ方</th></tr></thead>
+          <thead><tr><th>データ</th><th>両側</th><th>反応の記録</th><th>規模</th><th>実験での使い方</th><th>読み込み</th></tr></thead>
           <tbody>
           {%- for x in d.datasets %}
             <tr>
-              <td class="title">{% if x.url and x.url != "" %}<a href="{{ x.url }}">{{ x.name }}</a>{% else %}<strong>{{ x.name }}</strong>{% endif %}<span class="authors">{{ x.provider }}</span></td>
-              <td class="mid">{{ x.price }}</td>
-              <td class="mid">{{ x.assignment }}</td>
-              <td class="mid">{{ x.outcomes }}</td>
+              <td class="title"><a href="{{ x.url }}">{{ x.name }}</a><span class="authors">{{ x.provider }}</span></td>
+              <td class="mid">{{ x.sides }}</td>
+              <td class="mid">{{ x.feedback }}</td>
               <td class="mid">{{ x.size }}</td>
               <td class="wide">{{ x.usage }}</td>
+              <td class="mid">{% if x.loader and x.loader != "" %}<code>{{ x.loader }}</code>{% endif %}</td>
             </tr>
           {%- endfor %}
           </tbody>
@@ -193,12 +195,11 @@ description: "需要の推定と価格の最適化を組み合わせる研究（
       <p class="note prose">{{ d.metrics_note }}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>指標</th><th>計算のしかた</th><th>何を測るか</th><th>主な文献</th></tr></thead>
+          <thead><tr><th>指標</th><th>何を測るか</th><th>主な文献</th></tr></thead>
           <tbody>
           {%- for m in d.metrics %}
             <tr>
-              <td class="nowrap"><strong>{{ m.name }}</strong></td>
-              <td class="mid">{{ m.axes }}</td>
+              <td class="mname"><strong>{{ m.name }}</strong></td>
               <td class="wide">{{ m.what }}</td>
               <td class="mid">{{ m.refs }}</td>
             </tr>

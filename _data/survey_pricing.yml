@@ -1,4 +1,4 @@
-# /survey/pricing/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
+# /misc/survey/pricing/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
 updated: "2026-11-23"

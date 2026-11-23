@@ -44,7 +44,9 @@
   <nav class="toc" aria-label="サイト内メニュー">
     <div class="wrap">
       {%- for n in site.nav %}
-      <a href="{{ n.url | relative_url }}"{% if page.url == n.url %} class="active" aria-current="page"{% endif %}>{{ n.label }}</a>
+      {%- comment %} 下の階層のページ（/misc/survey/... など）でも親のタブを強調する {% endcomment %}
+      {%- assign under = page.url | slice: 0, n.url.size %}
+      <a href="{{ n.url | relative_url }}"{% if page.url == n.url %} class="active" aria-current="page"{% elsif n.url != '/' and under == n.url %} class="active"{% endif %}>{{ n.label }}</a>
       {%- endfor %}
     </div>
   </nav>

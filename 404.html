@@ -1,0 +1,18 @@
+---
+layout: default
+title: ページが見つかりません
+permalink: /404.html
+sitemap: false
+---
+    <script>
+      // 旧 URL（/survey/...）は /misc/survey/... に移したので転送する。/misc/survey/ そのものは Misc の一覧へ
+      (function () {
+        var p = location.pathname, base = {{ site.baseurl | default: "" | jsonify }};
+        if (base && p.indexOf(base) === 0) p = p.slice(base.length);
+        var to = null;
+        if (/^\/(misc\/)?survey\/?$/.test(p)) to = "/misc/#survey";
+        else if (p.indexOf("/survey/") === 0) to = "/misc" + p + location.hash;
+        if (to) location.replace(base + to);
+      })();
+    </script>
+    <p>お探しのページは見つかりませんでした。<a href="{{ '/' | relative_url }}">トップページ</a>からたどってください。</p>
