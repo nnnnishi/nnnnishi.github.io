@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EC のアップリフトモデリングで店舗間とインセンティブ間のカニバリゼーションを抑える CanniUplift（論文解説）</title>
+<meta name="description" content="CanniUplift: A Holistic Framework for Mitigating Seller and Incentive Cannibalization in E-commerce Uplift Modeling（KDD 2026）の非公式の解説。店舗ごとの予測をプラットフォーム全体の GMV に合わせ、クーポンを使った購入と使わなかった購入を分けて予測するアップリフトモデル。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the seller-view local uplift (apparent increment of one shop), and the
+                         cannibalized / pseudo-incremental part it wrongly counts
+            --b  (blue)   = the platform-wide net increment, and the paper's CanniUplift (PGA + RDD)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.aff { font-size: 0.875rem; color: var(--muted); margin-top: -0.7rem; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+/* ---------- result tables ---------- */
+.tbl { max-width: var(--wide); overflow-x: auto; }
+.tbl table { border-collapse: collapse; font: 0.9rem/1.45 var(--font-en); font-variant-numeric: tabular-nums; min-width: 34rem; }
+.tbl th, .tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+.tbl th:first-child, .tbl td:first-child { text-align: left; }
+.tbl thead th { font-family: var(--font-ja); font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+.tbl tr.ours td { color: var(--b); font-weight: 650; }
+.tbl tr.base td { color: var(--a); }
+.tbl thead th[colspan] { text-align: center; border-bottom: 1px solid var(--hair); }
+.tbl td.b { color: var(--b); font-weight: 650; }
+.tbl td.u { text-decoration: underline; text-underline-offset: 0.2em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD · 2026</div>
+  <h1>CanniUplift: A Holistic Framework for Mitigating Seller and Incentive Cannibalization in E-commerce Uplift Modeling</h1>
+  <p class="subtitle">EC のアップリフトモデリングで、店舗間とインセンティブ間のカニバリゼーションを抑える統合フレームワーク</p>
+
+  <ul class="authors">
+    <li><b>Zuwang He</b></li>
+    <li><b>Shihao Shu</b></li>
+    <li><b>Yuli Qu</b></li>
+    <li><b>Hanyu Gao</b></li>
+    <li><b>Ziliang Zhang</b></li>
+    <li><b>Diwei Chen</b></li>
+    <li><b>Xiangda Yan</b></li>
+    <li><b>Buyu Gao</b></li>
+    <li><b>Tanchao Zhu</b></li>
+    <li><b>Yumeng Li</b></li>
+    <li><b>Junxiong Zhu</b></li>
+  </ul>
+  <p class="aff">全員 Taobao &amp; Tmall Group of Alibaba（北京または杭州）。He、Shu、Qu は同等の貢献、Yumeng Li が責任著者。</p>
+
+  <p class="lead">多数の店舗が並ぶ EC で店舗ごとにクーポンの効果を推定すると、他店から売上を移しただけの増分や、クーポンを使わずに起きた購入まで効果として数えてしまう。この論文はこれを店舗間とインセンティブ間の 2 種類のカニバリゼーションとして定式化し、<span class="A">店舗ごとの見かけの増分</span>ではなく<span class="B">プラットフォーム全体の純増分</span>を推定する CanniUplift を提案する。店舗ごとの予測の合計を利用者の全体の GMV に合わせる PGA と、処置群の結果をクーポンを使った購入と使わなかった購入に分けて予測する RDD からなる。実データと合成データで、比べた 9 手法より AUUC と QINI が高く、オンラインの A/B テストではプラットフォーム全体の ΔGMV が 4.08% 増えた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3770855.3818334">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2607.05242">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。他店のクーポンで安い商品に乗り換え、店舗は増えても全体は減る例、手持ちのよいクーポンを使って配ったクーポンを使わない例、店舗ごとの予測の合計を全体の GMV に合わせる PGA と、購入を2つの経路に分ける RDD の模式図、論文 Table 2 の利用者単位 AUUC とオンライン A/B テストの結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">ΔGMV +4.08%</span><span class="d">本番のモデルと比べたオンライン A/B テスト（8 日間）で、プラットフォーム全体の ΔGMV が 4.08% 増え、販促費は 2.45% 減り、ROI は 6.69% 上がった（Table 3）。</span></li>
+    <li><span class="k">AUUC 0.794 → 0.849</span><span class="d">実データの利用者単位の AUUC で、ベースの EUEN に PGA と RDD を加えたときの変化。PGA だけでも 0.826 になった（Table 2）。</span></li>
+    <li><span class="k">過大推定 7.6%</span><span class="d">クーポンを使わずに買った利用者の平均予測アップリフト。RDD なしは 3.435、RDD ありは 3.192 で、使って買った利用者では両者がほぼ一致した（Fig. 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>多数の店舗が並ぶ EC では、クーポンによる店舗の増分が、他店の売上減やクーポンなしでも起きた購入で打ち消されることがある</h2>
+    <p>EC プラットフォームはクーポンや補助金をどの利用者に配るかを、アップリフトモデル（個人ごとの処置効果 ITE の推定）で決めることが多い。DragonNet や EUEN などの既存のモデルは、ある単位への処置がほかの単位の結果に影響しないという仮定（SUTVA）に暗に頼っている。論文は、多数の店舗が並ぶ市場ではこの仮定が 2 つの形で崩れると指摘する（図1）。</p>
+    <ul class="def">
+      <li><b>店舗間のカニバリゼーション</b>　もともと 90 ドルの商品を買うつもりだった利用者が、別の店舗の 5 ドルクーポンにつられて 30 ドルの商品を買う。クーポンを出した店舗の GMV は増えるが、プラットフォーム全体の GMV は減る。店舗ごとの増分を最大にするモデルは、この「ゼロサム」の付け替えを捉えられない。</li>
+      <li><b>インセンティブ間のカニバリゼーション</b>　もっと額の大きいクーポンを持っている利用者は、配られた試験用のクーポンを使わずに買い物をする。この「クーポンを使わない購入」まで処置の効果として数えると、もともとの購買意欲やほかのクーポンの効果を、配ったクーポンの効果と取り違える。</li>
+    </ul>
+    <p>論文の実データでは、利用者に関係する店舗の ITE を既存のモデルで足し合わせると、オンラインで実際に観測した効果を約 35% 上回った。また、クーポンを配って購入に至った行動のうち約 25% は、クーポンが使われていなかった。</p>
+    <figure>
+      <img src="assets/fig1_cannibalization.png" alt="Two violations of SUTVA. Top: a user browsing shirts priced 90, 120, 100 and 30 dollars buys the 90-dollar shirt without a coupon; an upsell coupon leads to a 120-dollar purchase, while a downsell coupon leads to a 30-dollar purchase, where the seller's GMV rises but the platform GMV falls by 60 dollars. Bottom: a user holding a 50-dollar coupon ignores the 5-dollar test coupon but still buys, so the true uplift is lower than predicted; a user with no other coupons uses the 5-dollar coupon." loading="lazy">
+      <figcaption>図1　SUTVA が崩れる 2 つの場面。上は店舗間のカニバリゼーションで、安い商品へ誘導するクーポンは店舗の GMV を増やしても全体の GMV を減らす。下はインセンティブ間のカニバリゼーションで、手持ちのよいクーポンがある利用者は配られたクーポンを使わずに買う（論文 Fig. 1）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">問題設定</div>
+    <h2>店舗 \(s_j\) にクーポンを出したときの全体の純増分は、その店舗の見かけの増分と他店への影響の和で、後者が負ならカニバリゼーションである</h2>
+    <p>データは利用者 \(i\) の特徴 \(x_i\)、店舗 \(s\) のクーポンを配ったかどうか \(t_{i,s}\in\{0,1\}\)、配ったクーポンを使ったかどうか \(r_{i,s}\in\{0,1\}\)、その店舗での GMV \(y_{i,s}\ge 0\) からなる。利用者の全体の GMV を \(Y_i = \sum_{s} y_{i,s}\) とし、目標を店舗ごとの増分ではなく \(Y_i\) の増分に置く。店舗 \(s_j\) にクーポンを出したときの<b>プラットフォームの純増分</b>は次のように分かれる。</p>
+    <div class="eq">\[ \color{#1D4ED8}{\Delta Y_i(s_j)} = \underbrace{\color{#C2410C}{\mathbb{E}[y_{i,s_j}\mid t_{i,s_j}{=}1] - \mathbb{E}[y_{i,s_j}\mid t_{i,s_j}{=}0]}}_{\text{見かけの増分}} + \underbrace{\sum_{k\ne j}\big(\mathbb{E}[y_{i,s_k}\mid t_{i,s_j}{=}1] - \mathbb{E}[y_{i,s_k}\mid t_{i,s_j}{=}0]\big)}_{\text{他店への影響}} \]</div>
+    <p>第 2 項が負のとき、店舗 \(s_j\) の増分の一部または全部は他店の減少で打ち消されている。これが<b>店舗間のカニバリゼーション</b>である。一方、クーポンなしでも（あるいはプラットフォーム全体のクーポンで）買っていた利用者が配られたクーポンを使うと、第 1 項は見かけだけの増分になる。論文はこれを<b>インセンティブ間のカニバリゼーション</b>と呼ぶ。</p>
+    <p>使用の有無 \(r\) は処置の後に決まる変数なので、処置群の結果の分布は使って買った場合と使わずに買った場合の混合になる。</p>
+    <div class="eq">\[ p(y\mid t{=}1) = p(r{=}1\mid t{=}1)\,p(y\mid t{=}1, r{=}1) + p(r{=}0\mid t{=}1)\,p(y\mid t{=}1, r{=}0) \]</div>
+    <p>第 2 の成分はもともとの需要やほかのクーポンで起きた購入を含みうる。処置群の購入をすべて増分として扱うと、この成分の購入まで増分の推定に混ざる。</p>
+  </section>
+
+  <section id="pga">
+    <div class="kicker">手法 1：PGA</div>
+    <h2>店舗ごとの予測の合計を利用者の全体の GMV に合わせると、他店から移しただけの増分が罰せられる</h2>
+    <p>ベースにするのは、店舗ごとに処置なしの GMV（Control Net）と処置ありの GMV（Uplift Net）を予測し、その差をアップリフトとする構造である。論文は実データで最もよかった EUEN をこのベースに使う。</p>
+    <p>Platform-level Global Alignment（PGA）は、この上に Platform head を加える。利用者 \(u\) の候補店舗 \(\mathcal S_u\) それぞれについて足し合わせられる予測 \(pGMV^{\text{pla}}_{s_i}\) を出し、その合計をログから得た利用者の全体の GMV に合わせる。</p>
+    <div class="eq">\[ \mathcal L_{\text{pla}} = \sum_u \mathcal L_{\text{Tw}}\Big(GMV^{\text{pla}}_u,\ \sum_{s_i\in\mathcal S_u} pGMV^{\text{pla}}_{s_i}\Big) \]</div>
+    <p>店舗ごとに見て多くの店舗で同時に大きな増分を予測すると、合計が膨らんで全体の損失で罰せられる。ある店舗の増分が他店の減少から来ているだけなら全体のパイは大きくならないので、この制約がそうした見かけの増分を抑える。論文はこれを、店舗の組をすべて明示的にモデル化しなくても、代替関係を暗に学べる仕組みとして説明している。</p>
+    <p>推論では他店を足し合わせない。Platform head の出力を、対象の店舗 \(s_j\) に処置ありとなしの 2 通りで計算し、その差 \(\Delta_{\text{platform}}(u,s_j) = p_{\text{treat}} - p_{\text{control}}\) を全体への限界的な増分の近似として使う。店舗をこの値で並べ、上位 \(K\) 件にクーポンを配る（付録 C）。論文は、これは他店の結果が変わらないと仮定するものではなく、他店への影響は全体の損失で学んだパラメータと利用者・店舗の表現に暗に取り込まれている、と述べている。</p>
+  </section>
+
+  <section id="rdd">
+    <div class="kicker">手法 2：RDD</div>
+    <h2>処置群の結果を、クーポンを使った購入と使わなかった購入の 2 つの経路に分けて予測する</h2>
+    <p>Redemption-based Decomposition Denoising（RDD）は、利用者と候補店舗の組ごとに、使用確率 \(p_r = p(r{=}1\mid z_{u,s_i})\) を Redem Net で予測する。処置側は使った経路と使わなかった経路それぞれの GMV の増分を、対照側はクーポンなしの GMV を出す。店舗単位の GMV の予測は全期待値の法則にしたがって次の混合として組み立てる。</p>
+    <div class="eq">\[ \widehat{GMV}_{u,s_i} = pGMV_c + p_r\cdot p\Delta GMV_r + (1-p_r)\cdot p\Delta GMV_{1-r} \]</div>
+    <p>こうすると、クーポンを使わない購入が、使った購入と同じ増分のパターンを共有させられずに済む。使用の予測を補助タスクとして足すだけとは違い、使用を処置群の結果の経路そのものに組み込む。論文はこれを Entire-Space モデリング（ESMM）の考え方に沿うものと位置づけている。</p>
+    <p>どの部分も同じ表現の上に載る。利用者の行動系列、クーポンの受け取り・使用の履歴などを Transformer で符号化し、候補（店舗とクーポンの属性の組）をクエリにした Treat-Attention で、候補ごとの表現 \(z_{u,c}\) を作る。GMV はゼロが多く裾が長いので、GMV に関わる出力にはすべて Tweedie 損失（\(1 &lt; p &lt; 2\)）を使い、使用の予測には交差エントロピーを使う。全体の損失は次の通りで、実験では \(\lambda_{\text{pla}} = \lambda_{\text{redem}} = 1\) とした。</p>
+    <div class="eq">\[ \mathcal L_{\text{total}} = \mathcal L_{\text{seller}} + \lambda_{\text{pla}}\,\mathcal L_{\text{pla}} + \lambda_{\text{redem}}\,\mathcal L_{\text{redem}} \]</div>
+    <figure>
+      <img src="assets/fig2_framework.png" alt="Architecture of CanniUplift. Left: the Platform-level Global Alignment module, whose per-seller platform-view predictions are summed and matched to the user's platform GMV. Middle: the Redemption-based Decomposition Denoising module, with a Redem head predicting redemption probability and two heads for the redemption and non-redemption GMV increments. Right: the base method, a seller-view uplift and control network. Bottom: shared encoders with treat-attention and self-attention over treatment redemption, treatment, seller candidate and treatment candidate sequences." loading="lazy">
+      <figcaption>図2　CanniUplift の構成。左が PGA、中央が RDD、右がベースにした店舗単位のアップリフト学習で、下の共有エンコーダと Treat-Attention の上に載る（論文 Fig. 2。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>実データと、同じカテゴリの店舗に重ねて触れるほど効果が減る合成データで、店舗単位と利用者単位の AUUC・QINI を比べた</h2>
+    <p><b>実データ</b>は大規模な EC システムのオンラインのログで、上で触れた約 35% の過大推定と約 25% の「使わない購入」を含む。クーポンの額面が複数あるため、額面を区間に分けて区間ごとに AUUC・QINI を計算し、標本数で重みづけした wAUUC・wQINI を使う。データの規模や期間は本文に書かれていない。</p>
+    <p><b>合成データ</b>は利用者 20,000 人、店舗 500,000 店で、各利用者に 50 店を割り当てる。処置は利用者単位で確率 0.5 の無作為割付とし、利用者の 50 店すべてが同じ処置を受け継ぐ。店舗のカテゴリを 10 の区分にまとめ、利用者に割り当てた店舗の列で、同じ区分の店舗がそれより前に多く出ているほどアップリフトを減らす（減らす幅は元のアップリフトの絶対値の 50% まで）。複数のクーポンの相互作用は再現が難しいため、合成データでは店舗間のカニバリゼーションだけを扱い、RDD の効果は実データのアブレーションで確かめる。</p>
+    <p>評価は 2 つの粒度で行う。店舗単位は利用者と店舗の組ごとのアップリフトの並びを、利用者単位は利用者ごとに候補店舗の予測を足し合わせてからの並びを評価し、後者はプラットフォーム全体の増分が大きい利用者を見分けられるかを表す。比較相手は DragonNet、CFRNet、TARNet、T-Learner、EUEN、X-net、M3TN、UMLC、HUM で、ハイパーパラメータは Optuna で 40 回探索した。</p>
+    <p class="src">このページの数値は arXiv v1（2026 年 7 月 6 日。KDD 2026 の出版情報と DOI が入った版）の本文と表による。ACM の出版版（会議録 V.2、pp. 7367–7378）の本文とは照合していない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果 1</div>
+    <h2>提案法は両データのすべての指標で最も高く、PGA は利用者単位の AUUC を特に大きく上げた</h2>
+    <p>実データでは、Control Net を切り離した T-Learner と EUEN が、ネットワークを共有する DragonNet・CFRNet・TARNet より高かった。論文は、処置に関わる特徴が多いこの場面では、対照側の予測からその情報を切り離す必要があり、EUEN と T-Learner の構造はそれがしやすいためだと説明している。提案法は、実データでは EUEN に PGA と RDD を加えたもの、合成データでは店舗間のカニバリゼーションだけを模しているので EUEN に PGA を加えたものである（表1）。</p>
+    <div class="tbl">
+      <table>
+        <thead>
+          <tr><th rowspan="2">手法</th><th colspan="4">実データ（重みつき）</th><th colspan="4">合成データ</th></tr>
+          <tr><th>店舗 AUUC</th><th>店舗 QINI</th><th>利用者 AUUC</th><th>利用者 QINI</th><th>店舗 AUUC</th><th>店舗 QINI</th><th>利用者 AUUC</th><th>利用者 QINI</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DragonNet</td><td>0.650</td><td>0.248</td><td>0.705</td><td>0.238</td><td>1.0475</td><td>0.5432</td><td>0.9438</td><td>0.4430</td></tr>
+          <tr><td>CFRNet</td><td>0.694</td><td>0.261</td><td>0.748</td><td>0.276</td><td>1.0084</td><td>0.4966</td><td>0.9960</td><td>0.4839</td></tr>
+          <tr><td>TARNet</td><td>0.729</td><td>0.284</td><td>0.771</td><td>0.294</td><td>1.0074</td><td>0.5030</td><td>1.1052</td><td>0.5972</td></tr>
+          <tr><td>T-Learner</td><td>0.730</td><td>0.289</td><td>0.782</td><td>0.301</td><td>0.8308</td><td>0.3305</td><td>0.9548</td><td>0.4512</td></tr>
+          <tr class="base"><td>EUEN</td><td class="u">0.744</td><td class="u">0.297</td><td class="u">0.794</td><td class="u">0.319</td><td>1.0940</td><td>0.5837</td><td class="u">1.1245</td><td class="u">0.6024</td></tr>
+          <tr><td>X-net</td><td>0.713</td><td>0.273</td><td>0.786</td><td>0.307</td><td>1.0612</td><td>0.5589</td><td>0.9481</td><td>0.4553</td></tr>
+          <tr><td>M3TN</td><td>0.709</td><td>0.281</td><td>0.775</td><td>0.313</td><td class="u">1.1382</td><td class="u">0.6273</td><td>0.9714</td><td>0.4591</td></tr>
+          <tr><td>UMLC</td><td>0.681</td><td>0.255</td><td>0.742</td><td>0.271</td><td>1.0291</td><td>0.5263</td><td>0.9165</td><td>0.4238</td></tr>
+          <tr><td>HUM</td><td>0.701</td><td>0.266</td><td>0.759</td><td>0.289</td><td>0.9714</td><td>0.4728</td><td>0.9612</td><td>0.4613</td></tr>
+          <tr class="ours"><td>提案法</td><td>0.769</td><td>0.314</td><td>0.849</td><td>0.348</td><td>1.1596</td><td>0.6380</td><td>1.1474</td><td>0.6237</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　論文 Table 1 の数値。下線は提案法を除いた最良。<span class="A">橙</span>はベースにした EUEN、<span class="B">青</span>は提案法。標準誤差や試行回数は報告されていない。</p>
+    <p>実データのアブレーション（表2）では、PGA を加えると利用者単位の AUUC が 0.794 から 0.826 に上がった。RDD は使用のラベルを教師に使うので、使用の予測を補助タスクとして足すだけの「+Redem」も比べている。同じラベルを使っても RDD は +Redem をすべての指標で上回り、経路に分ける構造そのものに効果があると論文は述べる。PGA と RDD を両方加えたものが最も高かった。論文は、PGA は利用者を全体の増分の大きさで並べる力を上げ、RDD は特に QINI（累積の純増分）で過大な帰属を減らす、という補い合う効果として解釈している。</p>
+    <div class="tbl">
+      <table>
+        <thead>
+          <tr><th>指標</th><th>EUEN</th><th>+PGA</th><th>+Redem</th><th>+RDD</th><th>提案法（+PGA +RDD）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>店舗 AUUC</td><td>0.744</td><td>0.751</td><td>0.749</td><td>0.757</td><td class="b">0.769</td></tr>
+          <tr><td>店舗 QINI</td><td>0.297</td><td>0.302</td><td>0.299</td><td>0.308</td><td class="b">0.314</td></tr>
+          <tr><td>利用者 AUUC</td><td>0.794</td><td>0.826</td><td>0.803</td><td>0.818</td><td class="b">0.849</td></tr>
+          <tr><td>利用者 QINI</td><td>0.319</td><td>0.337</td><td>0.326</td><td>0.332</td><td class="b">0.348</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表2　実データでのアブレーション（論文 Table 2 の数値）。</p>
+  </section>
+
+  <section id="analysis">
+    <div class="kicker">実験の結果 2</div>
+    <h2>推定したカニバリゼーション率は同じカテゴリの店舗を多く訪れた利用者ほど高く、RDD はクーポンを使わずに買った利用者の予測アップリフトを下げた</h2>
+    <p>店舗単位の増分の予測 \(p_{\text{seller}}\) と全体の増分の予測 \(p_{\text{platform}}\) から、個人ごとのカニバリゼーション率を \(g = (p_{\text{seller}} - p_{\text{platform}})/p_{\text{seller}}\) と定義する。個人の真の値は分からないので、論文は過去 10 日のクリック系列から、カニバリゼーションが起きやすいと考えられる 2 つの特徴との関係を見た（図3）。同じカテゴリの店舗を訪れた数が多い利用者ほど、また最近見た同じカテゴリの商品が今の商品より高い利用者ほど、推定した \(g\) は単調に高かった。論文はこれを、PGA が店舗間のカニバリゼーションの信号を捉えている裏づけとしている。</p>
+    <figure>
+      <img src="assets/fig3_cannibalization_rate.png" alt="Estimated cannibalization rate on the horizontal axis against two binned behavioural features. Blue circles: the price ratio of recently viewed similar items to the current item, in bins from 0.2-0.5 to 1.6-3.0. Orange squares: the number of similar sellers visited recently, in bins from 0-2 to 25-50. Both curves rise monotonically." loading="lazy">
+      <figcaption>図3　推定したカニバリゼーション率 \(g\)（横軸）と、利用者の行動の特徴（縦軸、区間）。丸は最近見た同じカテゴリの商品と今の商品の価格比、四角は最近訪れた同じカテゴリの店舗の数（論文 Fig. 3。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>RDD については利用者を使用の有無で分け、平均の予測アップリフトを比べた（図4）。クーポンを使わずに買った利用者（\(r=0\)）では、RDD なしのモデルが 3.435、RDD ありが 3.192 で、RDD なしは 7.6% 高く見積もっていた。使って買った利用者（\(r=1\)）では両者の予測はほぼ一致した。論文は、\(r=0\) の群にはもともと買う気の強い利用者や、より額の大きいクーポンに動かされた利用者が含まれ、RDD なしのモデルは使われなかったクーポンに増分を帰属させすぎていると解釈している。</p>
+    <figure>
+      <img src="assets/fig4_rdd_uplift.png" alt="Bar chart of average predicted GMV uplift, with a broken vertical axis. For users who converted without redemption (r=0), the model without RDD predicts 3.435 and the model with RDD predicts 3.192, a gap labelled incentive cannibalization. For users who converted with redemption (r=1), the two predictions are close." loading="lazy">
+      <figcaption>図4　使用の有無で分けた平均の予測アップリフト。紫が RDD なし、水色が RDD あり。縦軸は途中を省略している（論文 Fig. 4）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="online">
+    <div class="kicker">実験の結果 3</div>
+    <h2>8 日間のオンライン A/B テストで、販促費が 2.45% 減り、プラットフォーム全体の ΔGMV は 4.08% 増えた</h2>
+    <p>2025 年 10 月 5 日から 12 日まで、本番のモデルと比べる A/B テストを行った。ROI は処置群の対照群に対する GMV の増分を費用で割った \(\mathrm{ROI} = \Delta\mathrm{GMV}/\mathrm{Cost}\) と定義する。提案法は販促費を 2.45% 減らし、プラットフォーム全体の ΔGMV を 4.08% 増やし、ROI を 6.69% 上げた（Table 3）。本文には、各群の規模、本番のモデルの構成、差の信頼区間や検定は書かれていない。</p>
+    <p>論文は限界として、販促が将来の購入を前倒しさせる時間方向のカニバリゼーションは扱っていないこと、過去の行動に頼るためリアルタイムの代替を捉えるのが遅れることを挙げている。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算の配分そのものは扱わず、配分の順位づけに使う増分を店舗単位からプラットフォーム全体の純増分に置き換える</h2>
+    <ul class="def">
+      <li><b>推定するもの</b>　店舗ごとのクーポンによる GMV の増分と、それがプラットフォーム全体の GMV をどれだけ動かすか（Platform head の処置ありとなしの差 \(\Delta_{\text{platform}}\)）。結果は GMV で、クーポンの使用確率も同時に予測する。</li>
+      <li><b>コストの扱い</b>　モデルには入らない。オンライン評価で販促費と \(\mathrm{ROI} = \Delta\mathrm{GMV}/\mathrm{Cost}\) を報告するだけである。</li>
+      <li><b>処置の種類</b>　店舗ごとのクーポンの有無。額面、利用条件の金額、割引の種類、有効期限などは候補の特徴として表現に入り、実データの評価では額面を区間に分ける。</li>
+      <li><b>予算制約</b>　明示的な予算制約や配分の最適化はない。推論では \(\Delta_{\text{platform}}\) で店舗を並べて上位 \(K\) 件に配るとだけ書かれ、\(K\) の決め方は述べられていない。</li>
+      <li><b>データ</b>　実データは EC のオンラインのログ（割付が無作為かどうかは本文に書かれていない）。合成データは利用者単位の無作為割付。</li>
+    </ul>
+    <p>予算つきの割当てとの関係を補足しておく（解説者の注）。予算のもとで効果の大きい順、あるいは費用あたりの効果（ROI）の高い順に配るとき、並べるスコアの分子が<span class="A">店舗の見かけの増分</span>だと、他店から移しただけの売上や、クーポンなしでも起きた購入まで効果として数え、その分だけ予算を配ってしまう。この論文が直すのはその分子で、<span class="B">プラットフォーム全体の純増分</span>を推定値として渡す。予算をどう配るか（しきい値やナップザック型の最適化）は論文の範囲外で、論文自身もこの対応には触れていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{he2026canniuplift,
+  title     = {CanniUplift: A Holistic Framework for Mitigating Seller and Incentive Cannibalization in E-commerce Uplift Modeling},
+  author    = {He, Zuwang and Shu, Shihao and Qu, Yuli and Gao, Hanyu and Zhang, Ziliang and Chen, Diwei and Yan, Xiangda and Gao, Buyu and Zhu, Tanchao and Li, Yumeng and Zhu, Junxiong},
+  booktitle = {Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.2},
+  pages     = {7367--7378},
+  year      = {2026},
+  publisher = {ACM},
+  doi       = {10.1145/3770855.3818334}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

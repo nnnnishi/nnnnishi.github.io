@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>供給に限りがあるときのオフ方策学習（論文解説）</title>
+<meta name="description" content="Off-Policy Learning with Limited Supply（WWW 2026）の非公式の解説。クーポンや商品の在庫に限りがあるとき、期待報酬から品目ごとの平均を引いた相対的な報酬差で選ぶ OPLS。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the conventional greedy rule on the absolute expected reward q(x,a)
+            --b  (blue)   = the relative reward gap q(x,a) - E_x[q(x,a)] and the paper's method OPLS
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* ---------- example tables (coupon example, Tables 1-2 of the paper) ---------- */
+.extab { display: flex; flex-wrap: wrap; gap: 1.25rem 2rem; align-items: flex-start; max-width: var(--wide); border: 1px solid var(--hair); border-radius: 12px; padding: 1rem 1.1rem; }
+table.ex { border-collapse: collapse; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+table.ex caption { caption-side: top; text-align: left; font-weight: 600; font-size: 0.9rem; padding-bottom: 0.4rem; }
+table.ex th, table.ex td { padding: 0.3rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+table.ex th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
+table.ex th:first-child, table.ex td:first-child { text-align: left; }
+table.ex tr.mean td { color: var(--muted); border-top: 1.5px solid var(--ink); }
+table.ex td.pa { color: var(--a); font-weight: 650; }
+table.ex td.pb { color: var(--b); font-weight: 650; background: var(--b-soft); }
+@media (max-width: 760px) { .extab { padding: 0.8rem; } table.ex th, table.ex td { padding: 0.3rem 0.45rem; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">WWW 2026 · ACM</div>
+  <h1>Off-Policy Learning with Limited Supply</h1>
+  <p class="subtitle">供給に限りがあるときのオフ方策学習</p>
+
+  <ul class="authors">
+    <li><b>Koichi Tanaka</b><span>Keio University</span></li>
+    <li><b>Ren Kishimoto</b><span>Institute of Science Tokyo</span></li>
+    <li><b>Bushun Kawagishi</b><span>Meiji University</span></li>
+    <li><b>Yusuke Narita</b><span>Yale University</span></li>
+    <li><b>Yasuo Yamamoto</b><span>LY Corporation</span></li>
+    <li><b>Nobuyuki Shimizu</b><span>LY Corporation</span></li>
+    <li><b>Yuta Saito</b><span>Hanjuku-kaso, Co., Ltd.</span></li>
+  </ul>
+
+  <p class="lead">クーポンの発行枚数や商品の在庫に限りがあると、来た人ごとに<span class="A">期待報酬が最大の品目</span>を選ぶ従来のオフ方策学習は最適でなくなる。その品目を先に使い切り、後から来るもっと報酬の大きい人に回せなくなるからである。この論文は在庫つきのオフ方策学習を定式化し、品目ごとに全利用者の平均を引いた<span class="B">相対的な報酬差</span>で選ぶ OPLS を提案する。合成データと KuaiRec で、貪欲な方法より方策価値が高いことを示した。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3774904.3792181">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2603.18702">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。論文のクーポンの例で、貪欲法が到着順によって合計 300 から 540 になり平均 420 になること、平均を引いた相対的な報酬差で選ぶとどの到着順でも 540 になること、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（数値は論文の Table 1・2 と付録 A の例）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">540 対 420</span><span class="d">3 人と 1 枚ずつの 3 種類のクーポンの例での方策価値。OPLS はどの到着順でも最適な 540 に達し、貪欲法は到着順の平均で 420（Table 1・2）。</span></li>
+    <li><span class="k">平均を引くだけ</span><span class="d">期待報酬のモデル \(\hat q\) は貪欲法と同じものを使い、品目ごとの平均を引くだけなので、追加の計算はほとんどない。</span></li>
+    <li><span class="k">好みがそろうほど改善が大きい</span><span class="d">合成データでは、全員の好みの順序がそろっているほど、また期待報酬の高い品目の在庫が少ないほど、貪欲法に対する改善が大きかった（Fig. 4）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>在庫に限りがあると、来た人ごとに期待報酬が最大の品目を配る貪欲法は、後から来る人に回すべき在庫を先に使い切ってしまう</h2>
+    <p>推薦や広告では、利用者の特徴（文脈）を見て品目を選び、クリックや購入などの報酬を得る。これを文脈付きバンディットとして扱い、過去のログだけから方策を学ぶのがオフ方策学習（OPL）である。通常の OPL は同じ品目を何度でも選べると仮定している。しかしクーポンには配布の予算があり、商品には在庫がある。</p>
+    <p>論文は次の例を挙げる（下の表）。30%・50%・70% 引きのクーポンが 1 枚ずつあり、3 人の利用者 \(x_1, x_2, x_3\) が 1 回ずつ順に来る。どの利用者でも期待報酬は 50% 引き、70% 引き、30% 引きの順に大きいので、残りの中から期待報酬が最大のものを配る<span class="A">貪欲法</span>は、来た順に 50%、70%、30% 引きを配る。合計は到着順によって 300 から 540 まで変わり、6 通りの到着順が等しい確率で起こるとすると平均は 420 になる。一方、\(x_1\) に 70% 引き、\(x_2\) に 50% 引き、\(x_3\) に 30% 引きを配れば、到着順によらず 540 になる。</p>
+    <figure>
+      <div class="extab">
+        <table class="ex">
+          <caption>期待報酬 \(q(x,a)\)</caption>
+          <thead><tr><th></th><th>30% 引き</th><th>50% 引き</th><th>70% 引き</th></tr></thead>
+          <tbody>
+            <tr><td>\(x_1\)</td><td>80</td><td class="pa">250</td><td class="pb">200</td></tr>
+            <tr><td>\(x_2\)</td><td>100</td><td class="pb">280</td><td>120</td></tr>
+            <tr><td>\(x_3\)</td><td class="pb">60</td><td>100</td><td>70</td></tr>
+            <tr class="mean"><td>平均</td><td>80</td><td>210</td><td>130</td></tr>
+          </tbody>
+        </table>
+        <table class="ex">
+          <caption>相対的な報酬差 \(q(x,a) - \mathbb{E}[q(x,a)]\)</caption>
+          <thead><tr><th></th><th>30% 引き</th><th>50% 引き</th><th>70% 引き</th></tr></thead>
+          <tbody>
+            <tr><td>\(x_1\)</td><td>0</td><td>40</td><td class="pb">70</td></tr>
+            <tr><td>\(x_2\)</td><td>20</td><td class="pb">70</td><td>−10</td></tr>
+            <tr><td>\(x_3\)</td><td class="pb">−20</td><td>−110</td><td>−60</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption>図1　論文のクーポンの例（Table 1・2 の数値）。<span class="B">青</span>は最適な割当てで、相対的な報酬差が各行で最大のクーポンと一致する。<span class="A">橙</span>は、\(x_1\) が最初に来たときに貪欲法が配る 50% 引き。平均の行は解説者が Table 2 の括弧内の値から書き出した。</figcaption>
+    </figure>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">問題設定</div>
+    <h2>在庫の残り方で選べる品目が変わる逐次の推薦を、ログだけから学ぶ問題として定式化した</h2>
+    <p>期間 \(T\) の間、利用者が 1 人ずつ来るたびに品目を一つ選ぶ。時点 \(t\) の在庫を、品目 \(a\) ごとの在庫数 \(s_t^a\) を並べたベクトル \(s_t\) で表す。在庫を消費したかどうかを表す二値の信号 \(c\in\{0,1\}\) も導入する。EC なら購入されたとき、クーポンなら配布したときに \(c = 1\) になる。在庫は次のように決定的に減る。</p>
+    <div class="eq">\[ s_t^a = s_1^a - \sum_{t' < t} c_{t'}\,\mathbb{I}\{a_{t'} = a\} \]</div>
+    <p>方策は文脈と現在の在庫の両方を見て \(\pi(a\mid x, s)\) で品目を選ぶ。ログは記録用の方策 \(\pi_0\) のもとで集めた \((x, a, c, r, s)\) の系列で、報酬は在庫を消費したとき（\(c = 1\)）にだけ得られるとする。方策価値は \(\sum_t c_t r_t\) の期待値で、\(c\) が二値で在庫の遷移が決定的なことから次のように書ける。</p>
+    <div class="eq">\[ V(\pi) = \sum_{t=1}^{T} \mathbb{E}_{p(s_1)\,p(x_t)\,\pi(a_t\mid x_t, s_t)}\big[\, q(x_t, a_t) \,\big],\qquad q(x,a) := \mathbb{E}[\,c\cdot r \mid x, a\,] \]</div>
+    <p>在庫の制約がない通常の OPL との違いは、方策が在庫 \(s_t\) に依存する点にある。この設定を扱う既存手法はないので、論文はまず標準的なモデルベースの手法を拡張した<span class="A">貪欲法</span>を比較の基準にする。期待報酬のモデル \(\hat q\) を学び、在庫が残っている品目の集合 \(\mathcal A_{s_t} = \{a : s_t^a > 0\}\) から \(\hat q(x_t, a)\) が最大の品目を選ぶ方法である。真の \(q\) が分かれば、在庫の制約がないときはこれが最適な方策になる。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>在庫が 1 個ずつで全員の好みの順序が同じなら、貪欲法と同等以上の方策が必ずあり、その差は相対的な報酬差で下から抑えられる</h2>
+    <p><b>定理 1</b>　利用者 \(x_1,\dots,x_J\) と品目 \(a_1,\dots,a_K\) があり、各品目の在庫は 1 個とする。すべての \(j, k\) で \(q(x_j, a_k)\ge q(x_j, a_{k+1})\)（全員が \(a_1\) を最も好む同じ順序）とする。このとき、任意の利用者 \(x_j\) と品目 \(a_k\) について次が成り立つ。</p>
+    <div class="eq">\[ V(\pi^\ast) - V(\textcolor{#C2410C}{\pi_{\mathrm{greedy}}}) \;\ge\; p(x_j)\Big\{ \textcolor{#1D4ED8}{\big(q(x_j,a_k) - \mathbb{E}_{p(x)}[q(x,a_k)]\big)} - \big(q(x_j,a_1) - \mathbb{E}_{p(x)}[q(x,a_1)]\big) \Big\} \]</div>
+    <p>証明では、全員の好みの順序が同じなので貪欲法は誰が来ても \(a_1, a_2, \dots\) の順に配ることから、その価値を \(V(\pi_{\mathrm{greedy}}) = \sum_k \mathbb{E}_{p(x)}[q(x,a_k)]\) と求める。そのうえで、時点 1 に来たのが \(x_j\) のときだけ \(a_k\) を配り、あとは貪欲法に従う方策 \(\pi_{j,k}\) と比べる。\(k = 1\) とおくと右辺は 0 になるので、貪欲法と同等以上の方策が必ず存在する。</p>
+    <p>右辺を大きくするには、\(q(x_j, a_k) - \mathbb{E}_{p(x)}[q(x, a_k)]\)、つまりその品目の期待報酬がほかの利用者と比べてどれだけ高いかを表す量が大きい品目を選べばよい。これが提案法の出発点になる。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>OPLS は期待報酬からその品目の全利用者での平均を引いた「相対的な報酬差」が最大の品目を選ぶ</h2>
+    <p>Off-Policy Learning with Limited Supply（OPLS）は、在庫が残っている品目の中から、次の<span class="B">相対的な報酬差</span>が最大の品目を選ぶ。和はログに含まれる \(n\) 件の文脈 \(x_i\) についてとる。</p>
+    <div class="eq">\[ \textcolor{#1D4ED8}{\pi_{\mathrm{OPLS}}}(x_t, s_t) = \arg\max_{a\in\mathcal A_{s_t}} \Big\{ \hat q(x_t, a) - \frac{1}{n}\sum_{i=1}^{n} \hat q(x_i, a) \Big\} \]</div>
+    <p>ほかの利用者と比べて期待報酬が特に高い利用者に、その品目を回すという考え方である。クーポンの例では、各クーポンの平均は 30% 引きが 80、50% 引きが 210、70% 引きが 130 になる。平均を引いた値で選ぶと、どの順に来ても最適な割当てと同じになり、方策価値は 540 になる（図1）。</p>
+    <p>必要なのは \(\hat q\) の推定だけで、貪欲法と同じモデルを使える。付録では、平均の項に重み \(\beta\in[0,1]\) をかけて、個々の利用者にとっての最適と全体での最適の間を調整する拡張も示している。論文はこれを利用者間の公平性への拡張として述べ、詳しい扱いは範囲外としている。</p>
+  </section>
+
+  <section id="mixed">
+    <div class="kicker">拡張</div>
+    <h2>売り切れる品目は相対的な報酬差で、余る品目は期待報酬そのもので候補を選び、二つの候補のうち期待報酬の大きいほうを配る</h2>
+    <p>実際には、品目ごとに需要と在庫の釣り合いが違う。EC では人気の品目は在庫が足りず、ロングテールの品目は在庫が余りがちである。クーポンでも、割引率の高いものは費用のために少ししか発行せず、低いものは大量に配る。そこで論文は期間の終わり \(T\) までに売り切れる品目の集合 \(\mathcal A_{\mathrm{sold}}\) と、売れ残る品目の集合 \(\mathcal A_{\mathrm{unsold}}\) に分ける。</p>
+    <ul class="def">
+      <li><b>売り切れる品目</b>　在庫が残っているものの中から、相対的な報酬差 \(\hat q(x_t,a) - \frac1n\sum_i \hat q(x_i,a)\) が最大の品目を候補にする。</li>
+      <li><b>売れ残る品目</b>　在庫が残っているものの中から、期待報酬 \(\hat q(x_t,a)\) が最大の品目を候補にする。</li>
+      <li><b>最終的な選択</b>　二つの候補のうち、\(\hat q(x_t,a)\) が大きいほうを選ぶ。</li>
+    </ul>
+    <p>在庫が十分にあればすべての品目が売れ残る側に入り、OPLS は貪欲法と同じ選び方になる。どの品目が売り切れるかは、方策が在庫に応じて変わるため、品目数や期間が大きいと厳密には計算できない。論文は各時点で全品目を一様に選ぶと仮定して期末の在庫を見積もる簡易な近似も示し、付録の実験でこの近似でも貪欲法を上回ったと報告している。</p>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>合成データでは真の期待報酬を使い、好みのそろい方、利用者数、推定誤差、在庫の多さを変えて貪欲法と比べた</h2>
+    <p>利用者は 200 人で、文脈は標準正規分布からとった 10 次元のベクトルである。消費の確率 \(q_c(x,a)\) と報酬の平均 \(q_r(x,a)\) を、利用者ごとに違う部分 \(f\) と、全員で同じ順序になる部分 \(g\)（\(g(x,a_k)\ge g(x,a_{k+1})\)）の重み \(\lambda\) の混合で作る。\(\lambda = 0\) なら全員の好みの順序が同じになる。消費の信号 \(c\) は平均 \(q_c\) の二項分布から、報酬 \(r\) は平均 \(q_r\)・標準偏差 3.0 の正規分布からとる。記録用の方策は \(\beta\cdot q\) のソフトマックスで、\(\beta = -1.0\) とする。</p>
+    <p>初期在庫は最大値 \(s_{\max}\) を基準に 3 通りで決める。期待報酬の平均に比例させる「比例」、期待報酬の高い品目ほど在庫を少なくする「反比例」、1 から \(s_{\max}\) の一様乱数で決める「ランダム」である。特に断らない限り、品目数 \(|\mathcal A| = 100\)、\(\lambda = 0.5\)、\(s_{\max} = 20\) で、100 シードで実験する。在庫の多さを変える実験（図5）以外は、期間 \(T\) を十分長くとり、すべての品目が売り切れるようにしている。</p>
+    <p>比較相手は貪欲法だけで、評価には相対的な方策価値 \(V(\pi_{\mathrm{OPLS}})/V(\pi_{\mathrm{greedy}})\) を使う。推定誤差を変える実験以外では、両手法とも真の期待報酬を使う。在庫の制約がなければ、真の期待報酬を使う貪欲法は最適な方策になる。論文はこの条件で比べる理由として、OPLS がその貪欲法をさらに改善できることを示すためと、在庫の制約が性能を大きく左右する状況を見きわめるためを挙げている。</p>
+    <p class="src">このページの数値と図は arXiv v4（2026 年 5 月 17 日、ACM の書式で WWW 2026 の DOI を記載）による。ACM の出版版（DOI 10.1145/3774904.3792181）の本文は自動取得できなかったため、照合していない。</p>
+  </section>
+
+  <section id="behavior">
+    <div class="kicker">実験の結果 1</div>
+    <h2>小さな例では、貪欲法は最後には全員にほぼ均等に配り、OPLS は品目ごとに特定の利用者へ集中して配った</h2>
+    <p>利用者 3 人、品目 5 個、初期在庫はランダム、\(\lambda = 0\) の小さな実験である。論文の Table 3 の期待報酬では、全員にとって番号の大きい品目ほど期待報酬が高い。貪欲法は、はじめは期待報酬の高い品目から配るので、序盤の方策価値は OPLS より高い。しかし最後にはどの品目も 3 人にほぼ均等に配る（図2）。OPLS は品目ごとに特定の利用者へ集中して配り、論文によれば \(a_5\) の約 80% を \(x_1\) に配った（図3）。最終的な方策価値は OPLS が貪欲法を上回った（論文 Fig. 1）。</p>
+    <p>Table 3 の値から品目ごとの平均を引くと（解説者の計算）、相対的な報酬差が最大になる品目は \(x_1\) では \(a_5\)、\(x_2\) では \(a_3\)、\(x_3\) では \(a_2\) で、図3 で濃く塗られたマスと一致する。</p>
+    <figure>
+      <img src="assets/fig2_allocation_greedy.png" alt="Heatmaps of the share of each item's supply allocated to each of three users at time steps 10, 30 and 60 under the greedy method. By step 60 every item is spread roughly evenly across the three users." loading="lazy">
+      <figcaption>図2　貪欲法の割当て（論文 Fig. 2）。左から時点 10、30、60。縦が利用者、横が品目で、各マスは品目の在庫のうちその利用者に配った割合。</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/fig3_allocation_opls.png" alt="The same heatmaps under OPLS. Item 5 goes mostly to user 1, item 3 to user 2 and item 2 to user 3." loading="lazy">
+      <figcaption>図3　OPLS の割当て（論文 Fig. 3）。図中の青の濃さは割合を表し、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">実験の結果 2</div>
+    <h2>好みがそろうほど、利用者が多いほど OPLS の改善は大きく、推定誤差が大きいと改善は小さくなり、在庫が十分なら貪欲法と同等になった</h2>
+    <p><b>好みのそろい方</b>　どの \(\lambda\) でも OPLS が貪欲法を上回り、\(\lambda\) が小さい（好みがそろっている）ほど改善が大きかった（図4 左）。全員が同じ品目を好むと、貪欲法はその品目を全員に均等に配ってしまう。OPLS は、その品目で期待報酬が特に高い利用者に選んで配る。初期在庫の決め方の中では反比例のときに改善が大きく、論文は、期待報酬の高い品目が少ないときほど、その少ない品目を効果的に配る必要があると説明している。</p>
+    <p><b>利用者数</b>　品目数を 100 に固定して利用者を増やすと、相対的な方策価値は次第に大きくなった（図4 中央）。利用者が増えるほど期待報酬の高い品目が相対的に不足するためである。</p>
+    <p><b>推定誤差</b>　両手法に \(\hat q = q + \mathcal N(0,\sigma)\) を使うと、誤差が大きくなるにつれて改善は小さくなった（図4 右）。論文は期待報酬がある程度正確に推定できれば大きな改善が得られると述べている。</p>
+    <p><b>在庫の多さ</b>　\(s_{\max}\) を 5 から 30 まで増やすと、売れ残る品目の割合はおよそ 0%、5%、30%、40%、50% と変わった（図5）。改善は \(s_{\max}\) が小さいときに大きく、在庫が十分なときは貪欲法と同等の性能だった。付録の記述から、この実験は売り切れる品目と余る品目を分ける拡張版によるものと読める（解説者の解釈）。</p>
+    <figure>
+      <img src="assets/fig4_synthetic.png" alt="Three line charts of the relative policy value of OPLS over greedy for random, proportional and inverse-proportional initial supply. Left: the value decreases as lambda grows from 0 to 1 and stays above 1. Middle: it rises as the number of users grows from 1 to 256. Right: it falls toward 1 as the estimation noise grows from 0 to 5." loading="lazy">
+      <figcaption>図4　相対的な方策価値 \(V(\pi_{\mathrm{OPLS}})/V(\pi_{\mathrm{greedy}})\)。左から、好みのそろい方 \(\lambda\)、利用者数、推定誤差を変えたもの。赤がランダム、青が比例、紫が反比例の初期在庫（論文 Fig. 4。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/fig5_max_supply.png" alt="Relative policy value against the maximum supply from 5 to 30. The values are largest for small supply and approach 1 as supply grows." loading="lazy" style="max-width: 32rem">
+      <figcaption>図5　最大在庫 \(s_{\max}\) を変えたときの相対的な方策価値（論文 Fig. 5）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="kuairec">
+    <div class="kicker">実験の結果 3</div>
+    <h2>KuaiRec に人工の在庫を割り当てた実験でも、ニューラルネットで推定した期待報酬を使った OPLS が貪欲法を上回った</h2>
+    <p>KuaiRec は動画共有アプリ Kuaishou の推薦ログで、1,411 人と 3,327 本の動画からなる部分集合では、利用者と動画の組のほぼ 100% で反応が観測されている。論文はそこから 1,000 人と 1,000 本をとり、観測された反応を報酬の平均 \(q_r\) とし、消費の確率は \(q_c = 1\) とした。利用者の特徴量は PCA で次元を減らして文脈にする。在庫の情報はないので、合成データと同じ方法で人工の在庫を割り当てる。記録用の方策は \(\beta = 1.0\) のソフトマックスで、期待報酬は 3 層のニューラルネットでログから推定する。</p>
+    <p>品目数を 1,000 に固定して利用者数を変えると、どの利用者数でも OPLS が貪欲法を上回った（図6 左）。人工的に誤差を加えた期待報酬を使うと、どの誤差の大きさでも OPLS が上回り、誤差が小さい範囲では誤差とともに相対的な方策価値が大きくなった（図6 右）。論文はこれを、OPLS が貪欲法より推定誤差に頑健でありうることを示すものとしている。</p>
+    <p>論文は、この設定は研究のためのシミュレーションだと断っている。そのうえで、人気動画の露出しすぎを抑える、カテゴリの多様性を保つ、新しい動画に最初の露出を保証する、といった露出の制約は実際の動画推薦にも関わりうると述べている。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig6_kuairec_users.png" alt="KuaiRec: relative policy value against the number of users from 16 to 1024, using the estimated expected reward. All three supply settings stay above 1." loading="lazy">
+        <figcaption>図6 左　利用者数を変えたときの相対的な方策価値。期待報酬はニューラルネットによる推定値（論文 Fig. 6a）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig6_kuairec_noise.png" alt="KuaiRec: relative policy value against the estimation noise from 0 to 5. All curves stay above 1; they first rise and then fall as the noise grows." loading="lazy">
+        <figcaption>図6 右　推定誤差を変えたときの相対的な方策価値（論文 Fig. 6b）。赤がランダム、青が比例、紫が反比例の初期在庫。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>制約は総予算ではなく品目ごとの在庫で、選ぶ基準は処置効果ではなく期待報酬だが、品目ごとの基準値を引いて選ぶ形は予算配分の規則に近い</h2>
+    <ul class="def">
+      <li><b>推定するもの</b>　品目ごとの期待報酬 \(q(x,a) = \mathbb{E}[c\cdot r\mid x,a]\)。対照（何も配らない場合）との差である処置効果は扱わない。</li>
+      <li><b>コストの扱い</b>　品目ごとの費用は扱わない。制約は品目ごとの在庫数で、消費の信号が \(c = 1\) のときだけ在庫が減る。</li>
+      <li><b>処置の種類</b>　多値（品目や割引率の違うクーポン）。各時点で一つを選ぶ。</li>
+      <li><b>予算制約</b>　品目ごとの在庫の上限。在庫が尽きた品目は選べなくなる。品目全体にかかる総予算の制約は、論文が今後の課題に挙げている。</li>
+      <li><b>データ</b>　記録用の方策で集めたログから \(\hat q\) を学ぶ。方策は \(\hat q\) から直接決まり、傾向スコアによる重みづけは使わない。実験は合成データと、KuaiRec に人工の在庫を割り当てた半合成データ。</li>
+    </ul>
+    <p>線形計画との関係を補足しておく（解説者の注）。割当てを確率的にしてよいとして、各品目の在庫の制約のもとで期待報酬の和を最大にする線形計画を考える。この問題をラグランジュ緩和すると、各品目の在庫制約の双対変数を \(\mu_a\ge 0\) として、文脈ごとに \(\arg\max_a\,(q(x,a) - \mu_a\, q_c(x,a))\) を選ぶ規則が得られる。消費の確率 \(q_c\) が 1 なら（KuaiRec の実験など）、これは \(q(x,a) - \mu_a\) が最大の品目を選ぶことになる。在庫が余る品目では \(\mu_a = 0\) になる。OPLS は \(\mu_a\) の代わりに全利用者での平均 \(\frac1n\sum_i \hat q(x_i,a)\) を引いており、拡張版で売れ残る品目は平均を引かずに選ぶ点も \(\mu_a = 0\) に対応する。総予算の制約で同じ緩和をすると、品目ごとの基準値が「価格 \(\lambda\) × 費用」に置き換わる。予算制約つきの割当てで使う「効果 − \(\lambda\) × 費用」の規則は、これと同じ形をしている。論文自身はこの双対変数との対応には触れていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{tanaka2026offpolicy,
+  title     = {Off-Policy Learning with Limited Supply},
+  author    = {Tanaka, Koichi and Kishimoto, Ren and Kawagishi, Bushun and Narita, Yusuke and Yamamoto, Yasuo and Shimizu, Nobuyuki and Saito, Yuta},
+  booktitle = {Proceedings of the ACM Web Conference 2026},
+  pages     = {5908--5919},
+  year      = {2026},
+  publisher = {ACM},
+  doi       = {10.1145/3774904.3792181}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

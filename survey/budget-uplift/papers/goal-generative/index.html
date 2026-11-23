@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大域制約つきインセンティブ広告の生成的最適化（論文解説）</title>
+<meta name="description" content="Generative Optimization for Incentivized Advertising with Global Level Constraints（KDD 2026）の非公式の解説。配るコインの額をトークン列として生成し、ラグランジュ乗数 λ を条件に入れた一つの方策で、再学習なしに ROI 制約の強さを切り替える。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the cost side: incentive cost c and its price, the Lagrange multiplier lambda
+                         (constraint pressure)
+            --b  (blue)   = the paper's method GOAL (and its SCPO stage); baselines are drawn in grey
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.res { border-collapse: collapse; font-size: 0.92rem; line-height: 1.45; min-width: 34rem; }
+table.res th, table.res td { padding: 0.45rem 0.8rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+table.res thead th { font-weight: 600; color: var(--muted); font-size: 0.84rem; }
+table.res thead tr:first-child th { border-bottom: 0; padding-bottom: 0; }
+table.res td { font-family: var(--font-en); font-variant-numeric: tabular-nums; }
+table.res td:first-child { font-family: var(--font-ja); }
+table.res tr.ours td { color: var(--b); font-weight: 650; background: var(--b-soft); }
+table.res .gap { border-left: 1px solid var(--hair); }
+table.res .best { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.2em; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD · 2026</div>
+  <h1>Generative Optimization for Incentivized Advertising with Global Level Constraints</h1>
+  <p class="subtitle">大域制約つきインセンティブ広告の生成的最適化</p>
+
+  <ul class="authors">
+    <li><b>Gege Chen</b><span>University of Electronic Science and Technology of China</span></li>
+    <li><b>Ning Luo</b><span>Kuaishou Technology</span></li>
+    <li><b>Hao Jiang</b><span>Kuaishou Technology</span></li>
+    <li><b>Da Li</b><span>Kuaishou Technology</span></li>
+    <li><b>Wenzheng Shu</b><span>Kuaishou Technology</span></li>
+    <li><b>Teng Sha</b><span>Kuaishou Technology</span></li>
+    <li><b>Yanxiang Zeng</b><span>Kuaishou Technology</span></li>
+    <li><b>Wenxin Tai</b><span>University of Electronic Science and Technology of China</span></li>
+    <li><b>Fan Zhou</b><span>University of Electronic Science and Technology of China</span></li>
+    <li><b>Xialong Liu</b><span>Kuaishou Technology</span></li>
+  </ul>
+
+  <p class="lead">インセンティブ広告では、ユーザーが広告に反応するたびに配るコインの額を決め、期間全体の ROI を下限以上に保たなければならない。この論文が提案する <span class="B">GOAL</span> は、コインの額をトークン列に分けて自己回帰で生成する。ROI 制約の<span class="A">ラグランジュ乗数 λ</span> も入力に加えるので、一つのモデルで、再学習せずに制約の強さを切り替えられる。短尺動画プラットフォームのログ、疲労を入れた合成環境、4 週間のオンライン A/B テストで評価している。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3770855.3818423">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2608.04421">arXiv</a>
+    <a class="btn" href="https://arxiv.org/pdf/2608.04421">arXiv PDF</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。期間全体の ROI 制約が各回のコインの額を結びつける模式図、656 コインを 400・200・50・6 のトークンに分ける例、λ を変えながら一つの方策を学び λ ごとに報酬を標準化する模式図、論文 Table 1 の IA データでの比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">違反率 12.24%</span><span class="d">IA データで、実現した ROI が目標を下回ったスライディングウィンドウの割合（RVR）。比較手法で最も低い CDT は 15.00% だった（Table 1）。</span></li>
+    <li><span class="k">一つのモデルで \(\lambda\) を変える</span><span class="d">学習時に \(\lambda\) を区間から抜き出して条件に入れる。運用時は目標の ROI を満たす \(\lambda^\ast\) を二分探索で選んで入力するだけで、再学習はしない。</span></li>
+    <li><span class="k">収益 +2.559%</span><span class="d">4 週間のオンライン A/B テストで、本番の基準方策と比べた収益の伸び。ROI は +2.184% で、\(p = 0.03\) と報告されている。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>インセンティブ広告では、操作ごとに配るコインの額を決め、期間全体の ROI の下限を守る必要がある</h2>
+    <p>インセンティブ広告は仮想コインやクーポンといった報酬を配って、ユーザーに広告を見る、アプリを入れるといった行動を促す仕組みである。どの広告を出すかに加えて、1 回ごとにいくら配るかを決めなければならない。配りすぎると短期の反応は増えても長期の収益性が損なわれ、控えすぎると参加が続かない。</p>
+    <p>論文は既存の方法の限界を次のように整理している。アップリフトモデリングは短期の処置効果を見るもので、効果を予測してから配り方を決める二段階の構成のため、予測の誤差に左右されやすく、制約のもとで最適でない決定になる。オフライン強化学習は長期の目的を扱えるが、頻繁なやり取りでは成り立たないマルコフ性を仮定し、分布シフトのために方策が保守的になりやすい。生成モデルで行動を直接出す方法にも問題があり、長い履歴全体に自己注意をかけると、急な疲労のような短い期間に現れる信号の重みが小さくなってしまう。言語モデルの整合（アライメント）の手法は制約のないスカラー報酬を最大化するもので、時間をまたぐ制約を扱えない。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">問題設定</div>
+    <h2>ROI の下限をラグランジュ双対で線形化すると、価格 λ のもとで「収益 − λ × 費用」の和を最大にする問題になる</h2>
+    <p>\(N\) 回のやり取りで、行動 \(a_i\)（配るコインの額）が費用 \(c_i\) と収益 \(r_i\) を生むとする。期間全体の ROI \(\sum_i r_i / \sum_i c_i\) をしきい値 \(\tau\) 以上に保ちながら、収益の和を最大にしたい。</p>
+    <div class="eq">\[ \max_{\{a_i\}} \sum_{i=1}^N r_i \quad \text{s.t.}\quad \frac{\sum_{i=1}^N r_i}{\sum_{i=1}^N c_i} \ge \tau,\qquad 0 \le c_i \le C_{\max} \]</div>
+    <p>比の形の制約は全期間の決定を結びつけるので、そのままでは解きにくい。制約を \(\sum r_i - \tau\sum c_i \ge 0\) と線形化して乗数 \(\lambda' \ge 0\) を掛けると、目的は次の形にまとまる。</p>
+    <div class="eq">\[ \max_{\pi}\ \sum_{i=1}^N \big(\, r_i - \color{#C2410C}{\lambda}\, \color{#C2410C}{c_i} \,\big),\qquad \color{#C2410C}{\lambda} = \frac{\lambda' \tau}{1+\lambda'} \]</div>
+    <p>\(\lambda\) は<span class="A">費用 1 単位あたりの価格</span>として働く。\(\lambda = 0\) なら収益だけを最大にし、\(\lambda\) が大きいほど費用を抑える。\(\lambda'\to\infty\) で \(\lambda\) は \(\tau\) に近づく。論文は、実行可能な方策があれば強双対性が成り立つとして、最適な \(\lambda^\ast\) を与えれば各回の「収益 − \(\lambda^\ast\) × 費用」の和を最大にすればよいとしている。</p>
+    <p>学習データはユーザーごとの決定時点 \(t\) について、長さ \(L\) の履歴 \(\mathcal H = [\mathbf x_{t-L},\dots,\mathbf x_{t-1}]\)（各 \(\mathbf x_\tau\) は状態の特徴と、そのとき配った額の組）、その時点の \(\lambda\)、実際に配った額 \(a\) の組である。生成方策 \(\pi_\theta\) は \((\mathcal H, \lambda)\) を受け取って額を出す。</p>
+  </section>
+
+  <section id="tokenizer">
+    <div class="kicker">手法 1：額のトークン化</div>
+    <h2>コインの額を大きい単位から順に並べたトークン列に分け、上位の桁から自己回帰で生成する</h2>
+    <p>配る額は 1〜3,000 コインと幅が広く、分布の裾も重い。論文によれば、1 回の回帰で額を当てようとすると、件数の多い少額のサンプルに学習が偏り、まれだが重要な高額の判断を学びきれない。そこで額を離散のトークンの和で表す。</p>
+    <ul class="def">
+      <li><b>語彙の作り方</b>　額のデータを大きい順に並べ、分位点の値をトークンにして、その値以上の額から差し引く。分位点を減衰率 \(\delta\) で下げながらこれを繰り返し、復元誤差がしきい値 \(\epsilon_1\) 以下になるか、トークンの値が最小精度 \(\epsilon_2\) を下回ったら止める（Algorithm 1）。</li>
+      <li><b>額の分け方</b>　残りの額以下で最大のトークンを順に選ぶ貪欲法で、額をトークン列 \((g^1,\dots,g^T)\) に分ける。トークンの値は \(\phi(g^1)\ge\phi(g^2)\ge\cdots\) と単調に小さくなり、先頭が大きさのおおよそを、後ろが端数を受け持つ。論文の図の例では 656 = 400 + 200 + 50 + 6 となる。</li>
+      <li><b>重みつきの次トークン予測</b>　先頭のトークンを誤ると額が大きくずれるので、トークンの値 \(v\) に応じた重み \(\omega_t = \log_{10}(v(g_t)+1) + \delta\) を掛けた交差エントロピーで学習する（教師強制を使う）。生成時は各ステップで確率が最大のトークンを選び、値を足し合わせて額に戻す。</li>
+    </ul>
+  </section>
+
+  <section id="architecture">
+    <div class="kicker">手法 2：エンコーダとデコーダ</div>
+    <h2>拡張因果畳み込みで直近の行動の変化をとらえ、λ を条件にした MoE デコーダで配り方を切り替える</h2>
+    <p><b>階層的な因果エンコーダ</b>　履歴の埋め込みに、まず拡張因果畳み込み（dilated causal convolution、DCC）をかける。各時点の表現は過去の時点だけから作られる。その出力の先頭に、\(\lambda\) を MLP で埋め込んだ<span class="A">制約トークン</span> \(\mathbf e_\lambda\) を付け、自己注意と FFN で履歴全体の長い依存関係をとらえる。局所の変化を先に畳み込みで拾っておくことで、急な疲労や意図の変化が自己注意で薄まるのを防ぐ、というのが論文の主張である。</p>
+    <p><b>\(\lambda\) を条件にしたデコーダ</b>　デコーダの FFN を Mixture-of-Experts（MoE）に置き換え、ゲートには中間表現と制約の埋め込み \(\mathbf c_\lambda\) を連結して入れる。上位 \(k\) 個の専門家の出力を重みつきで足し、語彙上の確率に変換して次のトークンを出す。</p>
+    <p><b>報酬モデル</b>　最終的なコンバージョンはまれなので、費用だけを報酬にすると学習が不安定になる。そこで収益への寄与、スクロールの深さ、継続、タスクへの参加といった補助的な行動の信号を、マルチタワーのモデルで一つの嗜好スコア（P-Score）にまとめ、これを後段の報酬 \(R\) に使う。</p>
+    <figure>
+      <img src="assets/fig1_architecture.png" alt="GOAL の全体構成図。(a) λ と履歴 H_u を入力に、階層的な因果エンコーダ、λ を条件にした生成デコーダ、Safe-Constrained Policy Optimization を重ねた全体像。(b) 語彙の構成と、額を 400 + 200 + 50 + 6 に分ける貪欲分解。(c) 拡張因果畳み込みの上に自己注意を重ね、e_λ を加えるエンコーダ。(d) ゲートが c_λ を受け取り、Extremely Tight から Relaxed までの専門家から上位 k 個を選ぶ MoE デコーダ。" loading="lazy">
+      <figcaption>図1　GOAL の構成（論文 Fig. 2）。(a) 全体、(b) 語彙と貪欲分解、(c) 階層的な因果エンコーダ、(d) \(\lambda\) を条件にした MoE デコーダ。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="scpo">
+    <div class="kicker">手法 3：SCPO</div>
+    <h2>λ を変えながら一つの方策を学び、報酬を λ ごとに標準化することで、制約の強さを再学習なしに変えられる</h2>
+    <p>ふつうの主双対法は \(\lambda\) を反復して更新するので、ROI のしきい値が変わるたびに方策を学び直すことになる。大きな生成モデルでは、この学び直しは計算の負担が大きすぎる。論文は \(\lambda\) を状態に加えた方策 \(\pi_\theta(a\mid s,\lambda)\) を、\(\lambda\) の分布の上で一度に学ぶ（BCORLE の \(\lambda\) 汎化の考え方を GRPO と組み合わせたもの）。</p>
+    <div class="eq">\[ \mathcal J(\theta) = \mathbb E_{\lambda\sim P(\Lambda)}\, \mathbb E_{\tau\sim\pi_\theta(\cdot\mid\lambda)} \Big[\sum_t r_\lambda(s_t,a_t)\Big],\qquad r_\lambda(s,o) = R(s,o) - \color{#C2410C}{\lambda\, C(s,o)} \]</div>
+    <p>\(R\) は P-Score、\(C\) は行動の金銭的な費用である。\(\lambda\) の候補は 0 から \(\lambda_{\max}\) までを等間隔に区切った集合で、付録の例では \(\lambda_{\max} = 3.0\)、刻み 0.5 の 7 通りである。上限には想定する ROI 目標の最大値 \(\tau_{\max}\) を使う。</p>
+    <p>状態の集合と \(\lambda\) の候補の直積を作り、それぞれについて \(m\) 個の候補の応答（トークン列）を生成して報酬を計算する。\(\lambda\) が大きいほど報酬全体が小さくなるので、全体で標準化すると、制約がきつい条件の応答が方策の質と無関係に悪く見えてしまう。そこで同じ \(\lambda_j\) の \(m\) 個の中だけで平均 \(\mu_{\lambda_j}\) と標準偏差 \(\sigma_{\lambda_j}\) をとり、優位度を \(A = (r_{\lambda_j} - \mu_{\lambda_j}) / (\sigma_{\lambda_j}+\epsilon)\) とする。方策の更新は PPO 型のクリップと参照方策への KL 正則化を使う、GRPO と同じ形である。</p>
+    <p>運用時は検証用データで方策を動かして実現した ROI を計算し、目標 \(\tau\) を満たす \(\lambda\) を候補の中から二分探索で選ぶ（Algorithm 2）。ROI が \(\lambda\) について単調であることを前提にしている。</p>
+    <figure>
+      <img src="assets/fig2_scpo.png" alt="SCPO の流れ。制約の強さ λ_1 から λ_n と状態 s_1 から s_m の直積を GOAL モデルに入れ、λ ごとのグループで m 個の応答を生成し、報酬モデル（ctr、cvr、retention）で r = R − λC を計算し、グループの中で優位度を計算する。" loading="lazy" style="max-width:34rem">
+      <figcaption>図2　SCPO の流れ（論文 Fig. 3）。\(\lambda\) ごとのグループで応答を生成し、報酬 \(R - \lambda C\) を計算して、グループの中で優位度を求める。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">実験の設定</div>
+    <h2>短尺動画プラットフォームのインセンティブ広告のログと、疲労を組み込んだ合成環境で、5 つの手法と比べた</h2>
+    <ul class="def">
+      <li><b>IA</b>　大手の短尺動画プラットフォームのインセンティブ広告システムで、2025 年 11 月 5 日〜12 日に集めたデータ。1 日あたり約 13 万人のアクティブユーザーと 184 万件のインセンティブの露出を含む。最初の 6 日を学習、最後の 1 日をテストに使う。</li>
+      <li><b>Synthetic IA</b>　IA の特徴にそろえて作ったシミュレータに、明示的な疲労の動きを入れたもの。疲労は \(f_{t+1} = \rho f_t + \eta a_t\) で積み上がって減衰し、反応の確率は \(\sigma(\alpha a_t - \beta f_t)\) になる。貪欲、ランダム、中程度で固定の 3 種類を混ぜた行動方策で 1 万本の軌跡を作る（\(K = 10\)、\(T = 100\)、\(\alpha = 0.8\)、\(\beta = 1.2\)、\(\rho = 0.9\)、\(\eta = 0.5\)）。</li>
+      <li><b>指標</b>　平均収益 REV（USD）、ROI（総収益 ÷ 総インセンティブ費用）、論文が新たに提案する ROI 違反率 RVR（実現した ROI が目標を下回ったスライディングウィンドウの割合で、小さいほどよい）。</li>
+      <li><b>比較手法</b>　系列生成の DT と、コストのしきい値を条件にする CDT、制約のないオフライン強化学習の IQL、制約つき強化学習の CAL と TREBI。GOAL は \(\lambda = 0.5\) で比べている。</li>
+    </ul>
+    <p class="src">このページの数値は arXiv v1（2026 年 8 月 5 日）の LaTeX ソースの本文と表による。ソースには KDD '26 の会議録の書誌情報（DOI 10.1145/3770855.3818423）が入っているが、ACM Digital Library の会議録版（pp. 7070–7081）は自動では取得できなかったため、照合していない。</p>
+  </section>
+
+  <section id="overall">
+    <div class="kicker">実験の結果 1</div>
+    <h2>IA データでは収益、ROI、違反率のすべてで最もよく、合成環境では収益で CDT に次いだ</h2>
+    <p>IA データで、GOAL の平均収益は 0.32 で、2 番目の DT（0.27）より 18.52% 高かった。ROI は 4.93（DT は 4.74）、RVR は 12.24%（CDT は 15.00%）で、どちらも最もよかった。疲労を入れた合成環境では、ROI 4.23 と RVR 9.20% は最もよかったが、平均収益は 0.29 で、CDT の 0.36 を下回った。</p>
+    <p>論文はここから、生成系の手法（DT、CDT、GOAL）が MDP にもとづく強化学習の手法を総じて上回ったこと、制約を条件として明示的に入れる生成のほうが、後から制約をかける最適化より有効であることを読み取っている。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead>
+          <tr><th></th><th colspan="3">IA</th><th colspan="3" class="gap">Synthetic IA</th></tr>
+          <tr><th>手法</th><th>REV ↑</th><th>ROI ↑</th><th>RVR ↓</th><th class="gap">REV ↑</th><th>ROI ↑</th><th>RVR ↓</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DT</td><td>0.27</td><td>4.74</td><td>18.23%</td><td class="gap">0.19</td><td>3.64</td><td>13.51%</td></tr>
+          <tr><td>CDT</td><td>0.22</td><td>4.60</td><td>15.00%</td><td class="gap best">0.36</td><td>4.12</td><td>10.24%</td></tr>
+          <tr><td>IQL</td><td>0.25</td><td>3.68</td><td>24.69%</td><td class="gap">0.15</td><td>3.59</td><td>18.05%</td></tr>
+          <tr><td>CAL</td><td>0.19</td><td>3.70</td><td>21.82%</td><td class="gap">0.12</td><td>3.61</td><td>14.49%</td></tr>
+          <tr><td>TREBI</td><td>0.19</td><td>3.92</td><td>20.21%</td><td class="gap">0.09</td><td>3.72</td><td>14.21%</td></tr>
+          <tr class="ours"><td>GOAL（提案）</td><td class="best">0.32</td><td class="best">4.93</td><td class="best">12.24%</td><td class="gap">0.29</td><td class="best">4.23</td><td class="best">9.20%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　論文 Table 1 の値（下線は各列で最もよい値）。論文の表の「Improv.」行では、合成環境の ROI が +2.40%、RVR が +9.86% となっているが、表の値から計算すると、2 番目の CDT に対してそれぞれ約 2.7%、約 10.2% になる。</p>
+  </section>
+
+  <section id="lambda">
+    <div class="kicker">実験の結果 2</div>
+    <h2>λ を上げると平均費用と平均収益がともに下がり、ゲートが選ぶ専門家も λ に応じて入れ替わった</h2>
+    <p>学習済みのモデルに入れる \(\lambda\) をテストデータの上で動かすと、<span class="A">\(\lambda\)</span> が大きいほど 1 回あたりの平均費用が下がり、平均収益も下がった（図3）。\(\lambda\) が小さいうちは大きな額を配って反応を引き出し、\(\lambda\) が大きくなると効率の低いやり取りへの額を選んで減らす。論文はこれを、運用時に \(\lambda\) を変えるだけで、再学習せずに方策を積極的な配り方から保守的な配り方まで滑らかに調整できることを示す結果としている。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig3a_lambda_cost.png" alt="横軸がラグランジュ乗数 λ（0 から 3）、縦軸が平均費用 AvgCost の折れ線と帯。λ が大きくなるにつれて全体として下がる。" loading="lazy">
+      </figure>
+      <figure>
+        <img src="assets/fig3b_lambda_revenue.png" alt="横軸がラグランジュ乗数 λ（0 から 3）、縦軸が平均収益 AvgRev の折れ線と帯。λ が大きくなるにつれて全体として下がる。" loading="lazy">
+      </figure>
+    </div>
+    <p class="src" style="margin-top:-0.4rem">図3　\(\lambda\) と平均インセンティブ費用（左）、平均収益（右）（論文 Fig. 4）。本文は費用が単調に下がると述べているが、図の曲線には局所的に上がる区間もある。</p>
+    <p>付録では、MoE のゲートが各専門家を選ぶ平均確率を \(\lambda\) ごとに示している（図4）。\(\lambda\) が小さいとき（ROI 制約が緩いとき）は専門家 0 がほとんど選ばれ、\(\lambda\) が上がるにつれて選ばれる専門家が 1、2 へ移り、\(\lambda\) が大きい領域ではほぼ専門家 3 に集中する。専門家はすべて同じ構造で一緒に学習しており、この分担は人が割り当てたものではないと論文は述べている。</p>
+    <figure>
+      <img src="assets/fig4_moe_routing.png" alt="縦軸が λ（0.0 から 3.0）、横軸が専門家 0〜3 のヒートマップ。各セルに選択確率が書かれている。λ が小さいと専門家 0、中程度で専門家 1 と 2、大きいと専門家 3 の確率が高い。" loading="lazy" style="max-width:40rem">
+      <figcaption>図4　\(\lambda\) ごとの専門家の選択確率（IA データ、論文付録 Fig. 6）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="ablation">
+    <div class="kicker">実験の結果 3</div>
+    <h2>どの部品を外しても収益が下がり、4 週間のオンライン A/B テストでは ROI が 2.184%、収益が 2.559% 上がった</h2>
+    <p>IA データで部品を一つずつ外した（ROI の目標 \(\tau = 3.0\)）。SCPO の段階を外して教師あり学習だけのモデルを使うと、ROI が 4.57 に下がり、RVR が 15.64% に上がった。DCC を外して自己注意だけにすると、平均収益が 0.25 に下がった。\(\lambda\) を固定して SCPO をかけると、ROI は高いが平均収益は 0.25 にとどまり、論文はこれを、固定の \(\lambda\) では変わるシステムの状態に合わせられないためと解釈している。トークン化をやめて額を直接回帰すると、平均収益 0.29、ROI 4.89 に下がった。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>手法</th><th>REV ↑</th><th>ROI ↑</th><th>RVR ↓</th></tr></thead>
+        <tbody>
+          <tr><td>w/o SCPO（教師あり学習のみ）</td><td>0.27 ± 0.01</td><td>4.57 ± 0.04</td><td>15.64% ± 0.02</td></tr>
+          <tr><td>w/o DCC（自己注意のみ）</td><td>0.25 ± 0.01</td><td>4.91 ± 0.05</td><td>12.29% ± 0.02</td></tr>
+          <tr><td>SCPO w/o \(\lambda\)-gen（\(\lambda\) を固定）</td><td>0.25 ± 0.03</td><td>4.89 ± 0.02</td><td>14.12% ± 0.04</td></tr>
+          <tr><td>w/o Tokenizer（直接回帰）</td><td>0.29 ± 0.02</td><td>4.89 ± 0.03</td><td>13.85% ± 0.03</td></tr>
+          <tr class="ours"><td>GOAL（提案）</td><td>0.32 ± 0.01</td><td>4.93 ± 0.02</td><td>12.24% ± 0.01</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表2　論文 Table 2 の値。表中の ± の意味（標準偏差か、何回の試行か）は本文に書かれていない。GOAL の行は Table 1 の IA の値（\(\lambda = 0.5\) で比較）と同じである。</p>
+    <p>オンラインではインセンティブ広告システムで 4 週間の A/B テストを行った。論文には「各実験群がランダムに選んだユーザーの 65% を含む」とある。本番の基準方策と比べて、GOAL は ROI を 2.184%、収益を 2.559% 伸ばし、\(p = 0.03\) で有意だったと報告している。滞在時間や DAU といった副次的な指標には、有意な悪化は見られなかったという。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>ROI の下限を価格 λ で「収益 − λ × 費用」に置き換え、λ を入力にとる一つの生成方策で、毎回配る額を連続的に決める</h2>
+    <ul class="def">
+      <li><b>推定するもの</b>　処置効果は推定しない。履歴と \(\lambda\) から配る額を直接生成する方策を学ぶ。報酬には複数の行動の信号をまとめた P-Score \(R\) を使う。</li>
+      <li><b>コストの扱い</b>　配ったコインの金銭的な費用 \(C\)。報酬から \(\lambda C\) を差し引く形で目的に入る。</li>
+      <li><b>処置の種類</b>　連続量（1〜3,000 コインの額）。語彙のトークンの和で表し、トークン列として生成する。</li>
+      <li><b>予算制約</b>　総額の上限ではなく、期間全体の ROI の下限 \(\tau\)。ラグランジュ緩和で \(\lambda\) に置き換え、運用時は検証データで ROI が \(\tau\) 以上になる \(\lambda^\ast\) を二分探索で選ぶ。評価では、ROI が目標を下回ったウィンドウの割合（RVR）で制約の守り具合を測る。</li>
+      <li><b>データ</b>　本番のログ（オフライン）で教師あり学習をしてから、報酬モデルを使って SCPO で方策を更新する。オンラインの A/B テストも行っている。</li>
+    </ul>
+    <p>ROI 順の割当てとの関係を補足しておく（解説者の注）。固定した \(\lambda\) のもとで各回の \(r - \lambda c\) を最大にするのは、ROI の制約をラグランジュ緩和したときの最適行動で、配るか配らないかの二択なら、増える収益と費用の比がしきい値を超える相手に配ることにあたる。この論文はその最適行動を表で引くのではなく、\(\lambda\) を入力にとる生成モデルとして学び、額の選択肢を連続量に広げている。また、ここでの \(r\) は対照と比べた上乗せ分ではなく、報酬モデルの出力そのものである。論文自身は予算制約つきのクーポン配分（GMV を固定予算のもとで最大にする問題）を、ROI 制約のもとで収益を最大にする自分たちの問題とは別のものとして関連研究に挙げている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{chen2026generative,
+  title     = {Generative Optimization for Incentivized Advertising with Global Level Constraints},
+  author    = {Chen, Gege and Luo, Ning and Jiang, Hao and Li, Da and Shu, Wenzheng and Sha, Teng and Zeng, Yanxiang and Tai, Wenxin and Zhou, Fan and Liu, Xialong},
+  booktitle = {Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.2},
+  pages     = {7070--7081},
+  year      = {2026},
+  publisher = {ACM},
+  doi       = {10.1145/3770855.3818423},
+  eprint    = {2608.04421},
+  archivePrefix = {arXiv}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
