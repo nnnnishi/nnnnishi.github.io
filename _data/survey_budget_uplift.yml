@@ -1180,12 +1180,13 @@ datasets:
   - name: "Criteo Uplift v2.1"
     provider: "Criteo AI Lab"
     url: "https://ailab.criteo.com/criteo-uplift-prediction-dataset/"
+    explainer: criteo-uplift
     treatment: 広告配信の対象にするか（実際に表示されたかは exposure 列）
     assignment: RCT（複数の広告効果測定試験をまとめたもの。処置率は約85%）
     outcomes: visit, conversion（0/1）
     size: 約1,398万行, 12特徴量
     usage: visit をコスト、conversion を売上とみなす使い方が多い（DRP, DFCL, rDRP など）。CC BY-NC-SA 4.0
-    loader: "sklift.datasets.fetch_criteo"
+    loader: "huggingface.co/datasets/criteo/criteo-uplift"
   - name: "MT-LIFT"
     provider: "Meituan"
     url: "https://github.com/MTDJDSP/MT-LIFT"

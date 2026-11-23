@@ -258,7 +258,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
       <p class="note prose">{{ d.datasets_note }}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>データ</th><th>処置</th><th>割付</th><th>結果変数</th><th>規模</th><th>予算制約の実験での使い方</th><th>取得方法</th></tr></thead>
+          <thead><tr><th>データ</th><th>処置</th><th>割付</th><th>結果変数</th><th>規模</th><th>予算制約の実験での使い方</th><th>取得方法</th><th>解説</th></tr></thead>
           <tbody>
           {%- for x in d.datasets %}
             <tr>
@@ -269,6 +269,7 @@ description: "予算制約・コストを考慮したアップリフトモデリ
               <td class="mid">{{ x.size }}</td>
               <td class="wide">{{ x.usage }}</td>
               <td class="mid">{% if x.loader and x.loader != "" %}<code>{{ x.loader }}</code>{% endif %}</td>
+              <td class="nowrap">{% if x.explainer %}<a href="datasets/{{ x.explainer }}/">解説</a>{% endif %}</td>
             </tr>
           {%- endfor %}
           </tbody>

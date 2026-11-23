@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criteo Uplift Prediction Dataset v2.1（データセット解説）</title>
+<meta name="description" content="Criteo Uplift Prediction Dataset v2.1 の非公式の解説。複数の広告主で行った広告の RCT をまとめた約1,398万行のデータで、列の意味、treatment と exposure の違い、版の違い、全件から計算した基本統計、予算制約つきアップリフトの論文での使われ方と注意点をまとめる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   DATASET EXPLAINER PAGE — same template as the paper explainers in ../../papers/
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure or table.
+   Colour : two semantic accents only, used consistently in text, figures and the teaser.
+            --a  (orange) = visit, the outcome budget-uplift papers read as the cost
+            --b  (blue)   = conversion, the outcome budget-uplift papers read as the revenue / value
+            Within a colour, the light tint is the control group and the full colour the treated group.
+            Treatment / exposure themselves are drawn in ink and grey.
+   Data   : every number on the page comes from assets/criteo_stats.json, computed by the explainer
+            from the full v2.1 file (13,979,592 rows); published values appear only for comparison.
+   Lang   : Japanese only (unofficial explainer). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- dataset page additions: tables, facts, code ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; margin-top: 0.6rem; }
+table.tbl { border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; min-width: 100%; }
+table.tbl caption { caption-side: bottom; text-align: left; font-size: 0.9rem; color: var(--muted); padding-top: 0.6rem; line-height: 1.6; }
+table.tbl th, table.tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: top; }
+table.tbl thead th { font-size: 0.82rem; color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.tbl td.n, table.tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl code, .def code, p code { font: 0.88em var(--font-mono); background: var(--panel); padding: 0.05em 0.3em; border-radius: 4px; }
+table.tbl td.diff { font-weight: 700; }
+p.tblcap { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6; max-width: var(--wide); }
+table.tbl td:first-child { min-width: 6.5em; }
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; }
+.facts li { display: flex; flex-direction: column; line-height: 1.4; }
+.facts span { font-size: 0.82rem; color: var(--muted); }
+.facts b { font-weight: 600; }
+pre.code { margin: 0; max-width: var(--wide); background: var(--panel); border-radius: 12px; padding: 1rem 1.2rem; font: 0.85rem/1.6 var(--font-mono); overflow-x: auto; white-space: pre; }
+pre.code .c { color: var(--muted); }
+.def li b a { font-weight: 600; }
+.nw { white-space: nowrap; }
+@media (max-width: 760px) {
+  table.tbl { font-size: 0.85rem; }
+  table.tbl th, table.tbl td { padding: 0.45rem 0.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページはデータセットの提供者によるものではありません。西村直樹がデータセットを調べてまとめた非公式の解説です。正確な内容はデータセットの配布ページと論文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Dataset · Criteo AI Lab</div>
+  <h1>Criteo Uplift Prediction Dataset v2.1</h1>
+  <p class="subtitle">Criteo のアップリフト予測データセット（v2.1）</p>
+
+  <ul class="facts">
+    <li><span>提供</span><b>Criteo AI Lab</b></li>
+    <li><span>データ論文</span><b>Diemert ほか（AdKDD 2018、arXiv 2021）</b></li>
+    <li><span>ライセンス（配布ページ）</span><b>CC BY-NC-SA 4.0</b></li>
+    <li><span>形式</span><b>CSV（gzip、311 MB）</b></li>
+  </ul>
+
+  <p class="lead">Criteo が複数の広告主で行った広告のランダム化比較試験（RCT）を一つにまとめた公開データで、13,979,592 行ある。各ユーザーを広告の対象にするかどうか（treatment）を無作為に決め、その後 2 週間の<span class="A">訪問（visit）</span>と<span class="B">購入（conversion）</span>を 0/1 で記録している。予算制約つきアップリフトの論文では訪問をコスト、購入を売上とみなして評価に使うことが多い。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://ailab.criteo.com/criteo-uplift-prediction-dataset/">Dataset</a>
+    <a class="btn" href="https://huggingface.co/datasets/criteo/criteo-uplift">Hugging Face</a>
+    <a class="btn" href="https://arxiv.org/abs/2111.10106">Paper (arXiv)</a>
+    <a class="btn" href="https://lig-aptikal.imag.fr/~amini/Publis/large-scale-benchmark.pdf">AdKDD 2018 PDF</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。処置群85%と対照群15%の割り当て、処置群でも広告が表示されたのは3.6%であること、群ごとの訪問率と購入率、訪問をコスト・購入を売上とみなす使い方とタイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>データセットを40秒で（数値はすべて全件から解説者が計算）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">13,979,592 行</span><span class="d">1 行が 1 ユーザー。処置群 11,882,655 人（85.0%）、対照群 2,096,937 人。行数、処置率、訪問率、購入率は配布ページの値と一致した。</span></li>
+    <li><span class="k">訪問 +1.03 pt</span><span class="d">処置群 4.85%、対照群 3.82%。差の標準誤差は 0.015 pt で、対照群に対する相対的な上昇は +27.1%。</span></li>
+    <li><span class="k">購入は 0.29%</span><span class="d">全体で 40,774 件、対照群では 4,063 件しかない。処置群との差は +0.115 pt（相対的な上昇は +59.4%）。</span></li>
+  </ul>
+
+  <section id="origin">
+    <div class="kicker">由来</div>
+    <h2>複数の広告主で行った広告の RCT を、処置率をそろえて一つにまとめたデータである</h2>
+    <p>Criteo は母集団の一部に広告を出さない incrementality test（広告の効果を測るための RCT）を複数の広告主で実施した。広告主ごとに、ある時点で各ユーザー（ブラウザの cookie で識別）を処置群か対照群に無作為に割り当て、それまでの行動から特徴量を作る。処置群には割り当て後もふだんどおり個人に合わせた広告を出し、対照群には出さない。割り当て後の 2 週間に、広告が表示されたか、広告主のサイトを訪れたか、購入したかを記録した（図1）。</p>
+    <p>広告主ごとに処置率が違ったため、そのまま合わせると、どの試験の行かが処置と結果の両方に関わる隠れた交絡になる。そこで全ての試験を同じ処置率で抜き出してから合わせた。プライバシー保護のため、広告主も特徴量の名前も公開していない。特徴量の値はランダムなベクトル空間に射影し、ラベルには不均一な負例サンプリングをかけて、元の効果の大きさを推測できないようにしている。データ論文の内容は<a href="../../papers/criteo-benchmark/">論文の解説ページ</a>にまとめてある。</p>
+    <p>ライセンスは配布ページと Hugging Face のリポジトリでは CC BY-NC-SA 4.0（表示・非営利・継承）である。データ論文（arXiv 2111.10106）のデータシートには CC BY-SA 4.0 と書かれているが、このページでは配布元の表記に従う。</p>
+    <figure>
+      <img src="assets/fig1_data_collection.png" alt="Data collection timeline. User features X are snapshotted at the moment users are randomly allocated to control or treatment; exposures E, visits V and conversions C are then logged during the A/B test period, giving one (E, V, C) triple per user." loading="lazy">
+      <figcaption>図1　データの集め方。割り当ての時点で特徴量 \(X\) を確定し、そのあとの試験期間の表示 \(E\)、訪問 \(V\)、購入 \(C\) を記録する。図中の色は論文のもので、このページの色の意味とは対応しない（論文 arXiv 2111.10106 の Fig. 1、CC BY-NC-ND 4.0、改変なし）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="columns">
+    <div class="kicker">列</div>
+    <h2>各行は 1 人のユーザーで、匿名化した特徴量 12 個と、割り当て・表示・訪問・購入の 4 つの 0/1 の列からなる</h2>
+    <p>ファイルは 16 列のカンマ区切りで、列は f0〜f11、treatment、conversion、visit、exposure の順に並ぶ。全件を読んで確かめたところ、空のセルはなく、4 つのラベルの列には 0 と 1 以外の値がなかった。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>列</th><th>意味</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td><code>f0</code>〜<code>f11</code></td><td>割り当ての時点までの行動から作った特徴量。名前と意味は公開されておらず、値はランダムに射影されている</td><td>小数</td></tr>
+          <tr><td><code>treatment</code></td><td>処置群（1）か対照群（0）か。無作為に割り当てた</td><td>0/1</td></tr>
+          <tr><td><code>exposure</code></td><td>試験期間中に広告が実際に表示されたか</td><td>0/1</td></tr>
+          <tr><td><code>visit</code></td><td>試験期間（2 週間）に広告主のサイトを訪れたか</td><td>0/1</td></tr>
+          <tr><td><code>conversion</code></td><td>試験期間に購入（コンバージョン）したか</td><td>0/1</td></tr>
+        </tbody>
+        </table></div><p class="tblcap">表1　列の一覧（配布ページの Fields と論文 3 節をもとに解説者がまとめた）。</p>
+    <p>特徴量はファイル上ではすべて小数だが、論文は 4 個を連続値、8 個を水準の多いカテゴリ変数としている。値の種類数を数えると、カテゴリとされた 8 個は 60〜3,743 種類で、論文の Table 2 の水準数とすべて一致した。連続値とされた 4 個は 51 万〜218 万種類ある。多くの特徴量では最も多い値に行が集まっていて、たとえば f1 は 98.8% の行が同じ値である（表2）。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>特徴量</th><th class="n">値の種類数</th><th class="n">最も多い値の行の割合</th><th>論文の分類（水準数）</th></tr></thead><tbody><tr><td><code>f0</code></td><td class="n">2,181,959</td><td class="n">26.5%</td><td>連続値</td></tr><tr><td><code>f1</code></td><td class="n">60</td><td class="n">98.8%</td><td>カテゴリ（60）</td></tr><tr><td><code>f2</code></td><td class="n">2,051,900</td><td class="n">52.2%</td><td>連続値</td></tr><tr><td><code>f3</code></td><td class="n">552</td><td class="n">81.9%</td><td>カテゴリ（552）</td></tr><tr><td><code>f4</code></td><td class="n">260</td><td class="n">95.7%</td><td>カテゴリ（260）</td></tr><tr><td><code>f5</code></td><td class="n">132</td><td class="n">94.7%</td><td>カテゴリ（132）</td></tr><tr><td><code>f6</code></td><td class="n">1,645</td><td class="n">26.5%</td><td>カテゴリ（1,645）</td></tr><tr><td><code>f7</code></td><td class="n">622,143</td><td class="n">94.7%</td><td>連続値</td></tr><tr><td><code>f8</code></td><td class="n">3,743</td><td class="n">52.2%</td><td>カテゴリ（3,743）</td></tr><tr><td><code>f9</code></td><td class="n">1,594</td><td class="n">79.5%</td><td>カテゴリ（1,594）</td></tr><tr><td><code>f10</code></td><td class="n">517,372</td><td class="n">95.7%</td><td>連続値</td></tr><tr><td><code>f11</code></td><td class="n">136</td><td class="n">98.6%</td><td>カテゴリ（136）</td></tr></tbody></table></div><p class="tblcap">表2　特徴量ごとの値の種類数と、最も多い値をとる行の割合（全 13,979,592 行から解説者が計算）。右の列は論文（arXiv 2111.10106）の Table 2 の分類と水準数で、カテゴリとされた 8 個の水準数は計算した種類数と一致した。</p>
+  </section>
+
+  <section id="exposure">
+    <div class="kicker">処置と表示</div>
+    <h2>無作為に決めたのは treatment だけで、広告が実際に表示されたのは処置群の 3.6% にとどまる</h2>
+    <p>treatment は広告の対象にするかどうかの割り当てで、exposure は実際に広告が表示されたかどうかである。scikit-uplift の説明では、treatment は広告主がそのユーザーの RTB オークションに参加するかどうか、exposure はそのオークションに勝ったかどうかにあたる。処置群でも、オークションに勝たなければ広告は表示されない。</p>
+    <p>全件で確かめると、対照群で exposure が 1 の行は 0 件だった。表示は処置群にしか起きない、いわゆる片側の不遵守（one-sided noncompliance）である。処置群 11,882,655 人のうち表示されたのは 428,212 人（3.60%）で、全体の 3.06% にあたる（図2）。visit が 0 で conversion が 1 の行も 0 件で、訪問せずに購入した記録はない。</p>
+    <p>このため、効果は treatment で群を分けて比べる。これは「広告の対象にする」という方針の効果（ITT）で、広告を見た人だけの効果ではない。表示の有無で比べると無作為化が崩れる。処置群の中で比べると、表示された人の訪問率は 41.5%、表示されなかった人は 3.49% だが、この差には、どんな人に広告が表示されるかという選ばれ方の違いが混ざっている。論文も、広告システムはユーザーの反応に応じて入札を変えるので、試験中の表示はそれまでのやりとりの影響を受けると述べている。</p>
+    <p>treatment が exposure を通じてだけ結果に影響すると仮定すれば、ITT を処置群の表示率で割った値が、割り当てられれば表示される人での効果になる。論文はこの種の仮定に触れているが、詳しくは扱っていない。全件で計算すると、訪問で 28.7 pt、購入で 3.20 pt である（解説者の計算）。なお scikit-uplift の <code>fetch_criteo</code> では <code>treatment_col='exposure'</code> も指定でき、ドキュメントの使用例もこの指定になっているが、exposure を処置として扱うと無作為化された比較にはならない。</p>
+    <figure>
+      <svg class="fig" id="fig-exposure" viewBox="0 0 640 300" role="img" aria-label="処置と表示の内訳。対照群2,096,937人は全員が表示なし。処置群11,882,655人のうち表示ありは428,212人（3.60%）で、残りの11,454,443人は表示なし。"></svg>
+      <figcaption>図2　割り当てと表示の内訳。帯の長さは人数に比例する。濃い灰色が広告が表示された人で、処置群にしかいない（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="versions">
+    <div class="kicker">版の違い</div>
+    <h2>2018 年の v1 は広告主ごとの処置率の違いから効果を水増しできたため、処置率をそろえて抜き直した v2 に置き換えられた</h2>
+    <p>2018 年に AdKDD のワークショップ論文とともに公開された最初の版（v1）は 25,309,483 行で、処置率 0.846、訪問率 0.04132、購入率 0.00229 だった（配布ページと AdKDD 2018 論文の Table 3）。配布ページの正誤表によると、広告主ごとに効果の大きさがそろっておらず、特徴量の分布も広告主ごとに違ったため、特徴量から広告主を見分けるだけでアップリフトの予測が見かけ上よくなるという漏れがあった。</p>
+    <p>拡張版の論文（arXiv 2111.10106）は、広告主ごとに処置率が違ったため、どの試験のデータかが処置と結果の隠れた交絡になっていたと説明する。v2 では全ての試験を同じ処置率で抜き出し直し、13,979,592 行になった。論文によると v2 は v1 の約 1 年後に公開され、v1 は配布を終えて、初期の利用者には欠陥が知らされた。論文は特徴量から処置を当てられないことを分類器による 2 標本検定で確かめている（p 値 0.137）。</p>
+    <p>現在のファイル名は criteo-research-uplift-v2.1.csv.gz である。論文のコードのリポジトリはこのファイルを CRITEO-UPLIFTv2 として案内しており、全件から計算した行数、処置率、訪問率、購入率は配布ページに載っている v2 の値と一致した（表3）。v2 と v2.1 の違いを説明した記述は、配布ページ、論文 2 本、Hugging Face のリポジトリ、論文のコードのリポジトリのどれにも見つからなかった。</p>
+    <p>掲載論文の中には v1 の行数を挙げているものもある。<a href="../../papers/rate/">RATE</a>（JASA 2025）の解説ページには、25,309,483 件のデータから標本を取り出したとある。論文どうしの数値を比べるときは、どの版を使ったかを確かめる必要がある。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>項目</th><th class="n">v2.1 のファイル<br>（解説者の計算）</th><th class="n">配布ページ<br>（v2）</th><th class="n">論文 2021<br>Table 1（v2）</th><th class="n">v1<br>（配布ページ・AdKDD 2018）</th></tr></thead><tbody><tr><td>行数</td><td class="n">13,979,592</td><td class="n">13,979,592</td><td class="n">13,979,592</td><td class="n">25,309,483</td></tr><tr><td>処置率</td><td class="n">0.8500</td><td class="n">.85</td><td class="n">.85</td><td class="n">.846</td></tr><tr><td>訪問率</td><td class="n">0.046992</td><td class="n">.046992</td><td class="n">4.70%</td><td class="n">.04132</td></tr><tr><td>購入率</td><td class="n">0.002917</td><td class="n">.00292</td><td class="n">0.29%</td><td class="n">.00229</td></tr><tr><td>訪問の相対的な上昇</td><td class="n">+27.1%</td><td class="n">—</td><td class="n"><b>68.7%</b></td><td class="n">68.7%</td></tr><tr><td>購入の相対的な上昇</td><td class="n">+59.4%</td><td class="n">—</td><td class="n"><b>37.2%</b></td><td class="n">37.2%</td></tr><tr><td>特徴量の数</td><td class="n">12</td><td class="n">12（列の一覧）／11（説明文）</td><td class="n">12</td><td class="n">12（AdKDD 2018）</td></tr></tbody></table></div><p class="tblcap">表3　全件から計算した値と、資料に載っている値。2021 年の論文の Table 1 にある相対的な上昇（太字）は AdKDD 2018 論文 Table 3 の v1 の値と同じで、v2.1 のファイルから計算した値とは合わない。このページでは計算した値を使う。論文は相対的な上昇の定義を書いておらず、解説者は「処置群の率 ÷ 対照群の率 − 1」で計算した。</p>
+  </section>
+
+  <section id="stats">
+    <div class="kicker">基本統計</div>
+    <h2>広告の対象にすると、訪問率は <span class="nw">3.82% から 4.85% に</span>、購入率は <span class="nw">0.194% から 0.309% に</span>上がる</h2>
+    <p>処置群と対照群の率の差（ITT の平均処置効果）は、<span class="A">訪問</span>で +1.034 pt（標準誤差 0.015 pt、95% 信頼区間 1.006〜1.063 pt）、<span class="B">購入</span>で +0.115 pt（標準誤差 0.003 pt、0.109〜0.122 pt）である。対照群に対する相対的な上昇は、訪問で +27.1%、購入で +59.4% になる（図3、表4）。</p>
+    <p>訪問したうちで購入した人の割合は、処置群 6.36%、対照群 5.07%、全体で 6.21% である。購入は全体で 40,774 件、そのうち対照群は 4,063 件しかなく、差の標準誤差は、購入では差の 3.0%、訪問では差の 1.4% にあたる。論文も、購入はラベルの偏りが大きく信号が弱いとして、アップリフトのモデルは主に訪問で作ることを勧めている。</p>
+    <p>これらの率は不均一な負例サンプリングをかけたあとの値なので、実際の広告の訪問率や効果の大きさを表してはいない。</p>
+    <figure>
+      <svg class="fig" id="fig-rates" viewBox="0 0 640 340" role="img" aria-label="群ごとの率の棒グラフ。訪問率は対照群3.820%、処置群4.854%で差は1.034ポイント。購入率は対照群0.1938%、処置群0.3089%で差は0.1152ポイント。"></svg>
+      <figcaption>図3　群ごとの<span class="A">訪問率</span>（左）と<span class="B">購入率</span>（右）。薄い色が対照群、濃い色が処置群で、縦軸の目盛りは左右で違う。ひげは 95% 信頼区間（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>群</th><th class="n">人数</th><th class="n">表示率</th><th class="n">訪問率</th><th class="n">購入率</th><th class="n">訪問した人の購入率</th></tr></thead><tbody><tr><td>処置群</td><td class="n">11,882,655</td><td class="n">3.60%</td><td class="n">4.854%</td><td class="n">0.3089%</td><td class="n">6.36%</td></tr><tr><td>対照群</td><td class="n">2,096,937</td><td class="n">0.00%</td><td class="n">3.820%</td><td class="n">0.1938%</td><td class="n">5.07%</td></tr><tr><td>差（標準誤差）</td><td></td><td></td><td class="n">+1.034 pt（0.015）</td><td class="n">+0.1152 pt（0.0034）</td><td></td></tr><tr><td>95% 信頼区間</td><td></td><td></td><td class="n">1.006〜1.063 pt</td><td class="n">0.1085〜0.1219 pt</td><td></td></tr><tr><td>相対的な上昇（標準誤差）</td><td></td><td></td><td class="n">+27.1%（0.5）</td><td class="n">+59.4%（2.6）</td><td></td></tr></tbody></table></div><p class="tblcap">表4　群ごとの率と、処置群と対照群の差（全 13,979,592 行から解説者が計算）。差の標準誤差は 2 群の割合の差の式、相対的な上昇（処置群の率 ÷ 対照群の率 − 1）の標準誤差はデルタ法による。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきの実験での使われ方</div>
+    <h2>予算制約つきの論文では visit をコスト、conversion を売上とみなし、費用対効果の順に配ったときの曲線で手法を比べることが多い</h2>
+    <p>このデータには配信の費用も売上額もない。そこで DRP 以降の論文は二値の処置（広告の対象にするかどうか）のもとで、<span class="A">訪問の増加</span>をかかった費用、<span class="B">購入の増加</span>を得られた売上の代わりとみなす。予測した費用対効果の順に配ったときの増分コストと増分売上の曲線の下の面積にもとづく指標（AUCC）で比べるのが典型である。データ全体では、購入の差は訪問の差の 0.111 倍である（解説者の計算）。以下は、文献リストの解説ページに書かれている使い方である。</p>
+    <ul class="def">
+      <li><b><a href="../../papers/drp/">DRP</a>（AAAI 2023）</b>　1,390 万件・特徴量 12 個のデータで、ROI を比べるために訪問をコスト、コンバージョンを売上とみなした。AUCC で、DRP は TPM-SL と Direct Rank を上回った。</li>
+      <li><b><a href="../../papers/dfcl/">DFCL</a>（KDD 2024）</b>　先行研究の DPM にならい、visit をコスト、conversion を価値とみなす。DFCL-IFD の AUCC は 0.7859 で、二段階法 TSM-SL の 0.7561 を 3.94% 上回った。</li>
+      <li><b><a href="../../papers/e2e-marketing-effectiveness/">E2E マーケティング最適化</a>（arXiv 2023）</b>　DRP の論文にならって訪問をコスト、コンバージョンを価値とし、7:3 に分けて AUCC で比べた。提案法は 0.7904、DRP は 0.7739、二段階法は 0.7561 で、比較手法の値は DRP の論文から引用している。</li>
+      <li><b><a href="../../papers/roi-conformal/">rDRP</a>（ICDE 2024）</b>　DRP の論文と同じデータとハイパーパラメータで、訪問をコスト、コンバージョンを便益とする。学習データが少なく共変量シフトもある設定で、AUCC が DRP の 0.5411 から 0.6087 に上がった。</li>
+      <li><b><a href="../../papers/bi-dfcl/">Bi-DFCL</a>（NeurIPS 2025）</b>　RCT データの一部を、模擬した施策方針で観察データに作り替えて使う。visit をコストとみなし、AUCC で評価する。</li>
+      <li><b><a href="../../papers/budget-causal-bandits/">BCCB</a>（arXiv 2026）</b>　v2.1 の 10%（1,397,959 件）を抜き出し、結果は購入とする。配信費用はデータにないので、結果とは独立に対数正規分布から作り（0.05〜5 ドルに切り詰め、平均 0.77 ドル）、リプレイ法で評価した。</li>
+      <li><b><a href="../../papers/converted-only/">購入者のみの学習</a>（CIKM 2025）</b>　処置群と対照群を同数に再標本化し、購入しなかった行の報酬と費用を 0 にして使う。</li>
+      <li><b><a href="../../papers/ranking-metalearners/">ランキングのメタ学習器</a>（arXiv 2024）</b>　50 万件を抜き出し、「コンバージョン − 訪問」を純収益として使う。</li>
+      <li><b><a href="../../papers/cost-sensitive-causal/">費用を考慮した因果分類</a>（EJOR 2023）</b>　11,647 件を抜き出して使う。解説ページによると、論文の表と本文で Criteo の陽性率などの数値が食い違っている。</li>
+    </ul>
+    <p>予算を扱わない使い方も多い。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>論文</th><th>使い方</th></tr></thead>
+        <tbody>
+          <tr><td><a href="../../papers/criteo-benchmark/">データ論文</a>（arXiv 2021）</td><td>学習 80%・テスト 20% に分け、テストの件数を変えて 4 つのアップリフトモデルの AUUC を比べた</td></tr>
+          <tr><td><a href="../../papers/rct-uplift-evaluation/">RCT での評価の改善</a>（EJOR 2024）</td><td>90% をテストに使い、評価指標の分散を減らす調整を比べた。Qini 曲線の分散は 11.3〜13.7% 減った</td></tr>
+          <tr><td><a href="../../papers/rate/">RATE</a>（JASA 2025）</td><td>25,309,483 件（v1 の行数）から処置群・対照群 16 万件ずつを取り出し、訪問で AUTOC の差を検出した</td></tr>
+          <tr><td><a href="../../papers/decision-vs-estimation/">因果的な意思決定と効果推定</a>（INFORMS J. Data Science 2022）</td><td>購入を目的変数に、因果木と、広告を出さなかった人だけで学習した決定木を比べた</td></tr>
+          <tr><td><a href="../../papers/deep-uplift-benchmark/">深層アップリフトのベンチマーク</a>（arXiv 2024）</td><td>訪問を結果とし、8:1:1 に分けて 13 手法を比べた。重複行を除くと、正規化しない場合は 13 手法中 12 手法のテスト AUUC が上がった</td></tr>
+          <tr><td><a href="../../papers/ecup/">ECUP</a>（WWW 2024 Companion）</td><td>訪問と購入を連鎖の 2 段とみなし、7:3 に分けて評価した</td></tr>
+          <tr><td><a href="../../papers/mtmt/">MTMT</a>（arXiv 2024）</td><td>訪問を結果とし、処置が一つの設定で QINI を比べた</td></tr>
+          <tr><td><a href="../../papers/ltr-uplift/">順位学習によるアップリフト</a>（TKDE 2022）</td><td>25,310 件を抜き出し、訪問を結果として評価した</td></tr>
+          <tr><td><a href="../../papers/uplift-generalization/">汎化保証つきアップリフト</a>（KDD 2021）</td><td>100 万件を抜き出した CU2-1M を付録で使う</td></tr>
+          <tr><td><a href="../../papers/rank-learner/">Rank-learner</a>（ICML 2026）</td><td>学習データに人工的な交絡を入れ、無作為化されたテストデータの AUUC で評価した。結果は訪問</td></tr>
+        </tbody>
+        </table></div><p class="tblcap">表5　予算を扱わない掲載論文での使い方（各解説ページの記述から）。</p>
+  </section>
+
+  <section id="caveats">
+    <div class="kicker">注意点</div>
+    <h2>売上額も配信費用もなく、特徴量の意味も分からないので、コストと売上は 0/1 の結果で代用するしかない</h2>
+    <ul class="def">
+      <li><b>金額がない</b>　結果は訪問と購入の 0/1 だけで、購入額も広告の費用もない。訪問をコスト、購入を売上とみなすのは評価のための約束事で、実際の費用（表示や入札の単価）とは関係しない。BCCB のように費用を人工的に作る論文もある。</li>
+      <li><b>購入がまれ</b>　購入は全体の 0.29%（40,774 件）で、対照群では 4,063 件である。10% を抜き出すと、対照群の購入は 400 件ほどになる（解説者の概算）。</li>
+      <li><b>率は実際の値ではない</b>　不均一な負例サンプリングをかけているので、率や効果の大きさは実際の広告のものではない。費用対効果の絶対値を実務の目安にはできない。</li>
+      <li><b>匿名化</b>　特徴量の名前と意味は公開されておらず、値はランダムに射影されている。意味にもとづく解釈や制約は置けない。カテゴリ変数も小数で入っているので、数値として扱うかカテゴリとして扱うかは利用者が決める。</li>
+      <li><b>処置の偏り</b>　処置群が 85%、対照群が 15% である。無作為に分割すると、テストデータにも同じ偏りが残る。</li>
+      <li><b>重複行</b>　すべての列が前のどれかの行と同じ行が 1,259,545 行（9.0%）、特徴量 12 個だけが同じ行が 1,626,259 行（11.6%）ある（解説者の計算）。<a href="../../papers/deep-uplift-benchmark/">深層アップリフトのベンチマーク</a>は、重複を除くかどうかで結果が変わることを報告している。</li>
+      <li><b>exposure は無作為ではない</b>　処置として使うと無作為化された比較にならない（「処置と表示」の節）。</li>
+      <li><b>資料の食い違い</b>　配布ページの説明文は特徴量を 11 個とするが、同じページの列の一覧とファイルでは 12 個ある。ライセンスの表記は配布ページとデータシートで違う。2021 年の論文の相対的な上昇は v1 の値と同じである（表3）。</li>
+    </ul>
+  </section>
+
+  <section id="download">
+    <div class="kicker">取得方法</div>
+    <h2>配布ページのリンクと scikit-uplift の取得先は使えなかったが、Criteo の Hugging Face リポジトリから同じ名前のファイルを取得できた</h2>
+    <p>配布ページのリンク（http://go.criteo.net/criteo-research-uplift-v2.1.csv.gz）からは、2026 年 11 月 23 日に解説者が試した時点でファイルを取得できなかった（404 を返すか、名前解決できないホストへ転送された）。Criteo のアカウントが Hugging Face に置いたリポジトリ <a href="https://huggingface.co/datasets/criteo/criteo-uplift">criteo/criteo-uplift</a> には同じ名前のファイル（311,422,618 バイト）があり、このページの統計はこのファイルから計算した。ファイルの SHA-256 は Hugging Face に記録されている値と一致した。</p>
+<pre class="code"><span class="c"># Hugging Face から取得（約 300 MB）</span>
+curl -L -O https://huggingface.co/datasets/criteo/criteo-uplift/resolve/main/criteo-research-uplift-v2.1.csv.gz
+shasum -a 256 criteo-research-uplift-v2.1.csv.gz
+<span class="c"># 2716e1bf0fd157a93b5bf86924d9088419dfbac2022c6cd90030220634f616dc</span>
+
+<span class="c"># scikit-uplift 0.5.1（取得先は 2026 年 11 月 23 日時点で 404）</span>
+from sklift.datasets import fetch_criteo
+X, y, t = fetch_criteo(target_col='all', treatment_col='treatment', return_X_y_t=True)</pre>
+    <p>scikit-uplift の <code>fetch_criteo</code> は、<code>target_col</code> に visit・conversion・all、<code>treatment_col</code> に treatment・exposure・all を指定でき、<code>percent10=True</code> で 10% の版を読む。ただし最新版 0.5.1（2022 年 8 月）のコードにある取得先（Amazon S3 上の criteo.csv.gz と criteo10.csv.gz）も、同じ日に 404 を返した。Hugging Face から取得したファイルを pandas などで直接読めば、同じ列が得られる。</p>
+    <p>配布ページはデータを使うときに AdKDD 2018 の論文を引用するよう求めている。v2 の作り方に触れるときは、拡張版の arXiv 2111.10106 もあわせて引く。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{diemert2018large,
+  title     = {A Large Scale Benchmark for Uplift Modeling},
+  author    = {Diemert, Eustache and Betlei, Artem and Renaudin, Christophe and Amini, Massih-Reza},
+  booktitle = {Proceedings of the AdKDD and TargetAd Workshop, KDD},
+  address   = {London, United Kingdom},
+  publisher = {ACM},
+  year      = {2018}
+}
+
+@misc{diemert2021large,
+  title         = {A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling},
+  author        = {Diemert, Eustache and Betlei, Artem and Renaudin, Christophe and Amini, Massih-Reza and Gregoir, Th{\'e}ophane and Rahier, Thibaud},
+  year          = {2021},
+  eprint        = {2111.10106},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ML}
+}</pre>
+    </div>
+    <p class="src">1 本目は配布ページに載っている BibTeX をもとに、著者名の書き方を論文の表記に合わせた。ワークショップ論文の PDF には DOI が記されていない（番号が空欄のまま）ので、DOI は入れていない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページはデータセットの提供者や論文の著者によるものではなく、西村直樹がデータと資料を調べてまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は配布ページと論文を参照してください。統計は 2026 年 11 月 23 日に Hugging Face から取得したファイルから解説者が計算しました（<a href="assets/criteo_stats.json">criteo_stats.json</a>）。</p>
+</footer>
+
+<script src="assets/criteo_stats.js"></script>
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+function fmt(n) { return n.toLocaleString('en-US'); }
+var ST = window.CRITEO_STATS, INK = '#16202E', MUTED = '#5B6676', HAIR = '#D9DEE6', GRAY = '#CBD2DC', DARK = '#4B5563';
+
+// ---------- figure 2: assignment and exposure (counts from criteo_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-exposure'); if (!svg || !ST) return;
+  var el = mk(svg), G = ST.groups, N = ST.overall.rows;
+  var X0 = 20, W = 600, H = 56;
+  var wc = W * G.control.n / N, wt = W * G.treated.n / N, we = W * G.treated.exposed / N;
+  // row 1: whole population split by treatment
+  el('text', { x: X0, y: 34, 'font-size': 15, 'font-weight': 600, fill: INK }, '割り当て（treatment、無作為）');
+  el('rect', { x: X0, y: 46, width: wt - 2, height: H, rx: 4, fill: GRAY });
+  el('rect', { x: X0 + wt, y: 46, width: wc, height: H, rx: 4, fill: '#EEF0F3', stroke: GRAY });
+  el('text', { x: X0 + 12, y: 80, 'font-size': 15, fill: INK }, '処置群 ' + fmt(G.treated.n) + ' 人（' + (100 * ST.overall.treatment_rate).toFixed(1) + '%）');
+  el('text', { x: X0 + wt + 8, y: 72, 'font-size': 14, fill: INK }, '対照群');
+  el('text', { x: X0 + wt + 8, y: 92, 'font-size': 14, fill: INK }, fmt(G.control.n));
+  // row 2: exposure
+  el('text', { x: X0, y: 160, 'font-size': 15, 'font-weight': 600, fill: INK }, '実際の表示（exposure）');
+  el('rect', { x: X0, y: 172, width: we, height: H, rx: 2, fill: DARK });
+  el('rect', { x: X0 + we + 2, y: 172, width: wt - we - 4, height: H, rx: 4, fill: GRAY });
+  el('rect', { x: X0 + wt, y: 172, width: wc, height: H, rx: 4, fill: '#EEF0F3', stroke: GRAY });
+  el('text', { x: X0 + we + 12, y: 198, 'font-size': 14, fill: INK }, '処置群で表示なし ' + fmt(G.treated.n - G.treated.exposed) + ' 人');
+  el('text', { x: X0 + wt + 8, y: 198, 'font-size': 14, fill: INK }, '表示');
+  el('text', { x: X0 + wt + 8, y: 218, 'font-size': 14, fill: INK }, G.control.exposed + ' 人');
+  el('line', { x1: X0 + we / 2, x2: X0 + we / 2, y1: 230, y2: 252, stroke: DARK, 'stroke-width': 1.5 });
+  el('text', { x: X0, y: 272, 'font-size': 15, 'font-weight': 600, fill: INK }, '表示あり ' + fmt(G.treated.exposed) + ' 人（処置群の ' + (100 * G.treated.exposure_rate).toFixed(2) + '%）');
+})();
+
+// ---------- figure 3: rates by group with 95% CIs (from criteo_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-rates'); if (!svg || !ST) return;
+  var el = mk(svg), G = ST.groups;
+  var A = '#C2410C', As = '#F3C9AE', B = '#1D4ED8', Bs = '#BFD0F6';
+  var Y0 = 270, HMAX = 200;
+  function ci(p, n) { return 1.96 * Math.sqrt(p * (1 - p) / n); }
+  function panel(x0, title, key, top, ticks, dec, c0, c1, ate) {
+    el('text', { x: x0, y: 30, 'font-size': 15, 'font-weight': 600, fill: c1 }, title);
+    ticks.forEach(function (v) {
+      var y = Y0 - HMAX * v / top;
+      el('line', { x1: x0 + 40, x2: x0 + 270, y1: y, y2: y, stroke: HAIR });
+      el('text', { x: x0 + 34, y: y + 5, 'font-size': 13, fill: MUTED, 'text-anchor': 'end' }, (100 * v).toFixed(dec === 4 ? 1 : 0) + '%');
+    });
+    [['対照群', G.control, c0], ['処置群', G.treated, c1]].forEach(function (r, i) {
+      var p = r[1][key], h = HMAX * p / top, x = x0 + 70 + i * 110, e = HMAX * ci(p, r[1].n) / top;
+      el('rect', { x: x, y: Y0 - h, width: 70, height: h, fill: r[2] });
+      el('line', { x1: x + 35, x2: x + 35, y1: Y0 - h - e, y2: Y0 - h + e, stroke: INK, 'stroke-width': 1.5 });
+      el('text', { x: x + 35, y: Y0 - h - 12, 'font-size': 14, fill: INK, 'text-anchor': 'middle', 'font-weight': 600 }, (100 * p).toFixed(dec) + '%');
+      el('text', { x: x + 35, y: Y0 + 22, 'font-size': 14, fill: INK, 'text-anchor': 'middle' }, r[0]);
+    });
+    el('line', { x1: x0 + 40, x2: x0 + 270, y1: Y0, y2: Y0, stroke: INK, 'stroke-width': 1.5 });
+    el('text', { x: x0 + 155, y: Y0 + 54, 'font-size': 15, fill: c1, 'text-anchor': 'middle', 'font-weight': 650 },
+      '差 +' + (100 * ate.diff).toFixed(dec === 4 ? 3 : 2) + ' pt（+' + (100 * ate.relative_lift).toFixed(1) + '%）');
+  }
+  panel(10, '訪問率（visit）', 'visit_rate', 0.06, [0, 0.02, 0.04, 0.06], 2, As, A, ST.ate.visit);
+  panel(330, '購入率（conversion）', 'conversion_rate', 0.004, [0, 0.001, 0.002, 0.003, 0.004], 4, Bs, B, ST.ate.conversion);
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

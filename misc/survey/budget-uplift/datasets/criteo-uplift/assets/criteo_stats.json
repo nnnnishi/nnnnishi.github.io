@@ -1,0 +1,266 @@
+{
+ "source": {
+  "file": "criteo-research-uplift-v2.1.csv.gz",
+  "sha256": "2716e1bf0fd157a93b5bf86924d9088419dfbac2022c6cd90030220634f616dc",
+  "bytes": 311422618,
+  "downloaded_from": "https://huggingface.co/datasets/criteo/criteo-uplift (commit 2424920019e49d52d72c13ac1143ec5d53af276b)",
+  "downloaded_on": "2026-11-23"
+ },
+ "header": [
+  "f0",
+  "f1",
+  "f2",
+  "f3",
+  "f4",
+  "f5",
+  "f6",
+  "f7",
+  "f8",
+  "f9",
+  "f10",
+  "f11",
+  "treatment",
+  "conversion",
+  "visit",
+  "exposure"
+ ],
+ "overall": {
+  "rows": 13979592,
+  "treatment_rate": 0.8500001287591226,
+  "visit_rate": 0.046992000911042324,
+  "conversion_rate": 0.002916680257907384,
+  "exposure_rate": 0.03063122299992732,
+  "conversion_given_visit": 0.06206759025709019,
+  "visits": 656929,
+  "conversions": 40774
+ },
+ "groups": {
+  "treated": {
+   "n": 11882655,
+   "exposed": 428212,
+   "visits": 576824,
+   "conversions": 36711,
+   "exposure_rate": 0.036036727482199896,
+   "visit_rate": 0.048543360048743316,
+   "conversion_rate": 0.0030894610674129645,
+   "conversion_given_visit": 0.06364332968115058
+  },
+  "control": {
+   "n": 2096937,
+   "exposed": 0,
+   "visits": 80105,
+   "conversions": 4063,
+   "exposure_rate": 0.0,
+   "visit_rate": 0.03820095691954503,
+   "conversion_rate": 0.0019375880152813366,
+   "conversion_given_visit": 0.05072092878097497
+  }
+ },
+ "ate": {
+  "visit": {
+   "diff": 0.010342403129198284,
+   "se": 0.00014631642098864926,
+   "relative_lift": 0.27073675539019604,
+   "relative_lift_se": 0.004695918917197032,
+   "ci95": [
+    0.010055622944060531,
+    0.010629183314336037
+   ]
+  },
+  "conversion": {
+   "diff": 0.0011518730521316279,
+   "se": 3.437168357507502e-05,
+   "relative_lift": 0.5944881177252619,
+   "relative_lift_se": 0.026335726528166188,
+   "ci95": [
+    0.0010845045523244809,
+    0.0012192415519387749
+   ]
+  },
+  "conversion_per_visit": 0.11137383040888274
+ },
+ "iv_ratio_itt_over_exposure": {
+  "visit": 0.28699618005843747,
+  "conversion": 0.031963863885825596
+ },
+ "treated_by_exposure_descriptive": {
+  "exposed": {
+   "n": 428212,
+   "visit_rate": 0.4145376589166114,
+   "conversion_rate": 0.053784106937685074
+  },
+  "unexposed": {
+   "n": 11454443,
+   "visit_rate": 0.034861057844541195,
+   "conversion_rate": 0.0011942963966034839
+  }
+ },
+ "checks": {
+  "control_exposed": 0,
+  "conversion_without_visit": 0,
+  "rows_with_wrong_length": 0,
+  "nonbinary_label_cells": {},
+  "empty_feature_cells": {}
+ },
+ "features": {
+  "f0": {
+   "distinct": 2181959,
+   "min": 12.616364906986497,
+   "max": 26.74525510669564,
+   "mean": 19.620297485103208,
+   "mode": 12.616364906986497,
+   "mode_share": 0.2650681793860651
+  },
+  "f1": {
+   "distinct": 60,
+   "min": 10.059654474774547,
+   "max": 16.34418683323554,
+   "mean": 10.06997650901321,
+   "mode": 10.059654474774547,
+   "mode_share": 0.9876999271509498
+  },
+  "f2": {
+   "distinct": 2051900,
+   "min": 8.214382844395335,
+   "max": 9.051961945804948,
+   "mean": 8.446582306376586,
+   "mode": 8.214382844395335,
+   "mode_share": 0.5224350610518533
+  },
+  "f3": {
+   "distinct": 552,
+   "min": -8.39838674285089,
+   "max": 4.679881620097284,
+   "mean": 4.178923067122046,
+   "mode": 4.679881620097284,
+   "mode_share": 0.818621530585442
+  },
+  "f4": {
+   "distinct": 260,
+   "min": 10.280525225748212,
+   "max": 21.123507734315055,
+   "mean": 10.33883729353412,
+   "mode": 10.280525225748212,
+   "mode_share": 0.9565869304340212
+  },
+  "f5": {
+   "distinct": 132,
+   "min": -9.011891520498516,
+   "max": 4.115453421277861,
+   "mean": 4.0285129238071455,
+   "mode": 4.115453421277861,
+   "mode_share": 0.9469624721522631
+  },
+  "f6": {
+   "distinct": 1645,
+   "min": -31.429783775633886,
+   "max": 0.29444271125560606,
+   "mean": -4.155355514967517,
+   "mode": 0.29444271125560606,
+   "mode_share": 0.2650681793860651
+  },
+  "f7": {
+   "distinct": 622143,
+   "min": 4.833814577796811,
+   "max": 11.998400591725755,
+   "mean": 5.10176464549338,
+   "mode": 4.833814577796811,
+   "mode_share": 0.9469624721522631
+  },
+  "f8": {
+   "distinct": 3743,
+   "min": 3.63510661177053,
+   "max": 3.971857989350875,
+   "mean": 3.9335808379383845,
+   "mode": 3.971857989350875,
+   "mode_share": 0.5224350610518533
+  },
+  "f9": {
+   "distinct": 1594,
+   "min": 13.190055934673358,
+   "max": 75.29501735734412,
+   "mean": 16.0276383311844,
+   "mode": 13.190055934673358,
+   "mode_share": 0.7949684797667915
+  },
+  "f10": {
+   "distinct": 517372,
+   "min": 5.300374864042156,
+   "max": 6.473917229316857,
+   "mean": 5.333395558063948,
+   "mode": 5.300374864042156,
+   "mode_share": 0.9565869304340212
+  },
+  "f11": {
+   "distinct": 136,
+   "min": -1.383940669255639,
+   "max": -0.16867922100056124,
+   "mean": -0.1709672477066135,
+   "mode": -0.16867922100056124,
+   "mode_share": 0.9855227534537488
+  }
+ },
+ "cells_treatment_exposure_visit_conversion": {
+  "0|0|0|0": 2016832,
+  "0|0|1|0": 76042,
+  "0|0|1|1": 4063,
+  "1|0|0|0": 11055129,
+  "1|0|1|0": 385634,
+  "1|0|1|1": 13680,
+  "1|1|0|0": 250702,
+  "1|1|1|0": 154479,
+  "1|1|1|1": 23031
+ },
+ "published_values_for_comparison": {
+  "distribution_page_v2": {
+   "rows": 13979592,
+   "visit_rate": 0.046992,
+   "conversion_rate": 0.00292,
+   "treatment_rate": 0.85,
+   "size_compressed": "297M"
+  },
+  "distribution_page_v1": {
+   "rows": 25309483,
+   "visit_rate": 0.04132,
+   "conversion_rate": 0.00229,
+   "treatment_rate": 0.846,
+   "size_compressed": "459MB"
+  },
+  "arxiv_2111_10106_table1_v2": {
+   "rows": 13979592,
+   "dimension": 12,
+   "continuous": 4,
+   "multiple_modalities": 8,
+   "treatment_rate": 0.85,
+   "visit_pct": 4.7,
+   "conversion_pct": 0.29,
+   "relative_uplift_visit_pct": 68.7,
+   "relative_uplift_conversion_pct": 37.2
+  },
+  "arxiv_2111_10106_table2_modalities": {
+   "f1": 60,
+   "f3": 552,
+   "f4": 260,
+   "f5": 132,
+   "f6": 1645,
+   "f8": 3743,
+   "f9": 1594,
+   "f11": 136
+  },
+  "adkdd_2018_table3_v1": {
+   "rows": 25309483,
+   "treatment_rate": 0.85,
+   "visit_rate": 0.04132,
+   "conversion_rate": 0.00229,
+   "relative_uplift_visit_pct": 68.7,
+   "relative_uplift_conversion_pct": 37.2
+  }
+ },
+ "duplicates": {
+  "rows": 13979592,
+  "distinct_full_rows": 12720047,
+  "duplicate_full_rows": 1259545,
+  "distinct_feature_vectors": 12353333,
+  "rows_sharing_feature_vector_with_earlier_row": 1626259
+ }
+}
