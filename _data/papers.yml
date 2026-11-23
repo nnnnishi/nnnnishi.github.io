@@ -37,6 +37,13 @@
   url: "https://www.sk.tsukuba.ac.jp/~ytakano/papers.html"
 
 - type: "refereed"
+  authors: ["H. Yamashita", "T. Ueshima", "N. Nishimura", "Y. Kasahara", "S. Kanemitsu", "Y. Matsuoka", "S. Ikeda", "N. Sukegawa", "Y. Takano"]
+  title: "Data-driven two-layer additive model for balancing predictive accuracy and interpretability"
+  venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press (workshop)."
+  year: 2026
+  url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html"
+
+- type: "refereed"
   authors: ["H. Suzuki", "S. Ikeda", "N. Nishimura", "Y. Takano"]
   title: "Interpretable clustering via optimal multi-way decision trees"
   venue: "Proceedings of the 2026 IEEE International Conference on Big Data (BigData 2026), (2026), in press."
