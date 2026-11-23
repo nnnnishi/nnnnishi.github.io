@@ -1,7 +1,7 @@
 # /survey/pricing/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
-updated: "2026-11-22"
+updated: "2026-11-23"
 
 intro: "過去の販売データから需要と価格の関係を推定し、その推定にもとづいて価格を決める研究の文献をまとめたページです。需要を予測してから価格を最適化する方法、学習しながら価格を変える動的価格、顧客ごとに価格を変える個別価格、推定の誤差や価格の内生性への対処を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -457,6 +457,18 @@ papers:
     setting: 効用の公平性の制約
     data: ""
     note: 効用の公平性の制約つきの個別価格のアルゴリズムと regret の上界を示す。需要を学習しながら価格を決める場合は、下界が通常の動的価格と異なる
+  - title: "Learning Fair Demand Models"
+    authors: "A. N. Elmachtoub, H. Kim, J. Y. Tan"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2606.06830"
+    code: ""
+    category: "personal"
+    demand: "特徴量つきの線形の需要"
+    method: "推定してから最適化（二段階）"
+    setting: "価格・需要の公平性"
+    data: "ワクチンの価格データ"
+    note: "需要の推定と価格の最適化のどちらの段階で公平性を課すかを比べる。訓練誤差を集団間でそろえる方法は解が一つに定まらず、望ましくない結果を招きうる。パリティ型の公平性では条件によって有利な段階が変わり、ロールズ型では両者が一致する"
   # ---- 動的価格・バンディット ----
   - title: "The value of knowing a demand curve: bounds on regret for online posted-price auctions"
     authors: "R. Kleinberg, T. Leighton"
@@ -554,6 +566,18 @@ papers:
     setting: 偏りのある過去のデータ
     data: ""
     note: 過去のデータに偏りがある場合の文脈つきオンライン価格で、偏りの大きさなどで決まる regret の上界と、それを達成する方策を示す
+  - title: "The Power of Two Choices in Dynamic Pricing: As Good As Full Feedback, Instance-Wise"
+    authors: "Y. Dai, T. Lin, A. Slivkins"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2611.10345"
+    code: ""
+    category: "dynamic"
+    demand: "評価額の分布が未知（ノンパラメトリック）"
+    method: "2つの選択肢からなるメニュー"
+    setting: ""
+    data: ""
+    note: "価格を1つ提示するだけでは regret が T^{2/3} になるが、販売確率と支払額を組み合わせた選択肢を2つ示せば、評価額をすべて観測できる場合と同じ √T の regret を達成できることを示す"
 
   # ---- 特徴量つき動的価格 ----
   - title: "Dynamic Pricing in High-dimensions"
@@ -640,6 +664,42 @@ papers:
     setting: 購買の有無だけを観測する
     data: オンライン自動車ローンのデータ
     note: 評価額の誤差の分布を非パラメトリックに推定する半パラメトリックなモデルで、文脈つき動的価格の方策と regret を示す
+  - title: "SALE: Source-Aware Dynamic Pricing with Strategic Buyers"
+    authors: "J. Zou, Y. Li, Z. Zheng"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2610.22516"
+    code: ""
+    category: "contextual"
+    demand: "高次元でスパースな線形の評価額と分布が未知の雑音"
+    method: "局所的な探索と補正つきの活用（SALE）"
+    setting: "戦略的な買い手（自己申告の特徴量の操作）"
+    data: ""
+    note: "検証済みの特徴量と自己申告の特徴量が混在し、買い手が安い価格を得るために申告を操作する設定を扱う。検証済みの特徴量で探索する価格の範囲を絞り、活用のときに操作を補正する方策を提案し、regret の上界を示す"
+  - title: "Pricing Today, Shaping Tomorrow: Contextual Dynamic Pricing in Purchase-Driven Evolving Systems"
+    authors: "J. Zou, Y. Li, Z. Zheng"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2611.00719"
+    code: ""
+    category: "contextual"
+    demand: "特徴量と状態に依存する評価額"
+    method: "購買の将来への影響を織り込んだ価格（SHAPE）"
+    setting: "購買で状態（業務の負荷、配送時間など）が変わる"
+    data: ""
+    note: "今日の購買が業務の負荷や配送時間などの状態を変え、将来の顧客の条件に影響する設定の文脈つき動的価格。購買が将来の収益に与える影響を価格に反映し、動的な基準に対する劣線形の regret を示す"
+  - title: "Optimal Contextual Pricing in Non-Stationary Environments"
+    authors: "Y. Feng, A. Rezaeimoghadam"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2610.39803"
+    code: ""
+    category: "contextual"
+    demand: "特徴量の線形の評価額（係数が時間とともに変わる）"
+    method: "二分探索と再起動、多重スケールの価格づけ"
+    setting: "非定常（変動の総量が既知）"
+    data: ""
+    note: "評価額の係数が時間とともに変わる環境で、購買の有無だけを観測する文脈つき動的価格のアルゴリズムを示す。動的 regret は対数因子を除いて下界に一致する"
 
   # ---- 収益管理・在庫 ----
   - title: "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons"

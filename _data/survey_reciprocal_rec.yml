@@ -1,7 +1,7 @@
 # /survey/reciprocal-rec/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
-updated: "2026-11-22"
+updated: "2026-11-23"
 
 intro: "求人サービスやオンラインデートのように、利用者に別の利用者を推薦する双方向市場（二面市場）の推薦の文献をまとめたページです。ふつうの推薦はアイテムを薦められた利用者が選べば成功ですが、双方向市場では薦められた相手も応じたときにだけマッチングが成立します。そのため、双方の選好をどう組み合わせるか、人気のある利用者に推薦が集中する混雑をどう避けるか、両側の機会をどう公平に配るかが問題になります。相互推薦の手法、マッチング理論、混雑と公平性、オフ方策評価、求人とオンラインデートの応用を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -303,6 +303,18 @@ papers:
     eval: "シミュレーション、フィールド実験"
     data: "日本の大規模なデートサービスの予測値"
     note: "受け手の露出を人数ではなく期待される好意やマッチの数で制限する受入保留アルゴリズム（ECDA）を提案する。総マッチ数は減るものの、混雑を割り引いたマッチ数が増えることを、シミュレーションと地域単位のフィールド実験で確かめる"
+  - title: "Feature-Based Dynamic Matching"
+    authors: "Y. Chen, Y. Kanoria, A. Kumar, W. Zhang"
+    year: 2026
+    venue: "Operations Research"
+    url: "https://doi.org/10.1287/opre.2024.0730"
+    code: ""
+    category: "matching"
+    domain: "オンデマンドの家事サービス"
+    prefs: ""
+    eval: "理論"
+    data: ""
+    note: "顧客と提供者が高次元の特徴量で表される動的な二面マッチングで、到着した顧客を空いている最良の提供者に割り当てる近視眼的な方法は大きく劣りうることを示す。将来の到着を模擬して最適化する SOAR を提案し、経験最適輸送との関係を使って regret がほぼ最適になることを示す"
   # ---- 学習しながらのマッチング ----
   - title: "Competing Bandits in Matching Markets"
     authors: "L. T. Liu, H. Mania, M. I. Jordan"
@@ -352,6 +364,30 @@ papers:
     eval: "理論"
     data: ""
     note: "移転（価格）を伴うマッチング市場で、選好を学びながら均衡（安定な結果）に近づく方法を示す"
+  - title: "Learn to Match: Two-Sided Matching with Temporally Extended Feedback"
+    authors: "H. Zong, Y. Liang, B. Zhou, N. Jaques"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2606.06744"
+    code: "https://sites.google.com/view/learn-to-match/home"
+    category: "bandit"
+    domain: ""
+    prefs: "両側が面接とマッチ後の観測から選好を学習"
+    eval: "シミュレーション"
+    data: "合成データ"
+    note: "面接による事前の選別、マッチ後の観測、潜在的な特徴の変化、マッチの解消を含む二面マッチングを部分観測マルコフゲームとして定式化し、マルチエージェント強化学習のベンチマーク Learn2Match を作る"
+  - title: "Optimal Analysis for Bandit Learning in Matching Markets with Serial Dictatorship"
+    authors: "Z. Wang, S. Li"
+    year: 2024
+    venue: "Theor. Comput. Sci."
+    url: "https://doi.org/10.1016/j.tcs.2024.114703"
+    code: ""
+    category: "bandit"
+    domain: ""
+    prefs: "片側の選好を学習、もう片側は全員が共通の選好"
+    eval: "理論"
+    data: ""
+    note: "腕の側の選好が全員共通（serial dictatorship）の市場で、多段階の逐次選択アルゴリズムが regret の下界に一致する上界を達成することを示す"
   # ---- 混雑と容量制約 ----
   - title: "LiJAR: A System for Job Application Redistribution towards Efficient Career Marketplace"
     authors: "F. Borisyuk, L. Zhang, K. Kenthapadi"
@@ -473,6 +509,18 @@ papers:
     eval: "オフライン"
     data: "クーポン配布の実データ"
     note: "販売を経験した提供者の数を最大化するように、個人ごとのクーポンの配布を最適化する。売上が一部の提供者に集中しないようにする"
+  - title: "Personalized Recommendations Without Inducing Congestion: Mitigating Disparities in the NYC High School Match"
+    authors: "E. Chiang, K. Peng, R. Lichtenstein et al."
+    year: 2026
+    venue: "EC 2026（予備版）"
+    url: "https://arxiv.org/abs/2610.08275"
+    code: ""
+    category: "congestion"
+    domain: "学校選択（NYC の高校マッチング）"
+    prefs: ""
+    eval: "理論、オンライン実験（RCT）"
+    data: "実データ（NYC の高校マッチング）"
+    note: "容量に限りのある市場で多くの人に同じプログラムを推薦すると、競争が増えて合格率が下がる（推薦が引き起こす混雑）。混雑を考慮した二段階の最適化とシミュレーションで推薦を配り、2025-26年度の NYC 高校マッチングの RCT で推薦先への出願と合格が増えた"
   # ---- 両側の公平性 ----
   - title: "Multisided Fairness for Recommendation"
     authors: "R. Burke"

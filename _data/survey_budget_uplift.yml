@@ -1,7 +1,7 @@
 # /survey/budget-uplift/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
-updated: "2026-11-22"
+updated: "2026-11-23"
 
 intro: "クーポンやポイントなどのインセンティブを、予算の範囲で誰に配るかを決める問題の文献をまとめたページです。処置にコストがかかるとき、売上の増分をコストの増分で割った値（ROI）の大きい順に配る割当てが、ナップザック問題を連続緩和した問題の最適解になります。この ROI をどう推定し、どう割り当てるかを中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -524,6 +524,28 @@ papers:
     cost: 扱わない
     data: Criteo, MT-LIFT（公開）
     note: impression → click → conversion の連鎖の各段で処置効果を推定し（ECUP）、クーポンの種類ごとの効果を特徴量の交互作用で表す。MT-LIFT データセットを公開した。arXiv 版の v2 は取り下げられている
+  - title: "CanniUplift: A Holistic Framework for Mitigating Seller and Incentive Cannibalization in E-commerce Uplift Modeling"
+    authors: "Z. He, S. Shu, Y. Qu et al."
+    year: 2026
+    venue: "KDD 2026"
+    url: "https://arxiv.org/abs/2607.05242"
+    code: ""
+    category: "multi-treatment"
+    treatment: "多値"
+    cost: "扱わない"
+    data: "合成データ, 自社データ"
+    note: "複数店舗の EC で、インセンティブによる店舗間の購買の移動と、自然な購買やほかの特典による雑音を考慮してアップリフトを推定する。プラットフォーム全体の GMV の整合性の制約と、クーポン利用の有無による結果の分解を使う"
+  - title: "LCM-Promo: An LLM-Based Uplift Model for Promotion Allocation"
+    authors: "N. Midavaine, F. Fok, P. Mendes et al."
+    year: 2026
+    venue: "ECML PKDD 2026 (Industrial)"
+    url: "https://arxiv.org/abs/2610.37570"
+    code: ""
+    category: "multi-treatment"
+    treatment: "多値"
+    cost: ""
+    data: "自社データ"
+    note: "取引データでファインチューニングした LLM で、プロモーションの水準に対して単調な反応曲線を学習する。本番の A/B テストで、既存手法より転換率を1%上げ、プロモーションの費用を6%下げた"
 
   # ---- 方策学習 ----
   - title: "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice"
@@ -610,6 +632,28 @@ papers:
     cost: 個人ごとに異なる（既知）
     data: 合成データ
     note: 予算と最低カバー率の制約のもとで、最適方策が2つの双対価格によるアフィンしきい値規則になることを示す。ROI 順の割当てとずれるのは、費用がばらつき、カバー率の制約が効くとき
+  - title: "Off-Policy Learning with Limited Supply"
+    authors: "K. Tanaka, R. Kishimoto, B. Kawagishi et al."
+    year: 2026
+    venue: "WWW 2026"
+    url: "https://arxiv.org/abs/2603.18702"
+    code: ""
+    category: "policy"
+    treatment: "多値"
+    cost: "アイテムごとの供給の上限（クーポンの予算、在庫）"
+    data: "合成データ, 実データ"
+    note: "供給に上限があると、いまの利用者にとって期待報酬が最大のアイテムを貪欲に選ぶ方策は最適でなくなることを示す。ほかの利用者と比べて期待報酬が相対的に高いアイテムを選ぶオフ方策学習（OPLS）を提案する"
+  - title: "Personalizing Marketplace Policies with Competing Objectives and Constrained Experiments: Evidence from a Job Marketplace"
+    authors: "Y. Wu, Z. Yan"
+    year: 2026
+    venue: "KDD 2026 ADS"
+    url: "https://arxiv.org/abs/2606.30932"
+    code: ""
+    category: "policy"
+    treatment: "多値"
+    cost: "扱わない（ガードレール指標の悪化を制約にする）"
+    data: "自社データ（求人マーケット、クラスタ単位の実験）"
+    note: "求人掲載の無料枠のしきい値を企業ごとに決める。目的の指標とガードレールの指標を別々のモデルで順位づけし、少数の処置水準しかない実験から、単調性を仮定して未実験の水準の効果を外挿する"
 
   # ---- オンライン・逐次 ----
   - title: "Model-based Constrained MDP for Budget Allocation in Sequential Incentive Marketing"
@@ -708,6 +752,28 @@ papers:
     cost: 処置ごとに異なる
     data: 半合成データ（求人プロモーションのログ）
     note: 予算制約つきの文脈付きバンディットで、処置効果の差を直接学習して配布を決める
+  - title: "Learning to Allocate Incentives for Incentivized Advertising via Offline Model-Based Reinforcement Learning"
+    authors: "Z. Zhao, H. Yang, T. Yang et al."
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2608.28065"
+    code: ""
+    category: "online"
+    treatment: ""
+    cost: "支払うボーナス（純利益から差し引く）"
+    data: "自社データ"
+    note: "広告の視聴に対するボーナスの額を逐次決める問題を MDP として定式化する。利用者の反応と広告収益の世界モデルを学習して保守的に方策を最適化し、過去のログで反実仮想的に評価してから方策を選ぶ"
+  - title: "Generative Optimization for Incentivized Advertising with Global Level Constraints"
+    authors: "G. Chen, N. Luo, H. Jiang et al."
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2608.04421"
+    code: ""
+    category: "online"
+    treatment: "連続"
+    cost: "全体の ROI の制約"
+    data: "自社データ, 合成データ（疲労を考慮した環境）"
+    note: "インセンティブの額の決定を条件つき系列生成として定式化する。ROI の制約の強さを入力にした1つの生成方策で、再学習せずにさまざまな制約に対応する"
 
   # ---- 評価方法 ----
   - title: "About evaluation metrics for contextual uplift modeling"
