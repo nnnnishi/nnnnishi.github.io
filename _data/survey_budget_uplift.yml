@@ -189,6 +189,8 @@ lineage:
   - { from: multi-action-policy-learning, to: roi-conformal, kind: base, why: "資源の制約をラグランジュ乗数で報酬に入れる方策学習の例に挙げ、予算が変わるたびに学習し直す必要がある点を課題にする" }
   - { from: disco, to: budget-causal-bandits, kind: base, why: "最も近い同時期の研究に挙げ、CATE を推定しない点を違いとする" }
   - { from: disco, to: action-centered-bandits, kind: base, why: "応用で最も近いシステムに挙げ、報酬モデルを学ぶ点とリグレットの保証がない点を違いとする" }
+  - { from: online-mckp, to: lcm-promo, kind: base, why: "A/B テストの両群で使う線形最適化の配分器の出典に挙げる" }
+  - { from: bcorle, to: goal-generative, kind: base, why: "BCORLE の λ 汎化の考え方を、生成方策の最適化に組み込む" }
 
 papers:
   # ---- 基礎 ----
@@ -709,6 +711,8 @@ papers:
     venue: "KDD 2026"
     url: "https://arxiv.org/abs/2607.05242"
     explainer: canniuplift
+    short: "CanniUplift"
+    groups: [alibaba]
     code: ""
     category: "multi-treatment"
     treatment: "多値"
@@ -721,6 +725,7 @@ papers:
     venue: "ECML PKDD 2026 (Industrial)"
     url: "https://arxiv.org/abs/2610.37570"
     explainer: lcm-promo
+    short: "LCM-Promo"
     code: ""
     category: "multi-treatment"
     treatment: "多値（割引の深さとその組合せ）"
@@ -842,6 +847,7 @@ papers:
     venue: "WWW 2026"
     url: "https://arxiv.org/abs/2603.18702"
     explainer: limited-supply-opl
+    short: "OPLS"
     code: ""
     category: "policy"
     treatment: "多値"
@@ -854,6 +860,8 @@ papers:
     venue: "KDD 2026 ADS"
     url: "https://arxiv.org/abs/2606.30932"
     explainer: marketplace-policies
+    short: "Wu & Yan"
+    groups: [linkedin]
     code: ""
     category: "policy"
     treatment: "多値"
@@ -1019,6 +1027,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2608.28065"
     explainer: incentive-ad-mbrl
+    short: "Zhao ら"
     code: ""
     category: "online"
     treatment: "連続"
@@ -1031,6 +1040,8 @@ papers:
     venue: "KDD 2026"
     url: "https://arxiv.org/abs/2608.04421"
     explainer: goal-generative
+    short: "GOAL"
+    groups: [kuaishou]
     code: ""
     category: "online"
     treatment: "連続"
