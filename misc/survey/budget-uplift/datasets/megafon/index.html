@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MegaFon Uplift Competition Dataset（データセット解説）</title>
+<meta name="description" content="MegaFon が 2021 年のアップリフトのコンペで配った合成データ（60万行・特徴量50個）の非公式の解説。列の意味、割付、全件から計算した基本統計と効果の異質性、予算制約つきアップリフトの論文での使われ方、注意点と取得方法をまとめる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   DATASET EXPLAINER PAGE — same template as ../criteo-uplift/ and the paper explainers in ../../papers/
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure or table.
+   Colour : two semantic accents only, used consistently in text, figures and the teaser.
+            --b  (blue)   = conversion and a positive treatment effect
+                            (light tint = control group, full colour = treated group)
+            --a  (orange) = a negative treatment effect: people for whom treatment lowers conversion
+            Treatment assignment and feature balance are drawn in ink and grey.
+   Data   : every number on the page comes from assets/megafon_stats.json, computed by the explainer
+            from the official train.csv (600,000 rows); published values appear only for comparison.
+   Lang   : Japanese only (unofficial explainer). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- dataset page additions: tables, facts, code ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; margin-top: 0.6rem; }
+table.tbl { border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; min-width: 100%; }
+table.tbl caption { caption-side: bottom; text-align: left; font-size: 0.9rem; color: var(--muted); padding-top: 0.6rem; line-height: 1.6; }
+table.tbl th, table.tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: top; }
+table.tbl thead th { font-size: 0.82rem; color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.tbl td.n, table.tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl code, .def code, p code { font: 0.88em var(--font-mono); background: var(--panel); padding: 0.05em 0.3em; border-radius: 4px; }
+table.tbl td.diff { font-weight: 700; }
+p.tblcap { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6; max-width: var(--wide); }
+table.tbl td:first-child { min-width: 6.5em; }
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; }
+.facts li { display: flex; flex-direction: column; line-height: 1.4; }
+.facts span { font-size: 0.82rem; color: var(--muted); }
+.facts b { font-weight: 600; }
+pre.code { margin: 0; max-width: var(--wide); background: var(--panel); border-radius: 12px; padding: 1rem 1.2rem; font: 0.85rem/1.6 var(--font-mono); overflow-x: auto; white-space: pre; }
+pre.code .c { color: var(--muted); }
+.def li b a { font-weight: 600; }
+.nw { white-space: nowrap; }
+@media (max-width: 760px) {
+  table.tbl { font-size: 0.85rem; }
+  table.tbl th, table.tbl td { padding: 0.45rem 0.5rem; }
+}
+
+/* ---------- MegaFon page additions ---------- */
+details.more { max-width: var(--wide); margin-top: 0.8rem; }
+details.more summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; color: var(--b); }
+details.more[open] summary { margin-bottom: 0.4rem; }
+table.tbl td.neg { color: var(--a); font-weight: 600; }
+code.hash { overflow-wrap: anywhere; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページはデータセットの提供者によるものではありません。西村直樹がデータセットを調べてまとめた非公式の解説です。正確な内容はコンペのページと配布元の説明を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Dataset · MegaFon / ODS.ai</div>
+  <h1>MegaFon Uplift Competition Dataset</h1>
+  <p class="subtitle">MegaFon のアップリフトのコンペのデータセット（2021）</p>
+
+  <ul class="facts">
+    <li><span>提供</span><b>MegaFon（ロシアの通信事業者）</b></li>
+    <li><span>公開</span><b>ODS.ai のコンペ（2021 年 5〜6 月）</b></li>
+    <li><span>ライセンス</span><b>記載なし</b></li>
+    <li><span>形式</span><b>CSV（圧縮なし、581 MB）</b></li>
+  </ul>
+
+  <p class="lead">ロシアの通信事業者 MegaFon が 2021 年のアップリフトのコンペで配ったデータで、実データに似せて作った合成データである。600,000 人の加入者を処置群と対照群に半分ずつ分け、匿名化した特徴量 50 個と<span class="B">購入（conversion）</span>の 0/1 を記録している。効果が特徴量によって大きく変わり、処置で購入率が<span class="A">下がる層</span>もある。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://ods.ai/tracks/df21-megafon/competitions/megafon-df21-comp">Competition</a>
+    <a class="btn" href="https://ods.ai/tracks/df21-megafon/competitions/megafon-df21-comp/data">Data</a>
+    <a class="btn" href="https://www.uplift-modeling.com/en/latest/api/datasets/fetch_megafon.html">scikit-uplift</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。60万人を処置群と対照群に半分ずつ分けたこと、50個の特徴量の平均が2群でそろっていること、購入率が17.94%から22.89%に上がること、特徴量X_16の両端では処置で購入率が下がること、その2割を外して配ったときの増分とタイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>データセットを40秒で（数値はすべて全件から解説者が計算）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">600,000 行</span><span class="d">1 行が 1 人の加入者。処置群 300,368 人（50.06%）、対照群 299,632 人。欠損も重複もない。行数、処置率、購入率は資料の値と合う。</span></li>
+    <li><span class="k">購入 +4.95 pt</span><span class="d">処置群 22.89%、対照群 17.94%。差の標準誤差は 0.10 pt で、対照群に対する相対的な上昇は +27.6%。</span></li>
+    <li><span class="k">効果が負の層</span><span class="d">特徴量 X_16 の下端と上端の 1 割では、効果が −5.1 pt と −4.7 pt。50 個のうち 29 個の特徴量で、十分位ごとの効果がはっきり違う。</span></li>
+  </ul>
+
+  <section id="origin">
+    <div class="kicker">由来</div>
+    <h2>MegaFon が 2021 年のアップリフトのコンペのために、実データに似せて作った合成データである</h2>
+    <p>MegaFon はロシアの大手の携帯電話事業者である。2021 年 5 月 22 日から 6 月 13 日まで、データ分析のコミュニティ ODS.ai（Open Data Science）の催し Data Fest 2021 の中で、自社のトラックの一部としてアップリフトのコンペ MegaFon Uplift Competition を開いた。コンペのページには参加者 84 人、提出 387 件とある。課題は加入者ごとの条件つき平均処置効果（CATE）を予測することで、評価には Qini 係数を使った。</p>
+    <p>コンペのページによると、自社の実データは機密なので、実際に直面した事例に近づけるよう合成データを作った。生成の方法は公開されていない。データのページの説明では、処置群に入った加入者には「コミュニケーション」を行い、対照群には行わなかった。conversion はこのコミュニケーションの効果を測るための購入（コンバージョン）の指標とされている。コミュニケーションの手段や中身、何を購入とみなすかは書かれていない。</p>
+    <p>配られたのは、正解つきの学習用データ（train.csv、600,000 行）と、正解のないテスト用データ（test.csv、900,000 行）である。研究でこのデータと呼ぶのはふつう学習用データで、scikit-uplift の <code>fetch_megafon</code> もこれを読む。ライセンスや利用条件の記載は、コンペのページにも scikit-uplift のドキュメントにも見つからなかった。</p>
+  </section>
+
+  <section id="columns">
+    <div class="kicker">列</div>
+    <h2>各行は 1 人の加入者で、匿名化した特徴量 50 個と、処置群かどうか・購入したかの 2 列からなる</h2>
+    <p>コンペの train.csv は 53 列のカンマ区切りで、id、treatment_group、X_1〜X_50、conversion の順に並ぶ。全件を読んで確かめたところ、空のセルはなく、treatment_group は treatment と control の 2 値、conversion は 0 と 1 だけだった。id は 0 から 599,999 までの通し番号で、ファイルの行の順と一致する。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>列</th><th>意味</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>加入者の通し番号。コンペのファイルにだけあり、scikit-uplift のファイルにはない</td><td>整数</td></tr>
+          <tr><td><code>treatment_group</code></td><td>処置群（コミュニケーションあり）か対照群（なし）か</td><td>treatment / control</td></tr>
+          <tr><td><code>X_1</code>〜<code>X_50</code></td><td>匿名化した特徴量。名前と意味は公開されていない</td><td>小数</td></tr>
+          <tr><td><code>conversion</code></td><td>購入（コンバージョン）したか</td><td>0/1</td></tr>
+        </tbody>
+        </table></div><p class="tblcap">表1　列の一覧（コンペのデータのページと scikit-uplift の説明をもとに解説者がまとめた）。</p>
+    <p>scikit-uplift の関数の説明文では treatment_group が「customer purchasing」となっているが、これは conversion の説明と入れ替わった誤りとみられる。同じドキュメントの Fields の欄では、treatment_group は処置群・対照群の区別、conversion は購入となっている。</p>
+  </section>
+
+  <section id="features">
+    <div class="kicker">特徴量</div>
+    <h2>特徴量はすべて連続値で、3 組は一方が他方の定数倍になっている</h2>
+    <p>50 個の特徴量はどれも 600,000 行すべてで値が異なり、整数の値は一つもない。歪度はどれも絶対値で 0.06 未満で、ほぼ左右対称に分布している。X_2、X_23、X_24、X_30、X_44、X_46 の 6 個は平均 0、標準偏差 1 で、標準化した形になっている。ほかの特徴量の標準偏差は 7 から 501 までばらつく。</p>
+    <p>特徴量どうしの相関を全 1,225 組で計算すると、相関係数の中央値は絶対値で 0.001 だが、248 組は 0.1 以上、37 組は 0.5 以上だった。X_10 と X_12、X_21 と X_25、X_28 と X_43 の 3 組は、計算の誤差の範囲で一方が他方の定数倍になっていて、新しい情報を持たない。X_11 と X_47 の相関も −0.999 である（表2）。重回帰のように係数を推定する手法では、これらの組をそのまま入れると係数が定まらない。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>特徴量の組</th><th class="n">相関係数</th><th>関係</th></tr></thead><tbody><tr><td><code>X_10</code> と <code>X_12</code></td><td class="n">+1.0000</td><td><code>X_12</code> = 0.0566 × <code>X_10</code></td></tr><tr><td><code>X_21</code> と <code>X_25</code></td><td class="n">+1.0000</td><td><code>X_25</code> = 0.7522 × <code>X_21</code></td></tr><tr><td><code>X_28</code> と <code>X_43</code></td><td class="n">+1.0000</td><td><code>X_43</code> = 1.8383 × <code>X_28</code></td></tr><tr><td><code>X_11</code> と <code>X_47</code></td><td class="n">−0.9992</td><td>ほぼ直線（定数倍ではない）</td></tr><tr><td><code>X_15</code> と <code>X_21</code></td><td class="n">+0.9915</td><td></td></tr><tr><td><code>X_15</code> と <code>X_25</code></td><td class="n">+0.9915</td><td></td></tr><tr><td><code>X_42</code> と <code>X_49</code></td><td class="n">−0.9667</td><td></td></tr><tr><td><code>X_20</code> と <code>X_45</code></td><td class="n">+0.9595</td><td></td></tr><tr><td><code>X_14</code> と <code>X_29</code></td><td class="n">+0.9174</td><td></td></tr><tr><td><code>X_1</code> と <code>X_36</code></td><td class="n">−0.9090</td><td></td></tr></tbody></table></div><p class="tblcap">表2　相関係数の絶対値が 0.9 を超える特徴量の組（全 1,225 組のうち 10 組、全件から解説者が計算）。上の 3 組は、最小二乗で当てはめた直線からの残差が最大でも 10<sup>−12</sup> 未満で、計算の誤差の範囲で一方が他方の定数倍になっている。</p>
+    <details class="more"><summary>50 個の特徴量の要約（表3）を開く</summary><div class="tblwrap"><table class="tbl"><thead><tr><th>特徴量</th><th class="n">平均</th><th class="n">標準偏差</th><th class="n">最小</th><th class="n">最大</th><th class="n">歪度</th><th class="n">超過尖度</th><th class="n">標準化平均差</th><th class="n">効果の幅（pt）</th></tr></thead><tbody><tr><td><code>X_1</code></td><td class="n">−3.76</td><td class="n">54.88</td><td class="n">−271.7</td><td class="n">250.8</td><td class="n">+0.008</td><td class="n">+0.03</td><td class="n">−0.0019</td><td class="n">2.0</td></tr><tr><td><code>X_2</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.4</td><td class="n">5.1</td><td class="n">+0.000</td><td class="n">+0.01</td><td class="n">+0.0008</td><td class="n">1.0</td></tr><tr><td><code>X_3</code></td><td class="n">0.36</td><td class="n">31.80</td><td class="n">−148.9</td><td class="n">170.1</td><td class="n">−0.002</td><td class="n">+0.09</td><td class="n">+0.0010</td><td class="n">3.4</td></tr><tr><td><code>X_4</code></td><td class="n">−1.00</td><td class="n">45.29</td><td class="n">−244.4</td><td class="n">235.1</td><td class="n">−0.045</td><td class="n">+0.19</td><td class="n">+0.0026</td><td class="n">7.6</td></tr><tr><td><code>X_5</code></td><td class="n">3.38</td><td class="n">53.40</td><td class="n">−302.6</td><td class="n">284.9</td><td class="n">−0.053</td><td class="n">+0.26</td><td class="n">+0.0045</td><td class="n">6.7</td></tr><tr><td><code>X_6</code></td><td class="n">−6.40</td><td class="n">140.87</td><td class="n">−683.1</td><td class="n">656.5</td><td class="n">−0.003</td><td class="n">+0.05</td><td class="n">−0.0021</td><td class="n">3.5</td></tr><tr><td><code>X_7</code></td><td class="n">−2.25</td><td class="n">59.81</td><td class="n">−322.7</td><td class="n">293.9</td><td class="n">+0.003</td><td class="n">+0.09</td><td class="n">+0.0006</td><td class="n">2.1</td></tr><tr><td><code>X_8</code></td><td class="n">−6.43</td><td class="n">74.84</td><td class="n">−506.2</td><td class="n">550.5</td><td class="n">+0.000</td><td class="n">+0.64</td><td class="n">+0.0022</td><td class="n">7.7</td></tr><tr><td><code>X_9</code></td><td class="n">−0.06</td><td class="n">44.91</td><td class="n">−218.5</td><td class="n">219.6</td><td class="n">+0.005</td><td class="n">+0.01</td><td class="n">−0.0036</td><td class="n">1.0</td></tr><tr><td><code>X_10</code></td><td class="n">−1.66</td><td class="n">199.62</td><td class="n">−920.3</td><td class="n">1251.8</td><td class="n">+0.004</td><td class="n">+0.09</td><td class="n">−0.0003</td><td class="n">3.4</td></tr><tr><td><code>X_11</code></td><td class="n">19.09</td><td class="n">455.89</td><td class="n">−2289.3</td><td class="n">2295.8</td><td class="n">+0.009</td><td class="n">+0.05</td><td class="n">+0.0007</td><td class="n">3.2</td></tr><tr><td><code>X_12</code></td><td class="n">−0.09</td><td class="n">11.30</td><td class="n">−52.1</td><td class="n">70.8</td><td class="n">+0.004</td><td class="n">+0.09</td><td class="n">−0.0003</td><td class="n">3.4</td></tr><tr><td><code>X_13</code></td><td class="n">0.00</td><td class="n">56.80</td><td class="n">−313.3</td><td class="n">261.2</td><td class="n">−0.001</td><td class="n">−0.01</td><td class="n">+0.0003</td><td class="n">0.8</td></tr><tr><td><code>X_14</code></td><td class="n">−2.46</td><td class="n">39.92</td><td class="n">−195.5</td><td class="n">203.1</td><td class="n">+0.002</td><td class="n">+0.07</td><td class="n">−0.0002</td><td class="n">3.8</td></tr><tr><td><code>X_15</code></td><td class="n">13.16</td><td class="n">114.28</td><td class="n">−636.6</td><td class="n">611.4</td><td class="n">−0.012</td><td class="n">+0.21</td><td class="n">+0.0017</td><td class="n">4.0</td></tr><tr><td><code>X_16</code></td><td class="n">7.06</td><td class="n">77.63</td><td class="n">−533.4</td><td class="n">517.0</td><td class="n">+0.000</td><td class="n">+1.77</td><td class="n">−0.0002</td><td class="n">14.2</td></tr><tr><td><code>X_17</code></td><td class="n">6.86</td><td class="n">190.95</td><td class="n">−913.0</td><td class="n">937.4</td><td class="n">+0.001</td><td class="n">+0.00</td><td class="n">+0.0033</td><td class="n">1.6</td></tr><tr><td><code>X_18</code></td><td class="n">−0.02</td><td class="n">11.48</td><td class="n">−55.1</td><td class="n">54.3</td><td class="n">−0.002</td><td class="n">+0.00</td><td class="n">−0.0023</td><td class="n">1.3</td></tr><tr><td><code>X_19</code></td><td class="n">−0.99</td><td class="n">26.24</td><td class="n">−125.7</td><td class="n">124.5</td><td class="n">+0.001</td><td class="n">+0.01</td><td class="n">+0.0016</td><td class="n">0.9</td></tr><tr><td><code>X_20</code></td><td class="n">−1.11</td><td class="n">72.37</td><td class="n">−330.8</td><td class="n">365.7</td><td class="n">+0.002</td><td class="n">+0.00</td><td class="n">−0.0010</td><td class="n">1.2</td></tr><tr><td><code>X_21</code></td><td class="n">14.84</td><td class="n">138.52</td><td class="n">−770.3</td><td class="n">742.7</td><td class="n">−0.012</td><td class="n">+0.22</td><td class="n">+0.0015</td><td class="n">4.0</td></tr><tr><td><code>X_22</code></td><td class="n">−9.91</td><td class="n">160.88</td><td class="n">−774.3</td><td class="n">791.7</td><td class="n">−0.008</td><td class="n">+0.06</td><td class="n">+0.0035</td><td class="n">5.1</td></tr><tr><td><code>X_23</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.5</td><td class="n">5.3</td><td class="n">+0.001</td><td class="n">+0.00</td><td class="n">+0.0002</td><td class="n">1.6</td></tr><tr><td><code>X_24</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.7</td><td class="n">4.5</td><td class="n">+0.000</td><td class="n">−0.01</td><td class="n">+0.0009</td><td class="n">1.1</td></tr><tr><td><code>X_25</code></td><td class="n">11.16</td><td class="n">104.20</td><td class="n">−579.5</td><td class="n">558.6</td><td class="n">−0.012</td><td class="n">+0.22</td><td class="n">+0.0015</td><td class="n">4.0</td></tr><tr><td><code>X_26</code></td><td class="n">0.02</td><td class="n">28.33</td><td class="n">−126.5</td><td class="n">128.6</td><td class="n">+0.001</td><td class="n">−0.00</td><td class="n">−0.0006</td><td class="n">0.8</td></tr><tr><td><code>X_27</code></td><td class="n">−0.98</td><td class="n">13.73</td><td class="n">−64.7</td><td class="n">63.1</td><td class="n">−0.009</td><td class="n">+0.00</td><td class="n">+0.0046</td><td class="n">1.8</td></tr><tr><td><code>X_28</code></td><td class="n">4.60</td><td class="n">142.98</td><td class="n">−732.1</td><td class="n">809.9</td><td class="n">−0.009</td><td class="n">+0.08</td><td class="n">−0.0036</td><td class="n">2.6</td></tr><tr><td><code>X_29</code></td><td class="n">−6.26</td><td class="n">75.07</td><td class="n">−399.4</td><td class="n">361.3</td><td class="n">+0.002</td><td class="n">+0.09</td><td class="n">+0.0005</td><td class="n">4.2</td></tr><tr><td><code>X_30</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.6</td><td class="n">5.0</td><td class="n">+0.003</td><td class="n">−0.00</td><td class="n">−0.0031</td><td class="n">0.7</td></tr><tr><td><code>X_31</code></td><td class="n">2.70</td><td class="n">51.11</td><td class="n">−346.7</td><td class="n">313.7</td><td class="n">−0.002</td><td class="n">+0.33</td><td class="n">−0.0017</td><td class="n">6.5</td></tr><tr><td><code>X_32</code></td><td class="n">0.03</td><td class="n">107.85</td><td class="n">−515.5</td><td class="n">524.5</td><td class="n">−0.002</td><td class="n">+0.01</td><td class="n">+0.0007</td><td class="n">1.1</td></tr><tr><td><code>X_33</code></td><td class="n">−6.51</td><td class="n">153.13</td><td class="n">−743.8</td><td class="n">749.3</td><td class="n">+0.010</td><td class="n">+0.02</td><td class="n">+0.0002</td><td class="n">3.7</td></tr><tr><td><code>X_34</code></td><td class="n">−0.01</td><td class="n">6.96</td><td class="n">−32.1</td><td class="n">32.3</td><td class="n">+0.004</td><td class="n">−0.01</td><td class="n">+0.0009</td><td class="n">1.4</td></tr><tr><td><code>X_35</code></td><td class="n">3.00</td><td class="n">47.53</td><td class="n">−251.3</td><td class="n">254.2</td><td class="n">+0.001</td><td class="n">+0.48</td><td class="n">+0.0003</td><td class="n">9.9</td></tr><tr><td><code>X_36</code></td><td class="n">5.33</td><td class="n">70.70</td><td class="n">−348.1</td><td class="n">372.7</td><td class="n">−0.007</td><td class="n">+0.04</td><td class="n">+0.0029</td><td class="n">2.2</td></tr><tr><td><code>X_37</code></td><td class="n">7.74</td><td class="n">134.68</td><td class="n">−668.8</td><td class="n">640.0</td><td class="n">−0.001</td><td class="n">+0.02</td><td class="n">+0.0017</td><td class="n">2.7</td></tr><tr><td><code>X_38</code></td><td class="n">−4.72</td><td class="n">131.79</td><td class="n">−700.1</td><td class="n">666.1</td><td class="n">−0.001</td><td class="n">+0.00</td><td class="n">+0.0002</td><td class="n">1.7</td></tr><tr><td><code>X_39</code></td><td class="n">−9.21</td><td class="n">197.49</td><td class="n">−1016.3</td><td class="n">851.4</td><td class="n">−0.001</td><td class="n">+0.01</td><td class="n">+0.0029</td><td class="n">1.5</td></tr><tr><td><code>X_40</code></td><td class="n">2.73</td><td class="n">39.50</td><td class="n">−179.6</td><td class="n">201.3</td><td class="n">+0.000</td><td class="n">+0.17</td><td class="n">+0.0010</td><td class="n">6.6</td></tr><tr><td><code>X_41</code></td><td class="n">6.88</td><td class="n">163.78</td><td class="n">−810.8</td><td class="n">867.1</td><td class="n">−0.011</td><td class="n">+0.09</td><td class="n">0.0000</td><td class="n">3.0</td></tr><tr><td><code>X_42</code></td><td class="n">−6.63</td><td class="n">137.03</td><td class="n">−633.6</td><td class="n">689.6</td><td class="n">+0.010</td><td class="n">+0.01</td><td class="n">+0.0000</td><td class="n">2.6</td></tr><tr><td><code>X_43</code></td><td class="n">8.45</td><td class="n">262.84</td><td class="n">−1345.8</td><td class="n">1488.8</td><td class="n">−0.009</td><td class="n">+0.08</td><td class="n">−0.0036</td><td class="n">2.6</td></tr><tr><td><code>X_44</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.8</td><td class="n">4.7</td><td class="n">−0.001</td><td class="n">+0.00</td><td class="n">+0.0044</td><td class="n">1.3</td></tr><tr><td><code>X_45</code></td><td class="n">0.01</td><td class="n">71.55</td><td class="n">−360.7</td><td class="n">384.7</td><td class="n">+0.001</td><td class="n">+0.01</td><td class="n">−0.0018</td><td class="n">0.8</td></tr><tr><td><code>X_46</code></td><td class="n">0.00</td><td class="n">1.00</td><td class="n">−4.5</td><td class="n">5.1</td><td class="n">+0.003</td><td class="n">+0.00</td><td class="n">−0.0006</td><td class="n">0.8</td></tr><tr><td><code>X_47</code></td><td class="n">−22.26</td><td class="n">500.90</td><td class="n">−2507.0</td><td class="n">2534.5</td><td class="n">−0.009</td><td class="n">+0.05</td><td class="n">−0.0007</td><td class="n">3.1</td></tr><tr><td><code>X_48</code></td><td class="n">−5.76</td><td class="n">130.95</td><td class="n">−687.5</td><td class="n">595.3</td><td class="n">+0.001</td><td class="n">+0.07</td><td class="n">+0.0011</td><td class="n">3.4</td></tr><tr><td><code>X_49</code></td><td class="n">6.24</td><td class="n">141.21</td><td class="n">−702.2</td><td class="n">630.7</td><td class="n">−0.008</td><td class="n">+0.02</td><td class="n">+0.0007</td><td class="n">2.3</td></tr><tr><td><code>X_50</code></td><td class="n">−1.18</td><td class="n">21.36</td><td class="n">−98.1</td><td class="n">112.2</td><td class="n">+0.002</td><td class="n">+0.01</td><td class="n">+0.0028</td><td class="n">1.3</td></tr></tbody></table></div><p class="tblcap">表3　特徴量ごとの要約（全件から解説者が計算）。標準化平均差は（処置群の平均 − 対照群の平均）÷ 全体の標準偏差。効果の幅は十分位ごとの効果（処置群と対照群の購入率の差）の最大と最小の差。</p></details>
+  </section>
+
+  <section id="assignment">
+    <div class="kicker">割付</div>
+    <h2>割付の方法は公開されていないが、処置群と対照群の特徴量は無作為割付と見分けがつかないほどそろっている</h2>
+    <p>処置群は 300,368 人で、全体の 50.06% にあたる。割合が 1/2 のときに期待される人数との差は、標準誤差の 0.95 倍で、偶然の範囲である。50 個の特徴量について、2 群の平均の差を全体の標準偏差で割った値（標準化平均差）を計算すると、絶対値は最大でも 0.0046 だった（図1）。観察データの共変量の偏りを調べるときは 0.1 を目安にすることが多く、それよりずっと小さい。</p>
+    <p>ただし、このデータは合成データなので、「割付」も生成の手順の一部である。処置群と対照群の区別がどう決まったのか、効果がどんな式で作られたのかは公開されていない。2 群の特徴量がそろっていることから、効果は 2 群の差で偏りなく推定できると考えてよいが、その推定値は実際の施策の効果ではない。</p>
+    <figure>
+      <svg class="fig" id="fig-balance" viewBox="0 0 640 230" role="img" aria-label="50個の特徴量の標準化平均差。すべて -0.005 から +0.005 の間にあり、目安の0.1よりずっと小さい。"></svg>
+      <figcaption>図1　特徴量ごとの標準化平均差（処置群の平均 − 対照群の平均を、全体の標準偏差で割った値）。点が特徴量 1 個にあたる。横軸の幅は ±0.01 で、目安の 0.1 はこの図の範囲の 10 倍外にある（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="stats">
+    <div class="kicker">基本統計</div>
+    <h2>処置群の購入率は 22.89% で、対照群の 17.94% より 4.95 pt 高い</h2>
+    <p>購入した人は全体で 122,514 人（20.42%）である。処置群と対照群の<span class="B">購入率</span>の差（平均処置効果）は +4.95 pt（標準誤差 0.10 pt、95% 信頼区間 4.75〜5.16 pt）で、対照群に対する相対的な上昇は +27.6% になる（図2、表4）。行数、処置率、購入率は、コンペのページと scikit-uplift の説明に載っている値と合う（表5）。</p>
+    <p>購入率が 0.29% の <a href="../criteo-uplift/">Criteo</a> と違って、このデータは購入率が 2 割と高く、各群に 30 万人ずついる。全体の効果の標準誤差は効果の 2% ほどで、層に分けても推定の精度が保ちやすい。</p>
+    <figure>
+      <svg class="fig" id="fig-rates" viewBox="0 0 640 330" role="img" aria-label="群ごとの購入率の棒グラフ。対照群17.94%、処置群22.89%で、差は4.95ポイント。"></svg>
+      <figcaption>図2　群ごとの<span class="B">購入率</span>。薄い色が対照群、濃い色が処置群。ひげは 95% 信頼区間で、短すぎてほとんど見えない（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>群</th><th class="n">人数</th><th class="n">購入した人</th><th class="n">購入率</th></tr></thead><tbody><tr><td>処置群</td><td class="n">300,368</td><td class="n">68,760</td><td class="n">22.89%</td></tr><tr><td>対照群</td><td class="n">299,632</td><td class="n">53,754</td><td class="n">17.94%</td></tr><tr><td>全体</td><td class="n">600,000</td><td class="n">122,514</td><td class="n">20.42%</td></tr><tr><td>差（標準誤差）</td><td></td><td></td><td class="n">+4.95 pt（0.10）</td></tr><tr><td>95% 信頼区間</td><td></td><td></td><td class="n">4.75〜5.16 pt</td></tr><tr><td>相対的な上昇（標準誤差）</td><td></td><td></td><td class="n">+27.6%（0.7）</td></tr></tbody></table></div><p class="tblcap">表4　群ごとの購入率と、処置群と対照群の差（全 600,000 行から解説者が計算）。差の標準誤差は 2 群の割合の差の式、相対的な上昇（処置群の率 ÷ 対照群の率 − 1）の標準誤差はデルタ法による。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>項目</th><th class="n">train.csv<br>（解説者の計算）</th><th class="n">コンペの<br>ページ</th><th class="n">scikit-uplift の<br>説明</th><th class="n">UpliftBench<br>Table 1</th></tr></thead><tbody><tr><td>行数（学習用）</td><td class="n">600,000</td><td class="n">600,000</td><td class="n">600,000</td><td class="n">600K（全体）</td></tr><tr><td>処置率</td><td class="n">0.5006</td><td class="n">—</td><td class="n">.5</td><td class="n">0.50</td></tr><tr><td>購入率</td><td class="n">0.2042</td><td class="n">—</td><td class="n">.2</td><td class="n">0.20</td></tr><tr><td>特徴量の数</td><td class="n">50</td><td class="n">50</td><td class="n">50</td><td class="n">—</td></tr><tr><td>ファイルの大きさ</td><td class="n">580,744,768 バイト</td><td class="n">554 MB</td><td class="n">554M</td><td class="n">—</td></tr><tr><td>テストデータ</td><td class="n">取得していない</td><td class="n">900,000 行（conversion なし）</td><td class="n">—</td><td class="n">—</td></tr><tr><td>データの種類</td><td class="n">—</td><td class="n">合成データ</td><td class="n">合成データ</td><td class="n"><b>Marketing RCT</b></td></tr></tbody></table></div><p class="tblcap">表5　全件から計算した値と、資料に載っている値。行数、処置率、購入率は資料の値と合う。ファイルの大きさの 554 MB は 580,744,768 バイトを 1,048,576 で割った値（553.8）にあたる。UpliftBench はこのデータを実際のマーケティングの RCT に分類しているが（太字）、提供元はどちらの説明でも合成データとしている。</p>
+  </section>
+
+  <section id="heterogeneity">
+    <div class="kicker">効果の異質性</div>
+    <h2>効果は特徴量によって大きく変わり、処置で購入率が下がる層もある</h2>
+    <p>無作為に割り付けたデータでは、特徴量で層に分けても、層の中の 2 群の差は、その層の効果の偏りのない推定値になる。特徴量ごとに全件を十分位（10 等分）に分け、層ごとに処置群と対照群の購入率の差を計算した。10 個の層の効果が等しいという仮説を検定すると、50 個のうち 29 個の特徴量で 0.1% 水準で棄却された（表6）。</p>
+    <p>いちばん差が大きいのは X_16 である。中ほどの層では効果が +9.1 pt に達する一方、下端の 1 割では <span class="A">−5.1 pt</span>、上端の 1 割では <span class="A">−4.7 pt</span> で、処置すると購入率が下がる（図3左）。各層の標準誤差は 0.3 pt ほどなので、偶然では説明できない。対照群の購入率はどの層でも 18% 前後で、X_16 の値によって変わるのは処置群の購入率だけである。X_35 では逆に、両端の層の効果が +11.4 pt と大きく、中ほどでは +1.5〜2.2 pt と小さい（図3右）。</p>
+    <p>X_16 の十分位の推定値をそのまま使うと、全員に処置したときに増える購入は約 29,721 人分で、両端の 2 割を外して 8 割に処置すると約 35,557 人分になる。処置する人を減らしたほうが、増える購入が 2 割ほど多い。この計算は学習と評価を分けずに全件で集計した値で、モデルの性能を表すものではないが、このデータでは「誰に配らないか」が結果を大きく左右することを示している。</p>
+    <figure>
+      <svg class="fig" id="fig-deciles" viewBox="0 0 640 330" role="img" aria-label="十分位ごとの効果。X_16では両端の層が約-5ポイント、中ほどの層が約+8〜9ポイント。X_35では両端の層が約+11ポイント、中ほどの層が約+2ポイント。"></svg>
+      <figcaption>図3　X_16（左）と X_35（右）の十分位ごとの効果（処置群と対照群の購入率の差）。<span class="B">青</span>は効果が正、<span class="A">橙</span>は負の層。ひげは 95% 信頼区間。横軸は特徴量の小さいほうから 1〜10 番目の層（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>特徴量</th><th class="n">χ²（自由度 9）</th><th class="n">十分位の効果の最小</th><th class="n">最大</th><th class="n">下端 / 上端の 1 割</th></tr></thead><tbody><tr><td><code>X_16</code></td><td class="n">2,773</td><td class="n neg">−5.1 pt</td><td class="n">+9.1 pt</td><td class="n">−5.1 pt / −4.7 pt</td></tr><tr><td><code>X_35</code></td><td class="n">1,154</td><td class="n">+1.5 pt</td><td class="n">+11.4 pt</td><td class="n">+11.4 pt / +11.4 pt</td></tr><tr><td><code>X_8</code></td><td class="n">688</td><td class="n">+2.8 pt</td><td class="n">+10.6 pt</td><td class="n">+10.6 pt / +10.4 pt</td></tr><tr><td><code>X_4</code></td><td class="n">483</td><td class="n">+2.9 pt</td><td class="n">+10.5 pt</td><td class="n">+10.5 pt / +7.5 pt</td></tr><tr><td><code>X_40</code></td><td class="n">422</td><td class="n">+2.7 pt</td><td class="n">+9.3 pt</td><td class="n">+9.3 pt / +8.7 pt</td></tr><tr><td><code>X_31</code></td><td class="n">380</td><td class="n">+2.7 pt</td><td class="n">+9.3 pt</td><td class="n">+9.3 pt / +8.6 pt</td></tr><tr><td><code>X_5</code></td><td class="n">357</td><td class="n">+3.4 pt</td><td class="n">+10.1 pt</td><td class="n">+10.1 pt / +6.9 pt</td></tr><tr><td><code>X_22</code></td><td class="n">275</td><td class="n">+1.5 pt</td><td class="n">+6.6 pt</td><td class="n">+2.0 pt / +1.5 pt</td></tr></tbody></table></div><p class="tblcap">表6　十分位ごとの効果の差が大きい特徴量の上位 8 個（全件から解説者が計算）。χ² は「10 個の十分位の効果が等しい」という仮説の検定統計量で、0.1% 水準の棄却点は 27.9。50 個のうち 29 個がこれを超えた。学習と評価を分けずに全件で集計した記述統計である。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきの実験での使われ方</div>
+    <h2>掲載論文でこのデータを使うのは UpliftBench だけで、1 万件を抜き出し、処置する人の割合を予算とみなして方策の価値を比べている</h2>
+    <p>このデータには処置のコストも購入の金額もない。予算は「上位から何割に処置するか」という人数の割合でしか表せない。文献リストでこのデータを挙げている論文は次の 1 本である。</p>
+    <ul class="def">
+      <li><b><a href="../../papers/upliftbench/">UpliftBench</a>（arXiv 2026）</b>　12 個の推定量を 7 系統のデータで 6 つの指標によって採点し、指標どうしのずれを調べた評価の論文。MegaFon は Hillstrom・Lenta・X5 とともに「マーケティングの RCT」4 つのうちの一つとして使われる（論文 Table 1。全体 600K、処置率 0.50、結果の平均 0.20）。600,000 行から処置と結果で層化して 10,000 行を抜き出し、3 分割の交差検証を 3 つのシードで繰り返す。効果の真値がないので、参照する目的はなく、Qini で代用する。Qini で最良だったのは X 学習器と S 学習器で（どちらも約 40.3）、論文は、首位とほかのモデルとの差が分割ごとのばらつきの範囲内だとしている。uplift フォレスト 3 種と R 学習器・DR 学習器は、MegaFon では時間切れで結果がない。予算 <i>k</i>（処置する割合）ごとの方策価値の図（論文 Fig. 7）にも MegaFon のパネルがある。</li>
+    </ul>
+    <p>解説者が論文 Fig. 7 の MegaFon のパネルを見た限りでは、多くのモデルの方策価値は、全員に処置する <i>k</i> = 1 より手前で最大になっている（値は読み取っていない）。前の節で見たように、処置すると購入率が下がる層があるので、全員に配るより一部に配るほうが価値が高くなりうる。予算の上限が効かない場合でも、効果が負の人を見分けられるかどうかが問われるデータといえる。</p>
+    <p>UpliftBench はこのデータを「公開されたマーケティングの無作為化試験」と書いているが、提供元は合成データとしている。このページでは提供元の説明に従う。</p>
+  </section>
+
+  <section id="caveats">
+    <div class="kicker">注意点</div>
+    <h2>合成データで、金額もコストもなく、テスト用データの正解も公開されていない</h2>
+    <ul class="def">
+      <li><b>合成データ</b>　実データに似せて作ったもので、生成の方法は公開されていない。効果の大きさや、効果が負の層の割合は、実際の通信事業者の施策のものではない。生成の式が公開されていないので、合成データであっても個人ごとの効果の真値は使えない。</li>
+      <li><b>金額とコストがない</b>　結果は購入の 0/1 だけで、購入の金額も、コミュニケーションのコストもない。費用対効果で配る手法を試すには、コストを別に仮定する必要がある。</li>
+      <li><b>処置の中身が分からない</b>　「コミュニケーション」とだけ書かれていて、手段も内容も分からない。特徴量の名前と意味も公開されていない。</li>
+      <li><b>重複した特徴量</b>　3 組は一方が他方の定数倍で、X_11 と X_47 もほぼ一直線に並ぶ（表2）。線形のモデルの係数や、特徴量の重要度を比べる分析では注意がいる。</li>
+      <li><b>テスト用データ</b>　コンペのテスト用データ（900,000 行）には conversion がなく、コンペの終了後も正解は公開されていない。論文で使うのは学習用の 600,000 行を分割したものである。</li>
+      <li><b>資料の食い違い</b>　UpliftBench は実際の RCT として分類しているが、提供元は合成データとしている。scikit-uplift の関数の説明文は treatment_group の意味を取り違えている（「列」の節）。scikit-uplift のドキュメントは「通信会社各社が生成した」と書くが、コンペのページでは MegaFon が自社で作ったとしている。</li>
+      <li><b>ライセンス</b>　コンペのページにも scikit-uplift のドキュメントにも記載がない。再配布や商用の利用の前には、提供元に確認する必要がある。</li>
+    </ul>
+  </section>
+
+  <section id="download">
+    <div class="kicker">取得方法</div>
+    <h2>コンペの配布元のファイルも <span class="nw">scikit-uplift</span> の取得先も、2026 年 11 月の時点でログインなしに取得できた</h2>
+    <p>コンペのデータのページはファイルの置き場所として Yandex Cloud のストレージの URL を示している。2026 年 11 月 23 日に解説者が試したところ、ログインなしで train.csv（580,744,768 バイト、更新日 2021 年 5 月 21 日）を取得できた。このページの統計はこのファイルの全 600,000 行から計算した。テスト用データ（test.csv）は取得していない。</p>
+<pre class="code"><span class="c"># コンペの配布元から取得（約 581 MB、圧縮なし）</span>
+curl -L -O https://storage.yandexcloud.net/datasouls-ods/static/competitions/megafon_fest2021/train.csv
+shasum -a 256 train.csv
+<span class="c"># d596ade05de1bfe85e70ced23bc6411f594f2484b697386d61c27b48040e607e</span>
+
+<span class="c"># scikit-uplift 0.5.1（Amazon S3 の megafon_dataset.csv.gz、約 276 MB を取得して読む）</span>
+from sklift.datasets import fetch_megafon
+X, y, t = fetch_megafon(return_X_y_t=True)</pre>
+    <p>scikit-uplift の <code>fetch_megafon</code> は、Amazon S3 上の megafon_dataset.csv.gz（275,944,146 バイト、更新日 2021 年 8 月 12 日）を取得し、MD5 がコード中の値と一致するかを確かめてから読む。同じ日に試したところ、最新版 0.5.1 で取得から読み込みまで動き、600,000 行・特徴量 50 個が返った（Python 3.11、pandas 2.1.4 の環境）。ファイルの SHA-256 は <code class="hash">cdcb2d052b90f8eefa75937d5540f114d0748ea231d95e2778dd6760478e4a00</code> である。</p>
+    <p>このファイルはコンペの train.csv から id の列を除いたもので、行の順も、treatment_group と conversion の値もすべて一致した。特徴量は 3,000 万個のセルのうち 5,559,498 個（18.5%）で文字列としての表記が異なるが、数値の差は相対的に最大でも 10<sup>−12</sup> 未満で、小数の書き出しのときの末尾の桁の違いである。どちらから取得しても、このページの統計は変わらない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{megafon2021uplift,
+  title        = {{MegaFon} Uplift Competition},
+  author       = {{MegaFon}},
+  year         = {2021},
+  howpublished = {\url{https://ods.ai/tracks/df21-megafon/competitions/megafon-df21-comp}},
+  note         = {Open Data Science (ODS.ai), Data Fest 2021}
+}</pre>
+    </div>
+    <p class="src">提供元は引用の書き方を示していない。上は、コンペのページの名称と URL をもとに解説者が作ったものである。UpliftBench は同じキーで、URL を scikit-uplift の <code>fetch_megafon</code> のドキュメントにして引用している。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページはデータセットの提供者や論文の著者によるものではなく、西村直樹がデータと資料を調べてまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述はコンペのページと配布元の説明を参照してください。統計は 2026 年 11 月 23 日にコンペの配布元から取得した train.csv から解説者が計算しました（<a href="assets/megafon_stats.json">megafon_stats.json</a>）。</p>
+</footer>
+
+<script src="assets/megafon_stats.js"></script>
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script>
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+var ST = window.MEGAFON_STATS, INK = '#16202E', MUTED = '#5B6676', HAIR = '#D9DEE6', GRAY = '#CBD2DC';
+var A = '#C2410C', B = '#1D4ED8', Bs = '#BFD0F6';
+
+// ---------- figure 1: standardized mean differences (from megafon_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-balance'); if (!svg || !ST) return;
+  var el = mk(svg), F = ST.features, keys = Object.keys(F);
+  var X0 = 60, X1 = 600, LIM = 0.01, Y = 110;
+  function x(v) { return X0 + (X1 - X0) * (v + LIM) / (2 * LIM); }
+  el('text', { x: X0, y: 30, 'font-size': 20, 'font-weight': 600, fill: INK }, '標準化平均差（特徴量 50 個）');
+  [-0.01, -0.005, 0, 0.005, 0.01].forEach(function (v) {
+    el('line', { x1: x(v), x2: x(v), y1: 50, y2: 170, stroke: v === 0 ? INK : HAIR, 'stroke-width': v === 0 ? 1.5 : 1 });
+    el('text', { x: x(v), y: 192, 'font-size': 19, fill: MUTED, 'text-anchor': 'middle' }, (v > 0 ? '+' : '') + v.toFixed(3));
+  });
+  // beeswarm-like stacking: sort by value and offset neighbours vertically
+  var pts = keys.map(function (k) { return F[k].smd; }).sort(function (a, b) { return a - b; });
+  var placed = [];
+  pts.forEach(function (v) {
+    var cx = x(v), lvl = 0;
+    while (placed.some(function (p) { return Math.abs(p[0] - cx) < 10 && p[1] === lvl; })) lvl++;
+    placed.push([cx, lvl]);
+    var cy = Y + (lvl % 2 ? -1 : 1) * Math.ceil(lvl / 2) * 10;
+    el('circle', { cx: cx, cy: cy, r: 4.5, fill: INK, 'fill-opacity': 0.75 });
+  });
+  el('text', { x: X1, y: 220, 'font-size': 19, fill: MUTED, 'text-anchor': 'end' }, '最大の絶対値 ' + ST.balance.max_abs_smd.toFixed(4));
+})();
+
+// ---------- figure 2: conversion rate by group with 95% CIs ----------
+(function () {
+  var svg = document.getElementById('fig-rates'); if (!svg || !ST) return;
+  var el = mk(svg), G = ST.groups;
+  var Y0 = 260, HMAX = 200, top = 0.25;
+  function ci(p, n) { return 1.96 * Math.sqrt(p * (1 - p) / n); }
+  el('text', { x: 60, y: 30, 'font-size': 17, 'font-weight': 600, fill: B }, '購入率（conversion）');
+  [0, 0.05, 0.1, 0.15, 0.2, 0.25].forEach(function (v) {
+    var y = Y0 - HMAX * v / top;
+    el('line', { x1: 100, x2: 420, y1: y, y2: y, stroke: HAIR });
+    el('text', { x: 92, y: y + 5, 'font-size': 15, fill: MUTED, 'text-anchor': 'end' }, (100 * v).toFixed(0) + '%');
+  });
+  [['対照群', G.control, Bs], ['処置群', G.treated, B]].forEach(function (r, i) {
+    var p = r[1].conversion_rate, h = HMAX * p / top, x = 150 + i * 150, e = HMAX * ci(p, r[1].n) / top;
+    el('rect', { x: x, y: Y0 - h, width: 80, height: h, fill: r[2] });
+    el('line', { x1: x + 40, x2: x + 40, y1: Y0 - h - e, y2: Y0 - h + e, stroke: INK, 'stroke-width': 1.5 });
+    el('text', { x: x + 40, y: Y0 - h - 12, 'font-size': 15, fill: INK, 'text-anchor': 'middle', 'font-weight': 600 }, (100 * p).toFixed(2) + '%');
+    el('text', { x: x + 40, y: Y0 + 22, 'font-size': 16, fill: INK, 'text-anchor': 'middle' }, r[0]);
+  });
+  el('line', { x1: 100, x2: 420, y1: Y0, y2: Y0, stroke: INK, 'stroke-width': 1.5 });
+  el('text', { x: 450, y: 110, 'font-size': 16, fill: MUTED }, '処置群 − 対照群');
+  el('text', { x: 450, y: 145, 'font-size': 26, 'font-weight': 650, fill: B }, '+' + (100 * ST.ate.diff).toFixed(2) + ' pt');
+  el('text', { x: 450, y: 175, 'font-size': 16, fill: INK }, '標準誤差 ' + (100 * ST.ate.se).toFixed(2) + ' pt');
+  el('text', { x: 450, y: 200, 'font-size': 16, fill: INK }, '相対的には +' + (100 * ST.ate.relative_lift).toFixed(1) + '%');
+})();
+
+// ---------- figure 3: decile effects of X_16 and X_35 ----------
+(function () {
+  var svg = document.getElementById('fig-deciles'); if (!svg || !ST) return;
+  var el = mk(svg);
+  var YT = 50, YB = 270, VMIN = -0.08, VMAX = 0.14;
+  function y(v) { return YB - (YB - YT) * (v - VMIN) / (VMAX - VMIN); }
+  function panel(x0, key) {
+    var f = ST.features[key], w = 250, bw = w / 10;
+    el('text', { x: x0, y: 28, 'font-size': 20, 'font-weight': 600, fill: INK }, key);
+    [-0.05, 0, 0.05, 0.1].forEach(function (v) {
+      el('line', { x1: x0, x2: x0 + w, y1: y(v), y2: y(v), stroke: v === 0 ? INK : HAIR, 'stroke-width': v === 0 ? 1.5 : 1 });
+      el('text', { x: x0 - 6, y: y(v) + 5, 'font-size': 19, fill: MUTED, 'text-anchor': 'end' }, (v > 0 ? '+' : '') + (100 * v).toFixed(0));
+    });
+    f.decile_effect.forEach(function (u, i) {
+      var se = f.decile_effect_se[i], cx = x0 + bw * i + bw / 2, c = u < 0 ? A : B;
+      el('rect', { x: cx - bw * 0.36, y: Math.min(y(u), y(0)), width: bw * 0.72, height: Math.abs(y(u) - y(0)), fill: c });
+      el('line', { x1: cx, x2: cx, y1: y(u - 1.96 * se), y2: y(u + 1.96 * se), stroke: INK, 'stroke-width': 1.2 });
+      if (i === 0 || i === 9 || i === 4) el('text', { x: cx, y: YB + 22, 'font-size': 19, fill: MUTED, 'text-anchor': 'middle' }, String(i + 1));
+    });
+    el('text', { x: x0 + w / 2, y: YB + 46, 'font-size': 19, fill: MUTED, 'text-anchor': 'middle' }, '十分位（小 → 大）');
+  }
+  el('text', { x: 22, y: 160, 'font-size': 19, fill: MUTED, 'text-anchor': 'middle', transform: 'rotate(-90 22 160)' }, '効果（pt）');
+  panel(60, 'X_16');
+  panel(370, 'X_35');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

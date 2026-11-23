@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lenta Uplift Modeling Dataset（データセット解説）</title>
+<meta name="description" content="Lenta Uplift Modeling Dataset の非公式の解説。ロシアの小売チェーン Lenta が BigTarget Hackathon（2020 年）で使った SMS キャンペーンのデータで、687,029 行。列の意味、処置群と対照群の偏り、全件から計算した基本統計、予算制約つきアップリフトの論文での使われ方と注意点をまとめる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   DATASET EXPLAINER PAGE — same template as ../criteo-uplift/ and the paper explainers in ../../papers/
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure or table.
+   Colour : two semantic accents only, used consistently in text, figures and the teaser.
+            --a  (orange) = SMS, the treatment, which is what a budget limits (each message costs money)
+            --b  (blue)   = store visit (response_att), the outcome
+            Within blue, the light tint is the control group and the full colour the treated (SMS) group.
+            Covariate balance is drawn in ink and grey.
+   Data   : every number on the page comes from assets/lenta_stats.json, computed by the explainer
+            from the full lenta_dataset.csv.gz (687,029 rows); published values appear only for comparison.
+   Lang   : Japanese only (unofficial explainer). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- dataset page additions: tables, facts, code ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; margin-top: 0.6rem; }
+table.tbl { border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; min-width: 100%; }
+table.tbl caption { caption-side: bottom; text-align: left; font-size: 0.9rem; color: var(--muted); padding-top: 0.6rem; line-height: 1.6; }
+table.tbl th, table.tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: top; }
+table.tbl thead th { font-size: 0.82rem; color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.tbl td.n, table.tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl code, .def code, p code { font: 0.88em var(--font-mono); background: var(--panel); padding: 0.05em 0.3em; border-radius: 4px; }
+table.tbl td.diff { font-weight: 700; }
+p.tblcap { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6; max-width: var(--wide); }
+table.tbl td:first-child { min-width: 6.5em; }
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; }
+.facts li { display: flex; flex-direction: column; line-height: 1.4; }
+.facts span { font-size: 0.82rem; color: var(--muted); }
+.facts b { font-weight: 600; }
+pre.code { margin: 0; max-width: var(--wide); background: var(--panel); border-radius: 12px; padding: 1rem 1.2rem; font: 0.85rem/1.6 var(--font-mono); overflow-x: auto; white-space: pre; }
+pre.code .c { color: var(--muted); }
+.def li b a { font-weight: 600; }
+.nw { white-space: nowrap; }
+@media (max-width: 760px) {
+  table.tbl { font-size: 0.85rem; }
+  table.tbl th, table.tbl td { padding: 0.45rem 0.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページはデータセットの提供者によるものではありません。西村直樹がデータセットを調べてまとめた非公式の解説です。正確な内容は配布元の説明を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Dataset · Lenta / BigTarget Hackathon 2020</div>
+  <h1>Lenta Uplift Modeling Dataset</h1>
+  <p class="subtitle">ロシアの小売チェーン Lenta の SMS キャンペーンのアップリフトデータ</p>
+
+  <ul class="facts">
+    <li><span>提供</span><b>Lenta</b></li>
+    <li><span>出典</span><b>BigTarget Hackathon（Lenta と Microsoft、2020 年 6 月）</b></li>
+    <li><span>配布</span><b>scikit-uplift（<code>fetch_lenta</code>）</b></li>
+    <li><span>ライセンス</span><b>記載なし</b></li>
+    <li><span>形式</span><b>CSV（gzip、145 MB）</b></li>
+  </ul>
+
+  <p class="lead">Lenta の顧客 687,029 人について、<span class="A">SMS を送ったか</span>（group）と、その後に<span class="B">店舗に来店したか</span>（response_att）を記録したデータである。購買履歴から作った特徴量が 193 列ある。2020 年に Lenta と Microsoft が開いた BigTarget Hackathon のデータで、Python のライブラリ scikit-uplift が配布している。論文の形でまとめた説明はなく、割り当ての方法も書かれていない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://www.uplift-modeling.com/en/latest/api/datasets/fetch_lenta.html">Dataset (scikit-uplift)</a>
+    <a class="btn" href="https://sklift.s3.eu-west-2.amazonaws.com/lenta_dataset.csv.gz">CSV (145 MB)</a>
+    <a class="btn" href="https://web.archive.org/web/20200620/https://bigtarget.online/">Hackathon（Web Archive）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。SMS群75%と対照群25%の割り当て、来店率10.26%と11.01%の差、過去のSMSへの反応率が両群でそろっていないこと、過去のSMSへの反応率の区分ごとの差、予算制約つきの論文での使われ方とタイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>データセットを40秒で（数値はすべて全件から解説者が計算）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">687,029 行</span><span class="d">1 行が 1 人の顧客。SMS 群 515,892 人（75.1%）、対照群 171,137 人。行数、処置率、来店率は scikit-uplift の説明の値と合う。</span></li>
+    <li><span class="k">来店 +0.75 pt</span><span class="d">SMS 群 11.01%、対照群 10.26%。差の標準誤差は 0.085 pt で、対照群に対する相対的な上昇は +7.4%。</span></li>
+    <li><span class="k">両群に偏り</span><span class="d">過去の SMS への反応率（response_sms）の標準化平均差は 0.20。無作為な割り当てで生じる大きさ（標準偏差 0.003）を大きく超える。</span></li>
+  </ul>
+
+  <section id="origin">
+    <div class="kicker">由来</div>
+    <h2>Lenta と Microsoft が 2020 年 6 月に開いたハッカソンで、SMS を送る相手を選ぶ課題に使われたデータである</h2>
+    <p>Lenta はロシアのハイパーマーケットのチェーンで、ハッカソンの告知ページによると、当時 249 のハイパーマーケットと 131 のスーパーマーケットを持っていた。BigTarget Hackathon は 2020 年 6 月 26〜28 日にオンラインで開かれ、Microsoft がクラウドの Azure と技術面の支援を提供した。賞金は 222,000 ルーブルで、優勝チームは Lenta で有償の試行に取り組める条件だった。</p>
+    <p>告知ページは課題を次のように説明している。Lenta は牛乳、卵、化粧品、家庭用洗剤などの日常的な商品について、顧客に合わせた広告キャンペーンを行っている。SMS は重要な連絡手段だが 1 通ごとに費用がかかるので、オファーを受け取れば実店舗で買う見込みが高い顧客にだけ SMS を送りたい。告知ページは理想の解法として、各顧客にスコアをつけて SMS を送る相手を選べるように並べるモデルを挙げている。SMS の通数を予算とみなせば、予算制約つきのアップリフトの問題として読める。</p>
+    <p>データは scikit-uplift のバージョン 0.3.0（2021 年 2 月）で <code>fetch_lenta</code> として加わった。scikit-uplift の説明には「BigTarget Hackathon hosted by Lenta and Microsoft in summer 2020」とだけ書かれている。キャンペーンの時期、オファーの内容、来店を数えた期間、顧客の選び方は、scikit-uplift の説明にも告知ページにも書かれていない。告知ページは現在は開けず、ここでは Web Archive が 2020 年 6 月に保存したページを参照した。</p>
+  </section>
+
+  <section id="columns">
+    <div class="kicker">列</div>
+    <h2>各行は 1 人の顧客で、SMS の有無、来店の有無と、購買履歴から作った 193 個の特徴量からなる</h2>
+    <p>ファイルは 195 列のカンマ区切りで、処置の列 <code>group</code>、目的変数 <code>response_att</code>、特徴量 193 列からなる。特徴量の大半はキャンペーン前の購買履歴を期間（15 日〜12 か月）と商品グループ（25 種類）ごとに集計した値である（表1）。scikit-uplift の列の一覧は顧客 ID の CardHolder を挙げているが、ファイルにこの列はない。一覧の「customer」の行は説明が「age」になっていて、<code>age</code> の列を指すとみられる。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>列</th><th class="n">列の数</th><th>意味（scikit-uplift の説明から）</th></tr></thead><tbody><tr><td><code>group</code></td><td class="n">1</td><td>SMS を送った群（<code>test</code>）か対照群（<code>control</code>）か。文字列で入っている</td></tr><tr><td><code>response_att</code></td><td class="n">1</td><td>目的変数。キャンペーン後に店舗に来店したか（0/1）</td></tr><tr><td><code>age</code>、<code>gender</code>、<code>children</code></td><td class="n">3</td><td>年齢、性別（Ж＝女性、М＝男性、Не определен＝不明）、子どもの数</td></tr><tr><td><code>main_format</code></td><td class="n">1</td><td>店舗の形態（1＝食料品店、0＝大型店）</td></tr><tr><td><code>months_from_register</code></td><td class="n">1</td><td>会員登録からの月数</td></tr><tr><td><code>response_sms</code>、<code>response_viber</code></td><td class="n">2</td><td>これまでの SMS／Viber のメッセージに反応（来店）した割合</td></tr><tr><td><code>cheque_count_*</code></td><td class="n">44</td><td>キャンペーン前の 3・6・12 か月に、商品グループごとに何枚のレシートがあったか</td></tr><tr><td><code>sale_count_*</code>、<code>sale_sum_*</code></td><td class="n">33</td><td>商品グループごとの購入点数と購入金額（3・6・12 か月）</td></tr><tr><td><code>crazy_purchases_*</code></td><td class="n">6</td><td>「crazy」という販促の商品を含むレシートの枚数と商品の点数</td></tr><tr><td><code>k_var_*</code></td><td class="n">94</td><td>レシートの金額、来店の間隔、割引の額、商品の数や価格などの変動係数（期間別、商品グループ別）</td></tr><tr><td>その他</td><td class="n">9</td><td>食品の割合、販促品の割合、割引の深さ、来店間隔の標準偏差など</td></tr></tbody></table></div><p class="tblcap">表1　列の一覧。列の数はファイルの見出し行から数えた（計 195 列）。名前の末尾の g20〜g79 は商品グループの番号で、どの番号がどの商品にあたるかは公開されていない。</p>
+    <p>欠損が多い。欠損のない列は 42 列だけで、153 列に欠損があり、少なくとも 1 つの欠損を含む行は全体の 99.2% にのぼる。最も欠損の多い列（<code>k_var_sku_price_15d_g49</code>）では 72.2% の行が空である。直近 15 日にその商品グループを買っていない顧客では、変動係数を計算できないためとみられる。8,581 行では性別、年齢、子どもの数、登録からの月数、過去の SMS と Viber への反応率の 6 列がそろって空で、これらの行の来店率は 17.6% と全体より高い。</p>
+    <p>値にも注意がいる。年齢は 0〜100 歳の範囲にあり、18 歳未満が 5,315 行、90 歳を超える行が 129 行ある。すべての列が同じ行はなかったが、特徴量 193 列だけが前のどれかの行と同じ行が 30 行あった（いずれも解説者の計算）。</p>
+  </section>
+
+  <section id="assignment">
+    <div class="kicker">処置と割り当て</div>
+    <h2>割り当ての方法は書かれておらず、過去の SMS への反応率は SMS 群のほうが高い</h2>
+    <p><code>group</code> は <code>test</code>（SMS を送った群）と <code>control</code>（送らなかった群）の 2 値で、SMS 群が 75.1% を占める。scikit-uplift の説明は「treatment/control group flag」とだけ書き、無作為に割り当てたかどうかには触れていない。ハッカソンの告知ページにも記述はない。</p>
+    <p>そこで、特徴量ごとに両群の平均の差を標準偏差で割った値（標準化平均差）を計算した。この人数で顧客を無作為に分けた場合、標準化平均差のばらつき（標準偏差）は 0.0028 ほどにとどまる。実際には、数値の特徴量 192 列のうち 123 列で 0.01 を超え、過去の SMS への反応率 <code>response_sms</code> では 0.198 だった（図1）。この列の平均は SMS 群で 0.801、対照群で 0.726 で、値が 0 の人の割合は SMS 群 14.4%、対照群 21.8% である。女性の割合も SMS 群 63.4%、対照群 62.2% と少し違う。行ごとに単純に無作為に割り当てたとすると、これほどの差は説明しにくい。</p>
+    <p>差が生じた理由は資料に書かれていない。<code>response_sms</code> をもとに 5 区分に分けて区分ごとの差を人数で重み平均すると、来店率の差は +0.58 pt（標準誤差 0.086 pt）で、単純な差の +0.75 pt より小さくなる（表3）。両群を単純に比べた差を SMS の効果として読むのは避けたほうがよい。</p>
+    <figure>
+      <svg class="fig" id="fig-balance" viewBox="0 0 640 330" role="img" aria-label="標準化平均差が大きい特徴量6個の横棒グラフ。response_smsが0.198、response_viberが0.068、残りの4個は0.023から0.025。無作為な割り当てで生じるばらつきの3倍は0.008。"></svg>
+      <figcaption>図1　SMS 群と対照群の標準化平均差が大きい特徴量 6 個。灰色の帯は無作為に分けた場合の標準偏差の 3 倍（±0.008）の範囲（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="stats">
+    <div class="kicker">基本統計</div>
+    <h2>SMS 群の来店率は 11.01% で、対照群の 10.26% より 0.75 pt 高い</h2>
+    <p>来店率の差は +0.755 pt（標準誤差 0.085 pt、95% 信頼区間 0.59〜0.92 pt）で、対照群に対する相対的な上昇は +7.4% である（図2、表3）。来店した人は全体で 74,368 人、そのうち対照群は 17,555 人いて、購入がまれな Criteo のデータに比べると結果の数は多い。差をそのまま SMS の効果と読めば、来店を 1 人増やすのに平均で約 133 通の SMS が要る計算になる（解説者の計算）。前の節で見た偏りがあるので、この値は目安にとどまる。</p>
+    <figure>
+      <svg class="fig" id="fig-rates" viewBox="0 0 640 330" role="img" aria-label="群ごとの来店率の棒グラフ。対照群10.26%、SMS群11.01%で、差は0.75ポイント。"></svg>
+      <figcaption>図2　群ごとの<span class="B">来店率</span>。薄い色が対照群、濃い色が SMS 群。ひげは 95% 信頼区間（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>群</th><th class="n">人数</th><th class="n">来店した人</th><th class="n">来店率</th></tr></thead><tbody><tr><td>SMS 群（test）</td><td class="n">515,892</td><td class="n">56,813</td><td class="n">11.01%</td></tr><tr><td>対照群（control）</td><td class="n">171,137</td><td class="n">17,555</td><td class="n">10.26%</td></tr><tr><td>差（標準誤差）</td><td></td><td></td><td class="n">+0.75 pt（0.085）</td></tr><tr><td>95% 信頼区間</td><td></td><td></td><td class="n">0.59〜0.92 pt</td></tr><tr><td>相対的な上昇（標準誤差）</td><td></td><td></td><td class="n">+7.4%（0.9）</td></tr><tr><td>response_sms で層別した差（標準誤差）</td><td></td><td></td><td class="n">+0.58 pt（0.086）</td></tr></tbody></table></div><p class="tblcap">表3　群ごとの来店率と差（全 687,029 行から解説者が計算）。差の標準誤差は 2 群の割合の差の式、相対的な上昇（SMS 群の率 ÷ 対照群の率 − 1）の標準誤差はデルタ法による。最後の行は response_sms を表4の 5 区分に分けて区分ごとの差を人数で重み平均した値。</p>
+    <p>区分に分けると、店舗の形態や性別による差の違いは小さい。一方、過去の SMS に一度も反応していない人（<code>response_sms</code> が 0、111,280 人）では、来店率の差は −0.12 pt（95% 信頼区間 −0.47〜0.22 pt）でほぼ 0 だった（図3、表4）。予算の範囲で SMS を送る相手を選ぶときに、こうした違いを見分けることがモデルに求められる。</p>
+    <figure>
+      <svg class="fig" id="fig-sub" viewBox="0 0 640 300" role="img" aria-label="response_smsの区分ごとの来店率の差と95%信頼区間。0では−0.12ポイント、0.5以上1未満では0.86ポイント、1では0.65ポイント。"></svg>
+      <figcaption>図3　過去の SMS への反応率（<code>response_sms</code>）の区分ごとの来店率の差と 95% 信頼区間。人数の少ない 2 区分（欠損と 0〜0.5 未満）は表4に載せた（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>区分</th><th class="n">人数</th><th class="n">対照群の来店率</th><th class="n">SMS 群の来店率</th><th class="n">差</th><th class="n">95% 信頼区間（pt）</th></tr></thead><tbody><tr><td>大型店（main_format = 0）</td><td class="n">617,460</td><td class="n">9.87%</td><td class="n">10.62%</td><td class="n">+0.75 pt</td><td class="n">0.58〜0.93</td></tr><tr><td>食料品店（main_format = 1）</td><td class="n">69,569</td><td class="n">13.64%</td><td class="n">14.53%</td><td class="n">+0.89 pt</td><td class="n">0.30〜1.48</td></tr><tr><td>女性（Ж）</td><td class="n">433,448</td><td class="n">9.86%</td><td class="n">10.60%</td><td class="n">+0.74 pt</td><td class="n">0.53〜0.95</td></tr><tr><td>男性（М）</td><td class="n">243,910</td><td class="n">10.70%</td><td class="n">11.52%</td><td class="n">+0.81 pt</td><td class="n">0.53〜1.10</td></tr><tr><td>response_sms が欠損</td><td class="n">8,581</td><td class="n">16.92%</td><td class="n">17.78%</td><td class="n">+0.86 pt</td><td class="n">−1.00〜2.72</td></tr><tr><td>response_sms = 0</td><td class="n">111,280</td><td class="n">8.34%</td><td class="n">8.21%</td><td class="n">−0.12 pt</td><td class="n">−0.47〜0.22</td></tr><tr><td>0 < response_sms < 0.5</td><td class="n">5,521</td><td class="n">12.61%</td><td class="n">12.47%</td><td class="n">−0.13 pt</td><td class="n">−2.00〜1.74</td></tr><tr><td>0.5 ≦ response_sms < 1</td><td class="n">186,423</td><td class="n">12.81%</td><td class="n">13.67%</td><td class="n">+0.86 pt</td><td class="n">0.50〜1.22</td></tr><tr><td>response_sms = 1</td><td class="n">375,224</td><td class="n">9.59%</td><td class="n">10.24%</td><td class="n">+0.65 pt</td><td class="n">0.43〜0.88</td></tr></tbody></table></div><p class="tblcap">表4　区分ごとの来店率の差（全件から解説者が計算）。区分の中でも両群の共変量がそろっているとは限らないので、単純な差として読む。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきの実験での使われ方</div>
+    <h2>文献リストでこのデータを使うのは UpliftBench だけで、1 万行を抜き出し、上位 30% に処置する方策の価値で評価している</h2>
+    <p>このデータには SMS の費用も購入額もないので、予算は「上位何割の顧客に送るか」という割合で表すしかない。文献リストの論文のうち、使ったデータにこのデータセットを挙げているのは次の 1 本である。</p>
+    <ul class="def">
+      <li><b><a href="../../papers/upliftbench/">UpliftBench</a>（arXiv 2026）</b>　アップリフトの評価指標どうしの食い違いを調べるベンチマークで、Hillstrom、X5、MegaFon と並ぶマーケティングの RCT の一つとして使う。全 687K 行から、処置と結果の組み合わせで層別して 10,000 行を抜き出し（処置率 0.75、結果の平均 0.11）、3 分割の交差検証を 3 回繰り返して 12 の推定量を比べた。反実仮想がないので、効果の推定の正確さは測れず、Qini などの順位の指標と、上位 30% に処置したときの方策の価値（PolicyValue@<i>k</i>、<i>k</i> = 0.3）で採点する。Qini では ClassTrans が首位（20.3）で、論文は首位と他の手法との差が標準誤差を合わせた値の 5 倍を超えると述べている。DR 学習器は Lenta では時間切れになった。論文は、Qini が Lenta で順位を誤るかどうかは確かめられないと述べている。処置する割合ごとの方策の価値の曲線（Fig. 7）には Lenta のパネルもある。</li>
+    </ul>
+    <p>論文は Lenta の処置を無作為化された RCT として扱っており、前の節で見た両群の偏りには触れていない。</p>
+  </section>
+
+  <section id="caveats">
+    <div class="kicker">注意点</div>
+    <h2>費用の列がなく、割り当ての方法も分からないので、予算の実験に使うときは前提を自分で置く必要がある</h2>
+    <ul class="def">
+      <li><b>費用と金額がない</b>　結果は来店の 0/1 だけで、購入額も SMS の費用もない。SMS 1 通の費用を一定とみなし、送る人数の割合を予算とするのが自然な使い方になる。</li>
+      <li><b>割り当てが不明</b>　無作為に割り当てたという記述はなく、両群で特徴量の分布に偏りがある（「処置と割り当て」の節）。群を比べた差を効果として扱うなら、偏りを調整するか、その前提を明記する。</li>
+      <li><b>キャンペーンの中身が不明</b>　SMS の内容、送った時期、来店を数えた期間は公開されていない。「crazy」という販促の中身も説明がない。</li>
+      <li><b>欠損と外れ値</b>　99.2% の行に欠損があり、年齢には 0 歳や 100 歳の行がある。8,581 行では顧客の属性がまとめて欠けている。</li>
+      <li><b>処置が文字列</b>　<code>group</code> は <code>test</code>／<code>control</code> の文字列で入っている。<code>fetch_lenta</code> もそのまま返すので、多くの手法では 1／0 に直して渡す。</li>
+      <li><b>処置の偏り</b>　SMS 群が 75%、対照群が 25% である。無作為に分割すると、テストデータにも同じ偏りが残る。</li>
+      <li><b>ライセンスが書かれていない</b>　scikit-uplift の説明、告知ページのどちらにもデータの利用条件の記述はない。scikit-uplift 自体は MIT ライセンスだが、これはコードのライセンスである。</li>
+      <li><b>資料の食い違い</b>　列の一覧にある CardHolder はファイルにない。<code>k_var_sku_price_12m_g*</code> の説明は 15 日・3・6・12 か月の価格と書き、<code>stdev_days_between_visits_15d</code> の説明は名前と違って変動係数と書いている。ファイルの大きさは説明の 153M・567M と合わない（表2）。</li>
+    </ul>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>項目</th><th class="n">ファイル<br>（解説者の計算）</th><th class="n">scikit-uplift の<br>説明（Key figures）</th><th class="n">UpliftBench<br>Table 1</th></tr></thead><tbody><tr><td>行数</td><td class="n">687,029</td><td class="n">687,029</td><td class="n">687K（うち 10,000 行を抽出）</td></tr><tr><td>処置率</td><td class="n">0.7509</td><td class="n">.75</td><td class="n">0.75</td></tr><tr><td>来店率（全体）</td><td class="n">0.1082</td><td class="n">.1</td><td class="n">0.11</td></tr><tr><td>圧縮ファイルの大きさ</td><td class="n">144,735,744 バイト<br>（145 MB、138 MiB）</td><td class="n">153M</td><td class="n">—</td></tr><tr><td>展開後の大きさ</td><td class="n">560,913,767 バイト<br>（561 MB、535 MiB）</td><td class="n">567M</td><td class="n">—</td></tr><tr><td>列</td><td class="n">195（特徴量 193）</td><td class="n">一覧に CardHolder（顧客 ID）を含む</td><td class="n">—</td></tr></tbody></table></div><p class="tblcap">表2　全件から計算した値と資料の値。行数、処置率、来店率は資料と合う。ファイルの大きさは 153M・567M のどちらの単位で読んでも合わず、CardHolder の列はファイルにない。</p>
+  </section>
+
+  <section id="download">
+    <div class="kicker">取得方法</div>
+    <h2>scikit-uplift の取得先から今もダウンロードでき、<code>fetch_lenta</code> もそのまま動く</h2>
+    <p>scikit-uplift の最新版 0.5.1（2022 年 8 月）の <code>fetch_lenta</code> は、Amazon S3 上の lenta_dataset.csv.gz（144,735,744 バイト）を取得し、MD5 で中身を確かめてから読み込む。2026 年 11 月 23 日に解説者が試したところ、ファイルを取得でき、MD5 はコードに書かれた値と一致した。<code>fetch_lenta</code> も 687,029 行 × 193 列の特徴量、目的変数、処置を返した。このページの統計はこのファイルから計算した。</p>
+<pre class="code"><span class="c"># 直接取得（約 145 MB）</span>
+curl -L -O https://sklift.s3.eu-west-2.amazonaws.com/lenta_dataset.csv.gz
+md5 lenta_dataset.csv.gz        <span class="c"># 6ab28ff0989ed8b8647f530e2e86452f（scikit-uplift のコードの値と一致）</span>
+shasum -a 256 lenta_dataset.csv.gz
+<span class="c"># b531544f6c072d22f232d91e20ffcaca265acf224e02687502a40e6d56135682</span>
+
+<span class="c"># scikit-uplift 0.5.1</span>
+from sklift.datasets import fetch_lenta
+X, y, t = fetch_lenta(return_X_y_t=True)
+t = (t == 'test').astype(int)   <span class="c"># group は 'test' / 'control' の文字列</span></pre>
+    <p>バージョン 0.3.x のコードにある以前の取得先（別の S3 バケットの lentadataset.csv.gz）は、同じ日に 404 を返した。古いバージョンを使っている場合は、0.4.0 以降に上げるか、上の URL から直接取得する。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{lenta2020uplift,
+  title        = {Lenta Uplift Modeling Dataset},
+  author       = {{Lenta}},
+  year         = {2020},
+  note         = {BigTarget Hackathon, hosted by Lenta and Microsoft. Distributed with scikit-uplift},
+  howpublished = {\url{https://www.uplift-modeling.com/en/latest/api/datasets/fetch_lenta.html}}
+}</pre>
+    </div>
+    <p class="src">データ論文はなく、提供者が示した引用の形式もない。上は解説者が scikit-uplift の説明をもとに作った例である。年はハッカソンの開催年とした。UpliftBench は同じ URL を year = 2022 として引いている。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページはデータセットの提供者によるものではなく、西村直樹がデータと資料を調べてまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は配布元の説明を参照してください。統計は 2026 年 11 月 23 日に scikit-uplift の取得先から取得したファイルから解説者が計算しました（<a href="assets/lenta_stats.json">lenta_stats.json</a>）。</p>
+</footer>
+
+<script src="assets/lenta_stats.js"></script>
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script>
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+var ST = window.LENTA_STATS, INK = '#16202E', MUTED = '#5B6676', HAIR = '#D9DEE6', GRAY = '#CBD2DC', DARK = '#4B5563';
+var B = '#1D4ED8', Bs = '#BFD0F6';
+
+// ---------- figure 1: standardised mean differences (from lenta_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-balance'); if (!svg || !ST) return;
+  var el = mk(svg), top = ST.balance.top, band = 3 * ST.balance.smd_sd_under_randomisation;
+  var X0 = 300, W = 300, MAX = 0.2, Y0 = 40, RH = 40;
+  function x(v) { return X0 + W * v / MAX; }
+  el('rect', { x: X0, y: Y0 - 14, width: x(band) - X0, height: RH * top.length + 8, fill: '#EEF0F3' });
+  [0, 0.05, 0.1, 0.15, 0.2].forEach(function (v) {
+    el('line', { x1: x(v), x2: x(v), y1: Y0 - 14, y2: Y0 + RH * top.length - 6, stroke: HAIR });
+    el('text', { x: x(v), y: Y0 + RH * top.length + 14, 'font-size': 13, fill: MUTED, 'text-anchor': 'middle' }, v.toFixed(2));
+  });
+  top.forEach(function (r, i) {
+    var y = Y0 + i * RH;
+    el('text', { x: X0 - 10, y: y + 10, 'font-size': 13, fill: INK, 'text-anchor': 'end', 'font-family': 'ui-monospace, Menlo, monospace' }, r[0]);
+    el('rect', { x: X0, y: y - 4, width: x(Math.abs(r[1])) - X0, height: 20, fill: DARK });
+    el('text', { x: x(Math.abs(r[1])) + 6, y: y + 11, 'font-size': 13, fill: INK }, r[1].toFixed(3));
+  });
+  el('line', { x1: X0, x2: X0, y1: Y0 - 14, y2: Y0 + RH * top.length - 6, stroke: INK, 'stroke-width': 1.5 });
+  el('text', { x: X0 + W / 2, y: Y0 + RH * top.length + 38, 'font-size': 14, fill: INK, 'text-anchor': 'middle' }, '標準化平均差（SMS 群 − 対照群）');
+})();
+
+// ---------- figure 2: response rate by group with 95% CIs ----------
+(function () {
+  var svg = document.getElementById('fig-rates'); if (!svg || !ST) return;
+  var el = mk(svg), G = ST.groups, Y0 = 260, HM = 200, TOP = 0.12;
+  function ci(p, n) { return 1.96 * Math.sqrt(p * (1 - p) / n); }
+  [0, 0.04, 0.08, 0.12].forEach(function (v) {
+    var y = Y0 - HM * v / TOP;
+    el('line', { x1: 80, x2: 420, y1: y, y2: y, stroke: HAIR });
+    el('text', { x: 72, y: y + 5, 'font-size': 13, fill: MUTED, 'text-anchor': 'end' }, (100 * v).toFixed(0) + '%');
+  });
+  [['対照群', G.control, Bs], ['SMS 群', G.treated, B]].forEach(function (r, i) {
+    var p = r[1].response_rate, h = HM * p / TOP, x = 130 + i * 160, e = HM * ci(p, r[1].n) / TOP;
+    el('rect', { x: x, y: Y0 - h, width: 90, height: h, fill: r[2] });
+    el('line', { x1: x + 45, x2: x + 45, y1: Y0 - h - e, y2: Y0 - h + e, stroke: INK, 'stroke-width': 1.5 });
+    el('text', { x: x + 45, y: Y0 - h - 12, 'font-size': 15, fill: INK, 'text-anchor': 'middle', 'font-weight': 600 }, (100 * p).toFixed(2) + '%');
+    el('text', { x: x + 45, y: Y0 + 22, 'font-size': 14, fill: INK, 'text-anchor': 'middle' }, r[0]);
+  });
+  el('line', { x1: 80, x2: 420, y1: Y0, y2: Y0, stroke: INK, 'stroke-width': 1.5 });
+  el('text', { x: 460, y: 110, 'font-size': 14, fill: MUTED }, 'SMS 群 − 対照群');
+  el('text', { x: 460, y: 146, 'font-size': 28, fill: B, 'font-weight': 650 }, '+' + (100 * ST.ate.diff).toFixed(2) + ' pt');
+  el('text', { x: 460, y: 178, 'font-size': 14, fill: INK }, '相対的には +' + (100 * ST.ate.relative_lift).toFixed(1) + '%');
+  el('text', { x: 460, y: 202, 'font-size': 14, fill: INK }, '標準誤差 ' + (100 * ST.ate.se).toFixed(3) + ' pt');
+})();
+
+// ---------- figure 3: difference by response_sms bin ----------
+(function () {
+  var svg = document.getElementById('fig-sub'); if (!svg || !ST) return;
+  var el = mk(svg), rows = ST.ate_by.response_sms.filter(function (b) { return b.n > 50000; });
+  var lab = { '0': '0（反応したことがない）', '0.5以上1未満': '0.5 以上 1 未満', '1': '1（毎回反応した）' };
+  var X0 = 250, W = 340, LO = -0.006, HI = 0.014, Y0 = 50, RH = 64;
+  function x(v) { return X0 + W * (v - LO) / (HI - LO); }
+  [-0.005, 0, 0.005, 0.01].forEach(function (v) {
+    el('line', { x1: x(v), x2: x(v), y1: Y0 - 20, y2: Y0 + RH * rows.length - 20, stroke: v === 0 ? INK : HAIR, 'stroke-width': v === 0 ? 1.5 : 1 });
+    el('text', { x: x(v), y: Y0 + RH * rows.length + 2, 'font-size': 13, fill: MUTED, 'text-anchor': 'middle' }, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(100 * v).toFixed(1));
+  });
+  el('line', { x1: x(ST.ate.diff), x2: x(ST.ate.diff), y1: Y0 - 20, y2: Y0 + RH * rows.length - 20, stroke: B, 'stroke-dasharray': '4 4' });
+  el('text', { x: x(ST.ate.diff) + 4, y: Y0 - 26, 'font-size': 13, fill: B }, '全体 +' + (100 * ST.ate.diff).toFixed(2));
+  rows.forEach(function (r, i) {
+    var y = Y0 + i * RH;
+    el('text', { x: X0 - 14, y: y + 2, 'font-size': 14, fill: INK, 'text-anchor': 'end' }, lab[r.bin]);
+    el('text', { x: X0 - 14, y: y + 20, 'font-size': 12, fill: MUTED, 'text-anchor': 'end' }, r.n.toLocaleString('en-US') + ' 人');
+    el('line', { x1: x(r.ci95[0]), x2: x(r.ci95[1]), y1: y, y2: y, stroke: INK, 'stroke-width': 2 });
+    el('circle', { cx: x(r.diff), cy: y, r: 7, fill: B });
+    el('text', { x: x(r.ci95[1]) + 8, y: y + 5, 'font-size': 13, fill: INK }, (r.diff > 0 ? '+' : '−') + Math.abs(100 * r.diff).toFixed(2) + ' pt');
+  });
+  el('text', { x: X0 + W / 2, y: Y0 + RH * rows.length + 28, 'font-size': 14, fill: INK, 'text-anchor': 'middle' }, '来店率の差（pt、SMS 群 − 対照群）');
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+{
+ "file": {
+  "name": "lenta_dataset.csv.gz",
+  "url": "https://sklift.s3.eu-west-2.amazonaws.com/lenta_dataset.csv.gz",
+  "bytes": 144735744,
+  "uncompressed_bytes": 560913767,
+  "md5": "6ab28ff0989ed8b8647f530e2e86452f",
+  "sha256": "b531544f6c072d22f232d91e20ffcaca265acf224e02687502a40e6d56135682",
+  "sklift_expected_md5": "6ab28ff0989ed8b8647f530e2e86452f",
+  "retrieved": "2026-11-23"
+ },
+ "overall": {
+  "rows": 687029,
+  "columns": 195,
+  "features": 193,
+  "treatment_rate": 0.7509028003184727,
+  "response_rate": 0.10824579457344595,
+  "responses": 74368
+ },
+ "groups": {
+  "treated": {
+   "n": 515892,
+   "responses": 56813,
+   "response_rate": 0.11012576275654594
+  },
+  "control": {
+   "n": 171137,
+   "responses": 17555,
+   "response_rate": 0.1025786358297738
+  }
+ },
+ "ate": {
+  "n": 687029,
+  "n_treated": 515892,
+  "n_control": 171137,
+  "rate_treated": 0.11012576275654594,
+  "rate_control": 0.1025786358297738,
+  "diff": 0.0075471269267721325,
+  "se": 0.00085315195452566,
+  "ci95": [
+   0.005874949095901839,
+   0.009219304757642426
+  ],
+  "relative_lift": 0.07357406213996032,
+  "relative_lift_se": 0.008773390907612146,
+  "z": 8.846169649776193,
+  "extra_visits_if_all_treated": 5185.095065373332,
+  "treated_needed_per_extra_visit": 132.50075289613486
+ },
+ "column_families": {
+  "age": 1,
+  "cheque_count_*": 44,
+  "children": 1,
+  "crazy_purchases_*": 6,
+  "disc_sum_6m_g34": 1,
+  "food_share_15d": 1,
+  "food_share_1m": 1,
+  "gender": 1,
+  "k_var_*": 94,
+  "main_format": 1,
+  "mean_discount_depth_15d": 1,
+  "months_from_register": 1,
+  "perdelta_days_between_visits_15_30d": 1,
+  "promo_share_15d": 1,
+  "response_sms": 1,
+  "response_viber": 1,
+  "sale_count_*": 15,
+  "sale_sum_*": 18,
+  "stdev_days_between_visits_15d": 1,
+  "stdev_discount_depth_15d": 1,
+  "stdev_discount_depth_1m": 1
+ },
+ "product_groups": [
+  20,
+  21,
+  24,
+  25,
+  26,
+  27,
+  32,
+  33,
+  34,
+  38,
+  39,
+  40,
+  41,
+  42,
+  44,
+  45,
+  46,
+  48,
+  49,
+  52,
+  54,
+  56,
+  57,
+  58,
+  79
+ ],
+ "dtypes": {
+  "float64": 191,
+  "object": 2,
+  "int64": 2
+ },
+ "doc_columns_missing_in_file": [
+  "CardHolder"
+ ],
+ "missing": {
+  "columns_with_na": 153,
+  "rows_with_any_na": 681380,
+  "rows_with_any_na_share": 0.9917776396629545,
+  "top": [
+   [
+    "k_var_sku_price_15d_g49",
+    0.7223261317935633
+   ],
+   [
+    "k_var_disc_share_15d_g49",
+    0.7221805775302061
+   ],
+   [
+    "k_var_count_per_cheque_15d_g34",
+    0.681995956502564
+   ],
+   [
+    "k_var_sku_price_15d_g34",
+    0.681995956502564
+   ],
+   [
+    "k_var_disc_share_15d_g34",
+    0.681873690921344
+   ]
+  ],
+  "columns_without_na": 42,
+  "no_profile_rows": 8581,
+  "no_profile_cols_all_na": [
+   "age",
+   "children",
+   "gender",
+   "months_from_register",
+   "response_sms",
+   "response_viber"
+  ],
+  "no_profile_response_rate": 0.17573709357883696,
+  "no_profile_treatment_rate": 0.7569047896515557
+ },
+ "gender": {
+  "Ж": 433448,
+  "М": 243910,
+  "nan": 8581,
+  "Не определен": 1090
+ },
+ "age": {
+  "missing": 11765,
+  "median": 42.0,
+  "mean": 43.74071770448299,
+  "min": 0.0,
+  "max": 100.0,
+  "under18": 5315,
+  "zero": 1,
+  "over90": 129
+ },
+ "children": {
+  "0.0": 416983,
+  "1.0": 126636,
+  "2.0": 109892,
+  "3.0": 24257,
+  "4.0": 530,
+  "5.0": 91,
+  "6.0": 46,
+  "7.0": 9,
+  "8.0": 2,
+  "9.0": 2,
+  "nan": 8581
+ },
+ "main_format": {
+  "0": 617460,
+  "1": 69569
+ },
+ "response_sms": {
+  "mean": 0.78207451334424,
+  "median": 1.0,
+  "zero_share": 0.1619727842638375,
+  "one_share": 0.5461545291392358
+ },
+ "response_viber": {
+  "mean": 0.2698996168284585,
+  "median": 0.07692308
+ },
+ "ate_by": {
+  "main_format": {
+   "superstore_0": {
+    "n": 617460,
+    "n_treated": 464046,
+    "n_control": 153414,
+    "rate_treated": 0.10620067838102257,
+    "rate_control": 0.09867417575970902,
+    "diff": 0.007526502621313547,
+    "se": 0.000885593546402752,
+    "ci95": [
+     0.0057907392703641525,
+     0.00926226597226294
+    ],
+    "relative_lift": 0.07627631610161156,
+    "relative_lift_se": 0.009485715999240762,
+    "z": 8.49882279730461
+   },
+   "grocery_1": {
+    "n": 69569,
+    "n_treated": 51846,
+    "n_control": 17723,
+    "rate_treated": 0.14525710758785634,
+    "rate_control": 0.13637645996727416,
+    "diff": 0.008880647620582188,
+    "se": 0.0030066959302569077,
+    "ci95": [
+     0.002987523597278649,
+     0.014773771643885728
+    ],
+    "relative_lift": 0.06511862547769054,
+    "relative_lift_se": 0.023111080796226455,
+    "z": 2.9536234546415803
+   }
+  },
+  "gender": {
+   "Ж": {
+    "n": 433448,
+    "n_treated": 327064,
+    "n_control": 106384,
+    "rate_treated": 0.10598537289337867,
+    "rate_control": 0.09859565348172658,
+    "diff": 0.00738971941165209,
+    "se": 0.0010607162537734024,
+    "ci95": [
+     0.005310715554256221,
+     0.00946872326904796
+    ],
+    "relative_lift": 0.07494974829718704,
+    "relative_lift_se": 0.011362423797158325,
+    "z": 6.966725913140135
+   },
+   "М": {
+    "n": 243910,
+    "n_treated": 181531,
+    "n_control": 62379,
+    "rate_treated": 0.11518693776820488,
+    "rate_control": 0.1070392279453021,
+    "diff": 0.008147709822902777,
+    "se": 0.0014469680635448466,
+    "ci95": [
+     0.005311652418354878,
+     0.010983767227450675
+    ],
+    "relative_lift": 0.07611891433920204,
+    "relative_lift_se": 0.014278444809856156,
+    "z": 5.630884349266255
+   }
+  },
+  "response_sms": [
+   {
+    "bin": "欠損",
+    "n": 8581,
+    "n_treated": 6495,
+    "n_control": 2086,
+    "rate_treated": 0.17782909930715934,
+    "rate_control": 0.16922339405560882,
+    "diff": 0.008605705251550522,
+    "se": 0.009481874732415907,
+    "ci95": [
+     -0.009978769223984656,
+     0.0271901797270857
+    ],
+    "relative_lift": 0.05085411091992742,
+    "relative_lift_se": 0.05818080222035144,
+    "z": 0.9075953326118089
+   },
+   {
+    "bin": "0",
+    "n": 111280,
+    "n_treated": 74042,
+    "n_control": 37238,
+    "rate_treated": 0.08211555603576348,
+    "rate_control": 0.08335571190719158,
+    "diff": -0.001240155871428103,
+    "se": 0.001752096122920138,
+    "ci95": [
+     -0.004674264272351573,
+     0.002193952529495367
+    ],
+    "relative_lift": -0.014877875109613359,
+    "relative_lift_se": 0.020811004992864653,
+    "z": -0.7078126908706313
+   },
+   {
+    "bin": "0超0.5未満",
+    "n": 5521,
+    "n_treated": 3744,
+    "n_control": 1777,
+    "rate_treated": 0.12473290598290598,
+    "rate_control": 0.12605514912774338,
+    "diff": -0.0013222431448373928,
+    "se": 0.009547510659065558,
+    "ci95": [
+     -0.020035364036605885,
+     0.0173908777469311
+    ],
+    "relative_lift": -0.010489402090964495,
+    "relative_lift_se": 0.07520132844436175,
+    "z": -0.13849087914679578
+   },
+   {
+    "bin": "0.5以上1未満",
+    "n": 186423,
+    "n_treated": 142944,
+    "n_control": 43479,
+    "rate_treated": 0.13671787553167675,
+    "rate_control": 0.1281308217760298,
+    "diff": 0.008587053755646945,
+    "se": 0.0018425643060370931,
+    "ci95": [
+     0.004975627715814243,
+     0.012198479795479647
+    ],
+    "relative_lift": 0.06701786218664041,
+    "relative_lift_se": 0.015115348381431548,
+    "z": 4.660382124798458
+   },
+   {
+    "bin": "1",
+    "n": 375224,
+    "n_treated": 288667,
+    "n_control": 86557,
+    "rate_treated": 0.10242944292212133,
+    "rate_control": 0.09592522846216944,
+    "diff": 0.00650421445995189,
+    "se": 0.0011490930531254295,
+    "ci95": [
+     0.004251992075826048,
+     0.008756436844077732
+    ],
+    "relative_lift": 0.06780504528604792,
+    "relative_lift_se": 0.012600165693725409,
+    "z": 5.660302655438577
+   }
+  ]
+ },
+ "balance": {
+  "features_checked": 192,
+  "max_abs_smd": 0.19790699227922515,
+  "max_abs_smd_feature": "response_sms",
+  "n_abs_smd_over_0_01": 123,
+  "n_abs_smd_over_0_02": 11,
+  "female_share_treated": 0.6339776542377087,
+  "female_share_control": 0.6216306234186646,
+  "smd_sd_under_randomisation": 0.0027895630429206064,
+  "top": [
+   [
+    "response_sms",
+    0.19790699227922515,
+    0.8006362300342483,
+    0.7261429731774257
+   ],
+   [
+    "response_viber",
+    0.0684907104548007,
+    0.276201934881346,
+    0.2509090050652229
+   ],
+   [
+    "k_var_count_per_cheque_1m_g34",
+    0.02534351299989724,
+    0.218476566117121,
+    0.2101563111343048
+   ],
+   [
+    "crazy_purchases_cheque_count_12m",
+    0.02493053815791198,
+    2.520364727501105,
+    2.4062709992579046
+   ],
+   [
+    "crazy_purchases_goods_count_12m",
+    0.024411115445841253,
+    4.24379908973196,
+    4.03770663269778
+   ],
+   [
+    "crazy_purchases_cheque_count_6m",
+    0.023166268240769665,
+    1.078809130593225,
+    1.0293390675306917
+   ]
+  ],
+  "response_sms_by_group": {
+   "mean_treated": 0.8006362300342483,
+   "mean_control": 0.7261429731774257,
+   "zero_treated": 0.14352228761058516,
+   "zero_control": 0.21759175397488562
+  },
+  "response_viber_by_group": {
+   "mean_treated": 0.276201934881346,
+   "mean_control": 0.2509090050652229,
+   "zero_treated": 0.46132717700604003,
+   "zero_control": 0.48776126728878033
+  }
+ },
+ "ate_poststrat_response_sms": {
+  "diff": 0.005778362479310695,
+  "se": 0.0008627184107793056
+ },
+ "duplicates": {
+  "full_rows": 0,
+  "feature_rows": 30,
+  "feature_rows_conflicting": 56
+ },
+ "published_values_for_comparison": {
+  "sklift_docs": {
+   "rows": 687029,
+   "response_ratio": ".1",
+   "treatment_ratio": ".75",
+   "size_compressed": "153M",
+   "size_uncompressed": "567M",
+   "source": "https://www.uplift-modeling.com/en/latest/api/datasets/fetch_lenta.html"
+  },
+  "upliftbench_table1": {
+   "n_used": 10000,
+   "full": "687K",
+   "pi1": 0.75,
+   "ybar": 0.11,
+   "source": "arXiv 2608.00915 Table 1"
+  }
+ }
+}

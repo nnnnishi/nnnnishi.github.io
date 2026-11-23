@@ -389,7 +389,7 @@ papers:
     category: direct-ratio
     treatment: 二値
     cost: 結果に依存（増分コスト）
-    data: Criteo, Meituan-LIFT, Alibaba-LIFT
+    data: Criteo, MT-LIFT, Alibaba-LIFT
     note: DRP の点推定をコンフォーマル予測の区間で補正し、共変量シフトやデータ不足に対処する（rDRP）
 
   # ---- 順位の学習 ----
@@ -1117,7 +1117,7 @@ papers:
     category: evaluation
     treatment: 二値
     cost: ""
-    data: シミュレーション, 実 RCT データ
+    data: シミュレーション, Criteo, Hillstrom, 自社データ
     note: Qini などの評価指標の分散を解析し、結果変数を調整して分散を減らす
   - title: "Qini Curves for Multi-Armed Treatment Rules"
     authors: "E. Sverdrup et al."
@@ -1187,27 +1187,20 @@ datasets:
     size: 約1,398万行, 12特徴量
     usage: visit をコスト、conversion を売上とみなす使い方が多い（DRP, DFCL, rDRP など）。CC BY-NC-SA 4.0
     loader: "huggingface.co/datasets/criteo/criteo-uplift"
-  - name: "MT-LIFT"
-    provider: "Meituan"
-    url: "https://github.com/MTDJDSP/MT-LIFT"
-    treatment: フードデリバリーのクーポン（5水準）
-    assignment: RCT（2か月）
-    outcomes: click, conversion（0/1）
-    size: 約554万行, 99特徴量
-    usage: 多値処置のまま、または「1水準 vs 対照」の二値にして使う。click をコスト、conversion を売上とみなす。クーポンを配る設定にいちばん近い。ECUP（WWW 2024 Companion）の著者が公開
-    loader: ""
   - name: "Lazada（DESCN）"
     provider: "Lazada / DESCN の著者"
     url: "https://github.com/kailiang-zhong/DESCN"
+    explainer: lazada-descn
     treatment: EC サイトでのバウチャー（クーポン）配布
-    assignment: 一部 RCT（学習データは運用施策による偏った割付、テストデータは RCT）
-    outcomes: 購買（0/1）
-    size: 学習 約417万行・テスト 約91万行, 83特徴量（DESCN 論文の値）
+    assignment: 一部 RCT（学習データは運用施策による偏った割付で処置率 22%、テストデータは RCT で処置率 52%）
+    outcomes: label（0/1。何を数えたかは README・論文に明記なし）
+    size: 学習 926,669行・テスト 181,669行（論文の本番データ 417万・91万行の約2割の標本）, 83特徴量
     usage: RCT の部分をテストに、偏った割付の部分を学習に使う。偏ったデータから学習する設定の評価になる
     loader: ""
   - name: "Hillstrom MineThatData"
     provider: "Kevin Hillstrom"
     url: "https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html"
+    explainer: hillstrom
     treatment: メール配信（メンズ向け／ウィメンズ向け／配信なし）
     assignment: RCT（各群 1/3）
     outcomes: visit, conversion, spend（配信後2週間）
@@ -1217,17 +1210,19 @@ datasets:
   - name: "Lenta"
     provider: "Lenta（BigTarget Hackathon, 2020）"
     url: "https://www.uplift-modeling.com/en/latest/api/datasets/fetch_lenta.html"
-    treatment: SMS によるキャンペーン
-    assignment: ""
+    explainer: lenta
+    treatment: SMS 送信の有無（test 75% / control 25%）
+    assignment: 記載なし（両群の共変量に偏りがある）
     outcomes: 来店（0/1）
-    size: 約69万行, 40以上の特徴量
+    size: 687,029行, 193特徴量
     usage: 予算制約の実験での使用例は少ない。一般的なアップリフト手法の比較に使われる
     loader: "sklift.datasets.fetch_lenta"
   - name: "X5 RetailHero"
     provider: "X5 Retail Group（2019–2020）"
     url: "https://ods.ai/competitions/x5-retailhero-uplift-modeling/data"
+    explainer: x5-retailhero
     treatment: 顧客への SMS 送信
-    assignment: ""
+    assignment: 記載なし（sklift と UpliftBench は RCT として扱う。処置率 50%）
     outcomes: その後の購買（0/1）
     size: 学習 約20万行（購買履歴 約4,579万行）
     usage: 購買履歴から特徴量を作る必要がある。一般的なアップリフト手法の比較に使われる
@@ -1235,8 +1230,9 @@ datasets:
   - name: "MegaFon"
     provider: "MegaFon（2021）"
     url: "https://www.uplift-modeling.com/en/latest/api/datasets/fetch_megafon.html"
-    treatment: 処置フラグのみ（介入の内容は非公開）
-    assignment: 合成
+    explainer: megafon
+    treatment: 加入者へのコミュニケーション（手段・内容は非公開）
+    assignment: 合成（生成方法は非公開。処置率 50%）
     outcomes: conversion（0/1）
     size: 60万行, 50特徴量
     usage: 合成データ。手法の比較に使われる

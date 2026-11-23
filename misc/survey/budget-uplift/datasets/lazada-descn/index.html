@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lazada Production Dataset（DESCN）（データセット解説）</title>
+<meta name="description" content="DESCN（KDD 2022）の著者が公開した Lazada のバウチャー配布データの非公式の解説。学習用 926,669 行は運用施策で偏った割付、テスト用 181,669 行は RCT で、列の構成、割付の偏り、全件から計算した基本統計、論文の値との違い、文献リストでの使われ方と注意点をまとめる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   DATASET EXPLAINER PAGE — same template as ../criteo-uplift/ and the paper explainers in ../../papers/
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure or table.
+   Colour : two semantic accents only, used consistently in text, figures and the teaser.
+            --a  (orange) = the training file (treatment assigned by the targeting strategy, biased)
+            --b  (blue)   = the test file (randomized controlled trial)
+            Within a colour, the light tint is the control group and the full colour the treated group.
+   Data   : every number on the page comes from assets/lazada_stats.json, computed by the explainer
+            from every row of full_trainset.csv (926,669) and full_testset.csv (181,669);
+            published values appear only for comparison.
+   Lang   : Japanese only (unofficial explainer). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- dataset page additions: tables, facts, code ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; margin-top: 0.6rem; }
+table.tbl { border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; min-width: 100%; }
+table.tbl caption { caption-side: bottom; text-align: left; font-size: 0.9rem; color: var(--muted); padding-top: 0.6rem; line-height: 1.6; }
+table.tbl th, table.tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: top; }
+table.tbl thead th { font-size: 0.82rem; color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.tbl td.n, table.tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl code, .def code, p code { font: 0.88em var(--font-mono); background: var(--panel); padding: 0.05em 0.3em; border-radius: 4px; }
+table.tbl td.diff { font-weight: 700; }
+p.tblcap { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6; max-width: var(--wide); }
+table.tbl td:first-child { min-width: 6.5em; }
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; }
+.facts li { display: flex; flex-direction: column; line-height: 1.4; }
+.facts span { font-size: 0.82rem; color: var(--muted); }
+.facts b { font-weight: 600; }
+pre.code { margin: 0; max-width: var(--wide); background: var(--panel); border-radius: 12px; padding: 1rem 1.2rem; font: 0.85rem/1.6 var(--font-mono); overflow-x: auto; white-space: pre; }
+pre.code .c { color: var(--muted); }
+.def li b a { font-weight: 600; }
+.nw { white-space: nowrap; }
+@media (max-width: 760px) {
+  table.tbl { font-size: 0.85rem; }
+  table.tbl th, table.tbl td { padding: 0.45rem 0.5rem; }
+}
+/* lazada-descn: no additions beyond the Criteo dataset page CSS */
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページはデータセットの提供者によるものではありません。西村直樹がデータセットを調べてまとめた非公式の解説です。正確な内容はデータセットの配布ページと論文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Dataset · Lazada / DESCN の著者</div>
+  <h1>Lazada Production Dataset（DESCN）</h1>
+  <p class="subtitle">DESCN の著者が公開した Lazada のバウチャー配布データ</p>
+
+  <ul class="facts">
+    <li><span>提供</span><b>DESCN の著者（Lazada）</b></li>
+    <li><span>データ論文</span><b>Zhong ほか（KDD 2022）</b></li>
+    <li><span>ライセンス（リポジトリ）</span><b>BSD 2-Clause</b></li>
+    <li><span>形式</span><b>CSV 2 ファイル（zip 102 MB）</b></li>
+  </ul>
+
+  <p class="lead">東南アジアの EC サイト Lazada のバウチャー（クーポン）配布の記録から作ったデータで、DESCN（KDD 2022）の著者が GitHub で公開している。<span class="A">学習用</span>（926,669 行）は運用の施策で配布先を選んだ偏った割付、<span class="B">テスト用</span>（181,669 行）は施策の影響を受けない利用者に無作為に配ったランダム化比較試験（RCT）の記録である。結果は 0/1 の label が 1 列あるだけで、金額やコストの列はない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://github.com/kailiang-zhong/DESCN/tree/main/data/Lazada_dataset">Dataset</a>
+    <a class="btn" href="https://github.com/kailiang-zhong/DESCN">Code</a>
+    <a class="btn" href="https://arxiv.org/abs/2207.09920">Paper (arXiv)</a>
+    <a class="btn" href="https://doi.org/10.1145/3534678.3539198">DOI</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。学習用926,669行とテスト用181,669行の処置群・対照群の内訳、学習用で素朴に比べた正例率の差（5.66%と0.94%）、テスト用のRCTでの差（3.70%と3.33%）、特徴量から処置を当てられる度合い（AUC 0.905と0.526）、使い方とタイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>データセットを40秒で（数値はすべて全件から解説者が計算）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">学習 926,669 行・テスト 181,669 行</span><span class="d">処置群の割合は学習用 22.2%、テスト用 52.1%。論文の Table 1 にある本番データ（学習 417 万行・テスト 91 万行）のおよそ 2 割にあたる。</span></li>
+    <li><span class="k">素朴な差は 12.6 倍</span><span class="d">学習用で処置群と対照群の正例率を比べると +4.72 pt だが、RCT のテスト用では +0.37 pt（標準誤差 0.086 pt）である。</span></li>
+    <li><span class="k">処置の予測 AUC 0.905</span><span class="d">特徴量から処置群かどうかを当てるロジスティック回帰の AUC は、学習用で 0.905、テスト用で 0.526 だった。</span></li>
+  </ul>
+
+  <section id="origin">
+    <div class="kicker">由来</div>
+    <h2>Lazada のバウチャー配布の本番データから、偏った割付の学習用と RCT のテスト用を分けて公開した</h2>
+    <p>DESCN の論文によると、元のデータは Alibaba グループの東南アジアの EC サイト Lazada で、実際にバウチャーを配った業務の記録である。本番の環境では運用の狙い（targeting strategy）に沿って配布先を選んでいるので、処置の割付は偏る。著者らはこの記録を学習用とした。一方で、狙いの対象から外れていて、配布を RCT で決めた少し小さい利用者の集団があり、その記録をテスト用とした。論文は、学習用とテスト用で偏った処置と無作為な処置を同時に持つ産業データは、知る限りこれが初めてだとしている。</p>
+    <p>論文の要旨によると、公開したのは本番データの「標本（a sample）」である。DESCN という手法は掲載論文（<a href="../../papers/ecup/">ECUP</a>、<a href="../../papers/mtmt/">MTMT</a> など）でも比較相手として使われているが、このデータの由来を説明している資料は DESCN の論文と GitHub の README だけである。データを集めた期間、国、バウチャーの額面は、どちらにも書かれていない。</p>
+    <p>リポジトリ全体のライセンスは GitHub 上では BSD 2-Clause と表示される。ただし、リポジトリの LICENSE と、データの zip に入っている LICENSE は同じファイルで、本文は Nginx のソースコードのライセンス（Igor Sysoev、Nginx, Inc.、Alibaba Group などの著作権表示つき）である。データの利用条件を個別に定めた記述は見つからなかった。</p>
+  </section>
+
+  <section id="columns">
+    <div class="kicker">列</div>
+    <h2>各行は 1 人分の記録で、ID、結果（label）、処置（is_treat）と、名前のない特徴量 83 個からなる</h2>
+    <p>ファイルは学習用の full_trainset.csv とテスト用の full_testset.csv の 2 つで、どちらも 86 列のカンマ区切りである。全件を読んで確かめたところ、空のセルはなく、label と is_treat には 0 と 1 以外の値がなかった。data_id は「train_0」「test_0」のように、ファイルの種類と行番号をつないだだけの通し番号である。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>列</th><th>意味</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td><code>data_id</code></td><td>行の ID。<code>train_</code> または <code>test_</code> に行番号をつないだもの</td><td class="nw">文字列</td></tr>
+          <tr><td><code>label</code></td><td>結果。README と論文は「label」「Positive Outcome」とだけ書き、何を数えたか（購入、利用など）は明記していない</td><td class="nw">0/1</td></tr>
+          <tr><td><code>is_treat</code></td><td>バウチャーを配られたか（処置群 1、対照群 0）</td><td class="nw">0/1</td></tr>
+          <tr><td><code>f0</code>〜<code>f82</code></td><td>特徴量。名前と意味は公開されていない</td><td class="nw">数値</td></tr>
+        </tbody>
+        </table></div><p class="tblcap">表1　列の一覧（README の Data description と論文 4.1 節をもとに解説者がまとめた）。</p>
+    <p>README と論文は特徴量を 83 個とし、ベンチマーク論文（arXiv 2406.00335）は 83 個とも連続値だとしている。値を調べると、f40〜f78 の 39 列は 0/1 の二値で、f0 と f7 は 0〜5、f1 と f2 は 0〜365、f27 と f34 は 0〜100 の整数だった。残りの 38 列が小数である。f70 は全行で 1 の定数だった。ほかの列とまったく同じ列や、二値の列の 0 と 1 を入れ替えただけの列もあり、これらをまとめると、実質的に異なる列は 70 個になる（表2）。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>値の種類</th><th>列</th><th class="n">列数</th><th>備考</th></tr></thead><tbody><tr><td>0/1 の二値</td><td><code>f40</code>〜<code>f78</code></td><td class="n">39</td><td>定数の <code>f70</code>（全行 1）を含む</td></tr><tr><td>整数（二値以外）</td><td><code>f0</code>（0〜5）、<code>f1</code>（0〜365）、<code>f2</code>（0〜365）、<code>f7</code>（0〜5）、<code>f27</code>（0〜100）、<code>f34</code>（0〜100）</td><td class="n">6</td><td></td></tr><tr><td>小数</td><td>上記以外</td><td class="n">38</td><td>最小 -7.46、最大 275.8</td></tr><tr><td>重複した列</td><td><code>f6</code> = <code>f15</code><br><code>f14</code> = <code>f39</code><br><code>f31</code> = <code>f32</code> = <code>f33</code><br><code>f66</code> ／ 0 と 1 を入れ替えると <code>f67</code><br><code>f68</code> = <code>f71</code> = <code>f77</code> ／ 0 と 1 を入れ替えると <code>f69</code> = <code>f72</code> = <code>f78</code><br><code>f73</code> ／ 0 と 1 を入れ替えると <code>f74</code><br><code>f75</code> ／ 0 と 1 を入れ替えると <code>f76</code></td><td class="n">19</td><td>7 組。各組を 1 列と数え、定数を除くと実質 70 列</td></tr></tbody></table></div><p class="tblcap">表2　特徴量 83 個の値の種類（学習用とテスト用の全行から解説者が調べた）。「重複した列」は、全行で値がまったく同じ列（=）と、二値の 0 と 1 を入れ替えると同じになる列の組。</p>
+  </section>
+
+  <section id="assignment">
+    <div class="kicker">処置と割付</div>
+    <h2>学習用は特徴量から処置をほぼ当てられるほど偏っているが、テスト用の割付は特徴量と関係しない</h2>
+    <p>処置群の割合は学習用で 22.2%（処置群 205,480 人、対照群 721,189 人）、テスト用で 52.1%（処置群 94,682 人、対照群 86,987 人）である。学習用は論文のいう sample imbalance（群の大きさの偏り）も持つ。</p>
+    <p>割付が特徴量とどれだけ結びついているかを、2 つの方法で確かめた。1 つ目は処置群と対照群の平均の差を標準偏差で割った標準化差である。学習用では 83 個中 67 個で絶対値が 0.1 を超え（中央値 0.41、最大は f9 の 0.91）、テスト用では 1 つもなかった（最大 0.052）。2 つ目は特徴量から処置群かどうかを当てるロジスティック回帰（傾向スコアのモデル）である。全件で当てはめた AUC は学習用で 0.905、テスト用で 0.526 だった。学習用では、推定した傾向スコアが 0.05 未満の行が全体の 38.6% あり、処置群と対照群の分布はほとんど重ならない（図2）。</p>
+    <p>たとえば f0（0〜5 の整数）の値ごとに処置群の割合を見ると、学習用では 9.3%（f0 = 0）から 31.8%（f0 = 2）まで違うが、テスト用ではどの値でも 51〜53% である。</p>
+    <figure>
+      <svg class="fig" id="fig-ps" viewBox="0 0 640 330" role="img" aria-label="推定した傾向スコアの分布。学習用では対照群が0付近に集まり、処置群は0から1まで広がる（AUC 0.905）。テスト用では両群とも0.5付近に重なる（AUC 0.526）。"></svg>
+      <figcaption>図2　特徴量から推定した傾向スコア（処置群に入る確率）の分布。左が<span class="A">学習用</span>、右が<span class="B">テスト用</span>で、薄い色が対照群、濃い色が処置群。縦軸は各群の中での割合（全件で当てはめたロジスティック回帰から解説者が計算・作図）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="versions">
+    <div class="kicker">論文の値との違い</div>
+    <h2>公開されたのは論文の実験データのおよそ 2 割の標本で、処置率と正例率は論文の値とほぼ同じである</h2>
+    <p>DESCN の論文の Table 1 は本番データを学習用 4.17M 行（処置群 0.92M、対照群 3.25M）、テスト用 0.91M 行（処置群 0.47M、対照群 0.43M）としている。公開されたファイルの行数は学習用でその 22.2%、テスト用で 20.0% にあたる。処置群の割合（学習用 22.2% と論文 22.1%、テスト用 52.1% と 51.6%）と正例率（1.99% と 2.0%、3.52% と 3.5%）は、論文の値とほぼ同じである（表3）。全件から計算した群ごとの人数と正例の数は、README の表の値とすべて一致した。ベンチマーク論文の Table 2 の値も、公開されたファイルの値と一致する。</p>
+    <p>文献リストの表の「学習 約417万行・テスト 約91万行」は論文の Table 1 の値で、公開されたファイルの行数ではない。</p>
+    <p>なお、リポジトリのノートブック（DeepModels_real_data.ipynb）は、公開ファイルと同じ名前の 2 ファイルを読み、学習用から 90% を無作為に 5 回取り出して実験している。2022 年 2 月 15 日の実行として残っている AUUC の平均と標準誤差（DESCN で 0.033976 ± 0.000645、TARNet で 0.030861 ± 0.002132 など）は、丸めると論文の Table 2 の値と一致する。</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>項目</th><th class="n">公開ファイル<br>（解説者の計算）</th><th class="n">README</th><th class="n">DESCN 論文<br>Table 1</th><th class="n">ベンチマーク論文<br>Table 2</th></tr></thead><tbody><tr><td>学習用の行数</td><td class="n">926,669</td><td class="n">926,669</td><td class="n">4.17M</td><td class="n">926,669</td></tr><tr><td>　処置群／対照群</td><td class="n">205,480／721,189</td><td class="n">205,480／721,189</td><td class="n">0.92M／3.25M</td><td class="n">0.28:1</td></tr><tr><td>　正例率</td><td class="n">1.99%</td><td class="n">1.99%（件数から）</td><td class="n">83.0k (2.0%)</td><td class="n">1.99%</td></tr><tr><td>テスト用の行数</td><td class="n">181,669</td><td class="n">181,669</td><td class="n">0.91M</td><td class="n">181,669</td></tr><tr><td>　処置群／対照群</td><td class="n">94,682／86,987</td><td class="n">94,682／86,987</td><td class="n">0.47M／0.43M</td><td class="n">1.09:1</td></tr><tr><td>　正例率</td><td class="n">3.52%</td><td class="n">3.52%（件数から）</td><td class="n">31.9k (3.5%)</td><td class="n">3.52%</td></tr><tr><td>特徴量の数</td><td class="n">83（実質 70）</td><td class="n">83</td><td class="n">83</td><td class="n">83（すべて連続値とする）</td></tr></tbody></table></div><p class="tblcap">表3　全件から計算した値と、資料に載っている値。README の正例率は群ごとの件数から解説者が計算した。DESCN の論文の Table 1 は本番データの値で、公開ファイルはその約 2 割の標本である。ベンチマーク論文の処置群：対照群は比で書かれている。</p>
+  </section>
+
+  <section id="stats">
+    <div class="kicker">基本統計</div>
+    <h2>学習用で素朴に比べた差は +4.72 pt だが、RCT のテスト用では <span class="nw">+0.37 pt</span> で、12.6 倍の開きがある</h2>
+    <p><span class="A">学習用</span>では、処置群の正例率が 5.66%、対照群が 0.94% で、差は +4.72 pt、比は 6.0 倍になる。<span class="B">テスト用</span>では処置群 3.70%、対照群 3.33% で、差は +0.374 pt（標準誤差 0.086 pt、95% 信頼区間 0.205〜0.543 pt）、対照群に対する相対的な上昇は +11.2% である（図3、表4）。テスト用は無作為に割り付けているので、この差がテスト用の集団での平均処置効果の推定値になる。学習用の差は、配られやすい人がもともと反応しやすいことによる偏りを含む。</p>
+    <p>学習用でも、推定した傾向スコアで重みをつけて比べる（逆確率重みづけ、IPW）と、差は +0.53 pt まで縮む。ただし、これは線形のロジスティック回帰で傾向スコアを推定した解説者の試算で、学習用とテスト用は対象者の集団も違う（テスト用の対照群の正例率 3.33% は、学習用の対照群の 0.94% より高い）。学習用の効果の正解は分からない。</p>
+    <p>正例はテスト用の対照群で 2,893 件、処置群で 3,503 件しかない。差の標準誤差は差の 23% にあたり、テスト用で手法どうしの AUUC を比べるときの誤差も小さくはない。</p>
+    <figure>
+      <svg class="fig" id="fig-rates" viewBox="0 0 640 340" role="img" aria-label="群ごとの正例率の棒グラフ。学習用は対照群0.944%、処置群5.664%で差は4.72ポイント。テスト用は対照群3.326%、処置群3.700%で差は0.37ポイント。"></svg>
+      <figcaption>図3　群ごとの正例率（label が 1 の割合）。左が<span class="A">学習用</span>、右が<span class="B">テスト用</span>で、薄い色が対照群、濃い色が処置群。縦軸の目盛りは左右で同じ。ひげは 95% 信頼区間（全件から解説者が計算・作図）。</figcaption>
+    </figure>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>群</th><th class="n">人数</th><th class="n">正例の数</th><th class="n">正例率</th></tr></thead><tbody><tr><th colspan="4" style="text-align:left">学習用（偏った割付）</th></tr><tr><td>処置群</td><td class="n">205,480</td><td class="n">11,638</td><td class="n">5.664%</td></tr><tr><td>対照群</td><td class="n">721,189</td><td class="n">6,810</td><td class="n">0.944%</td></tr><tr><td>差（標準誤差）</td><td class="n" colspan="3">+4.720 pt（0.052）</td></tr><tr><td>95% 信頼区間</td><td class="n" colspan="3">4.617〜4.822 pt</td></tr><tr><td>相対的な上昇（標準誤差）</td><td class="n" colspan="3">+499.8%（9.0）</td></tr><tr><th colspan="4" style="text-align:left">テスト用（RCT）</th></tr><tr><td>処置群</td><td class="n">94,682</td><td class="n">3,503</td><td class="n">3.700%</td></tr><tr><td>対照群</td><td class="n">86,987</td><td class="n">2,893</td><td class="n">3.326%</td></tr><tr><td>差（標準誤差）</td><td class="n" colspan="3">+0.374 pt（0.086）</td></tr><tr><td>95% 信頼区間</td><td class="n" colspan="3">0.205〜0.543 pt</td></tr><tr><td>相対的な上昇（標準誤差）</td><td class="n" colspan="3">+11.2%（2.7）</td></tr></tbody></table></div><p class="tblcap">表4　群ごとの正例率と、処置群と対照群の差（全件から解説者が計算）。差の標準誤差は 2 群の割合の差の式、相対的な上昇（処置群の率 ÷ 対照群の率 − 1）の標準誤差はデルタ法による。学習用の差は割付の偏りを含むので、処置効果の推定値ではない。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきの実験での使われ方</div>
+    <h2>文献リストで使うのはベンチマーク論文 1 本で、コストは置かず、RCT のテスト用で順位づけを比べている</h2>
+    <p>文献リストでこのデータを実験に使っている論文は次の 1 本である。予算制約や処置のコストを使った実験はない。DESCN という手法は ECUP、MTMT、FunnelCausalNet などで比較手法として使われているが、それらの論文は別のデータで評価している。</p>
+    <ul class="def">
+      <li><b><a href="../../papers/deep-uplift-benchmark/">深層アップリフトのベンチマーク</a>（arXiv 2024）</b>　DESCN の論文の分け方にならうとして、学習用を 9:1 で学習と検証に分け、RCT のテスト用をそのままテストに使う。乱数シードは 0〜9 とした。重複除去と特徴量の正規化の有無を組み合わせた 4 通りの前処理で 13 手法を比べ、テスト QINI の 1 位は SNet、DESCN、SNet、CFRNet と条件ごとに入れ替わった。解説ページによると、EFIN は検証 QINI では 4 条件すべてで 1 位だったが、テストでは 13 手法中 12〜13 位で、検証とテストの順位相関は −0.52〜0.09 だった（解説者が論文の表から計算）。偏りのある学習用から切り出した検証データでの順位は、RCT のテストでの順位とほとんど一致しなかったことになる。</li>
+    </ul>
+    <p>データの出典の DESCN の論文自体は、偏った学習用で学習し（公開コードでは学習用から 90% を無作為に取り出す）、テスト用での AUUC（scikit-uplift の <code>qini_auc_score</code>）と、処置群の平均処置効果の誤差 \(\epsilon_{ATT}\) で 8 手法を比べている。予算制約つきの研究でこのデータを使うには、配布の費用を別に仮定する必要がある。全員の費用が同じだと仮定すれば、予測した効果の順に配るときの曲線（Qini 曲線など）は、配布人数（予算）を変えたときの成果として読める（解説者の注）。</p>
+  </section>
+
+  <section id="caveats">
+    <div class="kicker">注意点</div>
+    <h2>金額とコストの列がなく、label の意味も明記されていない</h2>
+    <ul class="def">
+      <li><b>金額とコストがない</b>　結果は 0/1 の label だけで、注文の金額もバウチャーの額面も配布の費用もない。処置も配る・配らないの二値である。</li>
+      <li><b>label の意味</b>　README と論文は label が何を表すかを書いていない。文献リストの表は「購買」としているが、資料からは確かめられなかった。中国語の README は、DESCN が解く問題の例として「クーポンを配るかどうかで購入率がどれだけ増えるか」を挙げているが、このデータの label の定義としてではない。</li>
+      <li><b>学習用の行の並び</b>　学習用のファイルは処置について並びが偏っていて、前半の処置群の割合は 15.5%、後半は 28.9% である（テスト用は前後とも 52.1%）。先頭から切り出したり、並べ替えずに分割したりすると、偏った部分集合になる。</li>
+      <li><b>重複行</b>　data_id を除くすべての列が前のどれかの行と同じ行が、学習用に 17,976 行（1.9%）、テスト用に 1,792 行（1.0%）ある。特徴量だけが同じ行は 22,715 行と 2,437 行で、最も多いものは学習用で 399 行が同じ特徴量を持つ。テスト用の 4,388 行は、学習用のどれかの行と特徴量が同じである（いずれも解説者の計算）。ベンチマーク論文は、重複を除くかどうかで Lazada の手法の順位が変わることを報告している。</li>
+      <li><b>重複した列</b>　定数の列（f70）、ほかの列とまったく同じ列、二値の列の 0 と 1 を入れ替えた列がある（表2）。正規化や距離の計算では、同じ情報を何度も数えることになる。</li>
+      <li><b>テストの正例が少ない</b>　テスト用の正例は 6,396 件で、平均処置効果の差の標準誤差は差そのものの 23% にあたる。小さな AUUC の差は誤差に埋もれやすい。</li>
+      <li><b>評価コードの選び方</b>　DESCN のリポジトリの評価スクリプト（eval4real_data.py）は、各反復で、エポックごとに保存したテスト用の予測（設定では 5 エポック分）のうち、テスト用での AUUC が最大のものを採っている。テスト用でモデルを選んでいることになる。論文の Table 2 の値を、検証データでモデルを選ぶ手順の結果と比べるときは、この違いに注意する。</li>
+      <li><b>公開版は標本</b>　論文の Table 1 の行数は公開版の約 5 倍である。論文や文献リストの行数を引くときは、どちらの値かを確かめる。</li>
+    </ul>
+  </section>
+
+  <section id="download">
+    <div class="kicker">取得方法</div>
+    <h2>README の Dropbox のリンクから取得でき、ファイルの MD5 は README の値と一致した</h2>
+    <p>README は Google Drive、Baidu Drive（抽出コード 75hr）、Dropbox の 3 か所を案内している。解説者は 2026 年 11 月 23 日に、Dropbox のリンクの末尾を <code>dl=1</code> にしてログインせずに lzd_data_public.zip（101,629,017 バイト）を取得した。zip と中の 2 ファイルの MD5 は README に載っている値と一致した。zip を展開すると 574 MB（学習用 476,424,638 バイト、テスト用 97,760,488 バイト）になる。このページの統計はこのファイルから計算した。</p>
+<pre class="code"><span class="c"># Dropbox から取得（約 100 MB）</span>
+curl -L -o lzd_data_public.zip "https://www.dropbox.com/s/07r7592h9mfijsb/lzd_data_public.zip?dl=1"
+md5 lzd_data_public.zip          <span class="c"># 545bb0eae05cca58f0d813a990ed9cba（README の値と同じ）</span>
+shasum -a 256 lzd_data_public.zip
+<span class="c"># a657288e9a54539008004b321fcf986737e94aeea8468b9d70b96f6a974e73db</span>
+unzip lzd_data_public.zip        <span class="c"># lzd_data_public/full_trainset.csv, full_testset.csv, LICENSE</span>
+
+<span class="c"># pandas で読む</span>
+import pandas as pd
+train = pd.read_csv('lzd_data_public/full_trainset.csv')   <span class="c"># 926,669 行 × 86 列</span>
+test  = pd.read_csv('lzd_data_public/full_testset.csv')    <span class="c"># 181,669 行 × 86 列</span>
+X, y, t = train.loc[:, 'f0':'f82'], train['label'], train['is_treat']</pre>
+    <p>展開した 2 ファイルの SHA-256 は、学習用が 79cb6e5c2fb7ad0c35710a84ed82275baa167647b17bf3423f402602b02b5bf0、テスト用が 1eec5f10b838ca3a43f6ccaf1b7af9260e300be36df452be58ee6678d7e1a326 である。zip には macOS が作る __MACOSX フォルダも入っているが、データとは関係しない。scikit-uplift などのライブラリにはこのデータの読み込み関数はない。</p>
+    <p>データを使うときは DESCN の論文を引用する。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{zhong2022descn,
+  title     = {{DESCN}: Deep Entire Space Cross Networks for Individual Treatment Effect Estimation},
+  author    = {Zhong, Kailiang and Xiao, Fengtong and Ren, Yan and Liang, Yaorong and Yao, Wenqing and Yang, Xiaofeng and Cen, Ling},
+  booktitle = {Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+  series    = {KDD '22},
+  address   = {Washington, DC, USA},
+  publisher = {ACM},
+  year      = {2022},
+  doi       = {10.1145/3534678.3539198}
+}</pre>
+    </div>
+    <p class="src">論文の LaTeX ソース（arXiv 2207.09920）にある会議名、開催地、DOI をもとに解説者が作った。ページ番号は確かめていないので入れていない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページはデータセットの提供者や論文の著者によるものではなく、西村直樹がデータと資料を調べてまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は配布ページと論文を参照してください。統計は 2026 年 11 月 23 日に README の Dropbox のリンクから取得したファイルから解説者が計算しました（<a href="assets/lazada_stats.json">lazada_stats.json</a>）。</p>
+</footer>
+
+<script src="assets/lazada_stats.js"></script>
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg) {
+  return function (tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+}
+var ST = window.LAZADA_STATS, INK = '#16202E', MUTED = '#5B6676', HAIR = '#D9DEE6';
+var A = '#C2410C', As = '#F3C9AE', B = '#1D4ED8', Bs = '#BFD0F6';
+
+// ---------- figure 2: propensity-score histograms (from lazada_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-ps'); if (!svg || !ST) return;
+  var el = mk(svg);
+  var Y0 = 250, HM = 190, W = 250, TOP = 0.8;
+  function panel(x0, title, s, c0, c1) {
+    var h = s.ps_hist, nb = h.treated.length, bw = W / nb;
+    var nt = h.treated.reduce(function (a, b) { return a + b; }, 0), nc = h.control.reduce(function (a, b) { return a + b; }, 0);
+    el('text', { x: x0, y: 26, 'font-size': 15, 'font-weight': 600, fill: c1 }, title);
+    [0, 0.2, 0.4, 0.6, 0.8].forEach(function (v) {
+      var y = Y0 - HM * v / TOP;
+      el('line', { x1: x0 + 36, x2: x0 + 36 + W, y1: y, y2: y, stroke: HAIR });
+      el('text', { x: x0 + 30, y: y + 5, 'font-size': 13, fill: MUTED, 'text-anchor': 'end' }, Math.round(100 * v) + '%');
+    });
+    for (var i = 0; i < nb; i++) {
+      var hc = HM * Math.min(h.control[i] / nc, TOP) / TOP, ht = HM * Math.min(h.treated[i] / nt, TOP) / TOP;
+      el('rect', { x: x0 + 36 + i * bw + 0.5, y: Y0 - hc, width: bw / 2 - 0.5, height: hc, fill: c0 });
+      el('rect', { x: x0 + 36 + i * bw + bw / 2, y: Y0 - ht, width: bw / 2 - 0.5, height: ht, fill: c1 });
+    }
+    el('line', { x1: x0 + 36, x2: x0 + 36 + W, y1: Y0, y2: Y0, stroke: INK, 'stroke-width': 1.5 });
+    [0, 0.5, 1].forEach(function (v) { el('text', { x: x0 + 36 + W * v, y: Y0 + 20, 'font-size': 13, fill: MUTED, 'text-anchor': 'middle' }, String(v)); });
+    el('text', { x: x0 + 36 + W / 2, y: Y0 + 40, 'font-size': 13, fill: MUTED, 'text-anchor': 'middle' }, '推定した傾向スコア');
+    el('text', { x: x0 + 36 + W / 2, y: Y0 + 70, 'font-size': 15, 'font-weight': 650, fill: c1, 'text-anchor': 'middle' }, 'AUC ' + s.propensity_auc.toFixed(3));
+  }
+  panel(0, '学習用（偏った割付）', ST.train, As, A);
+  panel(320, 'テスト用（RCT）', ST.test, Bs, B);
+})();
+
+// ---------- figure 3: positive rate by group with 95% CIs (from lazada_stats.json) ----------
+(function () {
+  var svg = document.getElementById('fig-rates'); if (!svg || !ST) return;
+  var el = mk(svg);
+  var Y0 = 270, HMAX = 200, TOP = 0.06;
+  function ci(p, n) { return 1.96 * Math.sqrt(p * (1 - p) / n); }
+  function panel(x0, title, s, c0, c1) {
+    el('text', { x: x0, y: 30, 'font-size': 15, 'font-weight': 600, fill: c1 }, title);
+    [0, 0.02, 0.04, 0.06].forEach(function (v) {
+      var y = Y0 - HMAX * v / TOP;
+      el('line', { x1: x0 + 40, x2: x0 + 270, y1: y, y2: y, stroke: HAIR });
+      el('text', { x: x0 + 34, y: y + 5, 'font-size': 13, fill: MUTED, 'text-anchor': 'end' }, Math.round(100 * v) + '%');
+    });
+    [['対照群', s.control, c0], ['処置群', s.treated, c1]].forEach(function (r, i) {
+      var p = r[1].rate, h = HMAX * p / TOP, x = x0 + 70 + i * 110, e = HMAX * ci(p, r[1].n) / TOP;
+      el('rect', { x: x, y: Y0 - h, width: 70, height: h, fill: r[2] });
+      el('line', { x1: x + 35, x2: x + 35, y1: Y0 - h - e, y2: Y0 - h + e, stroke: INK, 'stroke-width': 1.5 });
+      el('text', { x: x + 35, y: Y0 - h - 12, 'font-size': 14, fill: INK, 'text-anchor': 'middle', 'font-weight': 600 }, (100 * p).toFixed(2) + '%');
+      el('text', { x: x + 35, y: Y0 + 22, 'font-size': 14, fill: INK, 'text-anchor': 'middle' }, r[0]);
+    });
+    el('line', { x1: x0 + 40, x2: x0 + 270, y1: Y0, y2: Y0, stroke: INK, 'stroke-width': 1.5 });
+    el('text', { x: x0 + 155, y: Y0 + 54, 'font-size': 15, fill: c1, 'text-anchor': 'middle', 'font-weight': 650 },
+      '差 +' + (100 * s.diff).toFixed(2) + ' pt（' + s.ratio.toFixed(2) + ' 倍）');
+  }
+  panel(10, '学習用（偏った割付）', ST.train, As, A);
+  panel(330, 'テスト用（RCT）', ST.test, Bs, B);
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
