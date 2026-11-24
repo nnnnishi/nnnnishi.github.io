@@ -1,6 +1,8 @@
 // =====================================================================
 // teaser-engine.js — paper-independent player for a live SVG teaser.
 // A paper supplies scenes with Teaser.start({...}) in its own teaser-scenes.js.
+// Shared by every explainer page under /misc/survey/ (one copy only; pages load it as
+// ../../../assets/teaser-engine.js). A change here affects all explainer teasers.
 //
 //   Teaser.start({
 //     root:     document.getElementById('teaser'),   // figure with svg, .tcap, [data-act=toggle], .tdots
