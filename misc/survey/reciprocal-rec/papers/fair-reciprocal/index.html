@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tomita と Yokoyama（2024）：両側に嫉妬のない相互推薦（論文解説）</title>
+<meta name="description" content="Fair Reciprocal Recommendation in Matching Markets（RecSys 2024）の非公式の解説。推薦によって受け取るマッチングの機会を公平分配の考え方で比べ、両側の利用者が互いの機会を羨まない「両側の嫉妬のなさ」を定義して、両側のナッシュ社会厚生を交互に最大化する方法を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = the policy that maximises the expected number of matches (SW) and the envy it leaves,
+              and the simple baselines (Naive, Prod, IterLP, TU)
+            --b (blue)   = the Nash-social-welfare policy (NSW), double envy-freeness and its results
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 双方向市場の推薦 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">RecSys · 2024</div>
+  <h1>Fair Reciprocal Recommendation in Matching Markets</h1>
+  <p class="subtitle">マッチング市場の公平な相互推薦</p>
+
+  <ul class="authors">
+    <li><b>Yoji Tomita</b><span>CyberAgent, Inc.</span></li>
+    <li><b>Tomohiko Yokoyama</b><span>The University of Tokyo</span></li>
+  </ul>
+
+  <p class="lead">相互推薦で<span class="A">期待マッチ数だけを最大化</span>すると、ある利用者が「あの人と同じ推薦のされ方なら、自分はもっとマッチできたのに」と感じる状態が残る。Tomita と Yokoyama は、推薦で受け取るマッチングの機会を公平分配の考え方で比べ、両側の利用者がだれの機会も羨まない<span class="B">両側の嫉妬のなさ</span>を定義した。両側のナッシュ社会厚生を交互に最大化すると、合成データでも実データでも嫉妬がほぼなくなり、マッチ数はほかの方法と大きく変わらなかった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3640457.3688130">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2409.00720">arXiv</a>
+    <a class="btn" href="https://github.com/CyberAgentAILab/FairReciprocalRecommendation">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。両側が互いに応募したときだけマッチする市場、期待マッチ数を最大化すると一部の利用者が他人の機会を羨むこと、機会を他人のものと入れ替えて比べる嫉妬の定義、両側のナッシュ社会厚生を交互に最大化する方法、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">機会を入れ替えて比べる</span><span class="d">利用者 \(a_i\) の「機会」は、相手側の全員の推薦リストの中で \(a_i\) が置かれる位置の分布。他人の機会と入れ替えたほうがマッチが増えるなら、\(a_i\) はその人を羨んでいる。</span></li>
+    <li><span class="k">両側のナッシュ社会厚生</span><span class="d">各利用者の期待マッチ数の積（の対数）を片側ずつ交互に最大化する。推薦リストが 1 件なら、両側で最良になった方策は嫉妬がない（定理 4.1）。</span></li>
+    <li><span class="k">嫉妬はほぼゼロ</span><span class="d">合成データの全条件と、日本のオンラインデートのデータ（200 人 × 200 人）で、嫉妬している組の数が最も少なかった。数値は論文の図にだけある。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>期待マッチ数を最大にする推薦は、一部の利用者に機会を集め、ほかの利用者に不公平感を残す</h2>
+    <p><a href="../su-2022/">Su ら（2022）</a>と <a href="../tomita-2023/">Tomita ら（2023）</a>は、双方向市場の推薦を市場全体の期待マッチ数を大きくする問題として扱った。しかし、マッチ数の合計が大きくても、だれにどれだけ機会が配られるかは別の問題である。片側の推薦（アイテムの推薦）の公平性では、<a href="https://arxiv.org/abs/2206.07247">Saito と Joachims（2022）</a>が、アイテムが受ける影響（インパクト）を公平分配の嫉妬のなさで比べる方法を示していた。</p>
+    <p>この論文は、その考え方を、両側がともに推薦を受け取り、ともに相手を選ぶ双方向の推薦に広げる。Do ら（2021）の Lorenz 優越による両側の公平性は、相互の関心が成立したときだけマッチするという構造を持たない点で違うと論文は述べる。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>両側の利用者がそれぞれ推薦リストを受け取り、互いに応募したときだけマッチする</h2>
+    <p>左側の利用者 \(a_1, \dots, a_n\) と右側の利用者 \(b_1, \dots, b_m\) がいる。\(a_i\) が \(b_j\) に関心を持つ確率を \(\hat p_1(i,j)\)、逆を \(\hat p_2(j,i)\) とし、非対称でもよい。\(a_i\) への推薦リストを二重確率行列 \(A_i\)（\(A_i(j,k)\) は \(b_j\) が \(k\) 位に来る確率）、\(b_j\) へのリストを \(B_j\) で表す。順位 \(k\) の推薦を見る確率を \(v(k)\) とすると、マッチの確率は両側の応募の確率の積になる（2.1 節）。</p>
+    <div class="eq">\[ \Pr[a_i \text{ と } b_j \text{ がマッチ}] = p_{i,j} \sum_{k} \sum_{\ell} v(k)\, v(\ell)\, A_i(j,k)\, B_j(i,\ell), \qquad p_{i,j} = \hat p_1(i,j)\, \hat p_2(j,i) \]</div>
+    <p>利用者 \(a_i\) の期待マッチ数 \(U_i(\pi)\) は、これを相手の全員について足したもので、全員の和が期待マッチ数（社会厚生）\(\mathrm{SW}(\pi)\) になる。</p>
+    <ul class="def">
+      <li><strong>機会</strong>：\(a_i\) の機会 \(C_i\) は、右側の各利用者のリスト \(B_j\) の中で \(a_i\) が置かれる順位の分布を並べた行列である。片側の推薦での Saito と Joachims の「インパクト」に当たる。</li>
+      <li><strong>嫉妬</strong>：\(a_i\) が自分の推薦リスト \(A_i\) のままで、機会だけを \(a_{i'}\) のもの \(C_{i'}\) に入れ替えたときの期待マッチ数を \(U_i(C_{i'})\) とする。\(U_i(C_i) < U_i(C_{i'})\) なら \(a_i\) は \(a_{i'}\) を羨んでいる。</li>
+      <li><strong>両側の嫉妬のなさ</strong>（定義 2.1）：左側の全員の組と右側の全員の組の両方で嫉妬がないこと。全員に一様にランダムな推薦をすれば必ず満たせるが、マッチは少なくなる。</li>
+    </ul>
+    <p>論文は小さな例（左 2 人、右 1 人）で、期待マッチ数を最大にする方策では一方が他方を羨み、嫉妬のない方策は期待マッチ数が最大にならないことを示す（例 2.2）。マッチ数と公平さはトレードオフになる。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>片側の推薦を固定するともう片側のナッシュ社会厚生の対数は凹になるので、Frank-Wolfe 法で交互に最大化する</h2>
+    <p>左側のナッシュ社会厚生を \(\mathrm{NSW}_1 = \prod_i U_i(\pi)\)、右側を \(\mathrm{NSW}_2 = \prod_j V_j(\pi)\) とする。期待マッチ数の和を最大にするのではなく、積を大きくすると、だれかのマッチ数がとても小さい状態が避けられる。</p>
+    <ul class="def">
+      <li><strong>交互の最大化</strong>（アルゴリズム 1）：\(A\) を固定すると \(\log \mathrm{NSW}_2\) は \(B\) について凹（対数の和）で、逆も同じである。各反復で、勾配の向きに最も進む二重確率行列を求めて今の解と混ぜる Frank-Wolfe の更新を、\(A\) と \(B\) について交互に行う。同じ手順で目的を \(\mathrm{SW}\) にしたものを比較相手の SW 法とする。局所解に収束するか、収束しない可能性があると論文は注意するが、実験では収束した。</li>
+      <li><strong>理論</strong>（定理 4.1）：推薦リストが 1 件なら、両側でナッシュ社会厚生が最良の推薦は両側の嫉妬のなさを満たす。リストが複数件のときは、関心の確率が \(\varepsilon\) だけ似ていて \(n\) と \(m\) が同程度という仮定のもとで、嫉妬は \(O(\varepsilon)\) に抑えられる。Saito と Joachims の定理と、Kroer と Peysakhovich の結果から導いている。</li>
+      <li><strong>IterLP</strong>（アルゴリズム 2）：最大重みの二部マッチングを LP 緩和で解き、選ばれた相手を順に 1 位、2 位と置いていく簡単な方法も比較のために示す。</li>
+    </ul>
+    <p>決定変数は \(n^2 m + n m^2\) 個あり、市場が大きくなると計算が重くなる。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>ナッシュ社会厚生の方法は、ほかの方法と同程度のマッチ数を保ちながら、嫉妬をほぼなくした</h2>
+    <p>合成データは Su らと Tomita らにならって作った。右側を 50 人に固定し、左側を 50 人または 75 人とし、人気の偏り \(\lambda\) を 0 から 1 まで変え、見る確率の関数を \(1/\log_2(k+1)\) と \(1/k\) の 2 通りにした（各 10 回）。比べたのは、自分の関心の順に並べる <span class="A">Naive</span>、両側の関心の積の順に並べる <span class="A">Prod</span>、<span class="A">IterLP</span>、Tomita ら（2023）の <span class="A">TU</span>、期待マッチ数を最大化する <span class="A">SW</span>、提案の <span class="B">NSW</span> である。評価は期待マッチ数と、左右それぞれで嫉妬している組の数である。</p>
+    <ul class="def">
+      <li><strong>期待マッチ数</strong>：SW が \(\lambda = 1\) 以外のほぼすべての場合で最も多かった。NSW のマッチ数はほかの方法と競える水準だった。人気の偏りが大きくなるほど、どの方法もマッチ数が減った。</li>
+      <li><strong>嫉妬</strong>：SW は \(\lambda \ge 0.6\) で嫉妬している組が比較的多かった。NSW はすべての場合で嫉妬がほぼゼロで、\(\lambda = 0.8\) でもゼロを保った。IterLP も多くの場合で嫉妬が少なかったが、左側が 75 人のときは左側の嫉妬が残った（論文 図1）。</li>
+      <li><strong>実データ</strong>：日本のオンラインデートのサービスから、やり取りの多い男女 200 人ずつを選び、「いいね」と「ありがとう」の記録から ALS で関心を推定した。SW のマッチ数が最も多く、NSW のマッチ数は Prod、IterLP、TU と同程度で、嫉妬は両側ではっきり最も少なかった（論文 図2）。</li>
+    </ul>
+    <p class="src">論文は結果を図でだけ示しており、本文と表には数値がない。このページでは本文の記述だけを紹介している。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">双方向市場の推薦の研究の中での位置づけ</div>
+    <h2>期待マッチ数の最大化の系統に、公平分配の嫉妬のなさを持ち込み、両側の公平性を定義した</h2>
+    <ul class="def">
+      <li><strong>目的</strong>：両側の嫉妬のなさ。両側のナッシュ社会厚生で近似的に達成する。</li>
+      <li><strong>解き方</strong>：二重確率行列の推薦リストを、Frank-Wolfe 法で片側ずつ交互に最適化する。</li>
+      <li><strong>限界</strong>：決定変数が \(n^2 m + n m^2\) 個あり、大きな市場では計算が重い。論文は、より大きな市場で公平な推薦を効率よく計算する方法を今後の課題とする。交互の最大化が収束する保証はない。複数件のリストの理論は、関心の確率が似ているという仮定のもとでの近似である。実データは 1 つのサービスの 200 人 × 200 人だけである。</li>
+      <li><strong>つながり</strong>：同じ第一著者の <a href="../tomita-2023/">Tomita ら（2023）</a>の TU を比較相手にし、<a href="https://arxiv.org/abs/2206.07247">Saito と Joachims（2022）</a>の公平性の考え方を双方向に広げた。MODE（Tomita, 2026）はこの論文を公平性の研究として引用している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{tomita2024fair,
+  title     = {Fair Reciprocal Recommendation in Matching Markets},
+  author    = {Tomita, Yoji and Yokoyama, Tomohiko},
+  booktitle = {Proceedings of the 18th ACM Conference on Recommender Systems},
+  year      = {2024},
+  doi       = {10.1145/3640457.3688130}
+}</pre>
+    </div>
+    <p class="src">ページの数式と記述は arXiv 版（2409.00720v1）による。DOI は論文に印刷されたもの。ページ番号は確認できていない。arXiv のページでは第二著者の名前が Tomohiki と表記されているが、論文では Tomohiko である。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
