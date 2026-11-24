@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Javanmard & Nazerzadeh：高次元の特徴量つき動的価格（論文解説）</title>
+<meta name="description" content="Dynamic Pricing in High-dimensions（JMLR 2019）の非公式の解説。評価額が疎な係数をもつ特徴量の線形関数と雑音の和で決まるとき、L1 正則化つき最尤推定をエピソードごとにやり直す価格方策 RMLP で regret を O(s0 log d · log T) に抑え、下界も示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (layout copied from the budget-uplift explainers)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = methods that ignore sparsity, whose regret grows with the feature dimension d
+            --b  (blue)   = RMLP: the sparse model and the L1-regularised maximum-likelihood estimate
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- small results table ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A { color: var(--a); } table.tbl th.B { color: var(--b); }
+
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← データ駆動の価格最適化 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">JMLR · Vol. 20 · 2019</div>
+  <h1>Dynamic Pricing in High-dimensions</h1>
+  <p class="subtitle">高次元の動的価格：特徴量が多くても、効く特徴量が少なければ早く学べる</p>
+
+  <ul class="authors">
+    <li><b>Adel Javanmard</b><span>University of Southern California</span></li>
+    <li><b>Hamid Nazerzadeh</b><span>University of Southern California</span></li>
+  </ul>
+
+  <p class="lead">商品ごとに \(d\) 次元の特徴量があり、顧客の評価額が特徴量の線形関数と雑音の和で決まるとき、売り手は価格を提示して「買う・買わない」だけを観測しながら係数を学ぶ。論文は、係数のうち 0 でないものが \(s_0\) 個しかない<span class="B">疎な構造</span>を使い、<span class="B">L1 正則化つきの最尤推定</span>をエピソードごとにやり直す価格方策 RMLP を示す。regret は \(O(s_0 \log d \cdot \log T)\) で、特徴量の次元 \(d\) には対数でしか依存しない。どんな方策も \(s_0(\log d + \log T)\) の程度より良くはできないという下界も示す。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://www.jmlr.org/papers/v20/17-357.html">Paper</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。評価額が価格以上なら買うモデル、疎な係数、長さが倍になるエピソードとL1正則化つき最尤推定、regretの上界と下界、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(O(s_0 \log d \cdot \log T)\)</span><span class="d">雑音の分布が既知で、特徴量の共分散の最小固有値が正のとき、RMLP の regret の上界（定理 3）。\(s_0\) を知らなくてよい。</span></li>
+    <li><span class="k">下界 \(s_0(\log d + \log T)\)</span><span class="d">評価額そのものを観測できる強い売り手でも、これより良い regret は得られない（定理 5、正規分布の雑音）。上界とは対数の因子の差がある。</span></li>
+    <li><span class="k">推定は約 \(\log T\) 回</span><span class="d">エピソードの長さを 2 倍ずつ伸ばし、各エピソードの初めに 1 つ前のエピソードのデータだけで推定し直す。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>商品ごとに特徴量が多い市場では、特徴量の次元が販売の回数を上回ることもある</h2>
+    <p>論文は Airbnb の宿泊価格やオンライン広告の最低落札価格を例に挙げる。こうした市場では商品が 1 つ 1 つ違い、特徴量の次元 \(d\) が大きく、販売の回数 \(T\) を上回る（\(d &gt; T\)）ことも珍しくない。構造がなければ \(T &lt; d\) ではほとんど何も学べない。論文は、多くの特徴量のうち実際に評価額に効くのは一部だけ、という疎な構造を動的価格で使ったのは自分たちが最初だと書く。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">モデル</div>
+    <h2>評価額は特徴量の線形関数と雑音の和で、売り手は買ったかどうかだけを観測する</h2>
+    <p>各時点 \(t\) に、特徴量 \(x_t \in \mathbb R^d\) が未知の分布から独立に来る。顧客の評価額と購買は</p>
+    <div class="eq">\[ v_t = \theta_0 \cdot x_t + z_t, \qquad y_t = \begin{cases} +1 & (v_t \ge p_t) \\ -1 & (v_t &lt; p_t) \end{cases} \]</div>
+    <p>で、雑音 \(z_t\) は平均 0、分布関数 \(F\) で独立である。したがって \(P(y_t = +1) = 1 - F(p_t - \theta_0 \cdot x_t)\)。係数は \(s_0 = \|\theta_0\|_0\) 個だけが 0 でなく（売り手は \(s_0\) を知らない）、\(\|\theta_0\|_1 \le W\)、\(\|x_t\|_\infty \le 1\) とする。</p>
+    <ul class="def">
+      <li><strong>仮定 1</strong>：\(F\) は狭義単調増加で、\(F\) と \(1 - F\) は対数凹。正規、一様、ラプラス、指数、ロジスティック分布が当てはまる。</li>
+      <li><strong>仮定 2</strong>：特徴量の分布の台は有界で、\(\Sigma = \mathbb E[x x^\top]\) の固有値は \([C_{\min}, C_{\max}]\)（\(C_{\min} &gt; 0\)）に入る。</li>
+    </ul>
+    <p>\(\theta_0\) が分かっていれば、収益 \(p(1 - F(p - \theta_0 \cdot x))\) を最大にする価格は、仮想評価額 \(\varphi(v) = v - (1-F(v))/f(v)\) を使って \(p^* = g(\theta_0 \cdot x)\)、\(g(v) = v + \varphi^{-1}(-v)\) と書ける。regret は、\(\theta_0\) を知っている売り手（雑音の実現値は知らない）との収益の差の期待値を、\(\theta_0\) と特徴量の分布について最悪にしたものである。</p>
+  </section>
+
+  <section id="rmlp">
+    <div class="kicker">RMLP</div>
+    <h2>長さが倍になるエピソードの初めに、直前のエピソードのデータで L1 正則化つきの最尤推定をする</h2>
+    <p>RMLP（Regularized Maximum Likelihood Pricing、Algorithm 1）は次のように動く。</p>
+    <ul class="def">
+      <li><strong>エピソード</strong>：第 \(k\) エピソードの長さは \(\tau_k = 2^{k-1}\)。</li>
+      <li><strong>推定</strong>：エピソードの初めに、1 つ前のエピソードのデータだけを使って</li>
+    </ul>
+    <div class="eq">\[ \hat\theta_k = \mathop{\arg\min}_{\|\theta\|_1 \le W} \Big\{ \mathcal L(\theta) + \lambda_k \|\theta\|_1 \Big\}, \quad \mathcal L(\theta) = -\frac{1}{\tau_{k-1}} \sum_{t} \Big[ \mathbb 1(y_t = 1) \log\big(1 - F(p_t - \theta \cdot x_t)\big) + \mathbb 1(y_t = -1) \log F(p_t - \theta \cdot x_t) \Big] \]</div>
+    <p>を解く。正則化の強さは \(\lambda_k = 4 u_F \sqrt{\log d / \tau_{k-1}}\) で、\(u_F\) は \(\log F\) の傾きの大きさを表す定数である。仮定 1 のもとで \(\mathcal L\) は凸なので、これは凸計画になる。</p>
+    <ul class="def">
+      <li><strong>価格</strong>：エピソード中は \(p_t = g(\hat\theta_k \cdot x_t)\) を提示する。</li>
+    </ul>
+    <p>直前のエピソードのデータだけを使うので、エピソード \(k\) の価格はそのエピソードの雑音と独立になり、解析が簡単になる。データの半分しか使わない損失は高々 2 倍である。推定は各エピソードの初めだけなので、全体で約 \(\log T\) 回で済む。\(T\) と \(s_0\) は知らなくてよいが、\(W\) と \(F\) は知っている必要がある。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>regret は特徴量の次元に対数でしか依存せず、下界とも対数の因子を除いて一致する</h2>
+    <table class="tbl">
+      <thead><tr><th>結果</th><th>条件</th><th>regret</th></tr></thead>
+      <tbody>
+        <tr><td>定理 3（RMLP）</td><td>仮定 1・2、\(F\) が既知</td><td>\(O(s_0 \log d \cdot \log T)\)</td></tr>
+        <tr><td>定理 4（RMLP）</td><td>\(C_{\min} &gt; 0\) を仮定しない</td><td>\(O(W^3 \sqrt{T \log d})\)</td></tr>
+        <tr><td>定理 5（下界）</td><td>評価額を観測できる売り手、正規の雑音</td><td>\(\Omega\big(s_0 \log(T/s_0) + \min\{T/s_0,\ s_0 \log(d/s_0)\}\big)\)</td></tr>
+        <tr><td>定理 8</td><td>評価額が特徴量の非線形な変換の線形関数</td><td>\(O(s_0 \log d \cdot \log T)\)</td></tr>
+        <tr><td>定理 9（RMLP-2）</td><td>雑音の分布の位置と尺度が未知</td><td>\(O(\sqrt{T \log d})\)、どの方策も \(\Omega(\sqrt T)\)</td></tr>
+      </tbody>
+    </table>
+    <p class="src">表　論文 4〜7 節の定理を解説者がまとめた。定理 3 の定数の形は論文本文で確認してほしい。比較として論文は、疎性を使わない最尤推定の方法（Chen et al., 2015）の regret が \(O\big((d/C_{\min}) \sqrt{T \log(Td)}\big)\) であることを挙げる。</p>
+    <p>推定の誤差は、\(n \ge c_0 s_0 \log d\) のとき高い確率で \(\|\hat\theta - \theta_0\|_2^2 \le 16 s_0 \lambda^2 / (\ell_F^2 C_{\min}^2)\) で抑えられる（命題 10）。下界の証明は、評価額を直接観測できるという売り手に有利な設定で、Le Cam と Fano の方法による推定の下界に帰着させる。雑音の分布が未知の場合は、価格が情報をもたない状況が生じうるので \(\sqrt T\) より良くできない（Broder &amp; Rusmevichientong, 2012 の議論）。</p>
+    <p>この論文は理論の論文で、数値実験は載っていない。</p>
+  </section>
+
+  <section id="related">
+    <div class="kicker">先行研究との違い</div>
+    <h2>雑音のある評価額と二値の観測のもとで、高次元の特徴量を扱う</h2>
+    <ul class="def">
+      <li><strong>Cohen, Lobel &amp; Paes Leme（2016）</strong>：特徴量つき価格の最も近い研究。論文によれば、そちらは雑音がなく、特徴量が敵対的に来る点が違う（regret は \(O(d^2 \log(T/d))\)）。</li>
+      <li><strong>Qiang &amp; Bayati（2016）</strong>：売り手が需要そのものを観測できる設定で、二値の観測ではない。</li>
+      <li><strong>den Boer &amp; Zwart、Broder &amp; Rusmevichientong など</strong>：全履歴で最尤推定・最小二乗推定をする方法。RMLP は価格を現在のエピソードの雑音と独立にする点が違う。</li>
+      <li><strong>Keskin &amp; Zeevi（2014）</strong>：評価額が線形関数と雑音の和になるモデルの出典に挙げる。</li>
+      <li><strong>Bastani &amp; Bayati（2016）</strong>：疎な特徴量の文脈つきバンディット。腕が有限個で、価格のような連続の行動ではない。</li>
+    </ul>
+    <p>論文が挙げる今後の課題は、複数の商品から選ぶモデル、近似的に疎な係数、上界と下界の差を埋めることである。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">価格最適化の研究の中での位置づけ</div>
+    <h2>特徴量つき動的価格で、高次元と疎性を扱った代表的な研究</h2>
+    <p>（解説者の注）文献リストの「特徴量つき動的価格」の系統で、特徴量の次元が高い設定を扱う。その後、評価額の雑音の分布を知らない設定（Shah et al., 2019; Luo et al., 2024）や、対数の regret の改善（Xu &amp; Wang, 2021）、異質な価格弾力性（Ban &amp; Keskin, 2021）へと研究が進んでいる。これらの関係は文献リストの系譜の図で、本文をまだ確認していない矢印として示している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{JMLR:v20:17-357,
+  author  = {Adel Javanmard and Hamid Nazerzadeh},
+  title   = {Dynamic Pricing in High-dimensions},
+  journal = {Journal of Machine Learning Research},
+  year    = {2019},
+  volume  = {20},
+  number  = {9},
+  pages   = {1--49},
+  url     = {http://jmlr.org/papers/v20/17-357.html}
+}</pre>
+    </div>
+    <p class="src">本文の要約は JMLR の PDF による（参考文献の一覧は照合していない）。書誌は JMLR の BibTeX による。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
