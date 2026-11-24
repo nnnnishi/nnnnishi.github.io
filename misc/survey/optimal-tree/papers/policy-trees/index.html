@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimal Policy Trees：推定した報酬から方策の木を学ぶ（論文解説）</title>
+<meta name="description" content="Optimal Policy Trees（Machine Learning 2022）の非公式の解説。処置ごとの報酬を二重頑健な推定や回帰モデルで先に埋め、その合計が最小になる方策の木を Optimal Trees の座標降下で学習する。離散の処置と連続の用量の両方を扱う。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = existing tree approaches: prescriptive trees that estimate the counterfactuals
+                         inside the tree, and greedily trained policy trees
+            --b  (blue)   = Optimal Policy Trees: rewards estimated first, then a tree optimised
+                         (Optimal Trees coordinate descent) against the estimated reward matrix
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+figure img.narrow { max-width: 40rem; }
+figure img.small { max-width: 22rem; }
+.lab svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Machine Learning · 2022</div>
+  <h1>Optimal Policy Trees</h1>
+  <p class="subtitle">推定した報酬から最適な方策の木を学ぶ</p>
+
+  <ul class="authors">
+    <li><b>Maxime Amram</b><span>Interpretable AI, Cambridge, MA</span></li>
+    <li><b>Jack Dunn</b><span>Interpretable AI, Cambridge, MA</span></li>
+    <li><b>Ying Daisy Zhuo</b><span>Interpretable AI, Cambridge, MA</span></li>
+  </ul>
+
+  <p class="lead">観察データから「誰にどの処置を割り当てるか」を決める木を学ぶとき、これまでの<span class="A">処方的な木は処置ごとの結果の推定を木の中で同時に行っていた</span>。この論文は<span class="B">処置ごとの報酬を因果推論の方法で先に推定し、木はその合計が最小になる方策だけを学ぶ</span>方法を提案する。木の構造は Optimal Trees の座標降下で探し、離散の処置にも連続の用量にも使える。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1007/s10994-022-06128-5">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2012.02279">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。結果の推定を木の中で行う処方的な木、基準の結果まで覚える必要があること、報酬行列を先に埋めてから分割を探す方策木、イチゴの価格設定の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">推定と学習を分ける</span><span class="d">全員・全処置の報酬の行列 \(\Gamma\) を先に推定する。木はその合計を最小にする方策だけを学ぶので、結果を推定するモデルは木に埋め込める形に限られない。</span></li>
+    <li><span class="k">77.1% 対 65.9%</span><span class="d">イチゴの価格設定で推定した収益の増加は、最適な方策木が 77.1%、同じ報酬の推定値で学習した貪欲な方策木が 65.9%、Optimal Prescriptive Trees が 61.5% だった（論文 Table 7、arXiv v1）。</span></li>
+    <li><span class="k">1,000 件で 50,000 件並み</span><span class="d">糖尿病の治療では、連続用量の方策木が学習データ 1,000 件で、Optimal Prescriptive Trees の 50,000 件と同等の性能を示した。木の葉は 10 個で、OPT の最良の木は 21 個だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>処方的な木は結果の推定を木の中で行うので、推定できる結果の形が限られ、木も読みにくくなる</h2>
+    <p>観察データ \(\{(\mathbf x_i, y_i, z_i)\}_{i=1}^n\) では、特徴量 \(\mathbf x_i\) をもつ人に処置 \(z_i\) を施した結果 \(y_i\) だけが観測される。ほかの処置を施していたらどうなったか（反実仮想の結果）は観測されない。処置は \(m\) 個の選択肢から1つを選ぶ場合も、1つ以上の処置の用量 \(z_i\in\mathbb R^m\) を決める場合もある。目標は、\(\mathbf x\) を見て結果が最もよくなる処置を割り当てる方策を作ることである。</p>
+    <p>決定木は人が判断の筋道を確かめられるので、この問題に向いている。論文は、処方は直接の、ときに重大な影響を伴う行動を勧めるので、予測よりも解釈しやすさが重要だろうと述べている。これまでの木の方法には2つの系統があった。</p>
+    <ul class="def">
+      <li><span class="A">反実仮想の推定を木に埋め込む方法</span>：Kallus の personalization trees（<a href="../kallus-2017/">Kallus 2017</a>）や <a href="../opt/">Optimal Prescriptive Trees</a>（OPT）は、反実仮想の推定と方策の学習を1回で行う。結果のモデルは木に埋め込める形（OPT では区分的に定数か線形）に限られる。分岐が推定の改善にも使われるので、どの分岐が方策のためのものか分かりにくい。処置の数が多いと、葉ごとに各処置の結果を推定するデータが足りなくなる。</li>
+      <li><span class="A">推定と学習を分け、木を貪欲に学ぶ方法</span>：<a href="../multi-action-policy/">Zhou ら</a>は二重頑健な推定値から、Biggs らは黒箱モデルの予測値から方策の木を学ぶ。どちらも木を貪欲法で学ぶので、方策が最適にならず、木も大きくなりやすいと論文は指摘する。Zhou らは全探索による最適な木も試しているが、規模を大きくできない。</li>
+    </ul>
+    <p>論文は後者の「推定と学習を分ける」考え方に、大域的な最適を目指して木を学ぶ Optimal Trees の枠組み（<a href="../oct/">OCT</a> から始まる）を組み合わせる。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>全員・全処置の報酬が分かれば、方策の木の学習は葉ごとに合計が最小の処置を選ぶ問題になる</h2>
+    <p>観測 \(i\) に処置 \(t\) を施したときの結果 \(\Gamma_{it}\) がすべて分かっているとする（小さいほどよいとする）。特徴量だけを見て処置を決める方策 \(\tau(\cdot)\) のうち、次を最小にするものを求める。</p>
+    <div class="eq">\[ \min_{\tau(\cdot)}\ \sum_{i=1}^{n}\sum_{t=1}^{T} \mathbb 1\{\tau(\mathbf x_i)=t\}\cdot\Gamma_{it} \]</div>
+    <p>方策を木で表し、\(\mathbf x\) が入る葉を \(v(\mathbf x)\)、葉 \(\ell\) で割り当てる処置を \(z_\ell\) とする。目的関数は葉ごとに分かれるので、木の構造 \(v\) を決めれば、各葉の処置は</p>
+    <div class="eq">\[ \color{#1D4ED8}{z_\ell=\arg\min_{t}\sum_{i:\,v(\mathbf x_i)=\ell}\Gamma_{it}} \]</div>
+    <p>で決まる。処置の候補を並べて合計を比べるだけでよい。残る問題は木の構造の選び方である。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label for="split"><span class="row"><span>分岐のしきい値 \(x\le s\)</span><output id="sOut">6</output></span>
+          <input type="range" id="split" min="0" max="10" step="1" value="3"></label>
+        <div class="grid" style="grid-template-columns: 1fr auto;">
+          <span>左の葉の処置</span><output id="lOut"></output>
+          <span>右の葉の処置</span><output id="rOut"></output>
+          <span>報酬の合計</span><output id="tOut"></output>
+        </div>
+        <p class="note" id="state"></p>
+      </div>
+      <svg id="labsvg" viewBox="0 0 560 300" role="img" aria-label="Toy reward matrix for ten people sorted by feature x, with estimated rewards for treatments A and B. A split at x ≤ s divides them into two leaves; in each leaf the treatment with the smaller column sum is chosen and highlighted. The total is smallest (24) at s = 6."></svg>
+    </div>
+    <p class="src">図1　分岐を1つだけもつ木での、葉の処置の決まり方（解説者による模式図）。10 人の報酬（小さいほどよい）は解説者が置いた例で、論文の数値ではない。\(s=0\) と \(s=10\) は分岐なし（全員に同じ処置）を表す。各葉では列の合計が小さい処置を選ぶ。この例では \(s=6\) で合計が最小の 24 になる。</p>
+  </section>
+
+  <section id="rewards">
+    <div class="kicker">報酬の推定</div>
+    <h2>報酬は処置の種類に応じて二重頑健な推定か回帰モデルで先に埋め、全部分かっていればそのまま使う</h2>
+    <p>観察データでは \(\Gamma_{it}\) は実際に施した処置の分しか分からないので、残りを推定する。推定の方法は処置の種類で変わる。</p>
+    <ul class="def">
+      <li><b>離散の処置</b>：Dudík らの二重頑健な推定を、Zhou らや Athey と Wager の手順に従って使う。まず多クラス分類モデル（ランダムフォレストやブースティング）で傾向スコア \(\hat p_{it}\) を推定する。過学習を避けるため、各分割の確率は残りのデータで学習したモデルで出す（k 分割交差）。次に処置ごとに回帰モデルを学習し、全員・全処置の結果 \(\hat y_{it}\) を予測する。最後に2つを合わせる。
+        <div class="eq">\[ \Gamma_{it}=\frac{y_i-\hat y_{it}}{\hat p_{it}}\cdot\mathbb 1\{z_i=t\}+\hat y_{it} \]</div>
+        この推定値で方策の価値を測ると、傾向スコアと結果のどちらか一方のモデルが正確なら、価値の推定は正確になる。</li>
+      <li><b>連続の用量</b>：各処置の用量 \(T_{it}\) を特徴量に加えて、結果を予測する回帰モデル（ランダムフォレストやブースティング）を1つ学習する。用量の範囲を候補に離散化し、各候補での結果を予測して報酬とする。木はどの候補の用量がよいかを学ぶ。結果が二値なら分類モデルの確率を使えばよい。</li>
+      <li><b>報酬がすべて分かる場合</b>：金融商品の価格設定の例（後述）のように、どの選択肢でも結果を計算できるなら推定は要らない。</li>
+    </ul>
+    <p>\(\Gamma_{it}\) が観測した処置 \(z_i\) だけで決まる特殊な場合は、損失行列 \(L_{jk}\) で重みをつけた分類問題になる。対角が 0、それ以外が 1 なら通常の多クラス分類と同じである。</p>
+  </section>
+
+  <section id="training">
+    <div class="kicker">木の学習</div>
+    <h2>木の構造は Optimal Trees の座標降下で大域的な最適を目指して探し、葉の処置はそのつど列挙で決める</h2>
+    <p>木の構造 \(v(\mathbf x)\) の最適化には、Bertsimas と Dunn の Optimal Trees の枠組みを使う。この枠組みは木の割り当て \(v(\mathbf x)\) だけに依存する任意の目的関数を座標降下で最適化する。座標降下の各段階で、今の木の構造から各葉の処置 \(z_\ell\) を上の式で決め、それを目的関数に戻して値を求め、探索の向きを決める。アルゴリズムの詳細は Bertsimas と Dunn の本の 8.3 節にある。</p>
+    <p>過学習を防ぐハイパーパラメータは、最大の深さ \(D_{\max}\)、学習データへの当てはまりと木の複雑さの釣り合いを決める複雑さの係数 \(\alpha\)、葉ごとの最小の標本数 \(n_{\min}\) の3つである。このうち \(D_{\max}\) と \(\alpha\) が特に重要で、同じ本の 8.4 節の調整方法で決める。</p>
+    <p>同じ問題を木で解く Biggs らや Zhou らは、木を貪欲法で学習していた。分類や回帰では大域的な最適を目指して学習した木のほうが性能と解釈しやすさで有利だったので、方策の問題でも同じことが言えるかを実験で確かめる、というのが論文の立場である。</p>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">合成データ</div>
+    <h2>合成データでは、方策木の後悔は効果の関数の複雑さで決まり、基準の結果の形には左右されなかった</h2>
+    <p>特徴量は 10 次元で、奇数番目は標準正規分布、偶数番目は Bernoulli(0.5) から生成する。二値の処置の実験では、基準の関数と効果の関数を組み合わせて \(y_0=\text{baseline}-\tfrac12\text{effect}\)、\(y_1=\text{baseline}+\tfrac12\text{effect}\) とし（小さいほどよい）、結果のよいほうの処置が割り当てられやすい偏った割り付けで観察研究をまねる。学習データは 100〜5,000 件、テストは 60,000 件で、処置ごとの真の結果からテストでの平均の後悔（割り当てた処置と最適な処置の結果の差）を測り、100 回の平均をとった。</p>
+    <p>比べたのは、<span class="A">貪欲・最適な処方的な木</span>（\(\mu=0.5\)）、<span class="B">最適な方策木</span>と貪欲な方策木（報酬はランダムフォレストの傾向スコアと causal forest の結果を使う二重頑健な推定）、ランダムフォレストによる regress-and-compare（R&amp;C）、causal forest である。木はどれも深さ 5 まで、深さと \(\alpha\) は検証データで選んだ。</p>
+    <figure>
+      <img class="narrow" src="assets/fig2_binary.png" alt="Seven panels of mean regret against the number of training points (100 to 5,000, log scale) for six methods: greedy and optimal prescriptive trees, greedy and optimal policy trees, regress and compare, and causal forest. In experiments 1 to 3 the policy trees fall to near zero regret quickly; in experiment 4 the optimal policy tree is below the greedy one; in experiment 6 all tree methods level off above R&amp;C and causal forest." loading="lazy">
+      <figcaption>図2　二値の処置の合成実験 1〜7 の平均の後悔（論文 Fig. 2、arXiv v1）。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+    <p>効果を木で表せる実験 1〜3（1・2 は分岐1回で済む）では、方策木はすぐに後悔がほぼ 0 になった。処方的な木と R&amp;C は基準の関数も学ぶ必要があり、基準が線形の実験 1 や二次の実験 3 では改善が遅かった。基準も効果も線形の実験 4 では方策木の収束は遅くなったが、最適な方策木は貪欲な方策木よりはっきりよかった。この実験では R&amp;C と causal forest がより速く学んだ。基準の関数がない実験 5 では処方的な木と方策木が同じ問題を解くことになり、最適な処方的な木のほうがわずかに速く収束した。効果が二次の実験 6 では、木の方法はどれも同じ 0 でない後悔に落ち着き、R&amp;C と causal forest がずっと低かった。</p>
+    <p>処置が3つの実験（2つ）、連続の用量 1 つの実験（4つ、用量 \([-4,4]\) を 10 個の候補に離散化）、連続の用量 2 つの実験（2つ、6×6＝36 通り）でも同じ傾向だった。連続の用量では、報酬は XGBoost で特徴量と用量から結果を予測して作る。処方的な木は観測した用量を最も近い候補に丸めて学ぶので、データが候補ごとに薄まる。連続の用量 1 つの実験 4 で処方的な木の後悔は 2〜5、用量 2 つの実験 2 では 8〜10 で、図から外されている。</p>
+    <figure>
+      <img class="narrow" src="assets/fig4_continuous.png" alt="Four panels of mean regret against training points for a single continuous-dose treatment. Policy trees and regress and compare overlap and fall faster than the prescriptive trees in experiments 1 to 3; in experiment 4 prescriptive trees are not shown, and the greedy policy tree lies slightly above the optimal one and R&amp;C." loading="lazy">
+      <figcaption>図3　連続の用量 1 つの合成実験 1〜4 の平均の後悔（論文 Fig. 4、arXiv v1）。実験 4 では処方的な木を表示していない。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+    <p>論文のまとめでは、離散の処置での方策木の性能は処置効果の複雑さだけに関係し、処方的な木の性能は結果の関数全体の複雑さに左右された。連続の用量では、方策木は用量の候補の数によらず効率よく学び、処方的な木はデータが用量の候補に薄く分かれると性能が落ちた。最適な方策木は R&amp;C とおおむね同等で、学ぶべき関数が単純でないときは貪欲な方策木を上回った。</p>
+  </section>
+
+  <section id="grocery">
+    <div class="kicker">実データ 1：価格設定</div>
+    <h2>イチゴの価格設定では、推定した収益の増加が 77.1% で、貪欲な方策木の 65.9% と OPT の 61.5% を上回った</h2>
+    <p>分析会社 Dunnhumby が公開した、20 万回を超える買い物の取引・世帯・商品のデータを使う。Biggs らと同じ前処理で、各行は1回の買い物、処置はイチゴの単価（1.99〜5.00 ドル、多くは 50 セント刻み）、結果は買ったかどうかである。買わなかった世帯の価格は過去の取引の平均で補う。データを学習とテストに半分ずつ分け、テストでの各価格の結果は独立に学習した XGBoost で推定した。</p>
+    <p>学習データでは世帯の特徴量と連続の価格から購入確率を予測する XGBoost で、価格ごとの収益の期待値を推定した。この推定値に対して最適な方策木と貪欲な方策木を学習し、50 セント刻みの価格を離散の処置とみなした Optimal Prescriptive Trees と比べた。どれも深さ 6 までを交差検証で選んでいる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 220" role="img" aria-label="Horizontal bars of estimated increase in revenue: Optimal Prescriptive Trees 61.5 percent, greedy policy trees 65.9 percent, optimal policy trees 77.1 percent.">
+        <text x="20" y="28" font-size="15" font-weight="600" fill="#16202E">推定した収益の増加（テストデータ）</text>
+        <line x1="250" x2="250" y1="44" y2="186" stroke="#16202E" stroke-width="1.3"/>
+        <text x="236" y="76" font-size="14" fill="#16202E" text-anchor="end">Optimal Prescriptive Trees</text>
+        <rect x="250" y="58" width="276.8" height="26" rx="3" fill="#C2410C"/>
+        <text x="534.8" y="77" font-size="14" fill="#16202E">61.5%</text>
+        <text x="236" y="120" font-size="14" fill="#16202E" text-anchor="end">方策木（貪欲）</text>
+        <rect x="250" y="102" width="296.6" height="26" rx="3" fill="#C2410C" opacity="0.6"/>
+        <text x="554.6" y="121" font-size="14" fill="#16202E">65.9%</text>
+        <text x="236" y="164" font-size="14" font-weight="600" fill="#1D4ED8" text-anchor="end">方策木（最適）</text>
+        <rect x="250" y="146" width="347" height="26" rx="3" fill="#1D4ED8"/>
+        <text x="589" y="165" font-size="14" font-weight="600" fill="#fff" text-anchor="end">77.1%</text>
+        <text x="250" y="206" font-size="12" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="475" y="206" font-size="12" fill="#5B6676" text-anchor="middle">50%</text>
+      </svg>
+      <figcaption>図4　イチゴの価格設定での推定した収益の増加（論文 Table 7 の数値から解説者が作図、arXiv v1）。</figcaption>
+    </figure>
+    <p>貪欲な方策木の 65.9% は Biggs らが報告した 67% に近く、論文は小さな差を学習とテストの分け方の違いによるものだろうとしている。最適な方策木は貪欲な方策木を 11 ポイント余り上回った（論文の表現では「11% を超える改善」）。論文はこの差を、大域的な最適を目指して木を学ぶ効果とみている。方策木はどちらも OPT を上回っており、連続の用量で結果が複雑な場合に推定と学習を分けると有利だという合成データの結果を裏づける、と論文は述べている。</p>
+    <figure>
+      <img src="assets/fig6_grocery_tree.png" alt="Policy tree for strawberry pricing splitting on age, household size, income, home ownership and household composition. Leaves prescribe prices of 2.0, 2.5, 3.0 or 5.0; the 5.0 leaf is for younger homeowners with high income and no children." loading="lazy">
+      <figcaption>図5　イチゴの価格設定で学習した方策木（枝を刈り込んだもの。論文 Fig. 6、arXiv v1）。葉の色の濃さは論文の図のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+    <p>木は年齢、所得、持ち家かどうか、世帯の構成で分岐し、おおむね所得の低い世帯に安い価格を勧める。最高の 5.00 ドルを勧める葉は、34 歳以下で、単身か子どものいない2人の大人の世帯、持ち家、所得 12.5 万ドル超の層で、この層は価格に敏感でないという直感に合うと論文は述べる。個人ごとの価格設定は規制や運用の面で実行できないかもしれないが、地域の人口統計の特徴量を使えば店舗単位の価格設定に応用できるだろうとしている。</p>
+  </section>
+
+  <section id="diabetes">
+    <div class="kicker">実データ 2・3：糖尿病の治療と金融商品の価格</div>
+    <h2>糖尿病の治療では、連続用量の方策木が 1,000 件の学習で OPT の 50,000 件と同等の性能を示し、木も小さかった</h2>
+    <p>Boston Medical Center の電子カルテ（1999〜2014 年、110 万人超）から、2 型糖尿病の患者の 10 万回を超える受診を使う。インスリン、メトホルミン、経口薬の組合せと用量からなる治療を勧める問題で、Bertsimas らの先行研究と OPT は 13 通りの離散の処置として扱っていた。離散にすると「インスリン＋メトホルミン」と「インスリン＋メトホルミン＋経口薬 1 種」のような近い処置どうしで情報を共有できない。論文は処置を用量のベクトル \((z_{\text{insulin}}, z_{\text{metformin}}, z_{\text{oral}})\) とみる連続用量のモデルも試した。公平にするため、連続用量の方策木も同じ 13 通りから選ぶようにしている。報酬はどちらもブースティングで推定した。</p>
+    <p>評価はテストデータの反実仮想をランダムフォレストで補って行い、標準治療と比べた HbA1c の平均の改善、勧めた治療が標準治療と違った受診の割合、違った受診での HbA1c の平均の改善の3つを見る。学習データは 1,000〜50,000 件で変え、テストデータは固定した。</p>
+    <figure>
+      <img src="assets/fig7_diabetes.png" alt="Three panels against training size from 1,000 to 50,000: mean HbA1c change, conditional HbA1c change among patients whose prescription differed from standard of care, and proportion of patients whose prescription differed. Lines for baseline, oracle, optimal prescriptive tree, and optimal policy trees with continuous and discrete treatment models. The continuous policy tree stays roughly flat across training sizes." loading="lazy">
+      <figcaption>図6　糖尿病の治療での比較。左：全患者の HbA1c の平均の変化（小さいほどよい）。中央：処方が標準治療と違った患者での平均の変化。右：処方を標準治療から変えた患者の割合（論文 Fig. 7、arXiv v1）。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+    <p>データをすべて使うと3つの木の方法はほぼ同じ性能に収束したが、学習データが少ないときは方策木のほうがずっとよかった。連続用量の方策木は離散の方策木を上回り、性能は学習データの量によらずほぼ一定で、1,000 件で OPT の 50,000 件と同等だった。1,000 件で学習した連続用量の方策木は葉が 10 個で、同程度の性能の OPT の最良の木は 21 個だった。論文はこの結果を、推定と学習を分けると方策に関わる要因だけに絞った簡潔な木になることの強い証拠としている。</p>
+    <figure>
+      <img class="small" src="assets/fig9_pricing_tree.png" alt="Illustrative policy tree for choosing a pricing method: low liquidity gives mid-price; high liquidity and low imbalance gives weighted mid-price; high imbalance splits on direction into bid price (sell side) or ask price (buy side)." loading="lazy">
+      <figcaption>図7　市場の状態から価格の計算方法を選ぶ方策木（説明用の例。論文 Fig. 9、arXiv v1）。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+    </figure>
+    <p>3つめの例は取引所で売買される金融商品の数分先の価格を予測する問題である。仲値（最良の買い注文と売り注文の価格の平均）や、注文量で重みをつけた仲値など、多くの計算方法がある。観測ごとに各方法で計算した価格と実際の価格との絶対誤差を \(\Gamma_{it}\) とすれば、報酬の行列はすべて分かるので推定は要らない。学習した木は、流動性が低いときは仲値を、流動性が高く注文が釣り合っているときは重みつきの仲値を選び、偏っているときは偏りの向きで売値か買値を選ぶ。商業上の理由で詳細は省かれ、示された木は説明用である。サンプル外の検証では既存の価格の決め方を最大 2% 上回ったと報告されている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>報酬を先に推定し、木は方策だけを学ぶという分け方を、Optimal Trees の木の学習と組み合わせた</h2>
+    <ul class="def">
+      <li><b>分岐の種類</b>：単変量（1つの特徴量のしきい値やカテゴリの集合）。論文の木の図はすべて軸に平行な分岐である。</li>
+      <li><b>葉</b>：1つの処置（離散の選択肢、または離散化した用量の組）を割り当てる。結果の予測値は葉に持たない。</li>
+      <li><b>目的関数</b>：推定した報酬 \(\Gamma_{it}\) の合計を、葉で割り当てた処置について最小にする。離散の処置では二重頑健な推定値、連続の用量では回帰モデルの予測値、金融の例では計算できる誤差そのものを使う。木の複雑さの罰則 \(\alpha\) と深さの上限がつく。</li>
+      <li><b>解き方</b>：Optimal Trees の座標降下による局所探索。葉の処置は各段階で列挙して決める。</li>
+      <li><b>最適性の保証</b>：論文は「大域的に最適な木」を目指す方法として説明するが、得られた木が最適であることの証明や下界は示していない（解説者の注）。Zhou らの全探索のように最適を保証する方法とは、ここが違う。</li>
+      <li><b>データ</b>：合成データ（二値・3値の処置、連続の用量 1 つ・2 つ）、Dunnhumby のイチゴの価格設定、Boston Medical Center の糖尿病の治療、金融商品の価格（非公開）。</li>
+      <li><b>実装</b>：論文にはコードの公開についての記述がない。</li>
+    </ul>
+    <p>同じグループの <a href="../opt/">Optimal Prescriptive Trees</a> は、処方の良さと結果の予測精度の重みつき和を目的にし、葉ごとに結果を推定していた。この論文はそれを、報酬の推定を木の外に出す形に改めたものと読める。比較の相手としては方策の木を厳密に探索する <a href="../multi-action-policy/">Zhou ら</a>と、木を貪欲に学ぶ Biggs らが中心になる。</p>
+    <p>（解説者の注）推定と学習を分けると、方策の良し悪しは報酬の推定の質に頼ることになる。論文の実データの評価もテストデータの反実仮想を別のモデル（XGBoost やランダムフォレスト）で補って行っており、真の結果での評価ではない。論文は報酬の推定の誤りが木に与える影響を理論的には扱っていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・図・表番号は arXiv v1（2020 年 12 月）による。Springer の出版版は自動取得できなかったため照合しておらず、数値や図・表の番号が出版版と違う可能性がある。書誌（巻号・ページ・DOI）は Crossref で確認した。所属は arXiv v1 の記載による。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{amram2022optimal,
+  title     = {Optimal policy trees},
+  author    = {Amram, Maxime and Dunn, Jack and Zhuo, Ying Daisy},
+  journal   = {Machine Learning},
+  volume    = {111},
+  number    = {7},
+  pages     = {2741--2768},
+  year      = {2022},
+  publisher = {Springer},
+  doi       = {10.1007/s10994-022-06128-5}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- interactive figure: one split, leaf-wise argmin over a toy reward matrix ----------
+(function () {
+  var GA = [2, 3, 1, 4, 2, 3, 6, 5, 4, 6], GB = [5, 4, 3, 6, 2, 5, 2, 3, 1, 3];
+  var NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('labsvg');
+  function mk(t, a, txt) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var X0 = 90, CW = 46, YA = 120, YB = 176, CH = 44;
+  var leafBg = [mk('rect', { y: 92, height: 136, rx: 8, fill: '#F2F4F7' }), mk('rect', { y: 92, height: 136, rx: 8, fill: '#F2F4F7' })];
+  mk('text', { x: 20, y: 30, 'font-size': 15, 'font-weight': 600, fill: '#16202E' }, '推定した報酬 Γ（小さいほどよい）');
+  mk('text', { x: 76, y: 76, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }, '特徴量 x');
+  mk('text', { x: 76, y: YA + 28, 'font-size': 15, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'end' }, '処置 A');
+  mk('text', { x: 76, y: YB + 28, 'font-size': 15, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'end' }, '処置 B');
+  var cells = [];
+  for (var i = 0; i < 10; i++) {
+    var x = X0 + i * CW;
+    mk('text', { x: x + CW / 2, y: 76, 'font-size': 14, fill: '#5B6676', 'text-anchor': 'middle' }, String(i + 1));
+    var ra = mk('rect', { x: x + 3, y: YA, width: CW - 6, height: CH, rx: 5, fill: '#fff', stroke: '#D9DEE6' });
+    var rb = mk('rect', { x: x + 3, y: YB, width: CW - 6, height: CH, rx: 5, fill: '#fff', stroke: '#D9DEE6' });
+    var ta = mk('text', { x: x + CW / 2, y: YA + 28, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, String(GA[i]));
+    var tb = mk('text', { x: x + CW / 2, y: YB + 28, 'font-size': 16, fill: '#16202E', 'text-anchor': 'middle' }, String(GB[i]));
+    cells.push({ ra: ra, rb: rb, ta: ta, tb: tb });
+  }
+  var sl = mk('line', { y1: 50, y2: 240, stroke: '#16202E', 'stroke-width': 2, 'stroke-dasharray': '6 5' });
+  var lt = [mk('text', { y: 262, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' }), mk('text', { y: 262, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' })];
+  var tot = mk('text', { x: 20, y: 290, 'font-size': 15, 'font-weight': 600, fill: '#1D4ED8' });
+  var inp = document.getElementById('split');
+  function leaf(a, b) { var sa = 0, sb = 0; for (var i = a; i < b; i++) { sa += GA[i]; sb += GB[i]; } return { sa: sa, sb: sb, t: sa <= sb ? 'A' : 'B', v: Math.min(sa, sb) }; }
+  function upd() {
+    var s = +inp.value, one = (s === 0 || s === 10);
+    var parts = one ? [[0, 10]] : [[0, s], [s, 10]], total = 0, res = [];
+    parts.forEach(function (p, k) {
+      var L = leaf(p[0], p[1]); res.push(L); total += L.v;
+      leafBg[k].setAttribute('x', X0 + p[0] * CW); leafBg[k].setAttribute('width', (p[1] - p[0]) * CW); leafBg[k].setAttribute('opacity', 1);
+      for (var i = p[0]; i < p[1]; i++) {
+        var c = cells[i], onA = L.t === 'A';
+        c.ra.setAttribute('fill', onA ? '#1D4ED8' : '#fff'); c.ta.setAttribute('fill', onA ? '#fff' : '#16202E');
+        c.rb.setAttribute('fill', onA ? '#fff' : '#1D4ED8'); c.tb.setAttribute('fill', onA ? '#16202E' : '#fff');
+      }
+      lt[k].setAttribute('x', X0 + (p[0] + p[1]) / 2 * CW);
+      lt[k].textContent = 'A ' + L.sa + ' / B ' + L.sb + ' → ' + L.t; lt[k].setAttribute('opacity', 1);
+    });
+    if (one) { leafBg[1].setAttribute('opacity', 0); lt[1].setAttribute('opacity', 0); }
+    sl.setAttribute('x1', X0 + s * CW); sl.setAttribute('x2', X0 + s * CW); sl.setAttribute('opacity', one ? 0 : 1);
+    tot.textContent = '報酬の合計 ' + total + (total === 24 ? '（この例での最小）' : '');
+    document.getElementById('sOut').textContent = one ? '分岐なし' : String(s);
+    document.getElementById('lOut').textContent = res[0].t + '（' + res[0].v + '）';
+    document.getElementById('rOut').textContent = one ? '—' : res[1].t + '（' + res[1].v + '）';
+    document.getElementById('tOut').textContent = String(total);
+    document.getElementById('state').textContent = one
+      ? '分岐なし：全員に同じ処置を割り当てると合計は 34 になる。'
+      : '左右の葉でそれぞれ列の合計が小さい処置を選ぶ。分岐の位置を動かすと、葉の処置と合計が変わる。';
+  }
+  inp.addEventListener('input', upd); upd();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

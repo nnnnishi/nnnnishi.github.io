@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaxSAT 決定木：誤分類を許す SAT 型の最適決定木（論文解説）</title>
+<meta name="description" content="Learning Optimal Decision Trees with MaxSAT and its Integration in AdaBoost（IJCAI 2020）の非公式の解説。訓練データを誤りなく分ける木を求める SAT の定式化を、正しく分類する例の数を最大にする MaxSAT の定式化に書き換え、深さと大きさの制約と AdaBoost への組み込みを加える。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the SAT formulation of Narodytska et al. (2018) that this paper starts from:
+                         every training example must be classified correctly (hard clauses), the
+                         minimum-size perfect tree it returns, and the overfitting that follows
+            --b  (blue)   = the MaxSAT formulation proposed here: one soft clause b_q per example,
+                         the number of correctly classified examples it maximises, and its results
+                         (DT(exact) / DT(max), AdaBoost via MaxSAT)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- results table (this page) ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.res { border-collapse: collapse; font-size: 0.9rem; line-height: 1.45; font-variant-numeric: tabular-nums; min-width: 34rem; }
+table.res th, table.res td { padding: 0.38rem 0.75rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; }
+table.res th { font-weight: 600; color: var(--muted); font-size: 0.82rem; vertical-align: bottom; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+table.res td.b { color: var(--b); font-weight: 600; }
+table.res td.lo { color: var(--a); }
+table.res tr.mean td { border-top: 1.5px solid var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">IJCAI 2020</div>
+  <h1>Learning Optimal Decision Trees with MaxSAT and its Integration in AdaBoost</h1>
+  <p class="subtitle">MaxSAT による最適決定木の学習と、その AdaBoost への組み込み</p>
+
+  <ul class="authors">
+    <li><b>Hao Hu</b><span>LAAS-CNRS, Université de Toulouse, CNRS, INSA, Toulouse, France</span></li>
+    <li><b>Mohamed Siala</b><span>LAAS-CNRS, Université de Toulouse, CNRS, INSA, Toulouse, France</span></li>
+    <li><b>Emmanuel Hebrard</b><span>LAAS-CNRS, Université de Toulouse, CNRS, INSA, Toulouse, France</span></li>
+    <li><b>Marie-José Huguet</b><span>LAAS-CNRS, Université de Toulouse, CNRS, INSA, Toulouse, France</span></li>
+  </ul>
+
+  <p class="lead">Narodytska ら（2018）の SAT の定式化は、<span class="A">訓練データのすべての例を正しく分類する</span>木のうち最小のものを求める。そのため矛盾のないデータが必要で、雑音にまで合わせた大きな木になりやすい。この論文は例ごとに「正しく分類された」かを表す変数を柔らかい節にし、<span class="B">正しく分類する例の数を最大にする MaxSAT</span> に書き換える。深さと大きさの制約を足せるうえ、例の重みを節の重みにすれば AdaBoost の弱学習器にもなる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.24963/ijcai.2020/163">Paper</a>
+    <a class="btn" href="https://gepgitlab.laas.fr/hhu/maxsat-decision-trees">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。すべての例を正しく分類するまで木を大きくするSATの方法、雑音の例1つのために木が大きくなる問題、正しく分類する例の数を最大にするMaxSATの仕組み、15データ×3深さの45設定でのテスト精度の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">45 設定のうち 42</span><span class="d">15 個のデータと深さ 2、3、4 の組で、深さの上限つきの MaxSAT（DT(max)）のテスト精度が、4 手法の最良から 3 ポイント以内だった数（論文の表1の印から数えた）。</span></li>
+    <li><span class="k">深さ 5 で 6 データがメモリ不足</span><span class="d">厳密解法 DL8.5 は深さ 5 の木で、メモリの上限を 50GB に上げても 6 個のデータで解けなかった。MaxSAT の定式化はそれほどのメモリを要しない。</span></li>
+    <li><span class="k">74.61% → 94.69%</span><span class="d">tic-tac-toe（深さ 3）のテスト精度。MaxSAT の木 1 本から、21 本を AdaBoost でまとめたものに変えたときの値。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>訓練データを誤りなく分ける最小の木を求める SAT の方法は、矛盾のないデータを前提とし、過学習しやすい</h2>
+    <p>CART、ID3、C4.5 などの貪欲法は、情報利得が最大の特徴量を上から順に選んで木を作る。貪欲法の木より単純な木があることは早くから知られており、小さな木のほうが未知のデータで精度が高いことも多い。そこで木の大きさ、深さ、訓練精度を基準に最適な木を求める厳密な方法が提案されてきたが、実際にはまだ貪欲法が主に使われている。</p>
+    <p>厳密な方法は 2 つに分かれる。Bessiere ら（2009）、<a href="../sat-dt/">Narodytska ら（2018）</a>、<a href="../avellaneda-2020/">Avellaneda（2020）</a>は、<span class="A">訓練データを完全に正しく分類する</span>ことを制約にして、ノードの数や深さを最小にする。この方法には矛盾のないデータを必要とし、過学習を起こしやすく、必要以上に大きな木を作るという批判がある。貪欲法も訓練精度を少し犠牲にして汎化を良くする枝刈りを使う。もう一方の方法（<a href="../dl8/">DL8</a>、<a href="../oct/">OCT</a>、<a href="../binoct/">BinOCT</a>、<a href="../cp-dt/">CP-DT</a>、<a href="../dl85/">DL8.5</a>、<a href="../osdt/">OSDT</a> など）は、深さの上限のもとで訓練精度を最大にする。こちらは雑音のあるデータを自然に扱えるが、木の形に課す制約が深さの上限だけなので、細く深い木が最良のときにはそれを見つける計算が重い。</p>
+    <p>論文は Narodytska らの SAT の定式化を少し変えて MaxSAT の定式化にするだけで、これらの欠点の多くが解消されると主張する。MaxSAT を最適まで解くのは対応する SAT を解くより難しい。しかし完全な精度を求めなければ木も論理式も小さくて済み、最新の MaxSAT ソルバーはずっと大きな論理式を扱える。</p>
+    <p>扱うのは二値の特徴量 \(f_1, \dots, f_K\) と二値のクラスをもつ \(M\) 個の例 \(e_q = (x_q, c_q)\) で、カテゴリや数値の特徴量は one-hot 符号化などで二値に直しておく。学習する木は、内部ノードがちょうど 2 つの子をもつ二分木（full binary tree）である。</p>
+  </section>
+
+  <section id="maxsat">
+    <div class="kicker">手法 1　MaxSAT の定式化</div>
+    <h2>例ごとに「正しく分類された」を表す変数を柔らかい節にし、正しく分類する例の数を最大にする</h2>
+    <p>Narodytska らの SAT の定式化は、大きさ \(N\) の木で全例を正しく分類できるかという判定問題 \(P(E, N)\) を表し、\(N\) を変えながら解いて最小の木を得る。節は 3 つの部分に分かれる。木の構造の制約、内部ノードへの特徴量と葉へのクラスの割り当ての制約、そしてすべての例を正しく分類する制約である。変数は次のとおりで、ノードには 1 から \(N\) の番号がつく。</p>
+    <ul class="def">
+      <li>\(v_i\)：ノード \(i\) が葉なら真。\(l_{ij}\)、\(r_{ij}\)：ノード \(j\) がノード \(i\) の左（右）の子なら真。</li>
+      <li>\(c_i\)：葉 \(i\) のクラスが 1 なら真。</li>
+      <li>\(d^{v}_{r,i}\)：根からノード \(i\) までの道のどこかで、特徴量 \(f_r\) が値 \(v\) の例を外す分岐（テスト \([f_r \neq v]\)）が使われていれば真。</li>
+    </ul>
+    <p>正例 \(e_q\) の特徴量 \(f_r\) の値を \(\sigma(r, q)\) と書くと、「負のクラスの葉には正例が届かない」ことは \(v_i \wedge \neg c_i \rightarrow \bigvee_{r=1}^{K} d^{\sigma(r,q)}_{r,i}\) と書ける。負のクラスの葉 \(i\) までの道のどこかに、\(e_q\) を外す分岐があればよい。負例についても同じ形の節を置く。</p>
+    <p>MaxSAT の定式化では、木の構造と割り当ての節（第 1、2 部）はそのまま硬い節として残す。そのうえで例ごとに、\(e_q\) が正しく分類されるときだけ真になれる変数 \(b_q\) を導入し、分類の節（第 3 部）の前に \(b_q \rightarrow\) をつける。</p>
+    <div class="eq">\[ \begin{aligned} &\forall e_q \in E^{+},\ \forall i \in [1, N]: \quad b_q \rightarrow \Big( v_i \wedge \neg c_i \rightarrow \bigvee_{r=1}^{K} d^{\sigma(r,q)}_{r,i} \Big) \\ &\forall e_q \in E^{-},\ \forall i \in [1, N]: \quad b_q \rightarrow \Big( v_i \wedge c_i \rightarrow \bigvee_{r=1}^{K} d^{\sigma(r,q)}_{r,i} \Big) \end{aligned} \]</div>
+    <p>最後に各 \(b_q\) を 1 つずつ柔らかい節にする。満たされた柔らかい節の数が、正しく分類された例の数になる。こうして解く問題は、大きさ \(N\) の木のうち正しく分類する例の数が最大のものを求める \(P^{*}(E, N)\) に変わる。全例を分類する節は<span class="A">硬い節</span>から<span class="B">柔らかい節</span>に移り、矛盾する例があっても解が存在する。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="SATとMaxSATの節の違いの模式図。SATではすべての例の分類が硬い節で、1つでも満たせなければ解なし。MaxSATでは例ごとの変数b_qが柔らかい節になり、8例中7例を満たす木が最適解になる。">
+        <text x="30" y="34" font-size="16" font-weight="600" fill="#C2410C">SAT（Narodytska ら）</text>
+        <rect x="30" y="50" width="270" height="56" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="165" y="84" font-size="15" fill="#16202E" text-anchor="middle">硬い節：構造・割り当て</text>
+        <rect x="30" y="118" width="270" height="56" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="1.5"/>
+        <text x="165" y="152" font-size="15" fill="#C2410C" text-anchor="middle">硬い節：全例を正しく分類</text>
+        <text x="30" y="206" font-size="14" fill="#5B6676">1 例でも分類できなければ解なし</text>
+        <text x="30" y="228" font-size="14" fill="#5B6676">→ 解けるまで <tspan class="mi">N</tspan> を大きくする</text>
+
+        <text x="340" y="34" font-size="16" font-weight="600" fill="#1D4ED8">MaxSAT（この論文）</text>
+        <rect x="340" y="50" width="270" height="56" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="475" y="84" font-size="15" fill="#16202E" text-anchor="middle">硬い節：構造・割り当て</text>
+        <rect x="340" y="118" width="270" height="56" rx="8" fill="#fff" stroke="#16202E" stroke-width="1.5"/>
+        <text x="475" y="152" font-size="15" fill="#16202E" text-anchor="middle">硬い節：<tspan class="mi">b</tspan><tspan font-size="11" dy="4" class="mi">q</tspan><tspan dy="-4"> → 例 </tspan><tspan class="mi">q</tspan> を正しく分類</tspan></text>
+        <g font-size="14" text-anchor="middle">
+          <rect x="340" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="354" y="209" fill="#fff">1</text>
+          <rect x="374" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="388" y="209" fill="#fff">2</text>
+          <rect x="408" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="422" y="209" fill="#fff">3</text>
+          <rect x="442" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="456" y="209" fill="#fff">4</text>
+          <rect x="476" y="190" width="28" height="28" rx="5" fill="#fff" stroke="#5B6676" stroke-width="1.5" stroke-dasharray="3 3"/><text x="490" y="209" fill="#5B6676">5</text>
+          <rect x="510" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="524" y="209" fill="#fff">6</text>
+          <rect x="544" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="558" y="209" fill="#fff">7</text>
+          <rect x="578" y="190" width="28" height="28" rx="5" fill="#1D4ED8"/><text x="592" y="209" fill="#fff">8</text>
+        </g>
+        <text x="340" y="244" font-size="14" fill="#1D4ED8">柔らかい節 <tspan class="mi">b</tspan><tspan font-size="11" dy="4" class="mi">q</tspan><tspan dy="-4">：満たした数 = 正解の数</tspan></text>
+        <text x="340" y="268" font-size="14" fill="#5B6676">例 5 を諦めれば、小さな木で 7 例を分けられる</text>
+      </svg>
+      <figcaption>図1　SAT と MaxSAT の定式化の違いの模式図。例の数と、諦める例は解説者が置いたもので、論文の例ではない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="shape">
+    <div class="kicker">手法 2　深さと大きさの制御</div>
+    <h2>深さを表す変数と「ノードを少なくとも i 個使う」変数を足し、深さと大きさを上限でもちょうどの値でも指定できるようにする</h2>
+    <p>大きさが同じでも木の形は違いうる。大きさ 7 の木には片側にだけ伸びた深さ 3 の木もあれば、深さ 2 の完全二分木もある（図2）。論文は深さと大きさの両方で木の形を制御できるようにする。根の深さを 0 と数え、ノード \(i\) が深さ \(t\) にあるとき真になる変数 \(\mathit{depth}_{i,t}\) を導入する。</p>
+    <ul class="def">
+      <li>根は深さ 0 にあり、各ノードはちょうど 1 つの深さにある。ノード \(j\) が深さ \(t\) のノード \(i\) の子なら、\(j\) は深さ \(t+1\) にある（\(\mathit{depth}_{i,t} \wedge l_{ij} \rightarrow \mathit{depth}_{j,t+1}\)、右の子も同じ）。</li>
+      <li>深さの上限が \(U\) なら、深さ \(U\) にありうるノードはすべて葉にする（\(\mathit{depth}_{i,U} \rightarrow v_i\)）。</li>
+      <li>深さをちょうど \(U\) にしたいときは、深さ \(U\) のノードが少なくとも 1 つあるという節を足す。</li>
+    </ul>
+    <p>大きさの上限も指定できる。二分木の大きさは 3 以上の奇数で、深さの上限が \(U\) なら大きさは \(2^{U+1}-1\) 以下、深さがちょうど \(U\) なら \(2U+1\) 以上になる。\(N\) を大きさの上限とし、「ノードを少なくとも \(i\) 個使う」ときに真になる変数 \(m_i\)（\(i = 3, 5, 7, \dots, N\)）を置く。\(m_3\) は真に固定し、\(m_{i+2} \rightarrow m_i\) を課す。そのうえで、すべての節 \(C\) について、そこに現れる最大のノード番号を \(j\) として、\(C\) を次のように置き換える。</p>
+    <div class="eq">\[ m_j \rightarrow C \quad (j \text{ が奇数}), \qquad m_{j+1} \rightarrow C \quad (j \text{ が偶数}) \]</div>
+    <p>使わないノードに関わる節は、こうして自動的に無効になる。導入部で論文はこの定式化なら大きさ、深さ、訓練精度の任意の線形結合を目的関数にできると述べる。ただし、その形の目的関数での実験は報告していない。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 260" role="img" aria-label="大きさ7の二分木2つの模式図。左は右側にだけ伸びた深さ3の木、右は深さ2の完全二分木。">
+        <g stroke="#5B6676" stroke-width="1.5">
+          <line x1="110" y1="50" x2="70" y2="100"/><line x1="110" y1="50" x2="150" y2="100"/>
+          <line x1="150" y1="100" x2="110" y2="150"/><line x1="150" y1="100" x2="190" y2="150"/>
+          <line x1="190" y1="150" x2="150" y2="200"/><line x1="190" y1="150" x2="230" y2="200"/>
+          <line x1="470" y1="50" x2="410" y2="100"/><line x1="470" y1="50" x2="530" y2="100"/>
+          <line x1="410" y1="100" x2="380" y2="150"/><line x1="410" y1="100" x2="440" y2="150"/>
+          <line x1="530" y1="100" x2="500" y2="150"/><line x1="530" y1="100" x2="560" y2="150"/>
+        </g>
+        <g fill="#fff" stroke="#16202E" stroke-width="1.5">
+          <circle cx="110" cy="50" r="15"/><circle cx="150" cy="100" r="15"/><circle cx="190" cy="150" r="15"/>
+          <circle cx="470" cy="50" r="15"/><circle cx="410" cy="100" r="15"/><circle cx="530" cy="100" r="15"/>
+        </g>
+        <g fill="#D9DEE6">
+          <rect x="57" y="88" width="26" height="24" rx="4"/><rect x="97" y="138" width="26" height="24" rx="4"/><rect x="137" y="188" width="26" height="24" rx="4"/><rect x="217" y="188" width="26" height="24" rx="4"/>
+          <rect x="367" y="138" width="26" height="24" rx="4"/><rect x="427" y="138" width="26" height="24" rx="4"/><rect x="487" y="138" width="26" height="24" rx="4"/><rect x="547" y="138" width="26" height="24" rx="4"/>
+        </g>
+        <g font-size="13" fill="#5B6676" text-anchor="end">
+          <text x="300" y="55">深さ 0</text><text x="300" y="105">深さ 1</text><text x="300" y="155">深さ 2</text><text x="300" y="205">深さ 3</text>
+        </g>
+        <text x="150" y="245" font-size="15" fill="#16202E" text-anchor="middle">大きさ 7・深さ 3</text>
+        <text x="470" y="245" font-size="15" fill="#16202E" text-anchor="middle">大きさ 7・深さ 2</text>
+      </svg>
+      <figcaption>図2　大きさが同じ 7 で深さが違う 2 つの二分木。丸は内部ノード、四角は葉（論文 Fig. 1 をもとに解説者が描き直した）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="boosting">
+    <div class="kicker">手法 3　AdaBoost への組み込み</div>
+    <h2>AdaBoost の例の重みを柔らかい節の整数の重みにして、重み付きの MaxSAT で弱学習器の木を学ぶ</h2>
+    <p>AdaBoost は \(T\) 回の反復で学習器 \(h_t\) を順に作り、誤分類した例ほど次の反復で重く扱う。反復 \(t\) の誤り率を \(\epsilon_t\) として係数を \(\alpha_t = \tfrac12 \ln\frac{1-\epsilon_t}{\epsilon_t}\) とし、最終的な予測は \(\alpha_t\) で重みづけした投票で決める。</p>
+    <p>MaxSAT の定式化は柔らかい節に重みをつけられる（重み付き部分 MaxSAT）ので、例の分布 \(D_t\) を節 \(b_q\) の重み \(w^t_q\) で近似すればよい。反復ごとに解く問題は前の 2 つの節で述べた深さと大きさを制御できる定式化と、柔らかい節の重みを除いて同じである。最初の反復では重みをすべて 1 にする。次の反復の重みは AdaBoost の更新で正規化した値を、その最小値で割って丸めた整数にする。</p>
+    <div class="eq">\[ \begin{gathered} \hat w^{t+1}_q = \frac{w^t_q \cdot \mathit{factor}^t_q}{\sum_{q'=1}^{M} w^t_{q'} \cdot \mathit{factor}^t_{q'}}, \qquad \mathit{factor}^t_q = \begin{cases} e^{-\alpha_t} & h_t(x_q) = \varphi(x_q) \\ e^{\alpha_t} & h_t(x_q) \neq \varphi(x_q) \end{cases} \\[4pt] w^{t+1}_q = \mathrm{round}\Big( \frac{\hat w^{t+1}_q}{\min_{i} \hat w^{t+1}_i} \Big) \end{gathered} \]</div>
+    <p>\(\varphi\) は正しいクラスを返す関数である。論文によれば、アンサンブルの各木は小さくてよいので、この組み込みは大きなデータを扱ううえでも有利になる。</p>
+  </section>
+
+  <section id="overfitting">
+    <div class="kicker">実験の結果 1　過学習</div>
+    <h2>訓練データを誤りなく分ける木は、それより小さい木よりテスト精度が低かった</h2>
+    <p>実験には CP4IM のデータを one-hot 符号化で二値にしたものを使う。最初の実験では、MaxSAT の定式化で大きさ 3 から順に木を学び、訓練データの全例を正しく分類できる大きさに達するまで大きくした。最後に得られる木は Narodytska らの SAT の定式化で得られる木と同じ大きさになる。Narodytska らにならって訓練データの割合を 0.05、0.1、0.2 と小さく取り、残りをテストに使った。乱数の種を変えて 10 回繰り返し、MaxSAT ソルバー RC2 で時間制限なしに最適解まで解いた。</p>
+    <p>breast-cancer では大きさとともに訓練精度が上がって 100% に達したが、テスト精度は途中から下がった（図3）。<span class="A">全例を正しく分類する木</span>は訓練データに過学習しており、訓練精度は低くても、<span class="B">より小さな木</span>のほうがテストでは精度が高い。論文によれば、この傾向がここまではっきりしないデータもあるが、訓練精度が上がってもテスト精度は良くて横ばい、という平坦な区間はほぼ毎回見られた。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig2a_train_acc.png" alt="Line chart of training accuracy against tree size 3 to 15 for breast-cancer with training ratios 0.05, 0.10 and 0.20. All three curves rise and reach 1.0; smaller ratios reach it with smaller trees." loading="lazy">
+        <figcaption>図3a　木の大きさと訓練精度（論文 Fig. 2(a)）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig2b_test_acc.png" alt="Line chart of testing accuracy against tree size for the same runs. Each curve peaks at size 5 or 7 and then falls as the tree grows to the size that classifies every training example." loading="lazy">
+        <figcaption>図3b　木の大きさとテスト精度（論文 Fig. 2(b)）。どちらも breast-cancer、凡例の ratio は訓練データの割合。図中の色は論文のもので、このページの色の意味とは対応しない。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="comparison">
+    <div class="kicker">実験の結果 2　CART・DL8.5 との比較</div>
+    <h2>深さ 2〜4 の木では、MaxSAT のテスト精度は CART や DL8.5 に近く、45 の設定のうち 42 で最良から 3 ポイント以内だった</h2>
+    <p>15 個のデータで、MaxSAT の木を貪欲法の <span class="A">CART</span>（scikit-learn）および厳密解法の <span class="A">DL8.5</span>（Python パッケージ 0.0.9）と比べた。どの手法も深さの上限 \(d \in \{2, 3, 4\}\) 以外は既定の設定とした。MaxSAT は深さをちょうど \(d\) にする <span class="B">DT(exact)</span> と、\(d\) を上限にする <span class="B">DT(max)</span> の 2 通りを試した。評価には層化した 5 分割の交差検証を乱数の種を変えて 10 回繰り返したものを使った。ソルバーには RC2 より大きなデータに強く、限られた時間でも良い解を返せる Loandra を使った。訓練の制限時間は 15 分、メモリの上限は 16GB である。</p>
+    <p>論文の表1では、テスト精度が最良から 3 ポイント以内の値に印がついている。最良の値と印のついた値を数えると、DT(max) は 45 の設定のうち 42、DT(exact) は 41 で最良から 3 ポイント以内に入った。DT(max) で外れたのは heart-cleveland の深さ 3 と splice-1 の深さ 3、4 の 3 つで、splice-1 の深さ 4 では CART が 95.25%、DT(max) が 83.18% と差が大きい。論文はこの結果を、MaxSAT の木は予測性能で貪欲法とも厳密解法とも競えると要約している。</p>
+    <p>一方、15 分以内に最適性を証明できたのは主に深さ 2 の場合だった。DT(max) は深さ 2 では 15 個のうち 11 個のデータで全試行の最適性を証明したが、深さ 3、4 ではほとんどが時間切れになった。DL8.5 は深さ 4 まで、メモリ不足の 2 件を除いて最も長くても 134.72 秒で最適解を得ている。論文は、MaxSAT の解が最適性を示せなくても DL8.5 の最適解に近いこと、そして DL8.5 は深い木で大量のメモリを要するのに対し MaxSAT はそうではないことを強調する。深さ 5 では、DL8.5 はメモリの上限を 50GB に上げても 6 個のデータで解けなかった。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead>
+          <tr><th>データ（例の数 / 特徴量の数）</th><th>DT(max)<br>テスト精度</th><th>CART<br>テスト精度</th><th>DL8.5<br>テスト精度</th><th>DT(max)<br>最適性の証明</th><th>DL8.5<br>時間（秒）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>anneal（812 / 89）</td><td>84.29</td><td>81.22</td><td>85.26</td><td>0%</td><td>1.76</td></tr>
+          <tr><td>audiology（216 / 146）</td><td>93.91</td><td>94.16</td><td>93.53</td><td>0%</td><td>2.42</td></tr>
+          <tr><td>australian-credit（653 / 124）</td><td>85.31</td><td>84.99</td><td>85.33</td><td>0%</td><td>6.96</td></tr>
+          <tr><td>breast-cancer（683 / 89）</td><td class="b">94.45</td><td>93.80</td><td>94.14</td><td>7%</td><td>0.71</td></tr>
+          <tr><td>car（1728 / 21）</td><td>87.49</td><td>87.65</td><td>87.49</td><td>74%</td><td>0.03</td></tr>
+          <tr><td>heart-cleveland（296 / 95）</td><td class="lo">76.09</td><td>79.37</td><td>75.85</td><td>0%</td><td>2.99</td></tr>
+          <tr><td>hypothyroid（3247 / 86）</td><td>97.83</td><td>97.87</td><td>97.86</td><td>0%</td><td>2.95</td></tr>
+          <tr><td>kr-vs-kp（3196 / 73）</td><td>93.56</td><td>90.43</td><td>93.75</td><td>0%</td><td>1.60</td></tr>
+          <tr><td>lymph（148 / 68）</td><td>80.45</td><td>79.05</td><td>81.80</td><td>0%</td><td>0.44</td></tr>
+          <tr><td>mushroom（8124 / 112）</td><td>99.66</td><td>96.53</td><td>99.90</td><td>0%</td><td>4.94</td></tr>
+          <tr><td>primary-tumor（336 / 31）</td><td>82.61</td><td>79.83</td><td>83.27</td><td>0%</td><td>0.10</td></tr>
+          <tr><td>soybean（630 / 50）</td><td>94.19</td><td>90.46</td><td>94.35</td><td>0%</td><td>0.20</td></tr>
+          <tr><td>splice-1（3190 / 287）</td><td class="lo">85.60</td><td>90.96</td><td>92.83</td><td>0%</td><td>81.01</td></tr>
+          <tr><td>tic-tac-toe（958 / 27）</td><td>73.42</td><td>72.04</td><td>72.22</td><td>0%</td><td>0.08</td></tr>
+          <tr><td>vote（435 / 48）</td><td>94.18</td><td>94.67</td><td>93.95</td><td>0%</td><td>0.23</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表　深さの上限 3 での結果（論文の表1から深さ 3 の行を抜き出した）。テスト精度は %。青字は DT(max) が 4 手法（DT(exact) を含む）で最良だった値、橙字は DT(max) が最良から 3 ポイントより離れた値。「最適性の証明」は 15 分以内に最適性を示せた試行の割合。データ名の hypothyroid は論文の表では hypothyrold と表記されている。</p>
+  </section>
+
+  <section id="ensemble">
+    <div class="kicker">実験の結果 3　ブースティング</div>
+    <h2>MaxSAT の木 21 本を AdaBoost でまとめると、訓練精度は木 1 本や bagging より上がり、テスト精度は CART を使う AdaBoost と競った</h2>
+    <p>表1で MaxSAT の成績が良くなかった 6 個のデータ（anneal、australian-credit、car、heart-cleveland、primary-tumor、tic-tac-toe）で、MaxSAT による AdaBoost（BS）を、MaxSAT の木 1 本（DT(max)）、MaxSAT の木を bagging でまとめたもの（BG）、CART による AdaBoost（BSH）と比べた。学習器の数は 21、各木の大きさ・深さ・制限時間（15 分）はすべて同じにした。データの 8 割を訓練、2 割をテストに使い、乱数の種を変えて 10 回繰り返した。</p>
+    <p>論文の表2では、BS の訓練精度は 18 の設定（6 データ × 深さ 3 通り）すべてで木 1 本を上回り、bagging（BG）の訓練精度も 17 の設定で上回った。テスト精度の伸びが大きいのは tic-tac-toe と car で、tic-tac-toe の深さ 3 では木 1 本の 74.61% が 94.69% に、car の深さ 2 では 84.68% が 96.53% になった。ただし heart-cleveland と primary-tumor の深さ 4 のように、テスト精度が木 1 本を下回った設定もある。BSH と比べると勝ち負けはデータと深さによって分かれ、論文はこれを CART による AdaBoost と競える結果だとしている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>SAT の系統の「誤りなく分ける最小の木」から、深さの上限のもとで誤分類を減らす問題へ移った</h2>
+    <ul class="def">
+      <li><strong>何を最適にするか</strong>：Bessiere ら、<a href="../sat-dt/">Narodytska ら</a>、<a href="../avellaneda-2020/">Avellaneda</a> の SAT の方法は訓練データの完全な分類を制約にし、大きさや深さを最小にする。この論文は大きさ（と深さ）を固定または上限にして、正しく分類する例の数を最大にする。<a href="../dl85/">DL8.5</a> や <a href="../murtree/">MurTree</a> など動的計画法の系統と同じ問題設定に近づいた。</li>
+      <li><strong>解き方</strong>：SAT の符号化はほぼそのまま使い、分類の節を柔らかい節に移すだけである。柔らかい節には重みをつけられるので、AdaBoost の重みもそのまま入る。</li>
+      <li><strong>最適性</strong>：ソルバーに Loandra を使った比較実験では、制限時間内に最適性を証明できたのは主に深さ 2 で、深さ 3 以上では途中で得られた最良の解を使っている。厳密な定式化だが、実験の多くは時間を区切って良い解を得る使い方である。</li>
+      <li><strong>特徴量</strong>：二値の特徴量を前提とし、数値やカテゴリの特徴量は one-hot 符号化などで二値にしておく。二値化せずに扱う SAT の符号化は <a href="../sat-shati/">Shati ら</a> が提案している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{hu2020maxsat,
+  title     = {Learning Optimal Decision Trees with {MaxSAT} and its Integration in {AdaBoost}},
+  author    = {Hu, Hao and Siala, Mohamed and Hebrard, Emmanuel and Huguet, Marie-Jos{\'e}},
+  booktitle = {Proceedings of the Twenty-Ninth International Joint Conference on Artificial Intelligence ({IJCAI-20})},
+  pages     = {1170--1176},
+  year      = {2020},
+  doi       = {10.24963/ijcai.2020/163}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は IJCAI 2020 の出版版（ijcai.org で公開されている PDF）による。書誌情報は Crossref で確認した。編者や出版社の欄は確認していないので省いた。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

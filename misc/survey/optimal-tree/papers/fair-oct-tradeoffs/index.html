@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FairOCT：解釈しやすさ・公平性・精度のトレードオフ（論文解説）</title>
+<meta name="description" content="Learning Optimal Fair Decision Trees: Trade-offs Between Interpretability, Fairness, and Accuracy（AIES 2023）の非公式の解説。フローにもとづく最適分類木の MIO に 5 種類のグループ公平性を制約として加え、モデルの種類をまたいで比べられる解釈しやすさの尺度「決定の複雑さ」を定めて、複雑なモデルとのトレードオフを調べる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (paper-project-page skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = complex models and fairness methods that do not bound the resulting disparity
+                         (regularisation, pre/post-processing, heuristics)
+            --b  (blue)   = FairOCT: shallow optimal trees with a hard disparity bound delta
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AIES 2023 · AAAI/ACM Conference on AI, Ethics, and Society</div>
+  <h1>Learning Optimal Fair Decision Trees: Trade-offs Between Interpretability, Fairness, and Accuracy</h1>
+  <p class="subtitle">公平で最適な決定木の学習：解釈しやすさ・公平性・精度のトレードオフ</p>
+
+  <ul class="authors">
+    <li><b>Nathanael Jo</b><span>USC Center for AI in Society</span></li>
+    <li><b>Sina Aghaei</b><span>USC Center for AI in Society</span></li>
+    <li><b>Jack Benson</b><span>USC Center for AI in Society</span></li>
+    <li><b>Andrés Gómez</b><span>University of Southern California</span></li>
+    <li><b>Phebe Vayanos</b><span>USC Center for AI in Society</span></li>
+  </ul>
+
+  <p class="lead">影響の大きい意思決定に使うモデルには、解釈しやすさ、公平性、精度がそろって求められる。<span class="A">既存の公平化の手法の多くは、罰則や変換の強さを決めるだけで、結果の格差の大きさを保証しない</span>。この論文はフローにもとづく最適分類木の混合整数最適化（MIO）に、<span class="B">格差を δ 以下にする制約</span>を 5 種類の公平性について加えた FairOCT を示す。さらに、予測に要るパラメータの数で解釈しやすさを測る「決定の複雑さ」を定め、複雑なモデルと比べたときの解釈しやすさの代償を調べた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3600211.3604664">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2201.09932">arXiv</a>
+    <a class="btn" href="https://github.com/D3M-Research-Group/odtlearn">Code（ODTLearn）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。罰則や変換の強さでは格差の大きさを保証できないこと、モデルごとの決定の複雑さ、格差を δ 以下にする制約を加えた FairOCT、解釈しやすさの代償 4.2 ポイント、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">5 種類の公平性を制約に</span><span class="d">統計的パリティ、条件付き統計的パリティ、予測の平等、機会均等、均等オッズを、それぞれ線形の制約 2 本で MIO に加えられる。比較した手法のなかで条件付き統計的パリティを扱えたのは FairOCT だけだった。</span></li>
+    <li><span class="k">解釈しやすさの代償 4.2 ポイント</span><span class="d">格差の上限を決めたとき、最も精度の高い複雑なモデルのテストの精度は、両者に結果がある格差の範囲で FairOCT より平均 4.2 ポイント高かった。</span></li>
+    <li><span class="k">決定の複雑さ 7 対 59,126</span><span class="d">COMPAS で予測に要るパラメータの数は、深さ 2 の木が 7、ランダムフォレスト（100 本）が 59,126 だった（論文 Table 1）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>影響の大きい意思決定では、精度だけでなく解釈しやすさと公平性も求められるが、解釈しやすさをモデルの種類をまたいで比べる尺度がなかった</h2>
+    <p>再犯の予測、ホームレスの人への支援の割当て、病気の診断などに機械学習が使われるようになった。こうした場面では、誤った予測を減らすための精度と、判断を説明できるための解釈しやすさが要る。論文が扱うのは、最も解釈しやすいモデルの 1 つである分類木を、ヒューリスティックでなく最適に学習する問題である。</p>
+    <p>公平性については、保護属性を学習から外すだけでは、郵便番号や収入のように保護属性と相関する特徴量を通じて差別が起きうる。論文は保護属性を知ったうえでグループ間の結果の釣り合いを求めるグループ公平性を扱う。定義が簡単で利害関係者に理解されやすく、実務でも重視されているからである。一方、解釈しやすさを数値で測る尺度はほとんどなく、よく使われる疎さ（葉の数や係数の数）も同じ種類のモデルのなかでしか比べられない。</p>
+  </section>
+
+  <section id="fairness">
+    <div class="kicker">公平性の定義</div>
+    <h2>正の予測を受ける確率を、保護グループごとに、条件をつけて、または真のクラスごとにそろえる 5 つの定義を扱う</h2>
+    <p>予測を \(\hat Y\)、真のクラスを \(Y\)、保護属性を \(P\) とする。論文が扱う 5 つの定義は次のとおりである。</p>
+    <ul class="def">
+      <li><strong>統計的パリティ</strong>：\(\Pr[\hat Y=1\mid P=p]\) がすべてのグループで等しい。</li>
+      <li><strong>条件付き統計的パリティ</strong>：リスクを表す正当な特徴量 \(L=\ell\) を条件にして、\(\Pr[\hat Y=1\mid P=p,L=\ell]\) が等しい。</li>
+      <li><strong>予測の平等</strong>：偽陽性率 \(\Pr[\hat Y=1\mid P=p,Y=0]\) が等しい。</li>
+      <li><strong>機会均等</strong>：真陽性率 \(\Pr[\hat Y=1\mid P=p,Y=1]\) が等しい。</li>
+      <li><strong>均等オッズ</strong>：偽陽性率と真陽性率の両方が等しい。</li>
+    </ul>
+  </section>
+
+  <section id="complexity">
+    <div class="kicker">決定の複雑さ</div>
+    <h2>学習済みの分類器が新しい点を予測するのに要るパラメータの最小の数を、解釈しやすさの尺度にする</h2>
+    <p>論文はこの数を決定の複雑さ（decision complexity）と呼ぶ。分類木なら分岐と葉の節点の数、ランダムフォレストならすべての木の節点の数の和、線形のロジスティック回帰なら特徴量の数（と切片）、k 近傍法なら学習データの大きさ、RBF カーネルの SVM ならサポートベクトルの数、ニューラルネットなら節点どうしの結合の数になる。疎さを広げたもので、どの種類のモデルにも定義でき、人が判断の過程をたどれるかという模倣しやすさ（simulatability）の一部を数値にしようとするものだと論文は位置づけている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 680 290" role="img" aria-label="Table of decision complexity on COMPAS, Adult and German, with simulatability and scope: full trees of depth 1, 2, 3 have 3, 7, 15 parameters, high simulatability and global scope; logistic regression 6, 12, 20; CART trees 779, 5,101, 329; kNN 4,629, 22,621, 750; RBF SVM 3,255, 10,542, 454; MLP 700, 1,300, 2,100; random forest 59,126, 273,861, 17,956.">
+        <text x="20" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="start">モデル</text>
+        <text x="290" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="end">COMPAS</text>
+        <text x="380" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="end">Adult</text>
+        <text x="470" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="end">German</text>
+        <text x="545" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="start">模倣しやすさ</text>
+        <text x="610" y="30" font-size="13" font-weight="600" fill="#5B6676" text-anchor="start">範囲</text>
+        <text x="380" y="12" font-size="12" fill="#5B6676" text-anchor="middle">決定の複雑さ</text>
+        <line x1="20" x2="660" y1="40" y2="40" stroke="#16202E"/>
+        <rect x="14" y="45" width="652" height="26" fill="#E7EEFC"/>
+        <text x="20" y="62" font-size="13" fill="#1D4ED8" text-anchor="start">木（深さ 1）</text>
+        <text x="290" y="62" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">3</text>
+        <text x="380" y="62" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">3</text>
+        <text x="470" y="62" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">3</text>
+        <text x="545" y="62" font-size="13" fill="#16202E" text-anchor="start">高</text>
+        <text x="610" y="62" font-size="13" fill="#16202E" text-anchor="start">全体</text>
+        <rect x="14" y="71" width="652" height="26" fill="#E7EEFC"/>
+        <text x="20" y="88" font-size="13" fill="#1D4ED8" text-anchor="start">木（深さ 2）</text>
+        <text x="290" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">7</text>
+        <text x="380" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">7</text>
+        <text x="470" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">7</text>
+        <text x="545" y="88" font-size="13" fill="#16202E" text-anchor="start">高</text>
+        <text x="610" y="88" font-size="13" fill="#16202E" text-anchor="start">全体</text>
+        <rect x="14" y="97" width="652" height="26" fill="#E7EEFC"/>
+        <text x="20" y="114" font-size="13" fill="#1D4ED8" text-anchor="start">木（深さ 3）</text>
+        <text x="290" y="114" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">15</text>
+        <text x="380" y="114" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">15</text>
+        <text x="470" y="114" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">15</text>
+        <text x="545" y="114" font-size="13" fill="#16202E" text-anchor="start">高</text>
+        <text x="610" y="114" font-size="13" fill="#16202E" text-anchor="start">全体</text>
+        <text x="20" y="140" font-size="13" fill="#16202E" text-anchor="start">ロジスティック回帰</text>
+        <text x="290" y="140" font-size="13" fill="#16202E" text-anchor="end">6</text>
+        <text x="380" y="140" font-size="13" fill="#16202E" text-anchor="end">12</text>
+        <text x="470" y="140" font-size="13" fill="#16202E" text-anchor="end">20</text>
+        <text x="545" y="140" font-size="13" fill="#16202E" text-anchor="start">中〜高</text>
+        <text x="610" y="140" font-size="13" fill="#16202E" text-anchor="start">全体</text>
+        <text x="20" y="166" font-size="13" fill="#16202E" text-anchor="start">決定木（CART）</text>
+        <text x="290" y="166" font-size="13" fill="#16202E" text-anchor="end">779</text>
+        <text x="380" y="166" font-size="13" fill="#16202E" text-anchor="end">5,101</text>
+        <text x="470" y="166" font-size="13" fill="#16202E" text-anchor="end">329</text>
+        <text x="545" y="166" font-size="13" fill="#16202E" text-anchor="start">中</text>
+        <text x="610" y="166" font-size="13" fill="#16202E" text-anchor="start">全体</text>
+        <text x="20" y="192" font-size="13" fill="#16202E" text-anchor="start">k 近傍法</text>
+        <text x="290" y="192" font-size="13" fill="#16202E" text-anchor="end">4,629</text>
+        <text x="380" y="192" font-size="13" fill="#16202E" text-anchor="end">22,621</text>
+        <text x="470" y="192" font-size="13" fill="#16202E" text-anchor="end">750</text>
+        <text x="545" y="192" font-size="13" fill="#16202E" text-anchor="start">中〜低</text>
+        <text x="610" y="192" font-size="13" fill="#16202E" text-anchor="start">局所</text>
+        <text x="20" y="218" font-size="13" fill="#16202E" text-anchor="start">SVM（RBF カーネル）</text>
+        <text x="290" y="218" font-size="13" fill="#16202E" text-anchor="end">3,255</text>
+        <text x="380" y="218" font-size="13" fill="#16202E" text-anchor="end">10,542</text>
+        <text x="470" y="218" font-size="13" fill="#16202E" text-anchor="end">454</text>
+        <text x="545" y="218" font-size="13" fill="#16202E" text-anchor="start">低</text>
+        <text x="610" y="218" font-size="13" fill="#16202E" text-anchor="start">局所</text>
+        <text x="20" y="244" font-size="13" fill="#16202E" text-anchor="start">多層パーセプトロン</text>
+        <text x="290" y="244" font-size="13" fill="#16202E" text-anchor="end">700</text>
+        <text x="380" y="244" font-size="13" fill="#16202E" text-anchor="end">1,300</text>
+        <text x="470" y="244" font-size="13" fill="#16202E" text-anchor="end">2,100</text>
+        <text x="545" y="244" font-size="13" fill="#16202E" text-anchor="start">低</text>
+        <text x="610" y="244" font-size="13" fill="#16202E" text-anchor="start">なし</text>
+        <text x="20" y="270" font-size="13" fill="#16202E" text-anchor="start">ランダムフォレスト</text>
+        <text x="290" y="270" font-size="13" fill="#16202E" text-anchor="end">59,126</text>
+        <text x="380" y="270" font-size="13" fill="#16202E" text-anchor="end">273,861</text>
+        <text x="470" y="270" font-size="13" fill="#16202E" text-anchor="end">17,956</text>
+        <text x="545" y="270" font-size="13" fill="#16202E" text-anchor="start">低</text>
+        <text x="610" y="270" font-size="13" fill="#16202E" text-anchor="start">なし</text>
+      </svg>
+      <figcaption>図1　モデルごとの決定の複雑さ・模倣しやすさ・解釈の範囲（論文 Table 1 を解説者が訳して表にしたもの）。<span class="B">青</span>が FairOCT で学習する深さを決めた木。木以外は scikit-learn の標準のパラメータで学習した値で、CART と SVM は複数回の平均。</figcaption>
+    </figure>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>フローにもとづく最適分類木の MIO に、正の予測の割合の差を δ 以下にする線形の制約を加える</h2>
+    <p>出発点は同じグループの <a href="../strong-oct/">FlowOCT</a>（Aghaei ら）の定式化で、深さ \(d\) の完全二分木を、源 \(s\) から根を通り、各節点からクラスごとの吸い込み \(t_k\) へ流れるグラフに変える。特徴量は二値とし（整数やカテゴリにも広げられる）、各データ点が 1 単位の流れとして正しいクラスの吸い込みに着く数を最大にする。変数 \(z^i_{n,t_1}\) はデータ点 \(i\) が節点 \(n\) から正のクラスの吸い込みに流れるかを表すので、グループごとの正の予測の割合をこの変数の線形の式で書ける。</p>
+    <figure style="max-width:40rem">
+      <img src="assets/fig1_flow_graph.png" alt="Left: a depth-2 binary tree with branching nodes 1 to 3 and terminal nodes 4 to 7. Right: the corresponding flow graph with a source s above node 1, arcs from parents to children, and arcs from every node to two sinks t1 and t2.">
+      <figcaption>図2　深さ 2 の決定木（左）と、2 クラスのフローのグラフ（右）（論文 Fig. 1）。</figcaption>
+    </figure>
+    <p>統計的パリティを許容幅 \(\delta\) で課す制約は次のとおりである。</p>
+    <div class="eq">\[ \left|\frac{\sum_{n}\sum_{i:\,p^i=p} z^i_{n,t_1}}{|\{i:\,p^i=p\}|}-\frac{\sum_{n}\sum_{i:\,p^i=p'} z^i_{n,t_1}}{|\{i:\,p^i=p'\}|}\right|\ \le\ \color{#1D4ED8}{\delta}\qquad \forall\,p\neq p' \]</div>
+    <p>条件付き統計的パリティでは \(\ell^i=\ell\) の点に、均等オッズでは \(y^i=k\) の点に絞って同じ形の制約を置き、\(k=0\) なら予測の平等、\(k=1\) なら機会均等になる。左辺はアフィンなので、\(|f|\le\delta\) を \(f\le\delta\) と \(-f\le\delta\) の 2 本に分ければ、混合整数線形最適化のまま Gurobi などで解ける。少数派のグループが一定の幅だけ有利になることを求める、といった変形も入れられる。先行研究の <a href="../fair-oct/">Fair OCT</a>（論文では RegOCT）が公平性を罰則として目的に入れたのに対し、FairOCT は制約として入れ、しかもより効率的に定式化されている。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>3 つのデータで、木にもとづく 2 手法と、どのモデルにも使える 3 手法と比べた</h2>
+    <p>データは COMPAS（6,172 件、保護属性は人種で 4 水準）、Adult（30,162 件、性別）、German（1,000 件、25 歳以下かどうか）である。比較相手は、公平な最適木を罰則で学ぶ RegOCT（<a href="../fair-oct/">Aghaei ら 2019</a>）、ヒューリスティックで木を育てて葉のラベルを付け替える DADT（Kamiran ら）、前処理で保護属性との相関を除く Correlation Remover（CR）、ラグランジュ乗数を格子で探す Exponentiated-Gradient（ExpG）、予測のしきい値を無作為化する後処理の RTO である。CR・ExpG・RTO は CART、ロジスティック回帰、k 近傍法、SVM、ランダムフォレスト、多層パーセプトロンと組み合わせた。</p>
+    <p>FairOCT は深さ 1〜3 の完全な木を、\(\delta\) を 0.01〜0.55 まで 0.01 刻みで変えて学習した。データを学習 75%・テスト 25% に 5 回分け、制限時間は 3 時間である。Adult は大きく次元も高いので、FairOCT と RegOCT は 2,700 件で学習し、ほかの手法と同じテストデータで評価した。DADT は統計的パリティと 2 グループしか扱えないので、COMPAS では人種を黒人か否かの 2 水準にしている。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果 1　公平性と精度</div>
+    <h2>FairOCT は格差の小さい側の結果を安定して出し、ほかの手法では格差 0.05 未満の結果はまれだった</h2>
+    <figure>
+      <img src="assets/fig2_tradeoffs.png" alt="Grid of scatter plots of out-of-sample accuracy versus out-of-sample disparity on COMPAS, German and Adult (rows) for statistical parity, equal opportunity, predictive equality and equalized odds (columns). Dark lines with circles are FairOCT trees, which reach disparities near zero; lighter colours are complex models trained with CR, ExpG or RTO, which mostly sit at higher disparity.">
+      <img src="assets/fig2_legend.png" alt="Legend: classifiers from most interpretable (full trees of depth 1, 2, 3, then LR, DT, kNN, RBF SVM, MLP, RF) to least interpretable, shown from dark to light; fairness methods by marker: FairOCT circle, RegOCT triangle, DADT down-triangle, CR square, ExpG plus, RTO cross." style="margin-top:0.5rem">
+      <figcaption>図3　テストデータでの精度と格差（論文 Fig. 2）。行が COMPAS・German・Adult、列が統計的パリティ・機会均等・予測の平等・均等オッズ。色が濃いほど解釈しやすいモデル。各点は格差 0.05 ごとの区間で平均したもの。</figcaption>
+    </figure>
+    <p>FairOCT は格差の小さい側の結果を安定して見つけた。COMPAS ではどの公平性の定義でも格差 0〜0.3 の結果を出し、ほかにこの範囲を出した手法はない。範囲が狭まる Adult と German でも、ほかの手法は格差 0.05 未満の結果を安定して出せなかった。論文はこれを、\(\delta\) が格差の上限を直接決めるのに対し、ほかの手法は罰則・相関を除く度合い・\(\lambda\) を調整するだけで、結果の格差を保証しないためだとしている。RTO は調整するパラメータがなく、格差が 0.6〜0.9 程度になったので図にはほとんど出ていない。</p>
+    <p>統計的パリティでは、同じく最適な木を学ぶ RegOCT は FairOCT とほぼ同じ性能だったが、扱える公平性は 1 つだけで、FairOCT のほうが少なくとも 1 桁速い。DADT は COMPAS で FairOCT を上回って見えるが、これは人種を 2 水準にしたためである。同じ条件にそろえた付録の比較では、格差の上限を決めたとき、FairOCT のテストの精度は DADT の 3 つの変種より平均 1.6・2.8・1.7 ポイント高く、すべての実験で上回った。条件付き統計的パリティ（前科の数で条件づけ）を扱えたのは FairOCT だけである。深さ 1〜3 の性能が似ているのは、主に深さ 3 が制限時間内に最適まで解けなかったためと論文は述べている。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig3_csp.png" alt="Out-of-sample accuracy versus disparity on COMPAS under conditional statistical parity for FairOCT trees; disparities range from 0 to about 0.33 with accuracies around 0.64 to 0.67.">
+        <figcaption>図4　COMPAS で条件付き統計的パリティを課した FairOCT（論文 Fig. 2 の下段）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig4_vs_dadt.png" alt="Out-of-sample accuracy versus disparity for FairOCT and three DADT variants on COMPAS, German and Adult for depth 2 and 3; the FairOCT line lies on or above the DADT lines.">
+        <figcaption>図5　同じ条件での FairOCT と DADT の比較（論文の付録 Fig. 3）。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="price">
+    <div class="kicker">実験の結果 2　解釈しやすさの代償</div>
+    <h2>格差の上限を決めたとき、最も精度の高い複雑なモデルは FairOCT より平均 4.2 ポイント精度が高かった</h2>
+    <p>予想どおり、浅い完全な木はランダムフォレストや多層パーセプトロンのような複雑なモデルよりわずかに精度が低かった。この差が解釈しやすさの代償である。German では、CR で学習したランダムフォレストの精度が、どの格差の上限でも深さ 2 の FairOCT より平均 6 ポイント高かった。COMPAS では、CR で学習したニューラルネットが深さ 2 の FairOCT を平均 3 ポイント上回ったが、これは両方に結果がある格差の範囲だけでの比較である。FairOCT は格差 0.15 未満の結果も出しており、そこにはニューラルネットの比較対象がない。全体として、両方に結果がある格差の範囲で、最も精度の高い複雑なモデルは FairOCT より平均 4.2 ポイント高かった。</p>
+    <p>多くの公平化の手法が完全な、またはそれに近い釣り合いに届かないので、この集計による比較の意味は限られると論文は断っている。Adult で 2,700 件だけで学習した FairOCT がほかの手法に近い性能を出したことから、最適化の手法が計算の壁に当たっても、代表的な小さなデータで学習すれば全体によく汎化しうるとも述べている。</p>
+  </section>
+
+  <section id="time">
+    <div class="kicker">計算時間</div>
+    <h2>最適性を示すための計算は重く、FairOCT の平均の求解時間は 1.1〜2.5 時間だった</h2>
+    <p>FairOCT の平均の求解時間は COMPAS で 1.1 時間、German で 1.5 時間、Adult で 2.5 時間だった。深さ 2 では平均 3,014.6 秒・8,371.1 秒・6,644.9 秒（COMPAS・Adult・German）、深さ 3 はほぼすべて制限時間の 10,800 秒に達した。RegOCT は深さ 2 と 3 ではどのデータでも最適まで解けず、深さ 1 でも COMPAS で 2,210.9 秒と、FairOCT の 144.8 秒よりずっと長かった。DADT と CR は COMPAS と German で 1 秒未満、Adult で約 5 秒で木や分類器を作った（論文の付録 Table 3）。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>MIO の最適分類木に公平性を罰則でなく制約として入れ、解釈しやすさとの関係まで測った研究である</h2>
+    <p>FairOCT は、同じ USC のグループの <a href="../fair-oct/">Fair OCT</a>（2019）が罰則で入れた公平性を、<a href="../strong-oct/">FlowOCT</a> の強い定式化の上で制約として入れ直したものと読める。制約にしたことで格差の上限を直接指定でき、条件付き統計的パリティのように罰則の方法では扱えなかった定義も入れられた。実装はオープンソースの Python パッケージ ODTLearn に含まれている。</p>
+    <p>一方、深さ 3 で 3 時間の制限に達するように、MIO の計算の重さは残る。同じ統計的パリティの制約つきの最適な木を動的計画法で求める <a href="../fair-dp/">DPF</a> は、この論文の arXiv 版の FairOCT を比較相手にして、何桁も速いことを報告している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・式・図は arXiv の LaTeX ソース（2201.09932、AIES 2023 の書式で DOI を含む版）による。ACM の出版版の本文とは照合していない。書誌は Crossref で確認した。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{jo2023learning,
+  title     = {Learning Optimal Fair Decision Trees: Trade-offs Between Interpretability, Fairness, and Accuracy},
+  author    = {Jo, Nathanael and Aghaei, Sina and Benson, Jack and G{\'o}mez, Andr{\'e}s and Vayanos, Phebe},
+  booktitle = {Proceedings of the 2023 AAAI/ACM Conference on AI, Ethics, and Society},
+  pages     = {181--192},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3600211.3604664}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

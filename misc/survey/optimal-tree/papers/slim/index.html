@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DT-SLIM：SAT で決定木を局所的に浅くする（論文解説）</title>
+<meta name="description" content="SAT-based Decision Tree Learning for Large Data Sets（AAAI 2021）の非公式の解説。貪欲法で作った決定木から部分木を切り出し、SAT で浅い部分木に置き換える局所改善を繰り返して、誤りなく分ける決定木の深さを大きなデータでも減らす。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the initial tree from a standard heuristic (Weka / C4.5, ITI), its depth,
+                         and the subtree T' cut out of it
+            --b  (blue)   = DT-SLIM: the shallower subtree T'' found by the SAT solver, the improved
+                         tree T* and the depths / accuracies it reaches
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- tables ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+.tbl { border-collapse: collapse; font: 0.9rem/1.5 var(--font-en); font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--hair); white-space: nowrap; vertical-align: top; }
+.tbl thead th { font-weight: 600; color: var(--muted); border-bottom: 1.5px solid var(--ink); font-family: var(--font-ja); }
+.tbl tbody th { text-align: left; font-weight: 600; font-family: var(--font-ja); }
+.tbl td.B { color: var(--b); } .tbl td.A { color: var(--a); }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AAAI 2021</div>
+  <h1>SAT-based Decision Tree Learning for Large Data Sets</h1>
+  <p class="subtitle">大きなデータのための、SAT にもとづく決定木の学習</p>
+
+  <ul class="authors">
+    <li><b>André Schidler</b><span>Algorithms and Complexity Group, TU Wien, Vienna, Austria</span></li>
+    <li><b>Stefan Szeider</b><span>Algorithms and Complexity Group, TU Wien, Vienna, Austria</span></li>
+  </ul>
+
+  <p class="lead">データを誤りなく分ける決定木のうち深さが最小のものを SAT ソルバーで厳密に求める方法は、小さなデータにしか使えない。大きなデータでは<span class="A">貪欲法で作った深い木</span>を使うしかなかった。<span class="B">DT-SLIM</span> は貪欲法の木から小さな部分木を切り出し、SAT で浅い部分木に置き換える操作を繰り返す。UCI などの 37 個のデータのうち最大 36 個で木を浅くし、Weka の木の平均の深さを 22.63 から 13.45 に減らした。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1609/aaai.v35i5.16509">Paper</a>
+    <a class="btn" href="https://www.ac.tuwien.ac.at/files/tr/ac-tr-21-003.pdf">著者稿（TU Wien）</a>
+    <a class="btn" href="https://jair.org/index.php/jair/article/view/15956">JAIR 2024 拡張版</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。貪欲法で作った深い決定木、深さとともに大きくなる厳密な SAT 符号化、部分木を切り出して SAT で浅い部分木に置き換える DT-SLIM の局所改善、Weka と ITI の木の平均の深さの変化、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">平均の深さ 22.63 → 13.45</span><span class="d">Weka（C4.5）で作った木を DT-SLIM で改善したときの、37 個のデータでの平均（SAT ソルバーの制限時間 300 秒に合わせた設定）。ITI の木では 10.75 から 8.35 になった。</span></li>
+    <li><span class="k">37 個中 36 個を改善</span><span class="d">Weka の木でも ITI の木でも、37 個のデータのうち 36 個で深さが減った（制限時間 60 秒と 300 秒の設定。800 秒の設定では 35 個）。</span></li>
+    <li><span class="k">australian 53 → 22</span><span class="d">論文が本文で例に挙げた Weka の木の深さの変化。objectivity では深さが 36.6 から 10.6 に減り、テスト精度は 0.55 から 0.78 に上がった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>深さが最小の決定木を SAT で厳密に求める方法は小さなデータにしか使えず、大きなデータでは貪欲法の深い木に頼るしかなかった</h2>
+    <p>深さの小さい決定木は読みやすく、1 つのサンプルを分類するのに必要なテストの数も少ない。医療の診断のように検査に費用や危険が伴う場面では、この点が特に重要である。しかし、データを誤りなく分ける決定木のうち深さが最小のものを見つける問題は NP 困難である（Hyafil と Rivest 1976）。C4.5 や ITI などの<span class="A">貪欲法</span>は速く、大きなデータにも使えるが、深さを最小にはしない。</p>
+    <p>そこで、問題を SAT や制約充足問題に符号化してソルバーで最適な木を求める厳密な方法が提案されてきた（Bessiere ら 2009、<a href="../sat-dt/">Narodytska ら 2018</a>、<a href="../avellaneda-2020/">Avellaneda 2020</a>、Janota と Morgado 2020）。これらは貪欲法よりかなり小さい木や浅い木を見つけることが多いが、比較的小さなデータにしか使えない。論文によれば、当時最良の Avellaneda（2020）の方法で求められる木の深さは 12 までである。</p>
+    <p>この論文は厳密な方法を木全体ではなく木の一部に繰り返し使う。速い貪欲法で最初の解を作り、その一部を SAT で厳密に解き直して改善を重ねる方法を、SAT にもとづく局所改善（SAT-based Local Improvement, SLIM）という。この方法はグラフの分解やベイジアンネットワークの構造学習で成果を上げてきた。著者らはこの考え方を決定木の深さの最小化に持ち込み、実装を DT-SLIM と呼ぶ。</p>
+    <ul class="def">
+      <li>サンプルの特徴量はすべて 0 か 1 の値をとる。離散値の特徴量は値ごとに二値の識別子を割り当てて二値に直す。</li>
+      <li>決定木 \(T\) がデータを<strong>分類する</strong>とは、どの葉に届くサンプルもすべて同じクラスをもつことをいう。つまり学習データを誤りなく分ける木だけを考える。</li>
+      <li>深さ \(d(T)\) は根から葉までの最長の道の長さである。DT-SLIM は分類する木を保ったまま、この深さを減らす。</li>
+    </ul>
+  </section>
+
+  <section id="local">
+    <div class="kicker">手法 1　局所インスタンス</div>
+    <h2>貪欲法の木から部分木を切り出し、その下に続く部分に新しいクラスを付けた小さな分類問題として SAT で解き直す</h2>
+    <p>最初の木 \(T\) から、ノード \(r\) を根とする部分木 \(T'\) を選ぶ。\(T'\) の葉のうち \(T\) では葉でないもの（下にまだ木が続くもの）を \(\ell_1, \dots, \ell_k\) とし、クラスの最大値を \(s\) とする。\(r\) に届くサンプル \(E' = E_T(r)\) に、次のクラス \(C'\) を付けたものを<strong>局所インスタンス</strong> \(I'\) と呼ぶ。</p>
+    <div class="eq">\[ C'(e) = \begin{cases} s + i & e \in E_T(\ell_i) \ \text{となる}\ i \ \text{があるとき} \\ C(e) & \text{それ以外} \end{cases} \]</div>
+    <p>\(\ell_i\) に届くサンプルには、まとめて新しいクラス \(s+i\) を与える。\(I'\) を分類する木 \(T''\) には、クラス \(s+i\) だけが届く葉（<strong>特殊な葉</strong>）が必ずある。\(T\) から \(r\) より下を取り除いて \(T''\) をつなぎ、さらに特殊な葉ごとに \(T\) の部分木 \(T_{\ell_i}\) の複製をつなぐと、新しい木 \(T^*\) ができる。定理 1 によれば、\(T^*\) も元のデータを誤りなく分ける。特殊な葉に届くサンプルは \(\ell_i\) に届いていたサンプルの一部なので、その下に \(T_{\ell_i}\) をつなげば正しく分けられるからである。</p>
+    <figure>
+      <img src="assets/fig3_local_improvement.png" alt="Four trees from left to right. T for I: a tree of depth 7 with a highlighted subtree in the left half, whose leaves include two square special leaves. T prime for I prime: the highlighted subtree alone, unbalanced, with leaf classes 2, 1, 1 and 3. T double prime for I prime: a balanced tree of depth 2 with leaves 3, 1, 3, 2. T star for I: T with the subtree replaced by T double prime and the original subtrees attached below the square special leaves; the overall tree is shallower." loading="lazy">
+      <figcaption>図1　局所改善の流れ。左から、最初の木 \(T\)、切り出した部分木 \(T'\)、SAT で求めた部分木 \(T''\)、置き換えた後の木 \(T^*\)。数字は葉のクラス、四角は特殊な葉を表す（論文 Fig. 3、著者稿 AC-TR-21-003）。解説者が数えると、この例では深さが 7 から 6 に減る。</figcaption>
+    </figure>
+  </section>
+
+  <section id="weights">
+    <div class="kicker">手法 2　重み付きの深さ</div>
+    <h2>特殊な葉の下に続く部分木の深さを重みにして重み付きの深さで比べれば、置き換えても木全体は深くならない</h2>
+    <p>\(T''\) が \(T'\) より浅くても、\(T^*\) が \(T\) より深くなることがある。特殊な葉が \(T''\) の深い位置にあり、その下に大きな部分木をつなぐ場合である。そこで論文はクラスごとに重み \(d(c)\) を置く。新しいクラス \(s+i\) の重みは、その下につなぐ部分木の深さ \(d(T_{\ell_i})\)、元のクラスの重みは 0 である。葉 \(\ell\) の重み付きの深さを \(d_{w,T}(\ell) = d_T(\ell) + d(c)\) とし、木の重み付きの深さ \(d_w(T)\) をその最大値とする。</p>
+    <div class="eq">\[ \text{定理 2：}\quad d_w(T'') \le d_w(T') \ \Longrightarrow\ d(T^*) \le d(T) \]</div>
+    <p>重みは、特殊な葉の下で木がどこまで伸びるかを前もって数に入れたものである。したがって局所インスタンスで重み付きの深さを増やさなければ、置き換えた後の木全体の深さも増えない。さらに、どの葉 \(\ell\) についても \(d(T') \le d_w(T') - d(\ell)\) が成り立つ部分木を<strong>安全</strong>と呼ぶ。安全な部分木なら、重みを無視してふつうの深さで \(d(T'') \le d(T')\) を満たせば十分である（系 1）。後で述べる部分木の選び方は安全な部分木だけを選ぶので、実装では重みを符号化に入れなくて済む。</p>
+  </section>
+
+  <section id="encoding">
+    <div class="kicker">手法 3　SAT 符号化</div>
+    <h2>サンプルの分割の列で木を表す新しい符号化 DT<sub>pb</sub> は、節の数が深さに対して指数的に増えない</h2>
+    <p>局所インスタンスは 3 クラス以上になるので、二値の分類しか扱えない既存の符号化はそのままでは使えない。著者らの目的には、既存の符号化のうち Avellaneda（2020）の DT<sub>depth</sub> が最もよく合った。DT<sub>depth</sub> は決まった深さの完全二分木を符号化するので、深さ \(d\) に対して \(\Omega(2^d)\) 個の節が必要になる。多クラスへの拡張は簡単で、節の数はクラス数の \(\log_2\) 倍に増える。ただし重みを入れるには大きな変更が要る。</p>
+    <p>新しい符号化 <span class="B">DT<sub>pb</sub></span> は木そのものではなくサンプルの分割の列 \(S_0, \dots, S_d\) を表す。分割の各ブロックをグループと呼ぶ。\(S_0\) は全サンプルを 1 つのグループにし、各段では前の段のグループを、ある特徴量が 0 のサンプルと 1 のサンプルに分けるか、そのまま残す。最後の段 \(S_d\) のどのグループも 1 つのクラスだけを含む。定理 3 によれば、このような長さ \(d\) の列があることと、深さ \(d\) の決定木があることは同値である。変数 \(g_{i,j,m}\) は「段 \(m\) でサンプル \(e_i\) と \(e_j\) が同じグループにいる」ことを表す。</p>
+    <div class="eq">\[ \text{節の数} = O\big(|E|^2 \cdot |\mathrm{feat}(E)| \cdot d\big) \]</div>
+    <p>符号化の大きさを主に決めるのは深さではなくサンプルの数である。サンプルが少なく、深くて偏った木が必要な問題に向く。重みはクラスごとに許す最大の深さを変えれば入れられる。実験では両方の符号化を組み合わせた。深さを少しずつ上げた人工のデータで実行時間を測り、深さ 10 までは DT<sub>depth</sub>、それより深い場合は DT<sub>pb</sub> を使う。</p>
+  </section>
+
+  <section id="selection">
+    <div class="kicker">手法 4　部分木の選び方</div>
+    <h2>最も深い葉の近くから部分木を育て、サポート集合で特徴量を減らして、SAT ソルバーが解ける大きさに抑える</h2>
+    <p>局所インスタンスを符号化する前に、特徴量を減らす。クラスの違うどの 2 つのサンプルも、少なくとも 1 つの特徴量で値が違う特徴量の集合を<strong>サポート集合</strong>という。サポート集合に制限しても、求めた木は元の局所インスタンスを分類する（観察 1）。ただし深さの最適性は失われうる。特徴量を減らすと値がすべて一致するサンプルが 1 つにまとまるので、サンプルの数も減る。サポート集合には次の 2 種類を使う。</p>
+    <ul class="def">
+      <li>\(T'\) が使う特徴量そのもの。すぐ求まり、サンプルを大きく減らせるが、\(T'\) のノードの並べ替えしかできない。</li>
+      <li>ヒューリスティックで求めた小さなサポート集合。特徴量を 1 つずつ外して確かめる方法と、Boros ら（2003）にならって空集合から足していく方法の両方を試し、小さいほうを使う。計算に時間はかかるが、まったく違う部分木を見つけられる可能性がある。</li>
+    </ul>
+    <p>部分木は根 \(r\) を決めてから、深さが上限 \(\hat d\) 未満で、特徴量を減らした後のサンプル数が上限 \(\hat c\) 未満のあいだ、ノードを足して育てる。各回では、その下の部分木が最も深いノードを加える。こうすると偏った部分木が選ばれ、SAT ソルバーがそれを釣り合った形に直して深さを減らせる。選ばれる部分木は安全なので、重みも要らない。</p>
+    <p>アルゴリズム全体では、まだ調べていない葉のうち最も深いものを選び、根からその葉への道の上で、届くサンプルが \(\hat c\) 以下になる最も根に近いノードから部分木を作る。深さを 1 減らした木を SAT で探し、見つかれば置き換える。見つからなければ道を根の方へさかのぼり、葉が \(T\) の葉でもある部分木、より一般の部分木の順に、特徴量の減らし方を変えて試す。どれでも改善できなければ、その道を調べ終えたものとして記録する。</p>
+  </section>
+
+  <section id="depth">
+    <div class="kicker">実験の結果 1　深さ</div>
+    <h2>37 個のデータのうち最大 36 個で木を浅くし、Weka の木の平均の深さは 22.63 から 13.45 になった</h2>
+    <p>データは、UCI 機械学習リポジトリの離散値のデータのうちサンプルが 500 を超えるものすべてと、<a href="../sat-dt/">Narodytska ら（2018）</a>が使ったデータを合わせた 37 個である。特徴量の数は 8〜2195、最初の木の深さは 3〜97 にわたる。テスト用のデータが決まっている 4 個以外は 5 分割の層化交差検証を使うので、実行の数は全部で 169 になる。最初の木は Weka（C4.5）と ITI で、剪定せずに学習データを誤りなく分けるように作った。SAT ソルバーは Glucose 4.1 で、1 つのデータにかける時間は 12 時間、メモリは 8 GB までである。</p>
+    <p>部分木の深さとサンプル数の上限 \(\hat d, \hat c\) は、SAT ソルバーが制限時間 \(t\) のうちに多くの場合で答えを出せるように決めた。\(t\) = 60、300、800 秒に対し、深さの上限はそれぞれ 12、15、39 で、サンプル数の上限は深さによって変わる（60 秒の設定では 70〜15、300 秒では 300〜90、800 秒では 500〜105）。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>最初の木 / 設定</th><th>平均の深さ</th><th>深さの分散</th><th>平均のテスト精度</th><th>改善した数</th><th>最も浅かった数</th></tr></thead>
+        <tbody>
+          <tr><th>Weka（最初の木）</th><td class="A">22.63</td><td>436.76</td><td class="A">0.67</td><td>–</td><td>–</td></tr>
+          <tr><th>DT-SLIM、60 秒</th><td class="B">13.64</td><td>244.42</td><td class="B">0.75</td><td>36</td><td>1</td></tr>
+          <tr><th>DT-SLIM、300 秒</th><td class="B">13.45</td><td>261.29</td><td class="B">0.76</td><td>36</td><td>6</td></tr>
+          <tr><th>DT-SLIM、800 秒</th><td class="B">14.33</td><td>318.01</td><td class="B">0.76</td><td>35</td><td>15</td></tr>
+          <tr><th>ITI（最初の木）</th><td class="A">10.75</td><td>28.80</td><td class="A">0.77</td><td>–</td><td>–</td></tr>
+          <tr><th>DT-SLIM、60 秒</th><td class="B">8.55</td><td>22.99</td><td class="B">0.77</td><td>36</td><td>1</td></tr>
+          <tr><th>DT-SLIM、300 秒</th><td class="B">8.35</td><td>22.35</td><td class="B">0.78</td><td>36</td><td>6</td></tr>
+          <tr><th>DT-SLIM、800 秒</th><td class="B">8.59</td><td>29.60</td><td class="B">0.77</td><td>35</td><td>15</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　論文 Table 1（Weka）と Table 2（ITI）。「改善した数」は 37 個のデータのうち深さが減った数、「最も浅かった数」はその設定が 3 つの設定のなかで最も浅い木を見つけたデータの数。</p>
+    <p>Weka の木は平均して ITI の木の 2 倍の深さがあるが、ノードの数は平均 367 と 320 で同程度である。そのため Weka の木のほうが深さを減らす余地が大きい。設定による差は小さく、60 秒の設定がおおむね最も悪かった。大きなデータでは 12 時間のうちに改善が頭打ちにならなかったので、時間をかければさらに浅くできる。</p>
+    <p>新しい符号化の効果を見るため、DT<sub>depth</sub> だけを使う版（DT-SLIM*）と 300 秒の設定で比べた。Weka の木では、DT-SLIM の木はどのデータでも DT-SLIM* の木と同じかそれより浅く、平均で 34% 浅かった。ITI の木では差は平均 2% にとどまるが、データごとに見ると DT-SLIM の木は DT-SLIM* より 2% 深いものから 20% 浅いものまであった。</p>
+  </section>
+
+  <section id="accuracy">
+    <div class="kicker">実験の結果 2　テスト精度</div>
+    <h2>浅くした木のテスト精度は平均では下がらず、過学習していた Weka の木では大きく上がる例もあった</h2>
+    <p>最適化に使っていないサンプルでの正解率（テスト精度）を、改善の前後で比べた。平均のテスト精度は、Weka の木で 0.67 から 0.75〜0.76 に上がり、ITI の木では 0.77 から 0.77〜0.78 とほぼ変わらなかった。データごとに見ると、hungarian では深さが 27 から 9.4 に減り、テスト精度が 0.19 から 0.59 に上がった。objectivity では深さが 36.6 から 10.6 に減り、テスト精度が 0.55 から 0.78 に上がった。一方で haberman（0.66 → 0.62）のように下がったデータもある。論文は、剪定しない Weka の木のほうが過学習の影響を強く受けていたと解釈している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 720 360" role="img" aria-label="論文 Table 3 の7つのデータについて、Weka の木の深さ（オレンジ）と DT-SLIM で浅くした深さ（青）を結んだ図。australian は 53 から 22、objectivity は 36.6 から 10.6、hungarian は 27 から 9.4、ccdefault は 96.6 から 80 に減った。右の列はテスト精度で、hungarian は 0.19 から 0.59、objectivity は 0.55 から 0.78 に上がった。">
+<g font-size="13" fill="#5B6676" text-anchor="middle">
+<line x1="150.0" y1="44" x2="150.0" y2="300" stroke="#16202E" stroke-width="1.5"/><text x="150.0" y="320">0</text>
+<line x1="230.0" y1="44" x2="230.0" y2="300" stroke="#EEF0F3" stroke-width="1"/><text x="230.0" y="320">20</text>
+<line x1="310.0" y1="44" x2="310.0" y2="300" stroke="#EEF0F3" stroke-width="1"/><text x="310.0" y="320">40</text>
+<line x1="390.0" y1="44" x2="390.0" y2="300" stroke="#EEF0F3" stroke-width="1"/><text x="390.0" y="320">60</text>
+<line x1="470.0" y1="44" x2="470.0" y2="300" stroke="#EEF0F3" stroke-width="1"/><text x="470.0" y="320">80</text>
+<line x1="550.0" y1="44" x2="550.0" y2="300" stroke="#EEF0F3" stroke-width="1"/><text x="550.0" y="320">100</text>
+</g>
+<text x="350.0" y="346" font-size="14" fill="#5B6676" text-anchor="middle">木の深さ（交差検証の平均）</text>
+<text x="648" y="30" font-size="14" font-weight="600" fill="#16202E" text-anchor="middle">テスト精度</text>
+<text x="140" y="71" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">australian</text>
+<line x1="238.0" y1="66" x2="362.0" y2="66" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="362.0" cy="66" r="6" fill="#C2410C"/><circle cx="238.0" cy="66" r="6" fill="#1D4ED8"/>
+<text x="372.0" y="58" font-size="12" fill="#C2410C">53</text><text x="228.0" y="58" font-size="12" fill="#1D4ED8" text-anchor="end">22</text>
+<text x="648" y="71" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.14</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.14</tspan></text>
+<text x="140" y="107" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">ccdefault</text>
+<line x1="470.0" y1="102" x2="536.4" y2="102" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="536.4" cy="102" r="6" fill="#C2410C"/><circle cx="470.0" cy="102" r="6" fill="#1D4ED8"/>
+<text x="546.4" y="94" font-size="12" fill="#C2410C">96.6</text><text x="460.0" y="94" font-size="12" fill="#1D4ED8" text-anchor="end">80</text>
+<text x="648" y="107" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.71</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.71</tspan></text>
+<text x="140" y="143" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">haberman</text>
+<line x1="405.2" y1="138" x2="434.8" y2="138" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="434.8" cy="138" r="6" fill="#C2410C"/><circle cx="405.2" cy="138" r="6" fill="#1D4ED8"/>
+<text x="444.8" y="130" font-size="12" fill="#C2410C">71.2</text><text x="395.2" y="130" font-size="12" fill="#1D4ED8" text-anchor="end">63.8</text>
+<text x="648" y="143" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.66</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.62</tspan></text>
+<text x="140" y="179" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">hiv_schilling</text>
+<line x1="197.2" y1="174" x2="225.2" y2="174" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="225.2" cy="174" r="6" fill="#C2410C"/><circle cx="197.2" cy="174" r="6" fill="#1D4ED8"/>
+<text x="235.2" y="166" font-size="12" fill="#C2410C">18.8</text><text x="187.2" y="166" font-size="12" fill="#1D4ED8" text-anchor="end">11.8</text>
+<text x="648" y="179" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.81</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.79</tspan></text>
+<text x="140" y="215" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">hungarian</text>
+<line x1="187.6" y1="210" x2="258.0" y2="210" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="258.0" cy="210" r="6" fill="#C2410C"/><circle cx="187.6" cy="210" r="6" fill="#1D4ED8"/>
+<text x="268.0" y="202" font-size="12" fill="#C2410C">27</text><text x="177.6" y="202" font-size="12" fill="#1D4ED8" text-anchor="end">9.4</text>
+<text x="648" y="215" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.19</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.59</tspan></text>
+<text x="140" y="251" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">ida</text>
+<line x1="354.0" y1="246" x2="394.0" y2="246" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="394.0" cy="246" r="6" fill="#C2410C"/><circle cx="354.0" cy="246" r="6" fill="#1D4ED8"/>
+<text x="404.0" y="238" font-size="12" fill="#C2410C">61</text><text x="344.0" y="238" font-size="12" fill="#1D4ED8" text-anchor="end">51</text>
+<text x="648" y="251" font-size="14" text-anchor="middle"><tspan fill="#C2410C">1.00</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">1.00</tspan></text>
+<text x="140" y="287" font-size="14" fill="#16202E" text-anchor="end" font-family="Inter, sans-serif">objectivity</text>
+<line x1="192.4" y1="282" x2="296.4" y2="282" stroke="#9AA4B2" stroke-width="2"/>
+<circle cx="296.4" cy="282" r="6" fill="#C2410C"/><circle cx="192.4" cy="282" r="6" fill="#1D4ED8"/>
+<text x="306.4" y="274" font-size="12" fill="#C2410C">36.6</text><text x="182.4" y="274" font-size="12" fill="#1D4ED8" text-anchor="end">10.6</text>
+<text x="648" y="287" font-size="14" text-anchor="middle"><tspan fill="#C2410C">0.55</tspan><tspan fill="#5B6676"> → </tspan><tspan fill="#1D4ED8" font-weight="600">0.78</tspan></text>
+<circle cx="160" cy="24" r="6" fill="#C2410C"/><text x="172" y="29" font-size="14" fill="#16202E">Weka（C4.5）の木</text><circle cx="330" cy="24" r="6" fill="#1D4ED8"/><text x="342" y="29" font-size="14" fill="#16202E">DT-SLIM の後</text>
+</svg>
+      <figcaption>図2　Weka の木を 800 秒の設定の DT-SLIM で改善した前後の深さとテスト精度（論文 Table 3 の数値から解説者が作図）。交差検証の平均なので小数になる。ITI の木では australian が 14 → 12.6、hungarian が 14 → 9.6、kr-vs-kp が 14 → 10.2 などだった（論文 Table 4）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>最適性の証明を手放す代わりに、SAT による厳密な求解を数万サンプルのデータに持ち込んだ</h2>
+    <ul class="def">
+      <li><strong>何を最適にするか</strong>：学習データを誤りなく分けることを制約にして、深さを減らす。Bessiere ら（2009）、<a href="../sat-dt/">Narodytska ら（2018）</a>、<a href="../avellaneda-2020/">Avellaneda（2020）</a>と同じ問題設定である。誤分類を許して精度と大きさを釣り合わせる <a href="../maxsat-dt/">MaxSAT の定式化</a>などとは目的が違う。</li>
+      <li><strong>保証</strong>：各部分木は SAT で浅くするが、木全体の深さが最小であることは保証しない。定理 2 と系 1 が保証するのは、置き換えで木全体が深くならないことだけである。サポート集合で特徴量を減らすと、部分木についても最適性が失われうる。</li>
+      <li><strong>規模</strong>：厳密な方法を木全体ではなく、特徴量を減らした後のサンプルが最大でも 500 程度の部分木だけに使う。そのため実験には 2 万を超えるサンプルをもつデータも含まれる。代わりに、結果は最初の木を作る貪欲法と、12 時間という時間の上限に左右される。</li>
+      <li><strong>特徴量</strong>：二値の特徴量を前提とし、離散値は二値に直す。論文は今後の課題として、二値化せずに非二値の特徴量を扱うことや、SMT の符号化で連続値の特徴量を扱うことを挙げている。非二値の特徴量を SAT で直接扱う研究には <a href="../sat-shati/">Shati ら</a>がある。</li>
+    </ul>
+    <p>拡張版は Journal of Artificial Intelligence Research 80 巻（2024）に掲載されている。このページは AAAI 2021 版の内容だけを扱う。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{schidler2021sat,
+  title     = {{SAT}-based Decision Tree Learning for Large Data Sets},
+  author    = {Schidler, Andr{\'e} and Szeider, Stefan},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {35},
+  number    = {5},
+  pages     = {3904--3912},
+  year      = {2021},
+  doi       = {10.1609/aaai.v35i5.16509}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は、AAAI'21 に掲載される論文の著者稿として公開された TU Wien の技術報告 AC-TR-21-003（2021 年 1 月）による。AAAI の出版版の本文は確認していない。書誌情報は Crossref による。本文はサンプル数の範囲を 11〜23954 と書くが、Table 3 には \(|E|\) = 59998 の ida と 23955 の ccdefault が載っている。論文中にコードの URL はない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

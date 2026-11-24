@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Justin ら：分布の変化に頑健な最適分類木（論文解説）</title>
+<meta name="description" content="Learning Optimal Classification Trees Robust to Distribution Shifts（Operations Research 2026）の非公式の解説。整数・カテゴリの特徴量が学習時とテスト時で変わる場合に備え、費用と予算で決めた不確実性集合のもとで最悪の場合の正解数を最大にする分類木を、二段階のロバスト最適化と制約生成で求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (paper-project-page skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the distribution shift / adversarial perturbation xi, and the non-robust or
+                         overly conservative trees
+            --b  (blue)   = the proposed robust tree: cost-and-budget uncertainty set, worst-case
+                         max-min solved by constraint generation
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Operations Research · 2026</div>
+  <h1>Learning Optimal Classification Trees Robust to Distribution Shifts</h1>
+  <p class="subtitle">分布の変化に頑健な最適分類木の学習</p>
+
+  <ul class="authors">
+    <li><b>Nathan Justin</b><span>Center for Artificial Intelligence in Society, University of Southern California</span></li>
+    <li><b>Sina Aghaei</b><span>Center for Artificial Intelligence in Society, University of Southern California</span></li>
+    <li><b>Andrés Gómez</b><span>Department of Industrial and Systems Engineering, University of Southern California</span></li>
+    <li><b>Phebe Vayanos</b><span>Center for Artificial Intelligence in Society, University of Southern California</span></li>
+  </ul>
+
+  <p class="lead">自己申告の調査のデータは、質問の言い回しや調査の場所、聞き手が変わるだけで回答がずれる。学習時と運用時でこうした<span class="A">特徴量の分布の変化</span>が起きると、学習データで最適だった木の性能は落ちうる。この論文は整数やカテゴリの特徴量を費用つきで動かす攻撃者を考え、<span class="B">予算の範囲で最も不利な変化が起きたときの正解数を最大にする分類木</span>を、二段階のロバスト最適化と制約生成で厳密に求める。不確実性集合のパラメータは仮説検定の考え方で決める。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/opre.2024.0711">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2310.17772">arXiv</a>
+    <a class="btn" href="https://github.com/D3M-Research-Group/odtlearn">Code（ODTLearn）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。調査の回答が学習時と運用時でずれる様子、どんな摂動でも予測を変えないことを求める既存の方法の保守性、予算の範囲で誤分類の費用が安い点から動かす攻撃者と最悪の場合に強い木、λ ごとの分岐の数の中央値、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">最悪の場合の精度 最大 +12.48%</span><span class="d">変化の分布が分かっている場合に、正則化した頑健でない最適な木と比べた改善の最大値。平均の精度の改善は最大 4.85% だった（論文の要旨）。</span></li>
+    <li><span class="k">\(\gamma=\log\frac{1}{1-\rho}\)、\(\epsilon=-|\mathcal I|\log\lambda\)</span><span class="d">各特徴量の値が変わらない確率 \(\rho\) と尤度比検定のしきい値 \(\lambda\) から、不確実性集合の費用と予算が決まる。\(\lambda=1\) なら予算は 0 で、通常の最適な木に戻る。</span></li>
+    <li><span class="k">分岐の数の中央値 4 → 0</span><span class="d">不確実性集合を大きくするほど木は小さくなった。分岐の数の中央値は \(\lambda\in\{0.95,0.97,0.99\}\) で 4、0.9 で 3、0.75・0.85 で 2、0.5 で 0 だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>調査データのように整数やカテゴリの特徴量が運用時に変わると、学習データで最適な木でも性能が落ちうる</h2>
+    <p>公衆衛生や福祉のように影響の大きい分野では、解釈しやすく、しかも最適に学習した分類木が求められる。訓練と運用でデータの分布が同じなら、最適に学習した木は運用でも期待どおりに働くだろう。しかし実際には分布の変化がよく起きる。論文は変化を 2 種類に分ける。母集団からの標本の偏りで各標本の出やすさが変わる変化と、データの収集のしかたや環境が変わって個々の値が変わる変化で、この論文は後者の共変量の変化を扱う。自己申告の調査では、質問の言い回し、調査の場所、情報を集める人が変わるだけで回答がずれうる。</p>
+    <p>社会科学の応用では、データは調査や手作業の記録から来るので、整数やカテゴリ（性別や人種など）の値をとることが多い。論文はこの整数とカテゴリの特徴量の変化に絞って、最悪の場合の変化に対して最もよい性能を出す木を学習する。カテゴリの特徴量は one-hot 符号化し、深さ \(d\) 以下の木の集合 \(\Pi_d\) から次の問題の解を求める。</p>
+    <div class="eq">\[ \max_{\pi\in\Pi_d}\ \color{#C2410C}{\min_{\boldsymbol\xi\in\Xi}}\ \sum_{i\in\mathcal I}\mathbb I\bigl[\pi(\mathbf x^i+\boldsymbol\xi^i)=y^i\bigr] \]</div>
+    <p>木は摂動 \(\boldsymbol\xi\) を見る前に決めなければならない。特徴量が整数なので \(\Xi\) は離散の集合になり、目的関数は指示関数の和で非線形かつ不連続である。離散の不確実性集合はロバスト最適化でもあまり研究されておらず、内側の最小化を双対化する通常の手は、強双対性が成り立たないので使えないことが多い。</p>
+  </section>
+
+  <section id="uncertainty">
+    <div class="kicker">不確実性集合</div>
+    <h2>値を 1 動かす費用を標本と特徴量ごとに決め、データ全体で共有する予算 ε の範囲で整数の摂動を許す</h2>
+    <p>論文の不確実性集合は標本 \(i\) の特徴量 \(f\) を 1 動かす費用 \(\gamma^i_f\) と、データ全体の予算 \(\epsilon\) で決まる。</p>
+    <div class="eq">\[ \Xi=\Bigl\{\boldsymbol\xi\in\mathbb Z^{|\mathcal I|\times|\mathcal F|}:\ \sum_{i\in\mathcal I}\sum_{f\in\mathcal F}\color{#1D4ED8}{\gamma^i_f}\,|\xi^i_f|\le\color{#1D4ED8}{\epsilon}\Bigr\} \]</div>
+    <p>先行研究の <a href="../robust-classification/">Bertsimas ら</a>や Chen ら、Vos と Verwer の GROOT は、標本ごとに \(\|\boldsymbol\xi^i\|_p\le\epsilon\) とする行ごとの集合を使っていた。論文はこの集合が動機の応用に合わない理由を 3 つ挙げる。摂動が整数でないので整数やカテゴリの値として現実的でないこと、すべての標本が同時に最悪の値をとれる長方形の集合で保守的すぎること、変化の費用がすべての標本と特徴量で同じになることである。提案の集合は摂動を整数に限り、予算をデータ全体で共有し、費用を標本と特徴量ごとに変えられる。片側だけの変化やカテゴリの特徴量への拡張は付録で扱っている。</p>
+  </section>
+
+  <section id="two-stage">
+    <div class="kicker">二段階の定式化</div>
+    <h2>正しく分類した標本の数を標本ごとの最大流として書くと、問題は線形の二段階ロバスト最適化になる</h2>
+    <p>正解数の数え方には同じグループの <a href="../strong-oct/">FlowOCT</a>（Aghaei ら）の考え方を使う。標本 \(i\) ごとに、源 \(s\) から根を通って木を下り、正しいクラスを予測する節点から吸い込み \(t\) に向かう容量つきのグラフを作る。分岐の判定 \(x^i_f+\xi^i_f\ge\theta+1\) で進む辺だけが容量 1 をもつので、摂動後の標本が正しく分類されるのは最大流が 1 のときだけになる。</p>
+    <figure style="max-width:22rem">
+      <img src="assets/fig1_flow_graph.png" alt="Capacitated flow graph for one sample on a depth-2 tree with source s, nodes 1 to 7 and sink t. Bold green edges with capacity 1 go s to 1 to 2 to t and 3 to 7 and 6 to t; the maximum flow from s to t is 1, so the sample is correctly classified.">
+      <figcaption>図1　深さ 2 の木での標本 1 つの容量つきグラフ（論文 Fig. 2）。太い緑の辺が容量 1。最大流が 1 なので、この標本は正しく分類される。</figcaption>
+    </figure>
+    <p>こうして問題は「木を選ぶ → 攻撃者が摂動を選ぶ → 各標本の流れを決めて正解数を数える」という線形の二段階ロバスト最適化に書き直せる。第 2 段の流れの変数は摂動を見てから決めてよい。元の問題と同値だが、各段の目的と制約が線形になる。</p>
+  </section>
+
+  <section id="algorithm">
+    <div class="kicker">解法</div>
+    <h2>内側の最大流を最小カットに双対化し、攻撃者の最悪の摂動を安い順に積む部分問題で、破られた制約を足していく</h2>
+    <p>内側の最大流問題は強双対性が成り立つので、双対の最小カット問題に置き換えると単段のロバスト混合整数最適化になる。制約の数が膨大なので、論文は制約をすべて外した主問題から始め、分枝限定法の途中で整数解が出るたびに、破られている制約を部分問題で探して足す。</p>
+    <p>部分問題は与えられた木に対する攻撃者の最悪の摂動を求める問題で、次の 4 つの観察から簡単に解ける。各標本は正解か誤りかのどちらかで目的に 1 か 0 を足すこと、すでに誤分類されている標本を動かしても得がないこと、正しく分類された標本を誤らせるなら最も安い方法で動かせばよいこと、その最も安い方法は標本ごとに別々に求められることである。そこで、標本ごとに誤ったクラスで終わる木の道をすべて調べて、誤分類させる最小の費用 \(\psi^i\) を求め、\(\psi^i\) の小さい順に予算 \(\epsilon\) が尽きるまで標本を動かす。計算量は \(\mathcal O(|\mathcal L||\mathcal I|+|\mathcal I|\log|\mathcal I|)\) である。さらに、もともと誤分類される標本は最悪の場合にも正しくならないことを表す標本ごとの制約を加えると、求解時間が 1 桁短くなった（電子付録）。</p>
+  </section>
+
+  <section id="calibration">
+    <div class="kicker">パラメータの決め方</div>
+    <h2>値が変わらない確率 ρ と尤度比検定のしきい値 λ から、費用 γ と予算 ε を決める</h2>
+    <p>変化について知っていることが少ないとき、論文は最大エントロピーの原理に従い、摂動の大きさ \(|\xi^i_f|\) を、値が変わらない確率 \(\rho^i_f\) をパラメータとする幾何分布とし、向きは等確率とする。摂動の尤度と摂動がない場合の尤度の比が \(\lambda^{|\mathcal I|}\) 以上なら帰無仮説を棄却しない、という尤度比検定を書き直すと、ちょうど不確実性集合の形になる。</p>
+    <div class="eq">\[ \sum_{i\in\mathcal I}\sum_{f\in\mathcal F}|\xi^i_f|\,\log\frac{1}{1-\rho^i_f}\ \le\ -|\mathcal I|\log\lambda \qquad\Longrightarrow\qquad \gamma^i_f=\log\frac{1}{1-\rho^i_f},\quad \epsilon=-|\mathcal I|\log\lambda \]</div>
+    <p>\(\rho\) は分野の知識から決め、\(\lambda\) で頑健さの度合いを調整する。\(\lambda=1\) なら予算は 0 で FlowOCT と同じ問題になり、\(\lambda\) を下げるほど多くの変化に備える。\(\lambda\) は交差検証などで選べる。幾何分布は分野の知識が少ないときの一般的な選び方で、知識があればほかの分布も使えると論文は述べている。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label for="rho"><span class="row"><span>値が変わらない確率 \(\rho\)</span><output id="rOut">0.80</output></span>
+          <input type="range" id="rho" min="0.50" max="0.99" step="0.01" value="0.80"></label>
+        <label for="lam"><span class="row"><span>しきい値 \(\lambda\)</span><output id="lOut">0.85</output></span>
+          <input type="range" id="lam" min="0.50" max="1.00" step="0.01" value="0.85"></label>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr auto;">
+        <span>1 動かす費用 \(\gamma=\log\frac{1}{1-\rho}\)</span><output id="gOut"></output>
+        <span>標本あたりの予算 \(\epsilon/|\mathcal I|=-\log\lambda\)</span><output id="eOut"></output>
+        <span>標本あたり平均で動かせる単位の数 \(\epsilon/(|\mathcal I|\gamma)\)</span><output id="uOut"></output>
+        <p class="note" id="lnote"></p>
+      </div>
+    </div>
+    <p class="src">図2　\(\rho\) と \(\lambda\) から決まる費用と予算（論文 4 節の式から解説者が作った計算機）。すべての標本と特徴量で同じ \(\rho\) を使った場合の値で、予算はデータ全体で共有されるので、実際には一部の標本だけが大きく動かされることもある。</p>
+  </section>
+
+  <section id="comparison">
+    <div class="kicker">既存の方法との違い</div>
+    <h2>どんな摂動でも予測を変えないことを求める Bertsimas らの方法より、提案法の問題は広い解の集合を探せる</h2>
+    <p><a href="../robust-classification/">Bertsimas ら</a>の最適決定木も正解数を目的にするが、頑健さの考え方が違う。すべての標本について、どんな摂動を受けても予測が摂動前と同じであることを制約として求める。論文はこの問題が、提案法の問題に制約を足したものと同値であることを示した。そのため Bertsimas らの問題の最適解は提案法の問題でも実行可能だが、逆は成り立たないことがある（命題）。提案法は分岐が多く、名目と最悪の場合の誤分類がどちらも少ない木も候補にでき、保守的でない解が得られうる。予算 \(\epsilon\) が大きくなると、標本がどう動いても同じ葉に着くことを保証できるのは分岐のない深さ 0 の木だけになる。</p>
+    <p>Chen らと Vos らの方法は、摂動のもとでの目的を計算する点は提案法に近いが、各分岐で情報利得や Gini 不純度を最適にする貪欲法なので、最悪の場合の精度が最適になる保証はない。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験の結果</div>
+    <h2>λ が 0.75〜0.9 のとき、最悪の場合と平均の精度がともに改善し、想定と違う変化でも改善の幅はほとんど変わらなかった</h2>
+    <p>UCI の 12 データ（整数、カテゴリ、またはその両方。標本数は表で 47〜3,196、元の特徴量の数は 4〜36）を学習 80%・テスト 20% に分けた。\(\rho\) は特徴量ごとに平均 0.6・0.7・0.8・0.9、標準偏差 0.2 の正規分布から引き、\(\lambda\) を 0.5〜0.99 の 7 通り、深さを 2〜5 として、計 1,536 のインスタンスを作った。比較相手は、予算を 0 にして分岐の数への罰則を検証データで選んだ、頑健でない最適な木である。テストデータは、想定どおりの幾何分布で 5,000 通りに動かしたもののほか、\(\rho\) をずらした「想定外の」変化でも 5,000 通りずつ作り、最悪と平均の精度を測った。Gurobi 9.0.1 で、制限時間は 7,200 秒である。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig2a_worst.png" alt="Box plots by lambda from 0.5 to 0.99 of the difference in worst-case accuracy between robust and non-robust trees, for expected and unexpected perturbations. The medians are highest around lambda 0.75 to 0.85, near 0.1, and fall toward 0 at 0.99.">
+        <figcaption>図3a　最悪の場合の精度の差（頑健な木 − 頑健でない木）（論文 Fig. 4(a)）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig2b_average.png" alt="Box plots by lambda of the difference in average accuracy between robust and non-robust trees, for expected and unexpected perturbations.">
+        <figcaption>図3b　平均の精度の差（論文 Fig. 4(b)）。青が想定どおりの変化、緑が想定外の変化。</figcaption>
+      </figure>
+    </div>
+    <p>頑健な木は、変化があるときに最悪の場合と平均の精度がおおむね高かった。\(\lambda\) が 0.75〜0.9 の範囲がどちらの指標でもよく、予算が小さすぎると変化に備える余地が足りず、大きすぎると保守的になって精度を失う。想定どおりの変化と想定外の変化で改善の幅にほとんど差がなかったことから、論文はモデルの想定が多少ずれても頑健な木が得られるとしている。変化がないテストデータでの精度の低下（頑健さの代償）は、\(\lambda\) が 0.75〜0.9 のとき平均で 0.05〜0.1 で、\(\lambda\) を下げるほど大きくなった。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig3a_price.png" alt="Box plots by lambda of the drop in nominal test accuracy from using a robust tree instead of a non-robust tree; the drop grows as lambda decreases.">
+        <figcaption>図4a　変化がないときの精度の低下（論文 Fig. 5(a)）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig3b_branching.png" alt="Box plots by lambda of the number of branching nodes of the learned robust trees; the number decreases as lambda decreases, with median 0 at lambda 0.5.">
+        <figcaption>図4b　学習した木の分岐の数（論文 Fig. 5(b)）。</figcaption>
+      </figure>
+    </div>
+    <p>頑健さには木を小さくする働きもあった。分岐が多いほど安い摂動で誤らせる機会が増えるので、予算が大きいと分岐の少ない木が選ばれる。計算時間は不確実性集合が大きいほど長く、最適性のギャップが 50% を超えたインスタンスは \(\lambda=0.5\)・0.85・0.95・1 でそれぞれ 72・32・7・0 個だった。頑健でない場合（\(\lambda=1\)）は、\(\lambda=0.95\) より 48 個多く最適まで解けた。付録の比較では、二値の特徴量だけのデータで、提案法の最悪の場合の精度の改善は Bertsimas らの方法より平均で最大約 15% 大きく、頑健さの代償は提案法が平均 0.25 未満、Bertsimas らの方法が約 0.4 だった。</p>
+    <p class="src">論文の本文は標本数の範囲を「124〜3,196」と書いているが、データの表では soybean-small が 47、monk3 が 122 なので、このページは表の値を使った（解説者の注）。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>フローにもとづく最適決定木の定式化を、離散の不確実性集合をもつ二段階のロバスト最適化に広げた研究である</h2>
+    <p>この論文は標本ごとの最大流で正解数を数える <a href="../strong-oct/">FlowOCT</a> の定式化から出発し、予算 0 ならそれに戻る。同じ USC のグループの、公平性の制約を入れた <a href="../fair-oct/">Fair OCT</a>・<a href="../fair-oct-tradeoffs/">FairOCT</a> や処方的な木と同じく、MIO の定式化に要求を足す流れにある。実装はオープンソースの Python パッケージ ODTLearn に含まれている。</p>
+    <p>頑健さの扱いでは、学習データの誤差に備えて「予測が変わらないこと」を求める <a href="../robust-classification/">Robust Classification</a> より保守的でない問題を解き、テスト時の箱の形の攻撃に備える <a href="../roct/">ROCT</a> とは違って、整数の摂動と、データ全体で共有する予算を扱う。論文はこの問題と Wasserstein 距離を使う分布ロバスト最適化の関係も付録で示している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・式・図は arXiv 版（2310.17772、2025 年 8 月更新の版）による。Operations Research の出版版（Articles in Advance）は INFORMS のサイトが自動取得を受け付けなかったため、照合していない。書誌は Crossref で確認した。Crossref に巻・号・ページがまだないので、BibTeX では省いた。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{justin2026learning,
+  title     = {Learning Optimal Classification Trees Robust to Distribution Shifts},
+  author    = {Justin, Nathan and Aghaei, Sina and G{\'o}mez, Andr{\'e}s and Vayanos, Phebe},
+  journal   = {Operations Research},
+  year      = {2026},
+  doi       = {10.1287/opre.2024.0711}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+
+// ---------- calculator: rho, lambda -> gamma, epsilon / |I| (Section 4 of the paper) ----------
+(function () {
+  var r = document.getElementById('rho'), l = document.getElementById('lam');
+  function upd() {
+    var rho = +r.value, lam = +l.value;
+    var g = Math.log(1 / (1 - rho)), e = -Math.log(lam);
+    document.getElementById('rOut').textContent = rho.toFixed(2);
+    document.getElementById('lOut').textContent = lam.toFixed(2);
+    document.getElementById('gOut').textContent = g.toFixed(3);
+    document.getElementById('eOut').textContent = e.toFixed(3);
+    document.getElementById('uOut').textContent = (e / g).toFixed(3);
+    document.getElementById('lnote').textContent = lam >= 1
+      ? 'λ = 1 では予算が 0 になり、頑健でない通常の最適な木（FlowOCT）と同じ問題になる。'
+      : 'ρ が大きい（値が変わりにくい）ほど 1 動かす費用が高く、λ が小さいほど予算が大きい。';
+  }
+  r.addEventListener('input', upd); l.addEventListener('input', upd); upd();
+})();
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OCT：決定木の学習を混合整数最適化で解く（論文解説）</title>
+<meta name="description" content="Optimal Classification Trees（Machine Learning 2017）の非公式の解説。CART が貪欲に解いている問題（誤分類＋α×分岐の数）を混合整数最適化（MIO）で一度に解き、深さを決めた木を求める。係数の整数制約を外すと多変量の分岐の OCT-H になる。UCI の 53 データで CART と比べる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (layout copied from the budget-uplift explainers)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = CART: greedy top-down splits chosen by impurity, then pruned / trimmed
+                         to the depth limit, and its accuracies
+            --b  (blue)   = OCT / OCT-H: the whole depth-D tree solved at once as one MIO
+                         (misclassification + alpha x splits), and its accuracies
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- small results table ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A { color: var(--a); } table.tbl th.B { color: var(--b); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Machine Learning · Vol. 106 · 2017</div>
+  <h1>Optimal Classification Trees</h1>
+  <p class="subtitle">最適な分類木</p>
+
+  <ul class="authors">
+    <li><b>Dimitris Bertsimas</b><span>Operations Research Center, Sloan School of Management, MIT</span></li>
+    <li><b>Jack Dunn</b><span>Operations Research Center, MIT</span></li>
+  </ul>
+
+  <p class="lead"><span class="A">CART</span> は分岐を上から 1 つずつ貪欲に決め、育ててから剪定するので、深さを決めたときに最良の木が得られるとは限らない。<span class="B">OCT</span> は CART が解こうとしている問題（誤分類 ＋ α × 分岐の数）を混合整数最適化（MIO）で書き、深さ \(D\) の木全体を一度に決める。UCI の 53 データでは、テストデータでの精度の平均が CART より深さに応じて 1〜2 ポイント高く、多変量の分岐を使う OCT-H では 3〜5 ポイント高かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1007/s10994-017-5633-9">Paper</a>
+    <a class="btn" href="https://dspace.mit.edu/handle/1721.1/110328">Author manuscript</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。CARTが分岐を1つずつ決める様子、MIOソルバーの高速化、深さ2の木全体を一度に決めるOCTの仕組み、UCIの53データでの深さごとの平均精度、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">深さ 2 で +1.86 ポイント</span><span class="d">UCI の 53 データで、テストデータでの精度の平均が CART より高かった幅（p ≈ 10<sup>−6</sup>）。OCT が上回ったのは 25 データ、CART は 9 データ、残り 19 データは同じだった。</span></li>
+    <li><span class="k">OCT-H は深さ 2 で 81.0%</span><span class="d">深さを制限しない CART（最大で深さ 10）の平均 80.7% を上回った。深さ 4 の OCT は 80.4% だった。</span></li>
+    <li><span class="k">約 8,000 億倍</span><span class="d">1991〜2015 年の MIO ソルバーの高速化（約 140 万倍）と計算機の高速化（約 57 万倍）を掛けた値。論文はこれを、最適な木を求める研究を見直す動機に挙げる。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>CART は分岐を 1 つずつ決めるので、弱い分岐のあとに続く強い分岐を見落とすことがある</h2>
+    <p><span class="A">CART</span>（Breiman ら 1984）は根から始めて、各ノードで不純度を最も下げる分岐を選び、子ノードで同じことを繰り返す。どの分岐もそのあとに続く分岐の影響を考えずに決まる。木の複雑さへの罰則を育てる途中でかけると、弱い分岐のあとに強い分岐が続く組合せを選べないので、CART は深く育ててから罰則で剪定する。最終的な目的は誤分類率なのに、育てる段階では不純度を使うのもこの手順のためである。</p>
+    <p>Breiman ら自身も、木全体を一度に最適にする方法は当時の計算機では現実的でないと書いていた。最適な二分決定木を求める問題は NP 困難である（<a href="../hyafil-rivest/">Hyafil &amp; Rivest 1976</a>）。論文はこの見方を MIO ソルバーの進歩を踏まえて見直す。1991 年の CPLEX 1.2 から 2015 年の Gurobi 6.5 までに、同じ計算機でのソルバーの速さは約 140 万倍になり、計算機の高速化（約 57 万倍）と合わせると約 8,000 億倍になる。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>CART が貪欲に解いている「誤分類 ＋ α × 分岐の数」を、そのまま 1 つの最適化問題として書く</h2>
+    <p>学習データは \(n\) 点の \((x_i, y_i)\) で、特徴量は \(x_i \in [0,1]^p\) に正規化し、ラベルは \(y_i \in \{1, \dots, K\}\) とする。論文は CART の手順から、CART が解こうとしている問題を次のように書き出す。</p>
+    <div class="eq">\[ \min_{T}\ R_{xy}(T) + \alpha\,|T| \qquad \text{s.t.}\ \ N_x(l) \ge N_{\min}\ \ \forall l \in \mathrm{leaves}(T) \]</div>
+    <p>\(R_{xy}(T)\) は木 \(T\) の学習データでの誤分類、\(|T|\) は分岐ノードの数、\(N_x(l)\) は葉 \(l\) に入る点の数である。α と \(N_{\min}\) は CART の複雑さのパラメータと葉の最小サイズにそのまま対応する。これを一度に解けば、不純度も剪定もいらない。論文は CART を基準に選んだのは便宜上で、C4.5 を基準にしても同じように定義できると述べている。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">手法 1　MIO による定式化</div>
+    <h2>深さ D の完全な二分木を用意し、どこで分岐するか、各点がどの葉に入るかを 0-1 変数で表す</h2>
+    <p>深さ \(D\) の完全な二分木には \(2^{D+1}-1\) 個のノードがある。上半分を分岐ノード \(\mathcal{T}_B\)、残りを葉 \(\mathcal{T}_L\) とする。分岐ノード \(t\) は \(a_t^\top x < b_t\) なら左、そうでなければ右へ点を送る。<span class="B">OCT</span> は次の変数で木を表す。</p>
+    <ul class="def">
+      <li>\(d_t \in \{0,1\}\)：ノード \(t\) で分岐するか。分岐しないときは \(a_t = 0,\ b_t = 0\) として全点を右に送る。親が分岐しないなら子も分岐しない（\(d_t \le d_{p(t)}\)）。</li>
+      <li>\(a_{jt} \in \{0,1\}\)、\(\sum_j a_{jt} = d_t\)：分岐に使う特徴量を 1 つ選ぶ（単変量の分岐）。しきい値は \(0 \le b_t \le d_t\)。</li>
+      <li>\(z_{it} \in \{0,1\}\)：点 \(i\) が葉 \(t\) に入るか。各点はちょうど 1 つの葉に入り、点の入る葉には \(N_{\min}\) 点以上が必要である。</li>
+      <li>\(c_{kt} \in \{0,1\}\)、\(L_t \ge 0\)：葉 \(t\) が予測するクラスと、その葉の誤分類の数。</li>
+    </ul>
+    <p>点 \(i\) を葉 \(t\) に入れるなら、\(t\) へ至る道の分岐をすべて満たす必要がある。これを big-M の制約で書く。\(\mathcal{A}_L(t)\)、\(\mathcal{A}_R(t)\) は根から \(t\) までの道で左、右に進んだ祖先の集合である。</p>
+    <div class="eq">\[ a_m^\top (x_i + \epsilon) \le b_m + (1+\epsilon_{\max})(1 - z_{it})\ \ (m \in \mathcal{A}_L(t)), \qquad a_m^\top x_i \ge b_m - (1 - z_{it})\ \ (m \in \mathcal{A}_R(t)) \]</div>
+    <p>「より小さい」という厳密な不等号はソルバーで扱えないので、小さな定数 \(\epsilon\) を足して書き換える。\(\epsilon\) が小さすぎると数値的に不安定になるので、特徴量 \(j\) ごとに、値を並べたときの隣り合う異なる値の最小の差を \(\epsilon_j\) にする。目的関数は誤分類を全体の多数派クラスで予測したときの誤分類 \(\hat L\) で割り、α の効き方をデータの大きさによらないようにする。</p>
+    <div class="eq">\[ \min\ \frac{1}{\hat L} \sum_{t \in \mathcal{T}_L} L_t + \alpha \sum_{t \in \mathcal{T}_B} d_t \]</div>
+    <p>問題の難しさは主に 0-1 変数 \(z_{it}\) の数 \(n \cdot 2^D\) で決まる。論文は、数千点のデータで深さ 4 までなら数分で質の高い解が得られると報告している。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="深さ2の完全な二分木の模式図。ノード1から3は分岐ノードで変数d、a、bを持ち、ノード4から7は葉で変数cとLを持つ。点iは変数zで1つの葉に割り当てられ、葉5に入るにはノード1で左、ノード2で右に進む必要がある。">
+        <g stroke="#5B6676" stroke-width="1.5">
+          <line x1="320" y1="62" x2="190" y2="138"/><line x1="320" y1="62" x2="450" y2="138"/>
+          <line x1="190" y1="138" x2="120" y2="218"/><line x1="450" y1="138" x2="390" y2="218"/><line x1="450" y1="138" x2="520" y2="218"/>
+        </g>
+        <g stroke="#1D4ED8" stroke-width="3.5"><line x1="320" y1="62" x2="190" y2="138"/><line x1="190" y1="138" x2="260" y2="218"/></g>
+        <g fill="#fff" stroke="#16202E" stroke-width="1.5">
+          <rect x="270" y="40" width="100" height="44" rx="8"/><rect x="140" y="116" width="100" height="44" rx="8"/><rect x="400" y="116" width="100" height="44" rx="8"/>
+        </g>
+        <g fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.5">
+          <rect x="85" y="210" width="70" height="40" rx="8"/><rect x="225" y="210" width="70" height="40" rx="8"/><rect x="355" y="210" width="70" height="40" rx="8"/><rect x="485" y="210" width="70" height="40" rx="8"/>
+        </g>
+        <g font-size="15" fill="#16202E" text-anchor="middle">
+          <text x="320" y="67">1：<tspan class="mi">d, a, b</tspan></text><text x="190" y="143">2：<tspan class="mi">d, a, b</tspan></text><text x="450" y="143">3：<tspan class="mi">d, a, b</tspan></text>
+          <text x="120" y="235">4</text><text x="260" y="235">5</text><text x="390" y="235">6</text><text x="520" y="235">7</text>
+          <text x="120" y="270" font-size="14" fill="#5B6676"><tspan class="mi">c, L</tspan></text><text x="260" y="270" font-size="14" fill="#5B6676"><tspan class="mi">c, L</tspan></text><text x="390" y="270" font-size="14" fill="#5B6676"><tspan class="mi">c, L</tspan></text><text x="520" y="270" font-size="14" fill="#5B6676"><tspan class="mi">c, L</tspan></text>
+        </g>
+        <text x="236" y="96" font-size="14" fill="#1D4ED8" text-anchor="end">左</text>
+        <text x="238" y="188" font-size="14" fill="#1D4ED8">右</text>
+        <circle cx="600" cy="120" r="9" fill="#1D4ED8"/><text x="600" y="100" font-size="15" fill="#16202E" text-anchor="middle">点 <tspan class="mi">i</tspan></text>
+        <path d="M592,128 C560,190 330,200 296,222" fill="none" stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="470" y="292" font-size="14" fill="#1D4ED8" text-anchor="middle"><tspan class="mi">z</tspan><tspan font-size="11" dy="4" class="mi">i5</tspan><tspan dy="-4"> = 1 なら、ノード 1 で左、ノード 2 で右の条件を満たす</tspan></text>
+      </svg>
+      <figcaption>図1　深さ 2 の完全な二分木（論文 Fig. 2 にならって解説者が作図）。分岐ノードは分岐の有無 \(d\) と分岐の係数 \(a, b\)、葉は予測クラス \(c\) と誤分類の数 \(L\) をもつ。点を葉 5 に割り当てる（\(z_{i5}=1\)）と、ノード 1 の左（\(\mathcal{A}_L(5)=\{1\}\)）とノード 2 の右（\(\mathcal{A}_R(5)=\{2\}\)）の条件が課される。</figcaption>
+    </figure>
+  </section>
+
+  <section id="training">
+    <div class="kicker">手法 2　ウォームスタートと α の調整</div>
+    <h2>CART の解を初期解として渡すと、最適解に早く着き、最適性の証明にかかる時間も短くなる</h2>
+    <p>MIO ソルバーは良い実行可能解を最初に渡されると、探索木を多く刈り込めて速くなる。CART の分岐から残りの変数の値を決めれば、OCT の実行可能解になる。Wine データ（\(n = 178\)、\(p = 13\)）の深さ 2 では、初期解なしだと最適解が見つかるまで 270 秒、その最適性の証明にさらに 1,360 秒かかった。CART の解を初期解にすると、同じ最適解が 105 秒で見つかり、証明は 230 秒で終わった（図2）。最適解の目的関数の値は CART の解のおよそ半分で、CART の解が学習データ上でも最適から遠いことがある。</p>
+    <p>論文はこの例から、時間の大半は最適性の証明に使われると指摘する。そこで実験では時間制限で計算を打ち切っており、実データの結果の多くには最適性の証明がない。浅い木の解は深い木の初期解になるので、深さを 1 から順に上げて解く。α の調整では、罰則の代わりに分岐の数の上限 \(C\) を置いた問題を \(C = 1, \dots, 2^D - 1\) について解き、検証データで最良の解を選んで、その解が最適になる α の区間の中点を採用する。</p>
+    <figure>
+      <img src="assets/fig3_warm_start.png" alt="Two panels plotting objective against time in seconds for the Wine dataset at depth 2. Left, without warm start: the upper bound steps down from about 0.31 and reaches its final value of about 0.08 after a few hundred seconds, while the lower bound creeps up until the two meet around 1,600 seconds. Right, with warm start: the upper bound starts near 0.17, reaches the same value quickly, and the bounds meet around 330 seconds." loading="lazy">
+      <figcaption>図2　Wine データの深さ 2 の木を解くときの上界（実線）と下界（点線）。左：初期解なし、右：CART の解を初期解にした場合（論文 Fig. 3）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="octh">
+    <div class="kicker">手法 3　多変量の分岐（OCT-H）</div>
+    <h2>分岐の係数の整数制約を外すだけで多変量の木になり、0-1 変数の数は OCT と変わらない</h2>
+    <p>多変量（斜め）の分岐は複数の特徴量の線形結合で点を分ける。貪欲法では各ノードの分岐を決めるだけでも列挙できず難しいが、MIO で見ると OCT の制約を緩めるだけで済む。<span class="B">OCT-H</span> は \(a_t \in [-1, 1]^p\) とし、\(\sum_j |a_{jt}| \le d_t\)、\(-d_t \le b_t \le d_t\) に置き換える。厳密な不等号の書き換えには、単変量のときのような賢い選び方ができないので、小さな定数 \(\mu = 0.005\) を使う。</p>
+    <p>罰則は分岐の数ではなく、分岐に使った特徴量の総数にする。そのために特徴量 \(j\) を分岐 \(t\) で使うかを表す 0-1 変数 \(s_{jt}\) を足すが、\(a_{jt}\) は連続変数になるので、0-1 変数の数は OCT と同じである。論文はこのため OCT-H も OCT と同じくらい解きやすいとする。初期解には 1 回だけ分岐する OCT-H の小さな問題をノードごとに解いて上から作る貪欲な木を使う。</p>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">実験の結果 1　人工データ</div>
+    <h2>真の木からデータを作ると、OCT は CART より真の木に近い構造の木を学習し、ラベルの雑音にも強かった</h2>
+    <p>Murthy &amp; Salzberg（1995）の実験にならい、ランダムに作った真の決定木でラベルを付けたデータから木を学習し、真の木と比べた。比較したのは OCT、通常の CART、真の木と同じ深さで打ち切った CART である。真の木 10 本 × データ 10 組の 100 回の平均をとった。</p>
+    <p>真の木の深さを 2〜4 に変えた実験（\(n = 100\)、\(p = 2\)、雑音なし）では、テストデータでの精度は CART と OCT でほとんど同じだったが、葉の数や深さは OCT のほうが真の木にほぼ一致した。深さを打ち切った CART はどの実験でも他の 2 つより大きく劣った。ラベルの 20% に雑音を入れた実験では、テストデータでの精度が CART 95.43% に対して OCT 97.34% だった。論文はこれらの結果を、最適な方法は学習データに過学習しやすいという通念への反証としている。特徴量に雑音を入れた実験では、両者に差はなかった。</p>
+  </section>
+
+  <section id="uci">
+    <div class="kicker">実験の結果 2　UCI の 53 データ</div>
+    <h2>UCI の 53 データでは、どの深さでも OCT が CART を上回り、OCT-H はさらに大きく上回った</h2>
+    <p>各データを学習 50%、検証 25%、テスト 25% に分け、分け方を変えて 5 回繰り返した平均を報告する。\(N_{\min}\) はデータの点数の 5% に固定した。比較相手は同じ \(N_{\min}\) で α を調整し、同じ深さに打ち切った CART（R の rpart）である。OCT は Julia と JuMP で書き、Gurobi 6.5 で解いた。時間制限は OCT がおおむね 30 分（大きなデータでは最大 2 時間）、OCT-H が 5〜15 分である。</p>
+    <table class="tbl">
+      <thead><tr><th>最大の深さ</th><th class="A">CART</th><th class="B">OCT</th><th>OCT-H（貪欲）</th><th class="B">OCT-H</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>71.0</td><td>71.3</td><td>74.5</td><td>76.1</td></tr>
+        <tr><td>2</td><td>76.2</td><td>78.0</td><td>78.7</td><td>81.0</td></tr>
+        <tr><td>3</td><td>78.8</td><td>79.5</td><td>79.9</td><td>82.3</td></tr>
+        <tr><td>4</td><td>79.8</td><td>80.4</td><td>80.6</td><td>82.9</td></tr>
+      </tbody>
+    </table>
+    <p class="src">表1　53 データでのテストデータの精度の平均（%）（論文 Table 6）。「OCT-H（貪欲）」は分岐を上から 1 つずつ OCT-H で決めた木で、多変量の貪欲法の参考値である。</p>
+    <p>CART との差は深さ 1 から 4 で +0.36、+1.86、+0.73、+0.62 ポイントで、どれも統計的に有意だった（p 値は 0.0141、約 \(10^{-6}\)、0.0065、0.0279）。OCT が上回ったデータの数は、どの深さでも CART の 1.5 倍以上だった（論文 Table 8）。深いほど差が小さいことについて、論文は時間制限のなかで深い木の問題を解き切れていないためだろうと述べている。OCT-H と CART の差は +5.12、+4.88、+3.59、+3.12 ポイントで、貪欲な OCT-H との差も平均で 2 ポイントを超えた。</p>
+    <p>論文はどんなデータで差が出やすいかも調べた。CART の精度が 80% 以上で \(n/p \ge 10\) のデータでは、勝敗がついたときはほとんど OCT が勝ち、平均の上積みは 1.2〜1.3 ポイントだった（図3）。OCT-H は CART の精度が 70% 以下か \(p \le 10\) のデータで 4〜7 ポイント上回った。100 本のランダムフォレストの平均精度は 85.8% で、深さ 4 の CART、OCT、OCT-H よりそれぞれ約 6、5、3 ポイント高い。ただしクラスが 2〜3 で \(p \le 25\) の 31 データに限ると、OCT-H（85.2%）とランダムフォレスト（85.1%）は同程度だった。</p>
+    <figure>
+      <img src="assets/fig4_cart_vs_oct.png" alt="Scatter plot of datasets for depth-2 trees, with baseline in-sample accuracy on the horizontal axis from 30 to 100 percent and n over p on a log vertical axis from 1 to 10,000. Dots mark datasets where CART won and crosses where OCT won. A dashed box marks the high-performance region with accuracy above 80 percent and n over p above 10; it contains mostly crosses." loading="lazy">
+      <figcaption>図3　深さ 2 で勝った手法（点：CART、×：OCT）を、CART の精度と \(n/p\) で並べた図。破線の右上が OCT が勝ちやすい領域（論文 Fig. 4。横軸の名前は図のままで、本文では CART の精度として扱われている）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>深さを決めた木を MIO で一度に解く系統の出発点で、定式化の大きさと LP 緩和の弱さが後続の研究の課題になった</h2>
+    <ul class="def">
+      <li><strong>解く問題</strong>：CART と同じ「誤分類 ＋ α × 分岐の数」を、葉の最小サイズの制約つきで解く。深さ \(D\) は上限として与え、分岐しないノードも許す。</li>
+      <li><strong>分岐</strong>：単変量（OCT）と多変量（OCT-H）を同じ枠組みで扱う。特徴量は \([0,1]\) に正規化した連続値のままで、二値化は前提にしない。</li>
+      <li><strong>規模</strong>：0-1 変数がデータ数 × 葉の数だけあり、数千点・深さ 4 程度が実用の範囲だった。論文自身も、数万点のデータでは質の高い解を得るのに時間がかかりすぎたと書いている。</li>
+    </ul>
+    <p>（解説者の注）同じ年の <a href="../verwer-zhang-2017/">Verwer &amp; Zhang（2017）</a>も整数最適化で決定木を学習しており、のちの <a href="../binoct/">BinOCT</a> は変数の数をデータ数にほぼ依存させない定式化で、<a href="../strong-oct/">Aghaei ら</a>はフローにもとづく LP 緩和の強い定式化で、<a href="../oct-multivariate-scalable/">Zhu ら</a>は多変量の木をデータの絞り込みで大きなデータに広げる方向で、それぞれこの規模の問題に取り組んでいる。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{bertsimas2017optimal,
+  title   = {Optimal classification trees},
+  author  = {Bertsimas, Dimitris and Dunn, Jack},
+  journal = {Machine Learning},
+  volume  = {106},
+  number  = {7},
+  pages   = {1039--1082},
+  year    = {2017},
+  doi     = {10.1007/s10994-017-5633-9}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は、著者が公開している Machine Learning 掲載版の PDF（Author's personal copy）による。書誌は Crossref で確認した。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

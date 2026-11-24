@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shati ら：数値・カテゴリの特徴量をそのまま扱う SAT の最適決定木（論文解説）</title>
+<meta name="description" content="SAT-Based Approach for Learning Optimal Decision Trees with Non-Binary Features（CP 2021。雑誌版は Constraints 2023）の非公式の解説。数値の特徴量を二値化せず、値で並べた隣どうしの順序を節で表す SAT の符号化で、最小の深さの木と精度最大の木を求める。カテゴリの特徴量は値の部分集合で枝分かれさせる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = binarisation: numeric / categorical features turned into many binary
+                         features, and the baselines that need it (Avellaneda's SAT, Hu et al.'s
+                         MaxSAT, Verhaeghe et al.'s CP)
+            --b  (blue)   = the paper's direct encoding of non-binary features (Ours) and its power
+                         set branching for categorical features (Ours-PS)
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+/* ---------- result tables ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.res { border-collapse: collapse; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 0.35rem 0.8rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; }
+table.res th { font-weight: 600; color: var(--muted); font-size: 0.85rem; border-bottom: 1.5px solid var(--ink); }
+table.res td:first-child, table.res th:first-child { text-align: left; }
+table.res td.A, table.res td.B { font-weight: 600; }
+table.res tr.sep td { border-top: 1.5px solid var(--hair); }
+
+/* ---------- version note (conference version used) ---------- */
+.version { max-width: 40rem; font-size: 0.95rem; line-height: 1.7; border-left: 4px solid var(--b); background: var(--b-soft); border-radius: 0 10px 10px 0; padding: 0.7rem 1rem; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">CP 2021 · 雑誌版 Constraints 2023</div>
+  <h1>SAT-Based Approach for Learning Optimal Decision Trees with Non-Binary Features</h1>
+  <p class="subtitle">二値でない特徴量をもつデータで最適な決定木を学習する、SAT にもとづく方法</p>
+
+  <ul class="authors">
+    <li><b>Pouya Shati</b><span>Department of Computer Science, University of Toronto, Canada</span></li>
+    <li><b>Eldan Cohen</b><span>Department of Mechanical and Industrial Engineering, University of Toronto, Canada</span></li>
+    <li><b>Sheila McIlraith</b><span>Department of Computer Science, University of Toronto, Canada / Vector Institute, Toronto, Canada</span></li>
+  </ul>
+
+  <p class="lead">SAT や制約プログラミングで最適な決定木を求める方法の多くは、二値の特徴量を前提にする。数値やカテゴリの特徴量は値の種類ごとに<span class="A">二値の特徴量に置き換える</span>ので、特徴量の数が数千に増えることもある。この論文は<span class="B">数値の特徴量をそのまま扱う SAT の符号化</span>を作り、カテゴリの特徴量については値の部分集合で枝分かれさせる拡張を加える。数値の特徴量が多いデータでは、二値化してから解く先行研究より、多くの場合で速く、同じかより良い木を求めた。</p>
+
+  <p class="version">このページは雑誌版 “SAT-based optimal classification trees for non-binary data”（<i>Constraints</i> 28(2), 2023）の前身にあたる会議版（CP 2021）から作った。雑誌版の本文は確認していないので、ページの内容と数値は会議版のものである。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1007/s10601-023-09348-1">Paper（雑誌版）</a>
+    <a class="btn" href="https://doi.org/10.4230/LIPIcs.CP.2021.50">会議版（CP 2021）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。数値の特徴量を値ごとの二値の特徴量に置き換える先行研究のやり方、二値化で特徴量が数千に増えるデータ、値で並べた隣どうしの順序だけを節にする提案の符号化、最小の深さの問題での計算時間の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">特徴量 4 個 → 5,016 個</span><span class="d">Banknote（1,372 点）の 4 つの数値の特徴量を、先行研究の方法で二値化したときの特徴量の数（論文 Table 1）。提案法は 4 つのまま扱う。</span></li>
+    <li><span class="k">時間切れ → 5.82 秒</span><span class="d">Banknote で、学習データを全部正しく分ける最小の深さ（4）の木を求めた時間。二値化してから解く Avellaneda の SAT の方法は、30 分の制限時間内に求められなかった。</span></li>
+    <li><span class="k">深さ 6 でも解なし → 深さ 4</span><span class="d">Protease Cleavage（/4）で、カテゴリの値の部分集合で枝分かれさせると深さ 4 の木が 0.69 秒で見つかった。二値の枝分かれでは、深さ 6 では解がないと示したところで時間切れになった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>厳密に最適な決定木を求める方法の多くは二値の特徴量を前提にし、数値やカテゴリの特徴量を二値化すると特徴量の数が大きく増える</h2>
+    <p>CART、ID3、C4.5 などの貪欲法は木の質を保証しない。そこで、木全体を厳密な最適化で決める研究が増えてきた。目的は大きく 2 つに分かれる。1 つは学習データを全部正しく分けたうえで木の大きさ（深さかノードの数）を最小にするもの（Bessiere ら 2009、<a href="../sat-dt/">Narodytska ら 2018</a>、<a href="../avellaneda-2020/">Avellaneda 2020</a>）、もう 1 つは深さの上限のもとで正しく分類できる学習データの数を最大にするもの（<a href="../binoct/">BinOCT</a>、<a href="../dl85/">DL8.5</a>、<a href="../maxsat-dt/">Hu ら 2020</a>、<a href="../cp-dt/">Verhaeghe ら 2020</a> など）である。</p>
+    <p>これらの多くは二値の特徴量しか扱えず、一部は 2 クラスの分類に限られる。実際のデータの多くは数値やカテゴリの特徴量を含むので、前処理で<span class="A">二値の特徴量に置き換える</span>。論文が比較に使った Avellaneda の方法では、\(v\) 種類の値をとる特徴量を \(v\) 個の二値の特徴量で表す。数値の特徴量なら、それぞれの二値の特徴量は「値があるしきい値より大きいか」を表す。たとえば値が 1、3、4、5 の 4 点なら、「1 より大きいか」「3 より大きいか」「4 より大きいか」の 3 つの二値の特徴量になる。値の種類が多いデータでは特徴量の数が大きく増え、論文はこれが性能を下げる原因になりうると指摘する。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>データ</th><th>点の数 \(|X|\)</th><th>数値</th><th>二値</th><th>カテゴリ</th><th>二値化後の特徴量</th><th>クラス数</th></tr></thead>
+        <tbody>
+          <tr><td>Banknote</td><td>1,372</td><td>4</td><td>0</td><td>0</td><td class="A">5,016</td><td>2</td></tr>
+          <tr><td>Breast Cancer</td><td>116</td><td>9</td><td>0</td><td>0</td><td class="A">891</td><td>2</td></tr>
+          <tr><td>Ionosphere</td><td>351</td><td>32</td><td>2</td><td>0</td><td class="A">8,114</td><td>2</td></tr>
+          <tr><td>Vertebral Column</td><td>310</td><td>6</td><td>0</td><td>0</td><td class="A">1,741</td><td>2</td></tr>
+          <tr><td>Wine</td><td>178</td><td>13</td><td>0</td><td>0</td><td class="A">1,263</td><td>3</td></tr>
+          <tr class="sep"><td>Credit Approval</td><td>653</td><td>6</td><td>4</td><td>5</td><td class="A">1,130</td><td>2</td></tr>
+          <tr><td>Promoter</td><td>106</td><td>0</td><td>0</td><td>57</td><td class="A">228</td><td>2</td></tr>
+          <tr class="sep"><td>Car</td><td>1,728</td><td>6</td><td>0</td><td>0</td><td class="A">15</td><td>2</td></tr>
+          <tr><td>Monk2</td><td>169</td><td>4</td><td>2</td><td>0</td><td class="A">11</td><td>2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　実験に使った UCI のデータの一部（論文 Table 1 から抜粋）。論文は 15 個のデータ（行を 4 分の 1 に減らした Protease Cleavage を含めて 16 行）を、主に数値（N）、主にカテゴリ（C）、二値に近い（B: Car と Monk2）に分けている。</p>
+  </section>
+
+  <section id="encoding">
+    <div class="kicker">手法 1　数値の特徴量の符号化</div>
+    <h2>しきい値は変数にせず、特徴量の値で並べた隣どうしの点が逆向きに分かれないことだけを節で書く</h2>
+    <p>木の形（ふつうは深さ \(d\) の完全二分木）は先に決めておき、各分岐ノードで使う特徴量、各点の行き先、各葉のラベルを真偽の変数で表す。</p>
+    <ul class="def">
+      <li>\(a_{t,j}\)：分岐ノード \(t\) で特徴量 \(j\) を使うか。各ノードでちょうど 1 つが真になるよう節を置く。</li>
+      <li>\(s_{i,t}\)：点 \(i\) がノード \(t\) を通るとき、左の子へ行くか。</li>
+      <li>\(z_{i,t}\)：点 \(i\) が葉 \(t\) に着くか。</li>
+      <li>\(g_{t,c}\)：葉 \(t\) にラベル \(c\) を付けるか。各葉に付くラベルは高々 1 つである。</li>
+    </ul>
+    <p>要になるのは、しきい値そのものを表す変数を持たないことである。特徴量 \(j\) の値で点を昇順に並べ、隣り合う点の対の集合を \(O_j\) とする。ノード \(t\) で特徴量 \(j\) を使うなら、値の大きい点が左へ行くときは値の小さい点も左へ行く（式 3）。値が等しい対については、逆向きにも同じ制約を置く（式 4）。</p>
+    <div class="eq">\[ \begin{aligned} &(\neg a_{t,j} \lor s_{i,t} \lor \neg s_{i',t}) && (i,i') \in O_j \\ &(\neg a_{t,j} \lor \neg s_{i,t} \lor s_{i',t}) && (i,i') \in O_j,\ x_i[j] = x_{i'}[j] \end{aligned} \]</div>
+    <p>これで、左へ行く点は並びの先頭から続く一まとまりになり、しきい値で分けたのと同じ形になる。しきい値は解が求まってから、左へ行った点の最大の値として読み出す。ほかに、点がたどる経路と葉の対応を表す節と、探索を絞るための冗長な節（値が最小の点は必ず左、最大の点は必ず右）を加える。</p>
+    <p>（解説者の注）特徴量を選ぶ変数 \(a_{t,j}\) の数は、分岐ノードの数と元の特徴量の数の積で決まり、二値化したときのように値の種類の数だけ増えることはない。式 3 の節は分岐ノード 1 つと特徴量 1 つにつき、隣り合う点の対の数（\(|X|-1\) 個）だけ置かれる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 260" role="img" aria-label="ある特徴量の値で並べた8つの点の模式図。左の5点が左の子へ、右の3点が右の子へ行く。隣り合う点の対ごとに、大きい点が左なら小さい点も左という節が置かれ、しきい値は左へ行った点の最大の値として読み出される。">
+        <line x1="60" y1="130" x2="600" y2="130" stroke="#16202E" stroke-width="1.5"/>
+        <g font-size="15" fill="#16202E" text-anchor="middle">
+          <circle cx="90" cy="130" r="13" fill="#1D4ED8"/><circle cx="150" cy="130" r="13" fill="#1D4ED8"/><circle cx="215" cy="130" r="13" fill="#1D4ED8"/><circle cx="265" cy="130" r="13" fill="#1D4ED8"/><circle cx="330" cy="130" r="13" fill="#1D4ED8"/>
+          <circle cx="410" cy="130" r="13" fill="#fff" stroke="#5B6676" stroke-width="2"/><circle cx="480" cy="130" r="13" fill="#fff" stroke="#5B6676" stroke-width="2"/><circle cx="560" cy="130" r="13" fill="#fff" stroke="#5B6676" stroke-width="2"/>
+          <text x="90" y="170">1.2</text><text x="150" y="170">2.0</text><text x="215" y="170">2.7</text><text x="265" y="170">3.1</text><text x="330" y="170">3.8</text><text x="410" y="170">4.6</text><text x="480" y="170">5.3</text><text x="560" y="170">6.0</text>
+        </g>
+        <line x1="370" y1="88" x2="370" y2="196" stroke="#1D4ED8" stroke-width="2" stroke-dasharray="5 4"/>
+        <text x="370" y="218" font-size="15" fill="#1D4ED8" text-anchor="middle">しきい値 = 3.8（左へ行った点の最大）</text>
+        <path d="M330,108 C350,82 390,82 410,108" fill="none" stroke="#16202E" stroke-width="1.5"/>
+        <text x="370" y="70" font-size="15" fill="#16202E" text-anchor="middle">隣の対ごとに 1 本の節</text>
+        <text x="60" y="40" font-size="15" fill="#5B6676">青：左の子へ（<tspan class="mi">s</tspan> = 真）　白：右の子へ</text>
+        <text x="60" y="250" font-size="14" fill="#5B6676">模式図（値は解説者が置いた例）</text>
+      </svg>
+      <figcaption>図1　式 3 と式 4 の働きの模式図。値の大きい点が左なら小さい点も左、という制約を隣どうしに置くだけで、左へ行く点は値の小さい側の一まとまりになる。数値は解説者が置いた例。</figcaption>
+    </figure>
+  </section>
+
+  <section id="problems">
+    <div class="kicker">手法 2　2 つの最適化問題</div>
+    <h2>同じ符号化に節を足し、最小の深さの問題は SAT を深さ 1 から順に解き、精度最大の問題は部分 MaxSAT で解く</h2>
+    <p><strong>最小の深さの問題</strong>（論文の Problem 1）は、学習データを全部正しく分ける完全二分木のうち深さが最小のものを求める。点 \(i\) が葉 \(t\) に着くなら、その葉のラベルは点の正解ラベル \(\gamma(x_i)\) でなければならない、という節を加える。Avellaneda の方法にならって深さ 1 から 1 ずつ深くし、最初に充足可能になった深さが最小の深さである。</p>
+    <div class="eq">\[ (\neg z_{i,t} \lor g_{t,\gamma(x_i)}) \qquad t \in T_L,\ x_i \in X \]</div>
+    <p><strong>精度最大の問題</strong>（Problem 2）は、深さ \(d\) を決めた完全二分木で、正しく分類できる学習データの数を最大にする。点 \(i\) を正しく分類したことを表す変数 \(p_i\) を加え、ここまでの節をすべて必ず満たす節（ハード節）にする。そのうえで、点ごとに満たせなくてもよい節（ソフト節）\((p_i)\) を置き、満たすソフト節の数を最大にする部分 MaxSAT として解く。</p>
+    <div class="eq">\[ \begin{aligned} &\text{ハード：} && (\neg p_i \lor \neg z_{i,t} \lor g_{t,\gamma(x_i)}) && t \in T_L,\ x_i \in X \\ &\text{ソフト：} && (p_i) && x_i \in X \end{aligned} \]</div>
+    <p>実装では、最小の深さの問題は SAT ソルバー MiniSAT をもとに C++ で書き、精度最大の問題は MaxSAT ソルバー Loandra で解いた。どちらもラベルの変数 \(g_{t,c}\) をクラスの数だけ持つので、3 クラス以上の分類もそのまま扱える。</p>
+  </section>
+
+  <section id="categorical">
+    <div class="kicker">手法 3　カテゴリの特徴量</div>
+    <h2>カテゴリの特徴量では、値の部分集合を左へ送る枝分かれを許し、one-hot の木より浅いか同じ深さの木を必ず表せるようにする</h2>
+    <p>順序のないカテゴリの特徴量を one-hot の二値の特徴量に置き換えると、カテゴリを 1 つずつ確かめる分岐が続き、木が深くなりやすい。論文は選んだカテゴリの部分集合を左へ、残りを右へ送る枝分かれ（power set branching）を加える。取引の種類 A〜F のうち A、D、F を承認する例では、one-hot の木は深さ 3 になるが、部分集合で分ける木は深さ 1 で済む（図2）。</p>
+    <figure>
+      <img src="assets/fig1_powerset_branching.png" alt="Two decision trees for the same toy data. Left: a one-hot tree tests Type_A, then Type_D, then Type_F in sequence, approving on true and denying at the end, depth 3. Right: a single node on Type sends A, D, F to Approve and B, C, E to Deny, depth 1." loading="lazy">
+      <figcaption>図2　左：カテゴリを one-hot に置き換えた木（深さ 3）。右：カテゴリの部分集合で枝分かれさせる木（深さ 1）（論文 Fig. 1、CP 2021 版）。</figcaption>
+    </figure>
+    <p>符号化の変更は小さい。値の順序で分ける式 3 を数値の特徴量だけに限り、カテゴリの特徴量には「同じカテゴリの点は同じ向きに行く」という節（論文の式 17 と式 18）を置く。「最小の値は左」の冗長な節は、カテゴリでは任意に決めた 1 つのカテゴリを左へ送る節に変え、「最大の値は右」の節は数値の特徴量だけに残す。左へ送るカテゴリの集合は、解が求まってから、左へ行った点が持つカテゴリとして読み出す。</p>
+    <p>one-hot の木の分岐「カテゴリ \(c\) か」は、部分集合 \(\{c\}\) を右へ、残りを左へ送る分岐に置き換えられる。したがって one-hot の木はどれも、同じ形の部分集合の木で同じ予測を表せる（論文の命題 1）。ここから、最小の深さは one-hot の場合と同じか小さく、同じ深さで達成できる精度は同じか高い（系 6、系 7）。</p>
+  </section>
+
+  <section id="min-depth">
+    <div class="kicker">実験の結果 1　最小の深さ</div>
+    <h2>数値の特徴量のデータでは Avellaneda の方法より速いか同等で、相手が 30 分で解けなかった 3 つのデータでも最小の深さの木を求めた</h2>
+    <p>最小の深さの問題で、二値化したデータに <span class="A">Avellaneda の SAT の方法</span>（ソルバーは同じ MiniSAT）を使う場合と比べた。制限時間は Avellaneda の実験にならって 30 分である。時間切れの場合の「T/O [\(d\)]」は、時間切れの時点で深さ \(d\) の SAT 問題を解いていたことを表す。計算機は 12 コアの Intel E5-2697v2 を 2 つ、メモリは 128GB である。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>データ</th><th>最小の深さ</th><th>提案法（秒）</th><th>Avellaneda（秒）</th></tr></thead>
+        <tbody>
+          <tr><td>Banknote</td><td>4</td><td class="B">5.82</td><td class="A">T/O [4]</td></tr>
+          <tr><td>Breast Cancer</td><td>4</td><td class="B">6.59</td><td class="A">T/O [4]</td></tr>
+          <tr><td>Cryotherapy</td><td>4</td><td class="B">0.08</td><td class="A">0.24</td></tr>
+          <tr><td>Immunotherapy</td><td>4</td><td class="B">0.18</td><td class="A">1.3</td></tr>
+          <tr><td>Ionosphere</td><td>?</td><td class="B">T/O [4]</td><td class="A">T/O [3]</td></tr>
+          <tr><td>Iris</td><td>4</td><td class="B">0.04</td><td class="A">0.17</td></tr>
+          <tr><td>User Knowledge</td><td>5</td><td class="B">1.31</td><td class="A">59.44</td></tr>
+          <tr><td>Vertebral Column</td><td>5</td><td class="B">87.35</td><td class="A">T/O [5]</td></tr>
+          <tr><td>Wine</td><td>3</td><td class="B">0.11</td><td class="A">14.75</td></tr>
+          <tr class="sep"><td>Car</td><td>8</td><td class="B">T/O [8]</td><td class="A">89.1</td></tr>
+          <tr><td>Monk2</td><td>6</td><td class="B">2.73</td><td class="A">0.28</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表2　最小の深さの問題の結果（論文 Table 2）。Car と Monk2 は二値に近いデータ（B）。</p>
+    <p>数値の特徴量のデータでは、提案法はどれでも Avellaneda の方法と同等以上の速さで、多くの場合は大きく速かった。Banknote、Breast Cancer、Vertebral Column では、Avellaneda の方法は時間切れになったが、提案法は最小の深さの木を求めた。Ionosphere では両方が時間切れになったものの、提案法は深さ 3 では解がないことまで示し、Avellaneda の方法が示したのは深さ 2 までだった。一方、二値に近い Car と Monk2 では Avellaneda の方法のほうが速く、Car では提案法が時間切れになった。</p>
+  </section>
+
+  <section id="max-accuracy">
+    <div class="kicker">実験の結果 2　精度最大</div>
+    <h2>精度最大の問題でも、数値の特徴量のデータでは二値化して解く MaxSAT と CP の方法より速いか同じで、誤りの数も同じか少なかった</h2>
+    <p>深さ 2、3、4 の木で、<span class="A">Hu らの MaxSAT の符号化</span>（ソルバーは同じ Loandra）と <span class="A">Verhaeghe らの CP のモデル</span>（ソルバーは OscaR）と比べた。制限時間は Hu らにならって 15 分である。コストは正しく分類できなかった学習データの数で、最適性を証明できた場合は最適なコスト、時間切れの場合はそれまでに見つけた最良の解のコストを示す。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>データ（深さ 3）</th><th>提案法</th><th>MaxSAT（Hu ら）</th><th>CP（Verhaeghe ら）</th><th>提案法（秒）</th><th>MaxSAT（秒）</th><th>CP（秒）</th></tr></thead>
+        <tbody>
+          <tr><td>Banknote</td><td class="B">23</td><td class="A">550</td><td class="A">100</td><td class="B">105.79</td><td class="A">T/O</td><td class="A">T/O</td></tr>
+          <tr><td>Breast Cancer</td><td class="B">9</td><td class="A">25</td><td class="A">12</td><td class="B">242.16</td><td class="A">T/O</td><td class="A">T/O</td></tr>
+          <tr><td>Cryotherapy</td><td class="B">1</td><td class="A">1</td><td class="A">1</td><td class="B">0.73</td><td class="A">17.57</td><td class="A">27.39</td></tr>
+          <tr><td>Immunotherapy</td><td class="B">4</td><td class="A">4</td><td class="A">4</td><td class="B">3.81</td><td class="A">T/O</td><td class="A">146.45</td></tr>
+          <tr><td>Ionosphere</td><td class="B">21</td><td class="A">186</td><td class="A">29</td><td class="B">T/O</td><td class="A">T/O</td><td class="A">T/O</td></tr>
+          <tr><td>Vertebral Column</td><td class="B">32</td><td class="A">44</td><td class="A">42</td><td class="B">T/O</td><td class="A">T/O</td><td class="A">T/O</td></tr>
+          <tr class="sep"><td>Car</td><td class="B">182</td><td class="A">182</td><td class="A">182</td><td class="B">T/O</td><td class="A">T/O</td><td class="A">5.99</td></tr>
+          <tr><td>Monk2</td><td class="B">42</td><td class="A">42</td><td class="A">42</td><td class="B">T/O</td><td class="A">826.31</td><td class="A">3.6</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表3　精度最大の問題で深さ 3 の結果（論文 Table 3 から深さ 3 の行を抜粋）。左の 3 列がコスト（誤りの数）、右の 3 列が時間。</p>
+    <p>数値の特徴量のデータでは、提案法は相手より速く解を求めるか、すべての方法が時間切れになるかのどちらかで、コストはどれでも相手と同じか小さかった。深さ 4 では、提案法は Banknote と Breast Cancer で誤りのない木をそれぞれ 18.98 秒と 20.79 秒で求めた。同じ設定で、MaxSAT はコスト 88 と 18、CP は 100 と 11 の解までしか求められなかった。比べた 2 つの方法は 2 クラスの分類しか扱えないので、3 クラス以上の Iris、User Knowledge、Wine は提案法だけが解き、どれも数秒で最適な木を求めた。Wine では深さ 3 で学習データを全部正しく分けた。二値に近い Car と Monk2 では提案法が劣り、深さ 3 と 4 で時間切れになった。それでも、Car ではどの深さでも、Monk2 では深さ 2 と 3 で最適な解を見つけていた。</p>
+  </section>
+
+  <section id="categorical-results">
+    <div class="kicker">実験の結果 3　カテゴリの特徴量とメモリ</div>
+    <h2>部分集合の枝分かれは精度最大の問題のすべての設定でコストが最も低く、メモリの使用量も提案法が最も少なかった</h2>
+    <p>カテゴリの特徴量が多い 4 つのデータ（Protease Cleavage の行を 4 分の 1 に減らしたものを含めて 5 つ）で、部分集合の枝分かれを使う <span class="B">Ours-PS</span>、使わない <span class="B">Ours</span>、比べた方法を並べた。最小の深さの問題は、どの方法でもほとんどのデータが時間内に解けなかった。ただし Protease Cleavage（/4）では、Ours-PS が深さ 4 の木を 0.69 秒で見つけた。二値の枝分かれの Ours は深さ 6 では解がないと示したところで時間切れになった。Promoter はどの方法でも最小の深さが 4 で、時間は Ours-PS が 224.22 秒、Ours が 498.3 秒、Avellaneda の方法が 87.69 秒だった。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>データ（深さ 4）</th><th>Ours-PS</th><th>Ours</th><th>MaxSAT（Hu ら）</th><th>CP（Verhaeghe ら）</th></tr></thead>
+        <tbody>
+          <tr><td>Credit Approval</td><td class="B">60</td><td>65</td><td class="A">74</td><td class="A">エラー</td></tr>
+          <tr><td>Protease Cleavage</td><td class="B">39</td><td>98</td><td class="A">136</td><td class="A">100</td></tr>
+          <tr><td>Protease Cleavage（/4）</td><td class="B">0</td><td>37</td><td class="A">40</td><td class="A">17</td></tr>
+          <tr><td>Promoter</td><td class="B">0</td><td>0</td><td class="A">0</td><td class="A">0</td></tr>
+          <tr><td>Soybean Large</td><td class="B">35</td><td>45</td><td class="A">–</td><td class="A">–</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表4　カテゴリの特徴量のデータで、精度最大の問題を深さ 4 で解いたときのコスト（論文 Table 5 から深さ 4 の行を抜粋）。Soybean Large は 15 クラスなので、比べた 2 つの方法では解けない。Credit Approval の CP は、実行時にエラーが出たと論文にある。</p>
+    <p>精度最大の問題では、論文の Table 5 のどの設定でも Ours-PS のコストが最も低く、ほとんどの設定では、ほかのすべての方法を下回った。ただし Ours-PS は多くの設定で時間切れになっており、コストは最良の解の値である。たとえば Protease Cleavage では深さ 3 のコスト（101）が深さ 2（98）より高い（解説者の注）。</p>
+    <p>各方法のメモリの最大使用量も記録した。数値の特徴量のデータでは、最小の深さの問題で提案法の平均が 142.02MB、最大が 1,003.86MB で、Avellaneda の方法は平均 4,527.80MB、最大 16,684.36MB だった。精度最大の問題では提案法が平均 236.34MB、最大 1,299.09MB で、Hu らの方法は最大 10,994.48MB、Verhaeghe らの方法は最大 2,381.50MB だった（論文 Table 6）。どの区分でも提案法（Ours）の平均と最大が最も小さく、カテゴリのデータでは Ours-PS が 2 番目に小さかった。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>SAT・MaxSAT で最適な木を求める系統の問題設定を引き継ぎ、二値化の前処理をなくして数値とカテゴリの特徴量を符号化の中で直接扱う</h2>
+    <ul class="def">
+      <li><strong>問題設定</strong>：最小の深さの問題は <a href="../avellaneda-2020/">Avellaneda（2020）</a>と同じ設定で、深さを 1 ずつ増やす解き方も同じである。精度最大の問題は <a href="../maxsat-dt/">Hu ら（2020）</a>や <a href="../cp-dt/">Verhaeghe ら（2020）</a>、<a href="../dl85/">DL8.5</a> と同じ設定である。木の大きさを最小にする研究の出発点として、Bessiere ら（2009）と <a href="../sat-dt/">Narodytska ら（2018）</a>を挙げている。</li>
+      <li><strong>特徴量の扱い</strong>：これらの先行研究は二値の特徴量を前提にし、数値やカテゴリの特徴量は前処理で二値化する。この論文は値の順序を隣どうしの節で表すことで、数値の特徴量を二値化せずに扱う。カテゴリの特徴量を整数計画で扱った <a href="../categorical-ip/">Günlük ら（2021）</a>に対して、数値とカテゴリの両方を 1 つの符号化で直接扱う点を違いに挙げている。</li>
+      <li><strong>クラスの数</strong>：Hu らや Verhaeghe らの方法は 2 クラスに限られるが、この符号化は葉のラベルの変数をクラスの数だけ持つので、多クラスの分類もそのまま解ける。</li>
+      <li><strong>弱いところ</strong>：もともと二値に近いデータ（Car、Monk2）では、二値の特徴量を前提にした方法のほうが速かった。論文は今後の課題に、最小サポートなどの制約の追加、別の目的関数、木の形の選び方、アンサンブルへの利用、決定集合への拡張を挙げている。</li>
+    </ul>
+    <p>（解説者の注）雑誌版（<i>Constraints</i> 2023）の題名は “SAT-based optimal classification trees for non-binary data” で、文献リストの表ではこちらを載せている。雑誌版で何が加わったかは、本文を確認していないのでこのページでは扱わない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{shati2023satbased,
+  title   = {{SAT}-based optimal classification trees for non-binary data},
+  author  = {Shati, Pouya and Cohen, Eldan and McIlraith, Sheila A.},
+  journal = {Constraints},
+  volume  = {28},
+  number  = {2},
+  pages   = {166--202},
+  year    = {2023},
+  doi     = {10.1007/s10601-023-09348-1}
+}
+
+@inproceedings{shati2021satbased,
+  title     = {{SAT}-Based Approach for Learning Optimal Decision Trees with Non-Binary Features},
+  author    = {Shati, Pouya and Cohen, Eldan and McIlraith, Sheila},
+  booktitle = {27th International Conference on Principles and Practice of Constraint Programming (CP 2021)},
+  editor    = {Michel, Laurent D.},
+  series    = {Leibniz International Proceedings in Informatics (LIPIcs)},
+  volume    = {210},
+  pages     = {50:1--50:16},
+  publisher = {Schloss Dagstuhl -- Leibniz-Zentrum f{\"u}r Informatik},
+  year      = {2021},
+  doi       = {10.4230/LIPIcs.CP.2021.50}
+}</pre>
+    </div>
+    <p class="src">ページの内容と数値は会議版（LIPIcs, CP 2021, paper 50, CC BY 4.0）による。雑誌版（Springer）の本文は確認していない。雑誌版の書誌は Crossref、会議版の書誌は DataCite と論文の表記による。所属は会議版の表記である。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

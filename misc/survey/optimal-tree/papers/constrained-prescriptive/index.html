@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>制約つき処方的木：経路を列にした列生成（論文解説）</title>
+<meta name="description" content="Constrained Prescriptive Trees via Column Generation（AAAI 2022）の非公式の解説。根から葉へのルールを特徴グラフ上の経路として表し、経路を列とする集合分割問題を列生成で解いて、複数のルールにまたがる業務上の制約を満たす多分岐の処方的な木を学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = existing prescriptive trees (greedy SPT, arc-based binary-split MIPs):
+                         unconstrained policies and what they violate or cost
+            --b  (blue)   = the paper's path-based formulation (SPMT): rules as columns, column
+                         generation, constrained policies
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- results table (this page only) ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.res { border-collapse: collapse; font-size: 0.9rem; line-height: 1.45; min-width: 36rem; }
+table.res th, table.res td { padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.res th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+table.res td:first-child, table.res th:first-child { text-align: left; }
+table.res td.b { color: var(--b); font-weight: 600; }
+table.res td.a { color: var(--a); }
+table.res small { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AAAI 2022</div>
+  <h1>Constrained Prescriptive Trees via Column Generation</h1>
+  <p class="subtitle">列生成による制約つきの処方的な木</p>
+
+  <ul class="authors">
+    <li><b>Shivaram Subramanian</b><span>IBM Research</span></li>
+    <li><b>Wei Sun</b><span>IBM Research</span></li>
+    <li><b>Youssef Drissi</b><span>IBM Research</span></li>
+    <li><b>Markus Ettl</b><span>IBM Research</span></li>
+  </ul>
+
+  <p class="lead">処方的な木は葉ごとに価格や処置などの行動を選ぶ解釈しやすい方策である。しかし既存の手法は<span class="A">在庫や価格の条件のように複数のルールにまたがる制約を扱えない</span>。この論文は<span class="B">根から葉へのルールを特徴グラフ上の経路として表し、経路を列とする集合分割問題を列生成で解く</span>。これにより、制約を満たす多分岐の木を 100 万標本の規模で求められる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1609/aaai.v36i4.20384">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2207.10163">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。制約なしの方策で予測需要が倍増する例、複数のルールにまたがる制約と既存の MIP の変数の数、特徴グラフ上の経路を列生成で足していく様子、イチゴの価格設定の収益の増加率、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">経路＝ルール＝列</span><span class="d">特徴の値をノードにした多層のグラフで、始点から終点への経路を 1 本のルールとみなす。SKIP ノードを通ればその特徴を使わない。経路を列とする集合分割問題を解くと、標本が重ならない多分岐の木が得られる（定理 1）。</span></li>
+    <li><span class="k">3,000 未満</span><span class="d">32 本のルール、100 万標本の実験で、Master-MIP の二値変数は 3,000 未満だった。木を丸ごと解く既存の MIP なら \(32\times10^6\) を超える二値変数が要る、と論文は述べる。</span></li>
+    <li><span class="k">82.8% → 47.49%</span><span class="d">イチゴの価格設定（64 ルール）で、過去の価格と比べた収益の増加率は制約なしで 82.8%。店舗群ごとに予測需要の変化を過去の 25% 以内に抑えると 47.49% だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>処方的な木は解釈しやすいが、既存の手法は複数のルールにまたがる業務上の制約を扱えない</h2>
+    <p>処方的分析は予測モデルの出力を使って、これからとるべき行動を決める。価格設定なら過去の販売データから需要を推定して価格を決め、医療なら過去の患者の反応から治療を選ぶ。論文はその特徴として制約を挙げる。収益を最大にする価格でも、生じる需要が生産能力を超えてはいけない。患者が選べる治療は既往症で限られることがある。</p>
+    <p>方策を解釈しやすくする方法として、根から葉への経路をルールとし、葉の標本に同じ行動を割り当てる処方的な木が研究されてきた。予測を木の学習に組み込む方法（<a href="../kallus-2017/">Kallus 2017</a>、<a href="../opt/">Bertsimas ら 2019</a>）と、予測と処方を分ける方法（<a href="../multi-action-policy/">Zhou ら</a>、<a href="../policy-trees/">Amram ら</a>、Biggs ら 2021）がある。木の作り方も貪欲に作る方法と最適に作る方法に分かれる。しかし論文によれば、<span class="A">どの既存手法も業務上の制約を扱えない</span>。論文は、複数のルールにまたがる制約を扱える処方的な木を提案するのは自分たちが初めてだと考えている。</p>
+  </section>
+
+  <section id="teacher">
+    <div class="kicker">教師と生徒</div>
+    <h2>予測モデルが行動ごとの結果を推定し、木はその推定値の合計が最大になるルールを選ぶ</h2>
+    <p>データは観察データ \(\{(x_i,\pi_i,y_i)\}_{i=1}^M\) で、\(x_i\) は特徴、\(\pi_i\) は離散の集合 \(\Pi\) から選ばれた行動、\(y_i\) は結果である。未観測の交絡はないと仮定する。価格設定の例では \(x_i\) が顧客の特徴、\(\pi_i\) が価格、\(y_i\in\{0,1\}\) が購入の有無で、目的は期待収益 \(\pi f(x,\pi)\) である。</p>
+    <p>論文は「予測する教師と処方する生徒」の枠組みをとる。まず教師となる予測モデル \(\hat f\) を学習し、各標本 \(i\) と各行動 \(\pi\) について反実仮想の結果 \(g_{i,\pi}=g(\hat f(x_i,\pi))\) を推定する。生徒の木はこの推定値を入力として受け取り、その合計を最大にする。教師には lightGBM のような強い予測モデルや二重頑健な推定量など、用途ごとに最もよいものを選べる。生徒は葉の数 \(n\) の多分岐の木 \(\mathcal T_m(n)\) で、論文はこの問題を SPMT（student prescriptive multiway-split tree）と呼ぶ。</p>
+    <div class="eq">\[ \textbf{(SPMT)}\qquad \max_{\tau(x)\in\mathcal T_m(n)}\ \sum_{i=1}^{M} g_{i,\pi} \]</div>
+    <p>生徒が使う特徴は、教師が使う特徴の一部でもよい。プライバシーや公平性の理由で個人の特徴をルールに使いたくない場合でも、すべての特徴で学習した教師の推定値を使える。葉の数 \(n\) の多分岐の木は、深さ \(k\) で \(2^k=n\) の葉をもつ二分木と比べられる。多分岐の木では同じ特徴が 1 本の経路に 2 回以上現れることがまれで、ルールが短く読みやすい、と論文は述べている。</p>
+  </section>
+
+  <section id="graph">
+    <div class="kicker">特徴グラフ</div>
+    <h2>ルールを特徴グラフ上の始点から終点への経路として表し、SKIP ノードで特徴を使わないルールも表す</h2>
+    <p>特徴ごとに 1 つの層を作り、その特徴の値をノードにした多層の有向グラフ \(G(V,E)\) を考える。隣り合う層のノードはすべてつながり、最後の層は行動（価格）のノードである。行動以外の各層には SKIP ノードを加える。SKIP を通る経路はその特徴をルールに使わない。こうすると、特徴のあらゆる組み合わせが始点から終点への経路として表せる。ノードの数は特徴の数 \(d\) に比例するが、経路の数は \(d\) について指数的に増える（命題 1）。</p>
+    <p>数値の特徴は区間に離散化する。区間を重ねてもよい「累積ビン」を使えば、二分木の \(x\le 0.67\) のような条件も表せる（補足資料）。グラフでの特徴の並び順は目的関数の値には影響しないが、読みやすさに影響する。論文は教師モデルの特徴の重要度（SHAP など）の順に並べている。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig1a_feature_graph.png" alt="Feature graph with three layers: marital status (married, single, unknown, SKIP), household size (2, 3, 4, 5+, SKIP) and price ($2, $2.5, $4, $5), between a source and a sink node. Two highlighted paths: married, 5+, $2 in red and unknown, SKIP, $2.5 in blue." loading="lazy">
+        <figcaption>図1a　3 層の特徴グラフ（配偶者の有無・世帯人数・価格）。赤と青の線はそれぞれ 1 本のルールを表す（論文 Fig. 1a、arXiv v1。図中の赤と青は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig1b_multiway_tree.png" alt="Multiway-split tree with eight leaves from the grocery pricing case. The root splits on marital status into unknown ($2.50), married and single ($2.00); married splits on household size into 2, 3, 4 and 5+; household size 3 splits further on household composition. Most leaves prescribe $2.00." loading="lazy">
+        <figcaption>図1b　イチゴの価格設定で得られた 8 ルールの多分岐の木。葉には処方する価格と括弧内の数値が書かれている（論文 Fig. 1b、arXiv v1）。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="spp">
+    <div class="kicker">集合分割問題</div>
+    <h2>経路を列とする集合分割問題で n 本のルールを選ぶと、標本の重ならない多分岐の木になる</h2>
+    <p>ルール（経路）を \(j=1,\dots,N\)（\(N=|\mathcal P|\)）とし、ルール \(j\) に当てはまる標本の集合を \(S_j\)、その標本に割り当てる行動を \(q_j\in\Pi\) とする。ルールの価値は \(r_j=\sum_{i\in S_j} g_{i,q_j}\) である。\(a_{ij}\) は標本 \(i\) がルール \(j\) の条件を満たせば 1、そうでなければ 0 をとる。二値変数 \(z_j\) でルールを選ぶ。</p>
+    <div class="eq">\[ \begin{aligned} \max\ & \textstyle\sum_{j=1}^{N} r_j z_j-\sum_{i=1}^{M} c_i s_i \\ \text{s.t. } & \textstyle\sum_{j=1}^{N} a_{ij} z_j+s_i=1 \quad (i=1,\dots,M) \\ & \textstyle\sum_{j=1}^{N} z_j\le n,\qquad z_j\in\{0,1\},\ s_i\ge 0 \end{aligned} \]</div>
+    <p>1 つ目の制約が集合分割の制約で、十分大きな罰則 \(c_i\) をつけた非負のスラック \(s_i\) とあわせて、各標本がちょうど 1 本のルールに入るようにする。2 つ目の制約でルールの数を \(n\) 以下にする。論文は、この問題（SPP）で選ばれた経路が SPMT の最適な木 \(\mathcal T_m^*(n)\) に対応することを示す（定理 1）。SPP は NP 困難だが、中規模なら（ほぼ）最適な解が実用上得られることが知られている。問題は候補の経路の数 \(N\) が大きすぎて、すべてを列として書き出せないことである。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="Schematic matrix of six samples by five candidate rules. Cells with a_ij = 1 are filled. Rules 1 and 2 are selected and together cover each sample exactly once; rules 3 to 5 overlap and are not selected.">
+        <text x="20" y="26" font-size="15" font-weight="600" fill="#16202E">標本 × 候補のルール（塗ったマスが a<tspan font-size="11" dy="3">ij</tspan><tspan dy="-3"> = 1</tspan>）</text>
+        <g font-size="14" fill="#16202E" text-anchor="middle">
+          <text x="175" y="62" fill="#1D4ED8" font-weight="600">ルール1</text>
+          <text x="245" y="62" fill="#1D4ED8" font-weight="600">ルール2</text>
+          <text x="315" y="62">ルール3</text>
+          <text x="385" y="62">ルール4</text>
+          <text x="455" y="62">ルール5</text>
+          <text x="545" y="62" fill="#5B6676">被覆</text>
+        </g>
+        <g font-size="14" fill="#5B6676" text-anchor="end">
+          <text x="128" y="96">標本1</text><text x="128" y="132">標本2</text><text x="128" y="168">標本3</text>
+          <text x="128" y="204">標本4</text><text x="128" y="240">標本5</text><text x="128" y="276">標本6</text>
+        </g>
+        <!-- grid -->
+        <g fill="#F2F4F7">
+          <rect x="145" y="76" width="60" height="30"/><rect x="215" y="76" width="60" height="30"/><rect x="285" y="76" width="60" height="30"/><rect x="355" y="76" width="60" height="30"/><rect x="425" y="76" width="60" height="30"/>
+          <rect x="145" y="112" width="60" height="30"/><rect x="215" y="112" width="60" height="30"/><rect x="285" y="112" width="60" height="30"/><rect x="355" y="112" width="60" height="30"/><rect x="425" y="112" width="60" height="30"/>
+          <rect x="145" y="148" width="60" height="30"/><rect x="215" y="148" width="60" height="30"/><rect x="285" y="148" width="60" height="30"/><rect x="355" y="148" width="60" height="30"/><rect x="425" y="148" width="60" height="30"/>
+          <rect x="145" y="184" width="60" height="30"/><rect x="215" y="184" width="60" height="30"/><rect x="285" y="184" width="60" height="30"/><rect x="355" y="184" width="60" height="30"/><rect x="425" y="184" width="60" height="30"/>
+          <rect x="145" y="220" width="60" height="30"/><rect x="215" y="220" width="60" height="30"/><rect x="285" y="220" width="60" height="30"/><rect x="355" y="220" width="60" height="30"/><rect x="425" y="220" width="60" height="30"/>
+          <rect x="145" y="256" width="60" height="30"/><rect x="215" y="256" width="60" height="30"/><rect x="285" y="256" width="60" height="30"/><rect x="355" y="256" width="60" height="30"/><rect x="425" y="256" width="60" height="30"/>
+        </g>
+        <!-- selected rules (blue) -->
+        <g fill="#1D4ED8">
+          <rect x="145" y="76" width="60" height="30"/><rect x="145" y="112" width="60" height="30"/><rect x="145" y="148" width="60" height="30"/>
+          <rect x="215" y="184" width="60" height="30"/><rect x="215" y="220" width="60" height="30"/><rect x="215" y="256" width="60" height="30"/>
+        </g>
+        <!-- unselected rules (gray) -->
+        <g fill="#CBD2DC">
+          <rect x="285" y="112" width="60" height="30"/><rect x="285" y="148" width="60" height="30"/><rect x="285" y="184" width="60" height="30"/>
+          <rect x="355" y="76" width="60" height="30"/><rect x="355" y="220" width="60" height="30"/>
+          <rect x="425" y="220" width="60" height="30"/><rect x="425" y="256" width="60" height="30"/>
+        </g>
+        <g font-size="15" fill="#1D4ED8" font-weight="600" text-anchor="middle">
+          <text x="545" y="96">1</text><text x="545" y="132">1</text><text x="545" y="168">1</text><text x="545" y="204">1</text><text x="545" y="240">1</text><text x="545" y="276">1</text>
+        </g>
+        <g font-size="14" text-anchor="middle">
+          <text x="175" y="306" fill="#1D4ED8">z = 1</text><text x="245" y="306" fill="#1D4ED8">z = 1</text>
+          <text x="315" y="306" fill="#5B6676">z = 0</text><text x="385" y="306" fill="#5B6676">z = 0</text><text x="455" y="306" fill="#5B6676">z = 0</text>
+        </g>
+      </svg>
+      <figcaption>図2　集合分割の制約のイメージ（解説者による模式図）。選んだ<span class="B">ルール1と2</span>で、各標本がちょうど 1 回ずつ覆われる。ルール3〜5 は選んだルールと標本が重なるので、同時には選べない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="cg">
+    <div class="kicker">列生成</div>
+    <h2>緩和した主問題の双対から被約費用を求め、K&nbsp;最短路問題で被約費用が正の経路だけを足していく</h2>
+    <p>列生成では、経路の一部 \(\hat N\) だけを使い、\(z_j\) を \(0\le z_j\le 1\) に緩和した制限主問題（RMP）を解く。集合分割の制約と個数の制約の双対変数を \(\lambda_i\)、\(\mu\) とすると、経路 \(j\) の被約費用は次のとおりである。</p>
+    <div class="eq">\[ rc_j=r_j-\Bigl(\textstyle\sum_{i=1}^{M} a_{ij}\lambda_i+\mu\Bigr) \]</div>
+    <p>被約費用が正の経路は、RMP に加えると目的関数を改善しうる。被約費用の大きい \(K\) 本の経路を探す問題は、経路の費用を被約費用の符号を反転したものとする特徴グラフ上の K 最短路問題（KSP）になる。正の経路がなくなれば、SPP の LP 緩和の最適解に収束したことになる。実際には、双対解が収束するか反復の上限に達するまで RMP と KSP を繰り返す。そのあと \(z\) に二値の条件を戻した Master-MIP を CPLEX で解き、（ほぼ）最適なルールの集合を得る。MIP の最適解まで求めたいときは、分枝価格法に切り替えればよいとも述べている。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="Loop of column generation: solve the restricted master LP, pass duals lambda and mu to a K-shortest-path search on the feature graph, add paths with positive reduced cost as new columns, repeat; when no positive path remains, solve the master MIP to get the final rules.">
+        <defs><marker id="arK" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5B6676"/></marker></defs>
+        <rect x="20" y="20" width="285" height="118" rx="10" fill="#E7EEFC"/>
+        <text x="36" y="48" font-size="15" font-weight="600" fill="#1D4ED8">1. 制限主問題（RMP）</text>
+        <text x="36" y="76" font-size="14" fill="#16202E">いまある経路だけで、</text>
+        <text x="36" y="98" font-size="14" fill="#16202E">z を 0〜1 に緩和した LP を解く</text>
+        <text x="36" y="120" font-size="14" fill="#5B6676">→ 双対変数 λ, μ</text>
+        <rect x="335" y="20" width="285" height="118" rx="10" fill="#E7EEFC"/>
+        <text x="351" y="48" font-size="15" font-weight="600" fill="#1D4ED8">2. 部分問題（KSP）</text>
+        <text x="351" y="76" font-size="14" fill="#16202E">特徴グラフ上で被約費用の</text>
+        <text x="351" y="98" font-size="14" fill="#16202E">大きい K 本の経路を探す</text>
+        <text x="351" y="120" font-size="14" fill="#5B6676">規則内の制約はここで判定</text>
+        <rect x="335" y="162" width="285" height="118" rx="10" fill="#E7EEFC"/>
+        <text x="351" y="190" font-size="15" font-weight="600" fill="#1D4ED8">3. 列を足す</text>
+        <text x="351" y="218" font-size="14" fill="#16202E">被約費用が正の経路を</text>
+        <text x="351" y="240" font-size="14" fill="#16202E">RMP の列に加えて 1 に戻る</text>
+        <rect x="20" y="162" width="285" height="118" rx="10" fill="#F2F4F7"/>
+        <text x="36" y="190" font-size="15" font-weight="600" fill="#16202E">4. Master-MIP</text>
+        <text x="36" y="218" font-size="14" fill="#16202E">正の経路がなくなる（か上限に</text>
+        <text x="36" y="240" font-size="14" fill="#16202E">達する）と、z を二値に戻して</text>
+        <text x="36" y="262" font-size="14" fill="#16202E">CPLEX で解き、ルールを得る</text>
+        <line x1="305" x2="331" y1="79" y2="79" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+        <line x1="477" x2="477" y1="138" y2="158" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+        <line x1="335" x2="309" y1="221" y2="221" stroke="#5B6676" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arK)"/>
+        <line x1="343" x2="301" y1="166" y2="134" stroke="#5B6676" stroke-width="2" marker-end="url(#arK)"/>
+        <text x="296" y="156" font-size="13" fill="#5B6676" text-anchor="end">1 に戻る</text>
+      </svg>
+      <figcaption>図3　列生成の流れ（論文の「An Efficient and Scalable Algorithm」の記述を解説者が図にしたもの）。1→2→3 を繰り返し、正の経路がなくなったら破線の矢印のとおり 4 へ進む。</figcaption>
+    </figure>
+    <p>業務上の制約は 2 種類に分けて扱う。<span class="B">ルール内の制約</span>（特定の特徴の組み合わせを禁じる、使う特徴の数を限るなど）は 1 本の経路だけで決まるので、KSP で部分経路を延ばすときの可否の判定として扱う。非線形な条件でもよい。<span class="B">ルール間の制約</span>は複数のルールにまたがる線形の不等式で、ルールの個数の制約もその一例である。これは RMP に制約として加え、その双対変数が被約費用を変えることで部分問題に影響する。補足資料では、郵便番号の地域ごとに予測価格の平均を過去の \(\pm10\%\) に収める制約を例に、被約費用に双対変数の項が加わる式を示している。KSP の計算量は \(O(K|V|^2 M\log M)\) で抑えられる（補足資料）。</p>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">合成データ</div>
+    <h2>合成データでは貪欲な SPT をおおむね上回り、100 万標本でも約 1 時間でほぼ最適な解に収束した</h2>
+    <p>Biggs ら（2021）と同じ設定で、需要モデルの異なる 6 つの合成データ（数値の特徴のみ）を作る。教師は lightGBM、行動は観測された価格の 10〜90 パーセンタイルを 10% 刻みにした 9 つの価格である。比較対象は、Biggs らが他の処方的な木（Kallus 2017、Athey と Imbens 2016）より良いと示した貪欲な生徒処方木 SPT、教師 lightGBM の標本ごとの最適な価格（LGBM）、真の需要モデルでの最適な価格（OPTIMAL）である。既存の木の手法は制約を扱えないため、比較は制約なしの設定に限られる。ルールあたりの最小標本数は 10、\(K=100\) とした。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead>
+          <tr><th>データ</th><th>OPTIMAL</th><th>LGBM</th><th>SPMT<br><small>n = 8</small></th><th>SPT<br><small>k = 3</small></th><th>SPMT<br><small>n = 32</small></th><th>SPT<br><small>k = 5</small></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>3.275 (0.016)</td><td>3.161 (0.054)</td><td class="b">3.233 (0.038)</td><td class="a">3.201 (0.071)</td><td class="b">3.201 (0.053)</td><td class="a">3.188 (0.063)</td></tr>
+          <tr><td>2</td><td>2.963 (0.034)</td><td>2.716 (0.038)</td><td class="b">2.166 (0.034)</td><td class="a">2.127 (0.042)</td><td class="b">2.378 (0.015)</td><td class="a">2.277 (0.039)</td></tr>
+          <tr><td>3</td><td>3.420 (0.006)</td><td>3.275 (0.064)</td><td class="b">3.347 (0.048)</td><td class="a">3.331 (0.052)</td><td class="b">3.336 (0.047)</td><td class="a">3.333 (0.047)</td></tr>
+          <tr><td>4</td><td>3.492 (0.012)</td><td>3.344 (0.057)</td><td class="b">3.365 (0.051)</td><td class="a">3.343 (0.079)</td><td class="b">3.379 (0.055)</td><td class="a">3.366 (0.06)</td></tr>
+          <tr><td>5</td><td>3.35 (0.007)</td><td>3.260 (0.029)</td><td class="b">3.291 (0.056)</td><td class="a">3.260 (0.067)</td><td class="b">3.296 (0.017)</td><td class="a">3.287 (0.022)</td></tr>
+          <tr><td>6</td><td>2.592 (0.01)</td><td>2.456 (0.033)</td><td class="b">2.459 (0.033)</td><td class="a">2.429 (0.064)</td><td class="b">2.464 (0.016)</td><td class="a">2.447 (0.029)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　合成データでの実現した平均収益（\(M=5000\)、10 回の平均、括弧内は標準偏差。論文 Table 1、arXiv v1）。<span class="B">SPMT</span> と比べられる <span class="A">SPT</span> は、葉の数が同じ（\(n=2^k\)）完全な二分木である。</p>
+    <p>表の 12 の組み合わせすべてで SPMT の平均が SPT を上回ったが、差は小さく、標準偏差より小さいものも多い。論文も「控えめな改善」と書いている。両者は同じ教師を使うので、差は貪欲に作るか最適化で選ぶかの違いによる、というのが論文の説明である。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig2a_revenue_depth.png" alt="Average revenue on synthetic dataset 6 against tree depth 1 to 5 for SPMT, SPT, lgbm and optimal. Optimal stays near 2.6; SPMT is at or above SPT at every depth and close to lgbm from depth 2 on." loading="lazy">
+        <figcaption>図4a　データ 6 で木の深さ（\(n=2^k\)）を変えたときの平均収益（論文 Fig. 2a、arXiv v1。図中の色は論文のもので、このページの色の意味と完全には対応しない）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig2b_revenue_datasize.png" alt="Average revenue on synthetic dataset 6 against training size from 100 to one million for SPMT with 8 and 32 rules, lgbm and optimal. SPMT rises with data size and both rule counts level off together from about 30,000 samples, slightly below lgbm." loading="lazy">
+        <figcaption>図4b　データ 6 で学習データの大きさを 100〜100 万に変えたときの平均収益（論文 Fig. 2b、arXiv v1。赤の線は SPMT の \(n=32\) で、このページのオレンジ（既存手法）とは意味が異なる）。</figcaption>
+      </figure>
+    </div>
+    <p>データの大きさを変えた実験では、標本数が \(3\times10^4\) を超えると \(n=8\) と \(n=32\) の方策が同じ収益に収束し、それ以上増やしても改善は見られなかった。LGBM は理論上 SPMT の上界だが、方策が解釈できず、標本ごとに異なる価格のように非常に複雑になりうる。SPT は既存の実装が大きなデータを扱えないため、この実験から外されている。</p>
+    <p>計算時間については、すべての RMP が 20 反復未満で収束し、RMP と KSP の 1 反復は平均 11.19 秒（標準偏差 1.33）だったと本文は書いている。100 万標本では KSP が平均約 166 秒、RMP が 45 秒以内で解け、約 1 時間でほぼ最適な解に収束した（補足資料）。100 万標本・最大 32 ルールの実験で、Master-MIP の二値変数は 3,000 未満だった。木を丸ごと解く既存の MIP（<a href="../opt/">Bertsimas ら</a>、<a href="../policy-trees/">Amram ら</a>）は \(O(2^k M)\) の二値変数を要するので、\(32\times10^6\) を超える。</p>
+    <p>補足資料では、特徴が多いデータ 2 の 100 万標本で、ありうるルールが 330 万を超える場合も調べている。教師の予測で標本ごとに最良の価格を選んだ値を上界として、そこからの差は \(n=32\) で 10.281%（約 65 分）、\(n=8\) で 17.033%（約 39 分）だった。生成した経路は 3,000 本未満で、ありうるルール全体の 0.1% に満たない。この上界は \(n\) が小さいと達成できない値で、得られた LP の値も大域的な最適値の上界ではない、と論文は断っている。</p>
+  </section>
+
+  <section id="real">
+    <div class="kicker">実データと制約</div>
+    <h2>制約を入れると、需要や地域の価格の条件を守るルールが得られ、そのぶん予測される改善は小さくなる</h2>
+    <p><strong>イチゴの価格設定</strong>　食料品店の約 2,500 世帯の購買記録（Dunnhumby）から作った 97,295 行のデータを使い、半分で教師、残り半分で評価用の lightGBM を学習する。64 ルールの SPMT は過去の価格と比べて収益を 82.8% 増やした。同じデータで Biggs らは 65.9%、Amram らは 77.1% を報告している。論文はこの差を、多分岐の木が二分木より情報を多くもつことの利点とみている。ただし制約なしの方策は、過去の中央値 $2.99 に対してほとんどの層に $2 への値下げを勧め、<span class="A">予測需要は過去より 99.94% 多くなった</span>。傷みやすい商品で供給にも限りがあるので、このような需要の急増は現実的でも望ましくもない。また、個人の特徴で価格を変えることには法律や公平性の懸念がある。</p>
+    <p>そこで 311 店舗を過去の売上で 5 つの群に分け、群ごとに予測需要の変化を過去の値の一定割合以内に抑える。<span class="B">許す変化を 50% にすると収益は 61.72%、25% にすると 47.49% 増えた</span>。別の設定では、店舗 ID とロイヤルティカードの有無だけでルールを作り、同じ店舗の客には同じ価格をつけ、カード会員には同じかより低い価格をつける制約を課した。この方策は収益を 65.4% 増やした。論文によれば、このような特徴の値の論理的な組み合わせの制約は経路の定式化では自然に書けるが、木を特徴の分岐ごとに表す既存の定式化では効率よく書きにくい。</p>
+    <p><strong>住宅の等級</strong>　Kaggle の住宅価格データで、教師は属性から売値を予測する回帰モデルである。建築の等級（1〜13）を行動として変える。制約なしの方策は全戸を最高等級にする 1 本のルールになり、テストデータで予測売値が 124% 増えた。郵便番号の上 4 桁が同じ地域（19 か所）ごとに予測売値の平均を過去の \(\pm10\%\) に収める制約を入れると、ルールは床面積・築年数・浴室数に応じて等級を上げ下げする組み合わせになり、予測売値の増加は 9.74% だった。等級を上げる費用を予測売値の上昇の 70% とし、全体の費用の変化をほぼ 0 にする設定（8 ルール以内）では 7.82% だった（補足資料）。</p>
+    <p><strong>航空会社のプレミアム席の価格</strong>　ある航空会社の 130 万件を超えるデータで、複数の席種の価格を行動のノードとして積み重ね、ビジネス席はファースト席より少なくとも $250 安くするといった条件を制約として書ける。制約なしの方策は予測収益が上界の 12% 以内に入ったものの、今の 2 倍を超える座席を売る必要があり、容量を大きく超えていた。市場ごとの容量制約を加えると、25% を超える予測収益の改善を保ったまま、より実現しやすいルールになったという。詳細は守秘のため省かれている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>木を分岐ごとではなく根から葉への経路の集合として表し、列生成で必要な経路だけを作る処方的な木</h2>
+    <ul class="def">
+      <li><strong>分岐の種類</strong>：単変量の多分岐。各ノードが 1 つの特徴の値（数値の特徴は重なりを許す区間）に対応し、SKIP でその特徴を使わないこともできる。最後の層で行動（価格など）を選ぶ。</li>
+      <li><strong>目的関数</strong>：教師の予測モデルが推定した反実仮想の結果 \(g_{i,\pi}\) の、選んだ行動についての合計（期待収益や予測売値）。ルールの数を \(n\) 以下にする。教師の選び方は問わず、実験ではすべて lightGBM などの予測モデルを使っている。</li>
+      <li><strong>制約</strong>：ルール内の制約（KSP の中で判定、非線形でもよい）と、ルール間の線形制約（店舗群ごとの需要、地域ごとの価格、全体の費用、ロイヤルティ価格、市場ごとの座席容量など）。</li>
+      <li><strong>解き方</strong>：経路を列とする集合分割の MIP。LP 緩和を列生成（RMP と K 最短路の部分問題）で解き、最後に Master-MIP を CPLEX で解く。</li>
+      <li><strong>最適性の保証</strong>：SPP の最適解が多分岐の木の最適解に対応すること（定理 1）は示されている。しかし実装は列生成を収束か上限で止めたあと Master-MIP を解くヒューリスティックで、得られる木は（ほぼ）最適とされるにとどまる。厳密に解くなら分枝価格法が必要だと論文は述べる。</li>
+      <li><strong>データ</strong>：Biggs らの 6 つの合成データ、Dunnhumby のイチゴの購買データ、Kaggle の住宅価格データ、航空会社の非公開データ。合成データでは 100 万標本まで扱った。</li>
+    </ul>
+    <p>同じリストの <a href="../opt/">OPT</a> や <a href="../policy-trees/">Policy Trees</a> は二分木の分岐を変数にする定式化（論文の言う arc-based）で、変数の数が標本数に比例して増える。この論文はルールそのものを変数にすることで、二値変数の数を標本数から切り離した。予測と処方を分ける点は <a href="../policy-trees/">Policy Trees</a> や <a href="../multi-action-policy/">Zhou ら</a>と共通だが、そちらは二重頑健な推定値を使い、この論文の実験は予測モデルの推定値をそのまま使う。<a href="../prescriptive-trees-flow/">Jo ら</a>も処方的な木を MIO で解くが、そちらはフローにもとづく定式化である。</p>
+    <p>（解説者の注）集合分割の制約が保証するのは、選んだルールが学習データの標本について重ならないことである。重ならないルールの集合を 1 本の多分岐の木として並べられることは定理 1 で主張されているが、補足資料の証明は短く、特徴の並び順との関係などは本文から詳しく読み取れなかった。また、目的関数は教師の予測値の合計なので、方策の良さは教師の推定の正しさに依存する。合成データでは真の需要モデルで、実データでは別に学習した評価用モデルや教師の予測で評価している。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・定理番号・式は arXiv 版（2207.10163v1、補足資料つき）による。AAAI の出版版の PDF は自動取得できなかったため、照合していない。Crossref にある出版版の要旨は arXiv 版と細かな言い回しが異なる。書誌は Crossref で確認した。補足資料の Table 1 は行の見出しの並びが崩れて見えるため、本文の記述（\(n=32\) で 10.3%、\(n=8\) で 17%）に合わせて読んだ。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{subramanian2022constrained,
+  title     = {Constrained Prescriptive Trees via Column Generation},
+  author    = {Subramanian, Shivaram and Sun, Wei and Drissi, Youssef and Ettl, Markus},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {36},
+  number    = {4},
+  pages     = {4602--4610},
+  year      = {2022},
+  doi       = {10.1609/aaai.v36i4.20384}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

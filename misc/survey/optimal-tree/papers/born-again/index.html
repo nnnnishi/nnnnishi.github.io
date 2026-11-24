@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Born-Again：森と同じ予測をする最小の木（論文解説）</title>
+<meta name="description" content="Born-Again Tree Ensembles（ICML 2020）の非公式の解説。特徴空間のどこでもランダムフォレストと同じ予測をする最小の決定木（深さまたは葉の数）を、領域を分割する動的計画法と限定の工夫で厳密に求め、刈り込みで小さくする。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the tree ensemble (random forest of ten depth-3 trees) and earlier heuristic
+                         thinning / born-again methods that are not faithful
+            --b  (blue)   = the born-again tree: faithful on the whole feature space, minimum size, its pruned
+                         version and its measured size and accuracy
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2020</div>
+  <h1>Born-Again Tree Ensembles</h1>
+  <p class="subtitle">木のアンサンブルを生まれ変わらせる：同じ予測をする 1 本の決定木</p>
+
+  <ul class="authors">
+    <li><b>Thibaut Vidal</b><span>Department of Computer Science, PUC-Rio, Brazil</span></li>
+    <li><b>Maximilian Schiffer</b><span>TUM School of Management, Technical University of Munich, Germany</span></li>
+  </ul>
+
+  <p class="lead">ランダムフォレストは予測が良いが、<span class="A">複数の木の多数決</span>なので読み解きにくい。この論文は特徴空間のどこでもフォレストと同じクラスを返す決定木のうち、深さや葉の数が最小のもの（<span class="B">born-again tree</span>）を求める問題を定め、NP 困難であることを示したうえで、領域を分割する動的計画法で多くの実データについて厳密に解いた。学習データのない領域の分岐を刈り込むと、木は元のフォレストの葉の合計より小さくなり、テストでの精度もほとんど変わらなかった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v119/vidal20a.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2003.11132">arXiv</a>
+    <a class="btn" href="https://github.com/vidalt/BA-Trees">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。複数の木の多数決で予測するランダムフォレスト、特徴空間を区切るセルの数が急に増えること、領域を分割して同じ予測をする最小の木を求める動的計画法、元のフォレストと born-again tree と刈り込み後の木の葉の数、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">特徴空間のどこでも同じ予測</span><span class="d">学習データの上だけでなく、すべての入力でフォレストと同じクラスを返す（忠実である）。テストでの精度と F 値も 6 データすべてで一致した。</span></li>
+    <li><span class="k">葉 51.2 → 32.8</span><span class="d">10 本の深さ 3 の木からなるフォレストの葉の合計（平均 51.2）より、刈り込んだ born-again tree の葉（平均 32.8）のほうが少なかった。</span></li>
+    <li><span class="k">NP 困難</span><span class="d">深さ、葉の数、その階層的な組合せのどれを最小にしても NP 困難（3-SAT からの帰着）。忠実かどうかを確かめるだけでも NP 困難である。</span></li>
+  </ul>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>フォレストと特徴空間のどこでも同じ予測をする、深さか葉の数が最小の決定木を求める</h2>
+    <p>ランダムフォレストや勾配ブースティングの木は医療、司法、金融などで使われる。予測の質は高いが、複数の木を同時に使うので、1 本の決定木ほど読み解きやすくはない。Breiman と Shang（1996）の born-again trees は、フォレストで作ったデータから精度の近い 1 本の木を学習し直した。その後の研究もフォレストを単純な分類器で置き換えようとしたが、どれも発見的な方法で、元と同じ決定関数を保つ保証（忠実性）はなかった。</p>
+    <p>この論文が扱うのは次の問題である。重み \(w_t\) をもつ木の集合 \(\mathcal{T}\) が重みつき多数決で決める関数を \(F_\mathcal{T}\) として、</p>
+    <div class="eq">\[ \min_T \ \operatorname{size}(T) \quad \text{s.t.} \quad F_T(\mathbf{x}) = F_\mathcal{T}(\mathbf{x}) \quad \forall \mathbf{x} \in \mathbb{R}^p \]</div>
+    <p>を解く。大きさは深さ（D）、葉の数（L）、深さを優先してから葉の数を小さくする階層的な目的（DL）の 3 通りを考える。条件は学習データの上だけでなく特徴空間全体にかかるので、求める木は同じ分類器の別の表現になる。定理 1 はこの問題が NP 困難であることを示し、定理 2 は最適な born-again tree の深さが元の木の深さの合計以下で、この上限がちょうど達成される場合があることを示す。</p>
+  </section>
+
+  <section id="cells">
+    <div class="kicker">セルと領域</div>
+    <h2>フォレストの分岐のしきい値で特徴空間をセルに区切ると、セルの中ではフォレストの予測は一定になる</h2>
+    <p>特徴量 \(j\) について、フォレストの木に現れるしきい値（超平面）の集合を \(H_j\) とする。これらで特徴空間を区切った箱（セル）の中では \(F_\mathcal{T}\) が一定なので、born-again tree はこの超平面だけを使って作ればよい。2 つのセル \(\mathbf{z}^L \le \mathbf{z}^R\) で挟まれた箱を領域と呼ぶ。セルと領域の数は特徴量の数について指数的に増える。</p>
+    <div class="eq">\[ |\mathcal{S}_{\mathrm{elem}}| = \prod_{j=1}^p (|H_j| + 1), \qquad |\mathcal{S}_{\mathrm{region}}| = \prod_{j=1}^p \frac{(|H_j|+1)(|H_j|+2)}{2} \]</div>
+    <figure>
+      <img src="assets/fig1_cells_regions.png" alt="Grid of cells on two features, each cell labelled with a filled or empty dot for its majority class. A red rectangle marks a region between corner cells zL and zR; a grey vertical line marks a possible splitting hyperplane; a green box marks a single cell." loading="lazy">
+      <figcaption>図1　2 つの特徴量でのセル（緑）、領域（赤）、分割に使える超平面（灰色）の例。点の黒白はセルの多数決のクラス（論文 Fig. 1、arXiv 版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>領域を超平面で 2 つに分ける再帰を動的計画法で解き、単調性と二分探索で再帰の回数を減らす</h2>
+    <p>領域 \((\mathbf{z}^L, \mathbf{z}^R)\) で忠実な最小の深さを \(\Phi(\mathbf{z}^L, \mathbf{z}^R)\) とすると、特徴量 \(j\) と超平面 \(l\) で左右の部分領域に分ける再帰で書ける。領域の中のセルがすべて同じクラスなら深さは 0（葉 1 枚）である。</p>
+    <div class="eq">\[ \Phi(\mathbf{z}^L, \mathbf{z}^R) = \min_{j} \min_{z^L_j \le l &lt; z^R_j} \Big\{ \mathbb{1}_{jl}(\mathbf{z}^L, \mathbf{z}^R) + \max\big\{ \Phi(\mathbf{z}^L, \mathbf{z}^R_{jl}),\ \Phi(\mathbf{z}^L_{jl}, \mathbf{z}^R) \big\} \Big\} \]</div>
+    <p>\(\mathbb{1}_{jl}\) は左右の部分領域がどちらも深さ 0 で、両端のセルのクラスが同じとき（領域全体が同じクラスのとき）だけ 0 になる。同じクラスかどうかをすべてのセルで確かめると指数的な手間がかかるので、この判定を再帰とメモに組み込んだ。そのうえで次の 2 つの性質を使う。</p>
+    <ul class="def">
+      <li>単調性（定理 3）：部分領域の最適な深さはそれを含む領域の最適な深さ以下である。分けた片方の深さが下界に、分けたあとの値が上界になるので、上界と下界が一致したら探索をやめられる。</li>
+      <li>二分探索（定理 4）：超平面 \(l\) で左の深さが右の深さ以上なら、\(l\) より右の超平面は改善しない（逆も同様）。深さを目的にする場合、特徴量ごとの超平面の候補を \(O(\log(z^R_j - z^L_j))\) 回の再帰で調べられる。</li>
+    </ul>
+    <p>最悪の場合の計算量は \(O(|\mathcal{S}_{\mathrm{region}}| \sum_j \log |H_j|)\) で、NP 困難な問題なので指数的だが、実験では上界と下界による打ち切りのおかげで調べる領域の数は最悪の場合よりはるかに少なかった。メモには各部分問題の最適値だけを残し、木そのものは最後にたどり直して作る。葉の数（L）と DL の目的への変更は付録にある。</p>
+  </section>
+
+  <section id="effort">
+    <div class="kicker">実験の結果 1　計算時間</div>
+    <h2>計算時間は特徴量の数とともに指数的に増えるが、データ点が増えるとむしろ減った</h2>
+    <p>実験は UCI などの 6 データ（Breast-Cancer、COMPAS、FICO、HTRU2、Pima-Diabetes、Seeds）で行った。カテゴリ変数は one-hot 符号化し、連続の特徴量は 10 段階に区切った。10 分割の交差検証の各分割で、深さ 3 の木 10 本からなるランダムフォレスト（分岐ごとに \(p/2\) 個の特徴量を候補にする）を scikit-learn で作り、それを入力にした。実装は C++ で、Xeon 2.10 GHz の 1 スレッドで動かした。</p>
+    <ul class="def">
+      <li>目的ごとでは、二分探索が使える深さ（D）が葉の数（L）や DL より大幅に速かった。</li>
+      <li>FICO から抜き出した小さなデータで、計算時間は特徴量の数について指数的に増えた。木の数の影響はずっと小さかった。データ点が増えると計算時間はむしろ減った。データが多いと個々の木の判断がばらつかず、異なる超平面が少なくなって、動的計画法の状態が減るからである。</li>
+    </ul>
+    <div class="pair">
+      <figure><img src="assets/fig3a_scaling_samples.png" alt="Box plots of computational time in milliseconds against the number of samples from 250 to 10459 for FICO subsets; time decreases as the number of samples grows." loading="lazy"><figcaption>(a) データ点の数に対する計算時間</figcaption></figure>
+      <figure><img src="assets/fig3b_scaling_features.png" alt="Box plots of computational time in milliseconds against the number of features from 2 to 17; time stays near zero up to 10 features and then rises steeply at 15 and 17 features." loading="lazy"><figcaption>(b) 特徴量の数に対する計算時間</figcaption></figure>
+    </div>
+    <p class="src">図2　深さを目的にしたときの計算時間（ミリ秒、FICO の部分データ、各 10 回）。調べていない設定は \(n = 2{,}500\)、\(p = 10\)、木 10 本に固定（論文 Fig. 3 の 3 枚のうち 2 枚、arXiv 版）。</p>
+  </section>
+
+  <section id="size">
+    <div class="kicker">実験の結果 2　木の大きさと精度</div>
+    <h2>born-again tree は大きくなりがちだが、学習データのない領域の分岐を刈り込むとフォレストの葉の合計より小さくなった</h2>
+    <p>6 データの平均で、深さを目的にした born-again tree は深さ 9.3、葉 567.0 枚、葉の数を目的にすると深さ 11.8、葉 227.1 枚、DL では深さ 9.3、葉 266.4 枚だった。DL は最小の深さを保ちながら、葉の数を L の場合に近づけた。葉の数を優先すると、Pima-Diabetes のように深さが 50% 深くなるデータもあった（9.6 と 15.0）。</p>
+    <p>born-again tree は特徴空間のすべての領域でフォレストをまねるので、学習データが 1 つもない領域（たとえば「男性」で「妊娠中」）のための分岐も含む。そこで下から順に、分岐の両側に学習データが 1 つ以上あるかを確かめ、片側にしかない分岐はデータのある側の子で置き換える刈り込みを試した。</p>
+    <ul class="def">
+      <li>刈り込み後の深さは平均 7.4、葉は 32.8 枚で、元のフォレストの葉の合計 51.2 枚より少なかった。たとえば Breast-Cancer では葉 2,279.4 枚が 35.9 枚になった。</li>
+      <li>テストでの精度と F 値は、フォレストと born-again tree で 6 データすべて一致した（平均 0.804 と 0.728）。これは問題の定義から期待どおりである。刈り込み後も平均 0.803 と 0.729 で、差はわずかだった。</li>
+    </ul>
+    <figure>
+      <img src="assets/fig2a_forest.png" alt="Three of the trees in the initial random forest for the Seeds data, each of depth up to three, all splitting first on k-groove at 5.75." loading="lazy">
+      <img src="assets/fig2b_pruned_ba_tree.png" alt="The pruned born-again tree for the same forest: root k-groove at 5.75, then comp, k-length, area, k-width and asym splits, ending in leaves labelled 0, 1 and 2." loading="lazy" style="max-width:30rem;margin-top:0.8rem">
+      <figcaption>図3　Seeds での例。上：元のフォレストの一部の木、下：刈り込んだ born-again tree（論文 Fig. 4 の最初と最後、arXiv 版）。論文の本文は、この例で born-again tree の根の分岐がフォレストのどの木の根とも違う最適な分岐になっていると述べるが、arXiv 版の図では、描かれたフォレストの木の根も born-again tree の根も、すべて k-groove ≤ 5.75 である。</figcaption>
+    </figure>
+  </section>
+
+  <section id="heuristic">
+    <div class="kicker">実験の結果 3　発見的な方法</div>
+    <h2>忠実性は保ったまま大きさの最適性を諦める発見的な方法は、深さと葉の数を約 2 割増やす代わりに大幅に速かった</h2>
+    <p>特徴量が増えると最適な方法の時間は指数的に増える。そこで論文は、領域ごとに無作為に 1,000 個のセルを選んで情報利得が最大の超平面で分け、選んだセルがすべて同じクラスなら整数計画ソルバーで領域全体が同じクラスかを確かめる発見的な方法を作った。同じでなければ分割を続けるので、木は必ず忠実になるが、大きさは最小とは限らない。</p>
+    <p>6 データの平均で、計算時間は深さを目的にした最適な方法が 6.74 秒、葉の数では 234.28 秒、発見的な方法は 0.28 秒だった。代わりに深さは平均 22.53%、葉の数は 20.10% 増えた。Ionosphere、Spambase、Miniboone（13 万件超、特徴量 50 個）のような大きなデータでも 1 分以内に動いた。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">位置づけと限界</div>
+    <h2>最適決定木の動的計画法を「データに合わせる」から「フォレストを正確に写す」問題に使った</h2>
+    <ul class="def">
+      <li>最適決定木の研究は精度の高い疎な木を求めてきたが、フォレストと同じ精度の born-again tree を作る研究はなかった、と論文は位置づける。目的は訓練誤差ではなく、木の大きさを最小にすることである。</li>
+      <li>計算時間は特徴量の数について指数的に増え、実験は 6 データ、深さ 3 の木 10 本のフォレストで、特徴量は 10 段階に区切っている。</li>
+      <li>論文は今後の課題として、より大きなデータのための最適な方法と速い発見的な方法、構築中の刈り込みとの組合せ、born-again tree から見たフォレストの構造の研究を挙げる。学習データのない領域の分岐がフォレストの汎化にどう関わるかは未解明の問いとして残している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{vidal2020bornagain,
+  title     = {Born-Again Tree Ensembles},
+  author    = {Vidal, Thibaut and Schiffer, Maximilian},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {119},
+  pages     = {9743--9753},
+  publisher = {PMLR},
+  year      = {2020}
+}</pre>
+    </div>
+    <p class="src">著者と書誌情報は PMLR 版による。arXiv 2003.11132 の改訂版（v2）は Toni Pacheco を第 2 著者に加えて 3 名としており、PMLR 版では Pacheco は謝辞に挙がっている。ページの数値は arXiv 版によるが、表の数値は PMLR 版の PDF と一致することを確かめた。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

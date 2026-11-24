@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MurTree：動的計画法と探索で最適な決定木を速く求める（論文解説）</title>
+<meta name="description" content="MurTree: Optimal Decision Trees via Dynamic Programming and Search（JMLR 2022）の非公式の解説。深さと分岐の数の上限のもとで誤分類を最小にする木を、深さ 2 の木を頻度表から求める専用の手順、増分計算、類似度にもとづく下界で、DL8.5 より桁違いに速く求める MurTree を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = the state of the art MurTree is compared with (DL8.5, generic depth-2
+                         search that splits the data again and again, GOSDT / OSDT, CART) and its cost
+            --b (blue)   = MurTree: the specialised depth-2 solver on frequency counts, incremental counts,
+                         the similarity-based lower bound, and the runtimes / accuracies it reports
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Journal of Machine Learning Research · 2022</div>
+  <h1>MurTree: Optimal Decision Trees via Dynamic Programming and Search</h1>
+  <p class="subtitle">MurTree：動的計画法と探索による最適な決定木</p>
+
+  <ul class="authors">
+    <li><b>Emir Demirović</b><span>Delft University of Technology</span></li>
+    <li><b>Anna Lukina</b><span>Delft University of Technology</span></li>
+    <li><b>Emmanuel Hebrard</b><span>LAAS CNRS</span></li>
+    <li><b>Jeffrey Chan</b><span>RMIT University</span></li>
+    <li><b>James Bailey</b><span>University of Melbourne</span></li>
+    <li><b>Christopher Leckie</b><span>University of Melbourne</span></li>
+    <li><b>Kotagiri Ramamohanarao</b><span>University of Melbourne</span></li>
+    <li><b>Peter J. Stuckey</b><span>Monash University and DATA61</span></li>
+  </ul>
+
+  <p class="lead">最適決定木の動的計画法では、<span class="A">DL8.5</span> が整数計画や制約プログラミングによる方法を大きく上回っていた。<span class="B">MurTree</span> はその枠組みを深さと分岐の数の上限つきに広げ、深さ 2 の木を頻度表から一度に求める専用の手順と、似た部分問題から作る下界を加えた。47 個のデータで深さ 4 の木を求めると、DL8.5 が 10 分で 19 個で時間切れになったのに対し、MurTree はすべてを解いた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://jmlr.org/papers/v23/20-520.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2007.12652">arXiv</a>
+    <a class="btn" href="https://bitbucket.org/EmirD/murtree">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。深さ2の木を求めるたびにデータを分け直す従来の動的計画法、特徴量の組の頻度表から深さ2の木を求めるMurTreeの専用の手順、前に解いた部分問題との違いから作る下界、DL8.5とMurTreeの深さ4での計算時間、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">深さ 4 の時間切れ 19 個 → 0 個</span><span class="d">47 個のデータで深さ 4 の最適な木を求めたとき、制限時間 10 分で時間切れになったデータの数（DL8.5 → MurTree）。深さ 5 では 32 個 → 8 個だった。</span></li>
+    <li><span class="k">383 秒 → 2 秒</span><span class="d">australian-credit で深さ 4 の最適な木を求める時間（DL8.5 → MurTree）。diabetes では 421 秒 → 2 秒だった。</span></li>
+    <li><span class="k">深さ 2 は頻度表から</span><span class="d">特徴量の組ごとの頻度を一度数えれば、深さ 2 の最適な木はデータを見直さずに求められる。計算量は \(O(|D| \cdot |F|^2)\) から \(O(|D| \cdot m^2 + |F|^2)\) に下がる。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>最適決定木の専用の方法の中では DL8.5 が最も速かったが、それでも深い木や特徴量の多いデータには時間がかかった</h2>
+    <p>CART のような貪欲法は数秒で木を作るが、精度や大きさの点で最良の木とは限らない。最適な決定木を求める方法としては、整数計画、制約プログラミング、SAT による汎用の方法と、決定木に特化した方法が提案されてきた。後者の <a href="../dl8/">DL8</a> と <a href="../dl85/">DL8.5</a> が MurTree の出発点で、DL8.5 は二値のデータで完全二分木を求める問題において、ほかの方法を大きく上回ることが示されていた。</p>
+    <p>論文は、それまでの研究で用語や説明の仕方が違っていた考え方を、動的計画法と探索という標準的な枠組みにまとめ直す。そのうえで、決定木に固有の性質を使う新しい手法を加えて、計算時間を桁違いに減らす。</p>
+  </section>
+
+  <section id="dp">
+    <div class="kicker">問題設定と定式化</div>
+    <h2>深さと分岐の数の上限のもとで誤分類の数を最小にする問題を、左右の部分木を独立に解く動的計画法として書く</h2>
+    <p>特徴量はすべて二値に直して使う（実験では 22 個のデータを MDLP による離散化と one-hot 符号化で二値にした）。木の深さは葉までに通る分岐の最大数、大きさは分岐（特徴量の節点）の数である。決定木には 2 つの性質がある。1 つは、分岐がデータを左右に重なりなく分けるので、左右の部分木を独立に最適化できること（独立性）。もう 1 つは、葉に至る経路の特徴量の順序を入れ替えても分類が変わらず、\(D(f_1, f_2)\) と \(D(f_2, f_1)\) が同じ部分問題になること（重なり）である。データ \(D\)、深さの上限 \(d\)、分岐の数の上限 \(n\) での最小の誤分類の数 \(T(D, d, n)\) は次のように書ける。</p>
+    <div class="eq">\[ T(D, d, n) = \begin{cases} T(D, d, 2^d - 1) & n > 2^d - 1 \\ T(D, n, n) & d > n \\ \min\{|D^+|, |D^-|\} & n = 0 \lor d = 0 \\ \min\limits_{f \in F,\ i \in [0, n-1]} \big\{ T(D(\bar f), d-1, n-i-1) + T(D(f), d-1, i) \big\} & \text{それ以外} \end{cases} \]</div>
+    <p>最後の場合は、根で使う特徴量 \(f\) と、残りの分岐の数を左右にどう配るか（\(i\)）をすべて試すことを表す。DL8.5 は分岐の数を深さで決まる最大値に固定し、<a href="../osdt/">OSDT</a> と <a href="../gosdt/">GOSDT</a> は分岐の数を制約にせず罰則として目的関数に入れていた。MurTree は分岐の数を直接制約にでき、この再帰を葉まで続けずに、深さ 2 の木が必要になった所で専用の手順に切り替える。</p>
+  </section>
+
+  <section id="depth2">
+    <div class="kicker">手法 1　深さ 2 の専用の手順</div>
+    <h2>特徴量の組ごとの頻度を一度数えれば、深さ 2 の最適な木はデータを見直さずに求められる</h2>
+    <p>上の再帰をそのまま使うと、深さ 2 の木を求めるには根の候補 \(|F|\) 通りそれぞれで子の候補を調べるので、データを \(2|F|^2\) 回分けることになり、\(O(|D| \cdot |F|^2)\) の時間がかかる（命題 3）。MurTree は 2 段階で計算する。</p>
+    <ul class="def">
+      <li><strong>頻度を数える</strong>：正例と負例それぞれで、各特徴量 \(f_i\) が 1 である例の数 \(FQ(f_i)\) と、2 つの特徴量がともに 1 である例の数 \(FQ(f_i, f_j)\) を数える。特徴量が二値なので、\(f_i\) が 0 の場合や、片方だけが 1 の場合の数は引き算で求まる（例：\(FQ^+(\bar f_i) = |D^+| - FQ^+(f_i)\)）。</li>
+      <li><strong>頻度から木を選ぶ</strong>：独立性から、左右の子の最良の特徴量は別々に選べる。特徴量の組 \((f_{\mathrm{root}}, f_{\mathrm{child}})\) を 1 回ずつ調べて根ごとに最良の左の子と右の子を更新し、最後に左右の誤分類の和が最小の根を選ぶ。</li>
+    </ul>
+    <p>1 つの例に含まれる 1 の特徴量の数の上限を \(m\) とすると、計算量は \(O(|D| \cdot m^2 + |F|^2)\) になる（命題 6）。二値の特徴量はふつう疎なので、\(m\) は \(|F|\) よりずっと小さい。さらに、続けて呼ばれるデータは少数の例しか違わないことが多いので、前のデータとの差分 \(D_{\mathrm{in}}\)、\(D_{\mathrm{out}}\) だけで頻度を増減させる（増分計算）。差分が新しいデータより小さいときだけ増分で計算し、頻度表は左右の子のために 2 組持っておく。</p>
+  </section>
+
+  <section id="bounds">
+    <div class="kicker">手法 2　下界とキャッシュ</div>
+    <h2>前に解いた似た部分問題の誤分類の数から、取り除かれた例の数を引いたものを、新しい部分問題の下界にする</h2>
+    <p>深さと分岐の数の上限が同じで、前に解いたデータ \(D_{\mathrm{old}}\) の最適な誤分類の数 \(T(D_{\mathrm{old}}, d, n)\) が分かっているとき、新しいデータ \(D_{\mathrm{new}}\) について次の下界が成り立つ（命題 9）。</p>
+    <div class="eq">\[ LB(D_{\mathrm{new}}, D_{\mathrm{old}}, d, n) = T(D_{\mathrm{old}}, d, n) - |D_{\mathrm{out}}| \ \le\ T(D_{\mathrm{new}}, d, n), \qquad D_{\mathrm{out}} = D_{\mathrm{old}} \setminus D_{\mathrm{new}} \]</div>
+    <p>この下界がすでに見つかっている最良の木から決まる上界を超えれば、その部分木は調べずに捨てられる。キャッシュによる下界と違って、同じ経路を前に探索している必要がない。</p>
+    <ul class="def">
+      <li><strong>DL8.5 の下界の改良</strong>：上界のもとで解が見つからなかった部分木の上界を下界として再利用する DL8.5 の方法に、子の部分木の下界も合わせて使う工夫を加えた。</li>
+      <li><strong>キャッシュ</strong>：深さと分岐の数の両方の制約を考えて、部分木と下界を保存する。経路（分岐の組）で引く方法と、届く例の集合で引く方法の 2 つを実装し、実験では例の集合で引くほうが同じか速かった。</li>
+      <li><strong>増分的な求解</strong>：分岐の数を 1 から順に増やして木を求めるとき、前の計算を使い回す。ハイパーパラメータの調整のように、大きさの違う木を続けて求める場面で役に立つ。</li>
+      <li><strong>拡張</strong>：多クラス分類、回帰、葉の数への罰則つきの目的関数、誤分類と大きさの辞書式の最小化、途中で止めても解を返す動作、非線形の評価指標にも広げられる。</li>
+    </ul>
+  </section>
+
+  <section id="runtime">
+    <div class="kicker">実験の結果 1　計算時間</div>
+    <h2>DL8.5 と同じ問題を解くと、MurTree は多くのデータで桁違いに速く、深さ 4 では 47 個すべてを 10 分以内に解いた</h2>
+    <p>実験には UCI や CP4IM などの 85 個の分類問題を使った。DL8.5 と同じ問題を解かせるため、MurTree の分岐の数の上限を深さ 4 では 15、深さ 5 では 31 とし、データ全体で最適な木を求める時間を比べた。制限時間は 10 分である。47 個のデータのうち、深さ 4 で DL8.5 が時間切れになったのは 19 個、MurTree は 0 個だった。深さ 5 では DL8.5 が 32 個、MurTree が 8 個で時間切れになった。たとえば深さ 4 では、australian-credit で 383 秒が 2 秒に、diabetes で 421 秒が 2 秒に、yeast で 186 秒が 2 秒になった。DL8.5 が時間切れになった ionosphere（特徴量 445 個）も、MurTree は 89 秒で解いた。</p>
+    <p>OSDT とは、深さ 4、制限時間 10 分で比べた。OSDT の論文で使われたデータでは、MurTree は数秒で最適な木を求めたが、OSDT は数分かかるか時間切れになった。GOSDT を 68 個のデータで、罰則の係数を既定値 \(0.01 \cdot |D|\)、制限時間 10 分で動かすと、65% のデータで時間切れになった。ただし GOSDT は小さな木を作ることを目的としており、問題の定義が違う点に論文は注意している。MurTree の計算時間は例の数に対してほぼ線形に増えた。深さ 3 の木は数秒、深さ 4 は数分で求まることが多いが、深さ 5 はデータによってはかなり難しい。</p>
+  </section>
+
+  <section id="generalisation">
+    <div class="kicker">実験の結果 2　テスト精度</div>
+    <h2>深さと分岐の数をすべての組合せで調整すると、MurTree の木は CART の木よりテスト精度が一貫して高かった</h2>
+    <p>84 個のデータで、層化 5 分割交差検証のグリッドサーチでハイパーパラメータを決め、深さ 1〜4 で調整した CART と比べた。MurTree は 3 通りに調整した。CART の木の深さと分岐の数にそのまま合わせると（MT-F）、訓練精度は高いのにテスト精度は CART とほぼ同じだった。論文は、CART の木の形がそのデータに合っていない可能性を挙げている。CART の木を上限として調整すると（MT-R）多くのデータで良くなり、深さ 1〜4 と分岐の数をすべて調整すると（MT-A）一貫して CART よりテスト精度が高かった（図1）。計算時間は CART がほとんど 1 秒未満で、MurTree はずっと長いが、多くの応用では許容できると論文は述べている。</p>
+    <p>ランダムフォレストは訓練精度でもテスト精度でも有利だった。それでも、およそ半数のデータでは深さ 4 の最適な木が同程度の精度だった。</p>
+    <figure>
+      <img src="assets/fig1_vs_cart.png" alt="Two histograms for the MT-A tuning setting over the benchmark datasets. Left: number of datasets by difference in test accuracy between MurTree and CART in percentage points, ranging from minus 1 to 19, with most datasets at 0 to 4 points. Right: number of datasets by MurTree runtime range in seconds, with most in the 0 to 4 second range and a few above 300 seconds." loading="lazy">
+      <figcaption>図1　深さと分岐の数をすべて調整した MurTree（MT-A）と CART の比較。左：テスト精度の差（ポイント）ごとのデータの数。右：MurTree の計算時間の範囲ごとのデータの数（論文 Fig. 2 の下段、JMLR 版）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>MurTree は DL8 から続く動的計画法の系統を、深さ 2 の専用の手順と下界でまとめ直し、のちの研究の比較の基準になった</h2>
+    <ul class="def">
+      <li><strong>解き方</strong>：アイテム集合（届く例の集合）ごとの動的計画法と探索。深さ 2 の部分は頻度表による専用の手順で解く。</li>
+      <li><strong>目的と制約</strong>：深さと分岐の数の上限のもとで誤分類の数を最小にする。葉の数への罰則つきの目的関数、多クラス分類、回帰などにも広げられる。</li>
+      <li><strong>限界</strong>：特徴量は事前に二値化する必要があり、論文は離散化の方法の検討を今後の課題としている。深さ 5 の木はデータによってはまだ難しい。深さ 3 の専用の手順も試したが、予備実験では実際の利点が見られなかった。</li>
+      <li><strong>その後</strong>：同じ Delft のグループの <a href="../optimal-vs-greedy/">van der Linden ら</a>は、最適な木と貪欲な木を多くのデータでそろえて比べ直している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{demirovic2022murtree,
+  title   = {{MurTree}: Optimal Decision Trees via Dynamic Programming and Search},
+  author  = {Demirovi{\'c}, Emir and Lukina, Anna and Hebrard, Emmanuel and Chan, Jeffrey and Bailey, James and Leckie, Christopher and Ramamohanarao, Kotagiri and Stuckey, Peter J.},
+  journal = {Journal of Machine Learning Research},
+  volume  = {23},
+  number  = {26},
+  pages   = {1--47},
+  year    = {2022},
+  url     = {http://jmlr.org/papers/v23/20-520.html}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は JMLR の出版版による。書誌は JMLR の BibTeX で確認した。論文と JMLR のページはコードの場所として bitbucket.org/EmirD/murtree を挙げている（GitHub にも MurTree/murtree がある）。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

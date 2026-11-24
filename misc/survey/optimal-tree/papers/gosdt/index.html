@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GOSDT：多様な目的関数と連続値に広げた疎で最適な決定木（論文解説）</title>
+<meta name="description" content="Generalized and Scalable Optimal Sparse Decision Trees（ICML 2020）の非公式の解説。OSDT を重みつき正解率・F 値・AUC などの目的関数に広げ、例の集合で部分問題を識別する境界つき動的計画法で、連続値の特徴量のすべてのしきい値を使っても最適な木を求める GOSDT を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = what earlier optimal-tree methods do: optimise accuracy only, and reduce
+                         continuous thresholds by bucketization (DL8.5, BinOCT), which loses optimality
+            --b (blue)   = GOSDT: other objectives (balanced / weighted accuracy, F-score, AUC), all thresholds,
+                         and dynamic programming with bounds over support sets
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2020</div>
+  <h1>Generalized and Scalable Optimal Sparse Decision Trees</h1>
+  <p class="subtitle">一般化し、大きな問題に広げた疎で最適な決定木</p>
+
+  <ul class="authors">
+    <li><b>Jimmy Lin</b><span>University of British Columbia</span></li>
+    <li><b>Chudi Zhong</b><span>Duke University</span></li>
+    <li><b>Diane Hu</b><span>Duke University</span></li>
+    <li><b>Cynthia Rudin</b><span>Duke University</span></li>
+    <li><b>Margo Seltzer</b><span>University of British Columbia</span></li>
+  </ul>
+
+  <p class="lead">それまでの最適決定木は<span class="A">正解率</span>しか最適化できず、連続値の特徴量は<span class="A">しきい値の候補を減らす前処理</span>で扱っていた。論文はこの前処理が最適性を損なうことを示す。<span class="B">GOSDT</span> は目的関数を F 値や AUC などに広げ、例の集合で部分問題を識別する境界つきの動的計画法で、すべてのしきい値を候補にしたまま最適な木を求める。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v119/lin20g.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2006.08690">arXiv</a>
+    <a class="btn" href="https://github.com/Jimmy-Lin/GeneralizedOptimalSparseDecisionTrees">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。同じラベルが続く所の分岐を禁じる前処理、その前処理で最適な正解率が93.5%から92.2%に下がる例、別々の条件から同じ例の集合に着く部分問題を1つにまとめるGOSDTの動的計画法、目的関数ごとの木のAUC、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">前処理で 93.5% → 92.2%</span><span class="d">論文が作った 2 次元のデータで、しきい値の候補を減らす前処理をすると、最適な木の訓練精度が下がった。BinOCT、DL8.5、GOSDT の 3 つで同じ値が得られた。</span></li>
+    <li><span class="k">AUC 0.92（正解率で最適化すると 0.78）</span><span class="d">FourClass のデータで、目的関数ごとに求めた最適な木の訓練データでの ROC の下の面積（\(\lambda = 0.01\)）。論文の図の凡例に書かれた値。</span></li>
+    <li><span class="k">DL8.5 より数桁速い</span><span class="d">どちらも C++ の実装で比べた付録の実験の結論。特徴量を増やしたときの遅くなり方も、GOSDT は DL8.5 や OSDT より小さかった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>疎で最適な決定木には、不均衡なデータの扱いと、連続値の特徴量の扱いという 2 つの課題が残っていた</h2>
+    <p><a href="../osdt/">OSDT</a> は規則のリストを最適化する CORELS の考え方を決定木に広げ、誤分類率と葉の数の罰則の和を最小にする木を求めた。ただし OSDT も CORELS も正解率を最適化するように作られており、クラスの数が偏ったデータで使いたい目的関数は扱えない。</p>
+    <p>連続値の特徴量では、値の種類の数だけ分岐の候補が増え、候補が 1 つ増えるたびに問題の大きさが指数的に増える。そこで BinOCT や <a href="../dl85/">DL8.5</a> は、値の順に並べて同じラベルの例が隣り合う所では分けない、という前処理（論文の言う bucketization）で候補を減らしていた。論文はこの前処理が一見無害でも最適性を損なうことを証明し、すべてのしきい値を候補にしたまま解ける方法を提案する。</p>
+  </section>
+
+  <section id="objectives">
+    <div class="kicker">手法 1　目的関数の一般化</div>
+    <h2>偽陽性と偽陰性について単調な損失と、AUC のような順位の統計量を、葉の数の罰則つきで直接最適化する</h2>
+    <p>木は OSDT と同じく葉の集まりで表し、目的関数は損失 \(\ell\) と葉の数 \(H_d\) の罰則の和とする。</p>
+    <div class="eq">\[ R(d, \mathbf{x}, \mathbf{y}) = \ell(d, \mathbf{x}, \mathbf{y}) + \lambda H_d \]</div>
+    <ul class="def">
+      <li><strong>偽陽性 FP と偽陰性 FN について単調な損失</strong>：正解率、バランス正解率（真陽性率と真陰性率の平均）、重みつき正解率（偽陰性に重み \(\omega\) をかける）、F 値。F 値では、正例の割合が高い葉が負、低い葉が正と予測される矛盾が起こりうるので、予測の高い葉から順に走査して単調になるようにする。</li>
+      <li><strong>順位の統計量</strong>：ROC 凸包の下の面積（AUCch）と、偽陽性率が \(\theta\) 以下の左側だけの面積（pAUCch）。順位の統計量はふつう例の数の 2 乗の計算が要るが、疎な木では同じ葉の例がすべて同じスコアになり、葉の数も少ないので速く計算できる。凸な代理の損失は使わず、元の統計量そのものを最適化する。</li>
+    </ul>
+    <p>枝刈りの下界も目的関数ごとに作り直した。たとえば AUCch では、これから分ける葉がうまく分かれて正例だけの葉と負例だけの葉になる最良の場合を考え、それでも現在の最良値に届かない木は子孫ごと捨てる（定理 2.1、2.2）。OSDT の下界のうち、そのまま他の目的関数に使えたのは葉の数の上限と葉の並べ替えの下界だけで、残りは新たに導いている。</p>
+  </section>
+
+  <section id="bucketization">
+    <div class="kicker">理論　前処理の問題</div>
+    <h2>同じラベルが隣り合う所の分岐を禁じる前処理は、最適な木の訓練精度を下げることがある</h2>
+    <p>論文は、この前処理をしたデータでの最大の訓練精度が、前処理をしないデータでの最大の訓練精度より低くなりうることを、例を作って示した（定理 3.1）。図1 の 2 次元のデータでは、前処理をしないときの最適な訓練精度は 93.5%、前処理をすると 92.2% だった。どちらの値も BinOCT、DL8.5、GOSDT の 3 つで最適性を証明したうえで同じ値が得られている。論文は、次元が高くなると損失はもっと大きくなると予想している。</p>
+    <figure>
+      <img src="assets/fig1_bucketization.png" alt="Two panels of the same two-dimensional dataset with blue points (label 0) and orange points (label 1). Left: the optimal tree without bucketization uses a vertical split near f1 = 3.4 and separates the orange groups well. Right: with bucketization that vertical split is not allowed and the optimal tree's regions misclassify more points." loading="lazy">
+      <figcaption>図1　前処理なし（左）と前処理あり（右）で求めた最適な木の領域。左の縦の分岐は前処理をすると使えない（論文 Fig. 1、ICML 版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="dpb">
+    <div class="kicker">手法 2　境界つきの動的計画法</div>
+    <h2>部分問題を分岐の条件ではなく例の集合で識別し、上下界を親へすぐに伝えて探索を絞る</h2>
+    <p>加法的な損失（重みつきの誤分類など）には、境界つきの動的計画法（DPB）を使う。部分問題は決定木の節点で、その左右の枝が子の部分問題になる。部分問題 \(p\) の最小の目的関数は、特徴量 \(j\) で分けたときの左右の最小値の和の最小である。</p>
+    <div class="eq">\[ R^*(p) = \min_j \big( R^*(p_l^j) + R^*(p_r^j) \big) \]</div>
+    <ul class="def">
+      <li><strong>例の集合による識別</strong>：データの異なる特徴量の値の組 \(z_1, \dots, z_U\) を求め、部分問題を、そこに届く \(z_u\) の集合を表す長さ \(U\) のビットベクトルで識別する。DL8.5 は根からの条件の論理積で部分問題を識別するが、違う条件でも届く例が同じなら最適な部分木は同じなので、GOSDT はそれらをまとめて一度に解く。</li>
+      <li><strong>非同期の上下界の更新</strong>：部分問題を優先度つきのキューで管理し、依存関係をグラフで持つ。子の上下界が変わったら、親を高い優先度でキューに入れて親の上下界をすぐ計算し直す。DL8.5 が子を解き終えるまで待つ再帰呼び出しなのに対し、GOSDT は子を解き終える前に、ある分岐が別の分岐より悪いと分かれば、その分岐を捨てられる。</li>
+      <li><strong>最初の上下界</strong>：下界は同じ特徴量の値をもつ例のうち少数派のクラスをすべて間違えるとした値、上界は全部を一方のクラスと予測した値で、累積和を使って定数時間で計算する。</li>
+    </ul>
+    <div class="eq">\[ \mathit{lb} = \lambda + \sum_u s_u\, z_u^{\min}, \qquad \mathit{ub} = \lambda + \min\Big( \sum_u s_u\, z_u^-,\ \sum_u s_u\, z_u^+ \Big) \]</div>
+    <p>例の集合で識別すると、似たしきい値の分岐は似た例の集合を生むので、子孫の部分問題の多くを共有する。論文はこれを「増分的な類似サポートの下界」（定理 4.1）として示した。根の分岐だけが違い、左右に行く例の違いが割合 \(\omega\) 以下の 2 つの木では、その子孫の目的関数の差は \((\omega + 2S_{\mathrm{uncertain}})\,\ell_{\max}\) 以下になる。以前の研究では、似た特徴量どうしを比べる下界は確かめる手間のほうが大きく、実際には使えなかった。GOSDT ではこの共有が自然に起こり、連続値の特徴量のすべてのしきい値をダミー変数にしても、いくつかの連続値の特徴量なら扱える。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験の結果</div>
+    <h2>目的関数を変えると ROC の違う木が得られ、正解率と葉の数のつり合いでも、特徴量を増やしたときの速さでも GOSDT が優れていた</h2>
+    <p>実験には UCI の 7 個（Monk1〜3、Tic-Tac-Toe、Balance Scale、Car Evaluation、Iris）、LIBSVM の FourClass、COMPAS、FICO、モバイル広告のクーポンのデータの計 11 個を使った。FourClass で 6 つの目的関数それぞれの最適な木を求めると、訓練データでの ROC の下の面積は、正解率で 0.78、バランス正解率で 0.81、重みつき正解率（\(\omega = 3\)）で 0.82、F 値（\(\omega = 0.9\)）で 0.79、AUCch で 0.92、pAUCch（\(\theta = 0.2\)）で 0.85 だった（図2）。正解率以外を完全に最適化できる決定木の方法はほかにないので、この実験には比較相手がない。</p>
+    <p>葉の数と訓練精度の関係では、GOSDT は正解率と葉の数のつり合いを直接最適化するので、効率的フロンティア上の木を出す。ほかの方法が最適からどれだけ離れているかも分かる。付録の例では、Monk1 で GOSDT の木の精度が、同じ葉 8 枚の BinOCT の木より 20% 高かった。Monk2 では同じ葉 7 枚の DL8.5 の木より 3% 高かった。</p>
+    <p>連続値の特徴量をすべてのしきい値で二値化し、隣り合う \(k\) 個ずつをまとめて特徴量の数を変えると、特徴量が増えたときの遅くなり方は GOSDT がふつう DL8.5 や OSDT より小さかった（図3）。付録では、どちらも C++ の実装である DL8.5 より GOSDT が数桁速く、規模の大きな問題にも対応できたと報告している。一方で、Python 版の PyGOSDT は Python の OSDT ほど速くはなかった。BinOCT は深さ 5、制限時間 5 分で 1 つも完了しなかったため、この実験から外している。</p>
+    <figure>
+      <img src="assets/fig2_roc.png" alt="Training ROC curves on the FourClass dataset for trees optimised for six objectives. The legend reads acc/0.78, bacc/0.81, wacc(omega=3)/0.82, f1(omega=0.9)/0.79, auc/0.92 and pauc(theta=0.2)/0.85; the AUC-optimised tree has the curve closest to the top-left corner." loading="lazy">
+      <figcaption>図2　FourClass での訓練データの ROC（\(\lambda = 0.01\)）。凡例は目的関数と、その木の ROC の下の面積（論文 Fig. 2、ICML 版）。</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/fig3_slowdown.png" alt="Two scatter plots of slow-down against number of binary features for COMPAS (top) and FICO (bottom), for CART, DL8.5, GOSDT, OSDT and PyGOSDT. DL8.5 slows down sharply after a few features; OSDT rises steeply at around 50 to 80 features on COMPAS; GOSDT stays low over more features than DL8.5 and OSDT." loading="lazy">
+      <figcaption>図3　二値の特徴量の数を増やしたときの遅くなり方（各方法の最速の時間との比）。上は COMPAS、下は FICO（\(\lambda = 0.3125\) または深さの上限 5）（論文 Fig. 6、ICML 版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>GOSDT は OSDT の目的関数と DL8.5 のような動的計画法を合わせたもので、のちの GOSDT-guesses や TreeFARMS は GOSDT を広げて作られた</h2>
+    <ul class="def">
+      <li><strong>解き方</strong>：加法的な損失では例の集合で部分問題を識別する境界つきの動的計画法、そうでない損失（F 値、AUC など）では OSDT に近い PyGOSDT を使う。</li>
+      <li><strong>目的と制約</strong>：損失 ＋ \(\lambda\) × 葉の数。損失は正解率、バランス正解率、重みつき正解率、F 値、AUCch、pAUCch。深さは決めない。</li>
+      <li><strong>限界</strong>：論文自身が、特徴量の数が少ないか中程度のデータで最も効果的だと述べている。例の数には強く、数万件を扱える。途中で止めた場合は最適性のギャップを報告する。</li>
+      <li><strong>その後</strong>：<a href="../guessing-thresholds/">GOSDT-guesses</a>（2022）は、勾配ブースティングからしきい値と下界を推測して GOSDT をさらに速くした。<a href="../treefarms/">TreeFARMS</a>（2022）は GOSDT の探索を使って、最適値に近い木をすべて列挙する。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{lin2020generalized,
+  title     = {Generalized and Scalable Optimal Sparse Decision Trees},
+  author    = {Lin, Jimmy and Zhong, Chudi and Hu, Diane and Rudin, Cynthia and Seltzer, Margo},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {119},
+  pages     = {6150--6160},
+  publisher = {PMLR},
+  year      = {2020}
+}</pre>
+    </div>
+    <p class="src">本文の数値と図は ICML の出版版（PMLR）による。データの一覧、Monk1・Monk2 の木の比較、DL8.5 との速さの比較は付録で、arXiv 版（2006.08690 v4）を読んだ。書誌は PMLR のページで確認した。Lin と Zhong は同等の貢献と脚注にある。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

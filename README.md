@@ -11,6 +11,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/cv/` | `cv/index.html` | 所属・職歴・授業・学歴・受賞 |
 | `/misc/` | `misc/index.html` | 文献リストなどの一覧（nav の Misc）。節を足して色々置く |
 | `/misc/survey/budget-uplift/` | `misc/survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。中身は `_data/survey_budget_uplift.yml`。解説ページは `papers/<slug>/` |
+| `/misc/survey/optimal-tree/` | `misc/survey/optimal-tree/index.html` | 最適決定木の文献リスト。中身は `_data/survey_optimal_tree.yml`。系譜の図の矢印は `lineage`（論文の `id` で指す） |
 | `/misc/survey/pricing/` | `misc/survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml` |
 | `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml` |
 | （404） | `404.html` | 旧 URL `/survey/...` を `/misc/survey/...` に転送する |

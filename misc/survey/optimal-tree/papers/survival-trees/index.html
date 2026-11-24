@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimal Survival Trees：打ち切りのある生存時間の最適な木（論文解説）</title>
+<meta name="description" content="Optimal Survival Trees（Machine Learning 2022）の非公式の解説。比例ハザードモデルの尤度にもとづく葉ごとの誤差を Optimal Trees の座標降下で最小化し、打ち切りのある生存時間データから生存木を学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the greedy survival trees OST is compared with (rpart, ctree): splits chosen
+                         top-down one at a time, their locally best threshold, their results
+            --b  (blue)   = OST: the whole tree improved by coordinate descent on the likelihood-based
+                         error, its tree and its results
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* ---------- small tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.92rem; max-width: var(--prose); width: 100%; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; }
+.tbl th:first-child, .tbl td:first-child { text-align: left; }
+.tbl thead th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Machine Learning · 2022</div>
+  <h1>Optimal Survival Trees</h1>
+  <p class="subtitle">最適な生存木</p>
+
+  <ul class="authors">
+    <li><b>Dimitris Bertsimas</b><span>Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Jack Dunn</b><span>Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Emma Gibson</b><span>Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Agni Orfanoudaki</b><span>Operations Research Center, Massachusetts Institute of Technology</span></li>
+  </ul>
+
+  <p class="lead">打ち切りのある生存時間データを扱う既存の生存木（R の <span class="A">rpart や ctree</span>）は、分岐を上から1つずつ貪欲に決め、決めた分岐を見直さない。この論文は分類木の <a href="../oct/">Optimal Trees</a> の枠組みを生存時間に広げ、各葉の当てはまりを比例ハザードモデルの尤度で測りながら、<span class="B">木全体の目的関数を座標降下で改善する</span> Optimal Survival Trees（OST）を提案する。真の木がわかる合成データでは、データが増えるほど OST は真の木の構造に近づき、貪欲な2手法との差が開いた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1007/s10994-021-06117-0">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2012.04284">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。打ち切りのある生存時間と生存木、Framingham のデータで ctree が上から順に決めた木、OST が分岐を見直して得た木、合成データでのクラスの回復率の推移、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">クラスの回復率 92%</span><span class="d">学習データ 10,000 件、打ち切り中程度の合成データでの OST の値。rpart は 79%、ctree は 51% で、どちらもデータが増えるほど下がった（論文 Table 1）。</span></li>
+    <li><span class="k">KM 面積比 87.8%</span><span class="d">同じ条件で、葉のカプラン・マイヤー曲線が真の生存曲線にどれだけ近いかを、分岐のない木と比べた値。rpart は 84.8%、ctree は 77.4%（論文 Table 2）。</span></li>
+    <li><span class="k">実データ 44 件で 5 指標とも平均が最上位</span><span class="d">UCI のデータに人工的な打ち切りを加えた比較。Uno の C、Brier の比 2 種では rpart・ctree との差が有意で、Cox の比と Harrell の C では有意でなかった（論文 Table 3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>既存の生存木は打ち切りのある生存時間を扱えるが、分岐を上から1つずつ貪欲に決める</h2>
+    <p>生存時間解析では、関心のある出来事（発症や死亡など）が起きるまでの時間を扱う。観察が途中で終わった人は「少なくともこの時点までは出来事が起きていない」ことしかわからない。これが右側打ち切りで、観察 \(i\) は最後に観察した時刻 \(t_i\) と、出来事が起きたか（\(\delta_i = 1\)）打ち切られたか（\(\delta_i = 0\)）の組で表される。よく使われる Cox 比例ハザード回帰は共変量の効果を線形に入れるので、非線形な効果や交互作用を見つけにくい。</p>
+    <p>生存木は共変量の空間を分割し、生存時間の分布が似た観察を同じ葉に集める。葉の生存分布はカプラン・マイヤー曲線などで要約する。ただし CART を含む多くの木の学習法は上から貪欲に分岐を選ぶので、ある分岐を選ぶときに、その下に来る分岐との組合せを考えない。公開ソフトウェアとして使いやすい生存木は、martingale 残差にもとづく <span class="A">rpart</span> と、条件付き推測の検定にもとづく <span class="A">ctree</span>（party パッケージ）の 2 つで、論文はこの 2 つを比較相手にする。</p>
+  </section>
+
+  <section id="objective">
+    <div class="kicker">手法 1　葉ごとの誤差</div>
+    <h2>各葉の誤差をその葉のデータだけで計算できるように、比例ハザードモデルの尤度で当てはまりを測る</h2>
+    <p>座標降下では、木の 1 か所を変えるたびに目的関数を計算し直す。各葉の誤差がその葉のデータだけで決まれば、変えた分岐の下の部分木だけを計算し直せば済む。そこで論文は子ノードどうしの差を最大にする分割規則（ログランク検定など）ではなく、1 つのノードの純度を測る規則を選び、LeBlanc と Crowley（1992）の尤度にもとづく方法を使う。観察 \(i\) の生存時間 \(S_i\) は、共通の累積ハザード \(\Lambda(t)\) を係数 \(\theta_i\) 倍した比例ハザードモデルに従うと仮定する。</p>
+    <div class="eq">\[ \mathrm{P}(S_i \le t) = 1 - e^{-\theta_i \Lambda(t)}, \qquad \hat\Lambda(t) = \sum_{i:\, t_i \le t} \frac{\delta_i}{\sum_{j:\, t_j \ge t_i} 1} \]</div>
+    <p>\(\Lambda(t)\) は Nelson–Aalen 推定量 \(\hat\Lambda\) で置き換える。同じ葉 \(k\) に入る観察には共通の係数を使い、尤度を最大にする係数は、葉の中の出来事の数を累積ハザードの合計で割った値になる。</p>
+    <div class="eq">\[ \hat\theta_k = \frac{\sum_i \delta_i\, I\{T_i = k\}}{\sum_i \hat\Lambda(t_i)\, I\{T_i = k\}}, \qquad \mathrm{error}_k = \sum_{i:\, T(i) = k} \Big( \delta_i \log \frac{\delta_i}{\hat\Lambda(t_i)} - \delta_i \log \hat\theta_k - \delta_i + \hat\Lambda(t_i)\, \hat\theta_k \Big) \]</div>
+    <p>\(T(i)\) は観察 \(i\) が入る葉である。葉の誤差 \(\mathrm{error}_k\) は、観察ごとに別々の係数をもつ飽和モデル（\(\hat\theta_i^{\mathrm{sat}} = \delta_i / \hat\Lambda(t_i)\)）と比べた対数尤度の差である。木全体の誤差はこれを葉について合計したものになる。</p>
+  </section>
+
+  <section id="optimization">
+    <div class="kicker">手法 2　木全体の最適化</div>
+    <h2>木全体の目的関数が下がる限り、ノードごとに分岐の削除・付け替え・追加を試す座標降下を繰り返す</h2>
+    <p>Optimal Trees の枠組みでは、木の誤差と複雑さの重みつき和を最小にする。複雑さは軸に平行な分岐なら分岐の数で、\(\alpha\) が当てはまりと木の大きさのバランスを決める。</p>
+    <div class="eq">\[ \min_T\ \ \mathrm{error}(T, D) + \alpha \cdot \mathrm{complexity}(T), \qquad \mathrm{error}(T, D) = \sum_{k \in \mathrm{leaves}(T)} \mathrm{error}_k(D) \]</div>
+    <p>この問題は混合整数最適化として書けるが、<span class="B">Optimal Trees</span> はソルバーで厳密に解くのではなく、座標降下で解く。ノードをランダムな順に訪れ、内部ノードなら分岐を消すか、そのノードで最良の分岐に付け替える。葉なら新しい分岐を足す。目的関数が改善する変更は受け入れ、どの変更でも改善しなくなるまで繰り返す。こうして得られる木は局所最適解なので、ランダムに作った複数の初期木から始めて、目的関数が最も小さい木を選ぶ。複雑さの重み \(\alpha\) も、学習中に作られた複数の木を使って自動で調整する。論文はこの方法で実用的な時間内に「最適またはそれに近い解」が得られると述べるが、最適性の証明は与えていない。</p>
+    <p>OST はこの枠組みに上の生存時間の誤差を入れたものである。座標降下の各ステップで、葉ごとに \(\hat\theta_k\) を計算し直し、葉の誤差を合計して、変更を受け入れるかを決める。実装は Julia で、学術目的なら無料のライセンスで使えると論文は書いている。</p>
+  </section>
+
+  <section id="metrics">
+    <div class="kicker">評価の方法</div>
+    <h2>真の木から生成した合成データで、木の構造をどれだけ復元したかと、生存曲線をどれだけ当てたかを別々に測る</h2>
+    <p>生存モデルの既存の指標（Cox の部分尤度、Harrell と Uno の C 統計量、Brier スコア）は、木のように多くの観察が同じ予測値をもつモデルでは情報が少なく、ノードを増やすだけで値が上がることもある。論文の予備実験では 3 つのモデルを比べたとき、すべての指標で他より劣らないモデルが決まったのは約 30% の場合だけだった。そこで論文は生存分布を葉ごとに決めた「真の木」\(C\) からデータを生成し、学習した木 \(T\) を 2 つの面から評価する。</p>
+    <ul class="def">
+      <li><strong>構造の復元</strong>：ノードの均質性（各葉に同じ真のクラスの観察がどれだけそろっているか）と、クラスの回復率（同じ真のクラスの観察がどれだけ同じ葉にまとまっているか）。前者は大きな木ほど、後者は小さな木ほど有利なので、2 つを並べて見る（図1）。</li>
+      <li><strong>生存曲線の当てはまり</strong>：葉のカプラン・マイヤー曲線と真の生存曲線のあいだの面積（図2）を、分岐のない木での面積と比べた KM 面積比 \(\mathrm{AR} = 1 - \sum_i \mathrm{ABC}_i^{T} / \sum_i \mathrm{ABC}_i^{T_0}\)。AR は回帰の \(R^2\) のように、木を使うことでどれだけ精度が上がったかを表す。</li>
+    </ul>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig2_class_metrics.png" alt="Five small trees with observations of two classes, x and o. The true tree (top left) splits them perfectly: node homogeneity 100 percent, class recovery 100 percent. A tree without splits has homogeneity 50 and recovery 100 percent; a wrong split gives 52 and 52 percent; an extra split gives homogeneity 100 and recovery 76 percent; a mixed tree gives 86 and 60 percent." loading="lazy">
+        <figcaption>図1　ノードの均質性とクラスの回復率の例。左上が真の木（論文 Fig. 2、arXiv v1）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig3_area_between_curves.png" alt="A smooth true survival curve and a step-shaped Kaplan-Meier estimate over time from 0 to 4; the shaded area between them is labelled ABC." loading="lazy">
+        <figcaption>図2　真の生存曲線 \(1 - F(t)\) とカプラン・マイヤー推定のあいだの面積（ABC）（論文 Fig. 3、arXiv v1）。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">実験の結果 1　合成データ</div>
+    <h2>合成データでは、OST はデータが増えるほど真の木に近づき、rpart と ctree はクラスの回復率が下がった</h2>
+    <p>20,000 件、共変量 6 個（連続 3 個と、水準が 2、3、5 の離散 3 個）のデータを作り、深さ 3〜4 のランダムな真の木の葉に指数・Weibull・対数正規・ガンマのいずれかの生存分布を割り当てた。データセットは 1,000 個で、各 10,000 件をテストに取り分け、残りから学習データを \(n = 100\) から \(10{,}000\) まで 7 通り抜き出した。打ち切りの割合は 0〜80% の 9 段階で、低（0〜20%）・中（30〜50%）・高（60〜80%）にまとめて報告する。3 手法とも深さと複雑さを 5 分割の交差検証で選び、葉の最小の大きさは 5 件にそろえた。</p>
+    <p>既存の生存モデルの指標の平均では、3 手法ともデータが増えるほど成績が上がり、OST は一貫して他の 2 手法を上回った。構造の復元では違いがはっきり出た（表は打ち切り中程度の値）。ノードの均質性は 3 手法とも \(n\) とともに上がるが、クラスの回復率は <span class="B">OST</span> が 88〜92% を保ったのに対し、<span class="A">rpart</span> は 90% から 79% に、<span class="A">ctree</span> は 78% から 51% に下がった。論文はこの傾向から、貪欲な 2 手法はデータが増えても真の木に確実に収束するとはいえないと述べる。データが大きいとき、OST の葉の数は真の木（平均 6 個）とほぼ同じで、rpart と ctree の木はやや大きかった。</p>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>学習データの件数 \(n\)</th><th>100</th><th>500</th><th>1,000</th><th>5,000</th><th>10,000</th></tr></thead>
+      <tbody>
+        <tr><td class="B">OST</td><td>37 / 92</td><td>59 / 88</td><td>70 / 89</td><td>85 / 92</td><td>89 / 92</td></tr>
+        <tr><td class="A">rpart</td><td>38 / 90</td><td>55 / 84</td><td>65 / 82</td><td>77 / 80</td><td>84 / 79</td></tr>
+        <tr><td class="A">ctree</td><td>40 / 78</td><td>57 / 70</td><td>67 / 63</td><td>83 / 53</td><td>86 / 51</td></tr>
+      </tbody>
+    </table></div>
+    <p class="src">ノードの均質性 / クラスの回復率（%）、打ち切り中程度。論文 Table 1（arXiv v1）から 5 列を抜き出した。</p>
+    <p>生存曲線の当てはまり（KM 面積比）でも OST が全般に良かったが、データが小さいときの差は小さい（打ち切り中程度、\(n = 100\) で OST 11.01%、rpart 10.61%、ctree 7.74%、\(n = 10{,}000\) で 87.77%、84.84%、77.44%）。真の木でさえ小さなデータでは曲線の推定が粗いので、葉をカプラン・マイヤー曲線で要約するなら、葉の最小の大きさを 50 件以上にする必要があるかもしれない、と論文は述べる。別々の学習データで作った 2 本の木の似ている度合いや、学習データに雑音を加えた実験でも、大きなデータでは OST が最も安定し、雑音による成績の低下は 3 手法で同程度だった。</p>
+    <figure>
+      <img src="assets/fig7_km_area_ratio.png" alt="Three line charts of KM area ratio against log of sample size for low, moderate and high censoring. All curves rise with sample size; the true tree is highest, OST (blue) lies above rpart (red) and ctree (green), with the gap growing for larger samples." loading="lazy">
+      <figcaption>図3　KM 面積比の平均と学習データの件数（対数）。黒が真の木、青が OST、赤が rpart、緑が ctree（論文 Fig. 7、arXiv v1。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="real">
+    <div class="kicker">実験の結果 2　実データ</div>
+    <h2>UCI の 44 個のデータに人工的な打ち切りを加えた比較では、5 つの指標すべてで OST の平均が最も高く、3 つでは差が有意だった</h2>
+    <p>連続の目的変数をもつ UCI のデータ 44 個（63 件から 100,000 件、特徴量は最大 383 個）に、合成データと同じ方法で 0〜80% の打ち切りを加え、半分を学習、半分をテストに使った。木の深さは 7 まで許した。真の生存分布はわからないので、ここでは既存の 5 指標で比べる。</p>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>指標</th><th class="B">OST</th><th class="A">rpart</th><th class="A">ctree</th><th>p（対 rpart）</th><th>p（対 ctree）</th></tr></thead>
+      <tbody>
+        <tr><td>Cox の比</td><td>0.1118</td><td>0.1091</td><td>0.1090</td><td>0.2288</td><td>0.2222</td></tr>
+        <tr><td>Harrell の C</td><td>0.7873</td><td>0.7866</td><td>0.7818</td><td>0.4355</td><td>0.1045</td></tr>
+        <tr><td>Uno の C</td><td>0.6650</td><td>0.6523</td><td>0.6441</td><td>0.0288</td><td>0.0013</td></tr>
+        <tr><td>Brier の比（1 時点）</td><td>0.3841</td><td>0.3627</td><td>0.3516</td><td>0.0001</td><td>&lt; 10<sup>−5</sup></td></tr>
+        <tr><td>積分 Brier の比</td><td>0.4451</td><td>0.4262</td><td>0.4231</td><td>0.0135</td><td>0.0055</td></tr>
+      </tbody>
+    </table></div>
+    <p class="src">平均スコアと、OST の方が高いという片側の対応のある t 検定の p 値。論文 Table 3（arXiv v1）。</p>
+    <p>他の 2 手法のどちらにも劣らなかった場合の割合は、指標によって OST が 48.7〜59.3%、rpart が 27.3〜33.3%、ctree が 33.6〜38.4% だった（同点があるので合計は 100% にならない。論文 Table 4）。</p>
+  </section>
+
+  <section id="framingham">
+    <div class="kicker">応用例</div>
+    <h2>Framingham 心臓研究のデータでは、OST は貪欲法と同じ変数を使いながら、しきい値と分岐の順序を変えた木を作った</h2>
+    <p>冠動脈疾患と診断された Framingham 心臓研究の参加者（元のコホートと子孫のコホート）について、心筋梗塞または脳卒中が起きるまでの時間を、性別、喫煙、収縮期・拡張期血圧、降圧薬の使用、BMI、糖尿病から予測した。OST の木は最初に BMI 25.031 で分け、BMI が低い群は喫煙で、高い群は糖尿病で分け、糖尿病のない群をさらに喫煙で分けた（図4）。論文は、BMI 25 が NIH の過体重の基準と一致すること、リスクが最も高いのは糖尿病のある過体重の群だったことを挙げ、これらの分岐は既知の危険因子と整合すると述べる。</p>
+    <p>同じデータで <span class="A">rpart</span> の木は BMI の分岐 1 つだけだった。<span class="A">ctree</span> の木は OST と同じ変数を使ったが、BMI のしきい値は貪欲に分けたときに局所的に最良な 24.117 で（rpart も同じ値）、OST は 25.031 を選んだ。また ctree は過体重の群を先に喫煙で、次に糖尿病で分けた。貪欲法は一度決めた分岐を見直さないので、順序を入れ替えた方が木全体として良くなることに気づけない、と論文は説明する。論文が報告した Brier スコアは OST 0.0486、rpart 0.0249、ctree 0.0467 だった。</p>
+    <figure>
+      <img src="assets/fig12_fhs_ost.png" alt="Optimal Survival Tree for 2,296 coronary heart disease patients in the Framingham Heart Study. Node 1 splits on BMI at 25.031; the lower-BMI node splits on smoking, the higher-BMI node splits on diabetes, and its non-diabetic child splits on smoking. Each node shows a Kaplan-Meier survival curve against age." loading="lazy">
+      <figcaption>図4　Framingham 心臓研究の冠動脈疾患患者に OST を当てはめた木。各ノードに人数、打ち切りの割合、年齢に対するカプラン・マイヤー曲線を示す（論文 Fig. 12、arXiv v1。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>OST は最適性を証明する手法ではなく、木全体の目的関数を局所探索で改善する手法を生存時間に広げたものである</h2>
+    <ul class="def">
+      <li><strong>解き方</strong>：混合整数最適化の定式化から出発するが、実際には <a href="../oct/">OCT</a> と同じ座標降下（複数の初期木からの局所探索）で解く。動的計画法や MIO ソルバーの系統と違い、得られた木が最適だという証明はない。</li>
+      <li><strong>目的関数</strong>：分類の誤分類率の代わりに、比例ハザードモデルの尤度にもとづく葉ごとの誤差を使う。葉ごとに独立に計算できることが、座標降下で何度も計算し直すための条件になっている。</li>
+      <li><strong>評価</strong>：真の木を使う合成データの指標（ノードの均質性、クラスの回復率、KM 面積比）を提案し、既存の指標が食い違う問題を避けて比較している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{bertsimas2022optimal,
+  title   = {Optimal survival trees},
+  author  = {Bertsimas, Dimitris and Dunn, Jack and Gibson, Emma and Orfanoudaki, Agni},
+  journal = {Machine Learning},
+  volume  = {111},
+  number  = {8},
+  pages   = {2951--3023},
+  year    = {2022},
+  doi     = {10.1007/s10994-021-06117-0}
+}</pre>
+    </div>
+    <p class="src">ページの内容と数値は arXiv 2012.04284 v1（2020 年 12 月 8 日）による。出版版（Machine Learning、2022 年）の本文は確認していないので、数値や図が出版版と異なる可能性がある。書誌情報は Crossref による。所属は arXiv 版の表記。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

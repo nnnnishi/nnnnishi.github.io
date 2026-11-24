@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>最適な処方的な木：観察データから二重頑健な推定値で学ぶ（論文解説）</title>
+<meta name="description" content="Learning Optimal Prescriptive Trees from Observational Data（Management Science 2026）の非公式の解説。葉ごとの単純な平均に頼る従来法の弱点を示し、IPW・直接法・二重頑健法で推定した方策の価値を目的にして、フローにもとづく混合整数最適化で深さを決めた処方的な木を学習する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = existing prescriptive trees (K-PT, B-PT): per-leaf averages of the outcomes
+                         of those who received each treatment, valid only under Assumption 1
+            --b  (blue)   = the proposed formulations: IPW / DM / DR estimates of the policy value
+                         optimised over all trees of depth d with a flow-based MIO
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.flowpair { grid-template-columns: 1.6fr 1fr; align-items: end; }
+@media (max-width: 760px) { .flowpair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Management Science · 2026</div>
+  <h1>Learning Optimal Prescriptive Trees from Observational Data</h1>
+  <p class="subtitle">観察データから最適な処方的な木を学習する</p>
+
+  <ul class="authors">
+    <li><b>Nathanael Jo</b><span>University of Southern California</span></li>
+    <li><b>Sina Aghaei</b><span>University of Southern California</span></li>
+    <li><b>Andrés Gómez</b><span>University of Southern California</span></li>
+    <li><b>Phebe Vayanos</b><span>University of Southern California</span></li>
+  </ul>
+
+  <p class="lead">処方的な木は共変量で分岐して葉ごとに処置を1つ割り当てる二分木である。観察データから学ぶ従来法は、<span class="A">葉ごとに実際にその処置を受けた人の結果を平均して</span>処置の効果を見積もる。この見積もりは、葉の中で処置の割当てが共変量と独立でないと偏る。この論文は、<span class="B">因果推論の推定量（IPW・直接法・二重頑健法）で見積もった方策の価値を目的関数にして、深さ \(d\) 以下の木全体を混合整数最適化（MIO）で最適化する</span>定式化を示す。推定量が一致性をもつなら、得られる木は標本が増えるにつれて母集団で最適な木に近づく。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/mnsc.2021.02813">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2108.13628">arXiv</a>
+    <a class="btn" href="https://github.com/D3M-Research-Group/odtlearn">Code（ODTlearn）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。病気の人ほど処置を受けている観察データ、葉の中の平均で雑音の特徴量の木を高く見積もる従来法、傾向スコアの逆数で重みづけする提案法、ワルファリンのデータでの結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">0.9 と見積もる、真の値 0.5 の木</span><span class="d">論文の例 1 では、葉の中の平均で見積もる従来法（K-PT）が、雑音の特徴量で分岐する木の価値を 0.9 と見積もる。この木の真の値は 0.5 で、真の値 0.6 の最適な木より悪い。</span></li>
+    <li><span class="k">漸近的に厳密</span><span class="d">傾向スコアの推定量（IPW）、結果の回帰の推定量（直接法）、そのどちらか一方（二重頑健法）がほとんど確実に収束すれば、MIO の最適値と最適な木は、母集団での最適値と最適な木の集合に収束する（命題 1〜3）。</span></li>
+    <li><span class="k">51%・48% → 80% 弱</span><span class="d">ワルファリンの投与量のデータで処置の割当てが無作為でない設定では、最適な処置を当てた割合が K-PT で平均 51%、B-PT で 48% だった。提案法の二重頑健法は 80% をやや下回った（深さ 2）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>観察データでは処置を受けた人と受けなかった人が系統的に違うので、反事実の結果は補正して推定する必要がある</h2>
+    <p>目的は個人の共変量 \(x\in\mathcal X\subseteq\mathbb R^F\) を処置の候補 \(k\in\mathcal K\) に対応づける方策 \(\pi\) を、深さ \(d\) 以下の処方的な木の集合 \(\Pi_d\) から選ぶことである。結果 \(Y\) は大きいほど望ましいとし、方策の価値 \(Q(\pi)=\mathbb E[Y(\pi(X))]\) を最大にする。手元にあるのは、過去の方策で処置 \(K_i\) を受けた人の共変量 \(X_i\) と、その処置での結果 \(Y_i=Y_i(K_i)\) だけである。受けなかった処置での結果は観測されない。</p>
+    <p>論文が想定するのは、ホームレスの人への住宅支援や臓器移植の割当てのような、影響の大きい場面である。こうした場面では、方策を関係者が監査できるよう解釈しやすく、かつ定めたクラスのなかで最適であることが求められる。データは無作為化試験ではなく、ソーシャルワーカーや医師が個人の特徴を見て処置を決めた記録から得られることが多い。</p>
+    <p>そこで論文は条件付き交換可能性 \(Y(k)\perp K\mid X\) と正値性 \(\mu(k,x)=\mathbb P(K=k\mid X=x)>0\) を仮定し、因果推論の 3 つの推定量で方策の価値を見積もる。傾向スコアの逆数で重みづけする IPW、処置ごとの結果の回帰 \(\hat\nu_k(x)\) で予測する直接法（DM）、両者を組み合わせる二重頑健法（DR）である。DR は次の形をしている。</p>
+    <div class="eq">\[ \color{#1D4ED8}{\hat Q^{\mathrm{DR}}(\pi)=\frac1I\sum_{i=1}^{I}\Bigl[\hat\nu_{\pi(X_i)}(X_i)+\frac{\mathbb 1(\pi(X_i)=K_i)}{\hat\mu(K_i,X_i)}\bigl(Y_i-\hat\nu_{K_i}(X_i)\bigr)\Bigr]} \]</div>
+    <p>IPW は \(\hat\mu\) が、DM は \(\hat\nu\) が一致推定量なら一致性をもつ。DR は、どちらか一方が収束すれば漸近的に一致する。論文によれば、DR の分散は実際には IPW より小さく、DM より大きいことが多い。</p>
+  </section>
+
+  <section id="existing">
+    <div class="kicker">従来法の弱点</div>
+    <h2>葉ごとの平均に頼る従来法は、葉の中で処置が無作為でないと、雑音の特徴量で分岐する木を選ぶことがある</h2>
+    <p>Kallus（2017）の方法（論文では K-PT）は、木の葉 \(n\) ごとに、処置 \(k\) を実際に受けた人の結果の平均 \(\hat Y_n(k)\) で \(\mathbb E[Y(k)\mid X\in\mathcal X_n]\) を見積もり、葉に入る人の割合で重みをつけて足し合わせる。</p>
+    <div class="eq">\[ \color{#C2410C}{\hat Q^{\mathrm{K\text{-}PT}}(\pi)=\sum_{n\in\mathcal L}\frac{\#\{i:X_i\in\mathcal X_n\}}{I}\,\hat Y_n\bigl(\pi(\mathcal X_n)\bigr)} \]</div>
+    <p>この見積もりが偏らないのは、どの木の各葉でも処置と共変量が独立（\(K\perp X\mid X\in\mathcal X_n\)）なときである。論文はこれを仮定 1 と呼び、K-PT と Bertsimas ら（2019）の方法（B-PT）がともにこの仮定に頼っていると指摘する。B-PT は K-PT の目的に、葉の中の結果のばらつきへの罰則を加えたものである。完全に無作為化された実験なら仮定 1 は自動的に成り立つが、処置の確率が共変量に依存する観察データでは、適度な深さの木ではまず成り立たない。</p>
+    <p>論文の例 1 は病気かどうかを表す \(X^1\) と、結果にも処置にも関係しない雑音 \(X^2\) の 2 つの二値の共変量をもつ。健康な人の 90% は処置を受けず、病気の人の 90% は処置を受ける。期待される結果は、健康な人が処置なしで 1、処置ありで 0.8、病気の人が処置なしで 0、処置ありで 0.2 である。最適な方策は \(X^1\) で分岐して病気の人だけを処置する深さ 1 の木で、価値は 0.6 である。\(X^2\) で分岐する木は、葉にどの処置を割り当てても価値が 0.5 にとどまる。</p>
+    <p>ところが K-PT は、\(X^2\) で分岐した葉で処置なしの結果を 0.9 と見積もる。処置を受けなかった人の大半が健康な人だからである。こうして雑音の \(X^2\) で分岐して誰も処置しない木を 0.9 と評価し、0.6 の最適な木より選んでしまう。B-PT は罰則の重み \(\theta\) が十分小さければこの例では最適な木を選ぶ。しかし、すべての結果に \(1-X^2\) を足した例 2 では、\(X^2\) で分岐する木のほうが見積もりの値が高く、ばらつきも小さくなるため、\(\theta\) をどう選んでも B-PT は \(X^2\) で分岐する木を選ぶ。</p>
+    <figure>
+      <img src="assets/fig2_kpt_bpt_example.png" alt="Three rows of depth-one trees, branching on X1 (left) or X2 (right). Top row, true expected outcomes: branching on X1 gives 1.0 and 0.2 at the leaves, branching on X2 gives 0.5 and 0.5. Middle row, K-PT estimator: branching on X1 gives 1.0 and 0.2, branching on X2 gives 0.9 and 0.9 with no treatment, and the X2 tree is underlined as chosen. Bottom row, B-PT estimator: the same means plus leaf variances 0 for X1 and 0.09 for X2; the X1 tree is chosen for sufficiently small theta." loading="lazy">
+      <figcaption>図1　例 1 で、\(X^1\) で分岐する木（左）と \(X^2\) で分岐する木（右）を、真の期待値（上）、K-PT の見積もり（中）、B-PT の見積もり（下）で比べたもの。下線の木がそれぞれの基準で選ばれる。葉の色は割り当てる処置（青：\(K=0\)、緑：\(K=1\)）を表す（論文 Fig. 2、arXiv v2。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>処置の偏りの強さを変えると、K-PT がどの木を選ぶかも変わる。下の図は例 1 の「健康な人が処置を受けない確率」と「病気の人が処置を受ける確率」をともに \(p\) とし、データが十分に多いときの見積もりを解説者が計算したものである。論文が示しているのは \(p=0.9\) の場合だけである。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label for="pk"><span class="row"><span>処置の偏り \(p\)</span><output id="pOut">0.90</output></span>
+          <input type="range" id="pk" min="0.05" max="0.95" step="0.01" value="0.90"></label>
+        <div class="legend"><span>逆向きに偏る</span><span>無作為（0.5）</span><span>強く偏る</span></div>
+        <p class="note" id="state"></p>
+      </div>
+      <div class="grid">
+        <span class="h"></span><span class="h">\(X^1\) で分岐（最適）</span><span class="h">\(X^2\) で分岐（雑音）</span>
+        <span class="rowlab">真の価値<small>反事実が分かる場合</small></span>
+        <div class="cell"><div class="bar"><i class="fb" style="width:60%"></i></div><div class="nums"><span>0.600</span><span>病気の人だけ処置</span></div></div>
+        <div class="cell"><div class="bar"><i class="fb" style="width:50%"></i></div><div class="nums"><span>0.500</span><span>どの割当てでも</span></div></div>
+        <span class="rowlab"><span class="A">K-PT</span><small>葉の中の平均</small></span>
+        <div class="cell" id="c11"><div class="bar"><i class="fa" style="width:60%"></i></div><div class="nums"><span>0.600</span><span>病気の人だけ処置</span></div></div>
+        <div class="cell" id="c12"><div class="bar"><i class="fa" id="b12"></i></div><div class="nums"><span id="v12"></span><span id="t12"></span></div></div>
+        <span class="rowlab"><span class="B">IPW・DR</span><small>\(\mu\) が既知の場合</small></span>
+        <div class="cell"><div class="bar"><i class="fb" style="width:60%"></i></div><div class="nums"><span>0.600</span><span>病気の人だけ処置</span></div></div>
+        <div class="cell"><div class="bar"><i class="fb" style="width:50%"></i></div><div class="nums"><span>0.500</span><span>真の値と一致</span></div></div>
+        <p class="note">K-PT の \(X^2\) の木の見積もりは、処置なしで \(p\)、処置ありで \(0.8(1-p)+0.2p\) になり、大きいほうを選ぶ。\(X^1\) で分岐した葉では処置が \(X^1\) だけで決まるので仮定 1 が成り立ち、見積もりは真の値と一致する。</p>
+      </div>
+    </div>
+    <p class="src">図2　処置の偏り \(p\) と K-PT が選ぶ木（解説者による計算。設定は論文の例 1 と同じで、\(p=0.9\) が論文の値）。\(p=0.5\) は完全な無作為化にあたる。\(p\) が 0.6 を超えるか 1/3 を下回ると、K-PT は雑音の \(X^2\) で分岐する木を選ぶ。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>推定した価値を葉ごとの重みに変え、強い最適分類木のフローの定式化を処方的な木に広げる</h2>
+    <p>IPW・DM・DR の推定値は、どれも「各データ点にどの処置を割り当てたか」についての和になっている。そのため、処方的な木を学ぶ問題は、重みつきの分類木を学ぶ問題とみなせる。論文は同じグループの<a href="../strong-oct/">強い最適分類木（Aghaei ら）</a>のフローにもとづく MIO を、予測から処方へ広げる。</p>
+    <p>深さ \(d\) の完全二分木の分岐ノードを \(\mathcal B\)、末端ノードを \(\mathcal T\) とし、根の上に始点 \(s\) を、処置ごとに終点 \(t_k\) を置く。始点以外のすべてのノードから各終点へ辺を張り、すべての辺の容量を 1 にする。共変量 \(x\) をもつデータ点は始点から入り、分岐に従って下り、割り当てられた処置の終点へ流れ出る。変数はノード \(n\) で特徴量 \(f\) をしきい値 \(\theta\) で分岐するかを表す \(b_{nf\theta}\)、ノード \(n\) で処置を割り当てるかを表す \(p_n\)、どの処置かを表す \(w_{nk}\)、そして流れ \(z\) である。</p>
+    <div class="pair flowpair">
+      <figure>
+        <img src="assets/fig4a_tree.png" alt="A perfect binary tree of depth 2 with nodes 1 to 7. Nodes 1 to 3 form the branching set B and nodes 4 to 7 form the terminal set T." loading="lazy">
+      </figure>
+      <figure>
+        <img src="assets/fig4b_flow_graph.png" alt="Flow graph built from the depth-2 tree: a source s points to node 1, tree edges go down to nodes 2 to 7, and every node from 1 to 7 has an edge to each of two sinks t1 and t2." loading="lazy">
+      </figure>
+    </div>
+    <p class="src">図3　深さ 2 の処方的な木（左）と、それに対応するフローのグラフ（右）。処置が 2 つなので終点は \(t_1,t_2\) の 2 つ（論文 Fig. 4、arXiv v2）。</p>
+    <p>DR にもとづく定式化の目的関数は次のとおりである。論文はこの式で傾向スコアを \(\mu\) と書いている。</p>
+    <div class="eq">\[ \max\;\sum_{x\in\mathcal X}\sum_{k\in\mathcal K}\sum_{n\in\mathcal B\cup\mathcal T} z_x^{n,t_k}\sum_{i:X_i=x}\Bigl[\hat\nu_k(X_i)+\frac{\mathbb 1[k=K_i]\,(Y_i-\hat\nu_{K_i}(X_i))}{\mu(K_i,X_i)}\Bigr] \]</div>
+    <p>制約は処置を割り当てていないノードでは必ず分岐すること、流れの保存、分岐の向きに沿ってしか流れないこと、割り当てた処置の終点にしか流れ込めないことを表す。IPW の定式化は括弧の中を \(\mathbb 1[K_i=k]Y_i/\mu(K_i,X_i)\) に、DM の定式化は \(\hat\nu_k(X_i)\) だけに置き換える。制約は 3 つで共通である。</p>
+    <p>強い最適分類木の定式化はデータ点ごとに流れを決めていた。これに対し、この論文は同じ共変量をもつデータ点をまとめて 1 本の流れ \(z_x\) で扱う。同じ共変量のデータ点は根から終点まで同じ道をたどるので、問題の規模を大きく減らせることが多いという。共変量は有限個の整数値をとると仮定し、連続の特徴量は事前に離散化する。\(w\) と \(z\) の整数性を外しても整数の解が得られる。整数性を外したときの制約と連続変数の数は \(O(2^d|\mathcal K||\mathcal X|)\)、二値変数の数は \(O(2^d|\mathcal F|\max_f|\Theta(f)|)\) で増える。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>推定量が一致性をもてば、MIO で選んだ木は標本が増えるにつれて母集団で最適な木に収束する</h2>
+    <p>論文は学習データ \(\mathcal D\) とは独立な大きさ \(N\) の標本で \(\hat\mu^N\)、\(\hat\nu^N\) を学習する設定で、3 つの定式化の漸近的な性質を示す。母集団での最適値を \(v^\star\)、最適な木の集合を \(\mathcal S^\star\) とする。</p>
+    <ul class="def">
+      <li><b>命題 1（IPW）</b>：条件付き交換可能性、潜在的な結果の有界性、\(\mu\) と（\(N\) が十分大きいときの）\(\hat\mu^N\) の正値性を仮定する。\(\hat\mu^N\) が \(\mu\) にほとんど確実に収束すれば、\(I\) と \(N\) が十分大きいとき、MIO の最適値は確率 1 で \(v^\star\) に収束し、最適解の集合は確率 1 で \(\mathcal S^\star\) に含まれる。</li>
+      <li><b>命題 2（DR）</b>：同じ仮定に加えて \(\hat\mu\)、\(\hat\nu\) の極限が存在して有界なら、\(\hat\mu^N\to\mu\) と \(\hat\nu^N\to\nu\) のどちらか一方が成り立てば同じ結論が得られる。</li>
+      <li><b>命題 3（DM）</b>：条件付き交換可能性のもとで \(\hat\nu^N\) が \(\nu\) にほとんど確実に収束すれば、同じ結論が得られる。</li>
+    </ul>
+    <p>論文はこれを「漸近的に厳密」と呼ぶ。例 1・例 2 のデータでも、\(\mu\) か \(\nu\) が分かっていて標本が十分多ければ、3 つの定式化で学習した深さ 1 の木は母集団で最適になる。共変量が有限個の値しかとらないので、木の候補 \(\Pi_d\) も有限であり、証明はこの有限性を使っている。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験</div>
+    <h2>処置の割当てが無作為でないとき、従来法の正答率は大きく落ちたが、二重頑健法は安定していた</h2>
+    <p>評価の指標はテストデータで最適な処置を割り当てた割合（OOSP）である。比較の相手は K-PT と B-PT、<a href="../multi-action-policy/">policytree（PT、Zhou ら）</a>、causal forest と causal tree（CF・CT）、処置ごとの回帰で最もよい処置を選ぶ regress &amp; compare（R&amp;C）である。B-PT は著者らのコードがないため、K-PT の MIO を B-PT の目的関数に合わせて実装している。計算は 6 CPU、時間制限 4 時間で、MIO は Gurobi 10.0.0 で解いた。</p>
+    <p><b>合成データ</b>は Athey と Imbens の設定にならい、2 つの標準正規の共変量のうち \(X^1\) だけが処置の効果を決める。各データ点に最適な処置を割り当てる確率 \(p\) を 0.1・0.25・0.5・0.75・0.9 と変え、学習 500 件、テスト 10,000 件の組を 5 つずつ作った。共変量は 10 分位で離散化し、深さ 1 の木を学習した。すべての手法が 9 秒以内に最適に解けている。</p>
+    <figure>
+      <img src="assets/fig5_synthetic.png" alt="Two line charts of out-of-sample probability of correct treatment assignment against the probability of correct assignment in the data (0.1 to 0.9). Left: R&amp;C (LR) stays near 77, DR and DM near 75, IPW rises from about 61 to 73 then falls to 67, K-PT and B-PT are near 67 to 69 at low p and fall to about 48 at 0.75 and 0.9. Right: DR variants and PT stay near 75, except DR (Lasso, DT) at 0.1 and DR (LR, Log) at 0.9." loading="lazy">
+      <figcaption>図4　合成データでの OOSP（深さ 1）。横軸はデータで最適な処置が割り当てられた確率 \(p\)。左：IPW・DM・DR の最良のモデルと R&amp;C、K-PT、B-PT。右：DR で一方の推定量だけを劣ったモデル（Lasso、ロジスティック回帰）にした場合と PT。赤い破線の意味は論文に書かれていない（論文 Fig. 5、arXiv v2。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>DR と DM は \(p\) によらず OOSP 75% 前後を保ち、IPW は 60〜72% で一貫して劣った。結果の真の関数が線形なので、線形回帰を使う DM がよく、DR もその恩恵を受けたと論文は説明している。PT は DR と同じ目的関数を連続の特徴量のまま最適化し、DR とほぼ同じ性能だった。このことから、この例では離散化による損失はほとんどないと論文は述べる。DR の一方の推定量を劣ったモデルにしても、もう一方のよい推定量に支えられて、性能は \(p\) をまたいでおおむね保たれた。</p>
+    <p>K-PT と B-PT は、無作為の \(p=0.5\) では OOSP 70% 程度だったが、\(p\in\{0.75,0.9\}\) では 50% 前後に落ちた。これは処置を無作為に割り当てた場合と同程度である。観察データの多くは大半の人に正しい処置を割り当てる方策から得られるので、この設定での失敗は特に問題になると論文は述べる。R&amp;C との差、つまり解釈しやすさの代償は、平均で 2 ポイントだった。</p>
+    <p><b>ワルファリンの投与量のデータ</b>は、国際ワルファリン薬理遺伝学コンソーシアムの公開データにもとづく。公表された用量の式で各患者の最適な用量を求め、3 段階に離散化した。過去の処置の割当ては、完全な無作為と、式の係数を幅 \(r=0.06\)・\(0.11\) で揺らして決める 2 つの設定の 3 通りである。各設定の 5 つの実現値を学習 3,000 件・テスト 1,386 件に 5 回ずつ分け、計 75 組で評価した。年齢・身長・体重は 5 区間に離散化した。</p>
+    <figure>
+      <img src="assets/fig7_warfarin.png" alt="Three panels of box plots of out-of-sample probability of correct treatment assignment. Left, randomized: most methods between about 84 and 90, B-PT spread from about 62 to 86. Middle and right, r = 0.06 and 0.11: IPW, DM and DR between about 70 and 85 with deeper DR highest, K-PT and B-PT spread widely between about 32 and 80, untuned CF and CT spread widely, tuned CF near 75, PT near 75 to 80, R&amp;C variants near 80 to 88. A dashed line near 63 marks assigning K = 0 to everyone." loading="lazy">
+      <figcaption>図5　ワルファリンのデータでの OOSP の分布。左：無作為、中央：\(r=0.06\)、右：\(r=0.11\)。断りのない MIO の手法と PT は深さ 2。黄色の破線は全員に \(K=0\) を割り当てる単純な方策（論文 Fig. 7、arXiv v2。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>無作為の設定では、IPW・DM・DR はいずれも平均 84.5% だった。無作為でない 2 つの設定では DR が 80% をやや下回り、DM は平均 76%、IPW は 73% と少し劣った。K-PT と B-PT はばらつきが大きく、平均 51% と 48% で、全員に \(K=0\) を割り当てる単純な方策（約 63%）より悪かった。K-PT はすべての問題を最適に解いているので、目的関数そのものが無作為でないデータに向かないと論文は結論づけている。</p>
+    <p>DR の木を深さ 3・4 にすると、時間制限内に最適性は証明できなかったものの、OOSP は平均 86.0%・87.3% に上がった。提案法の深さ 2 の木は \(10^2\) 秒程度、K-PT は \(10^3\) 秒程度で最適に解けた。深さ 3・4 の DR の最適性ギャップは 20% 未満で、B-PT は 2 次の目的関数のため 150% を超える大きなギャップが残ったと本文は述べる。CF は調整しないと無作為でない設定で K-PT 並みに落ち、ハイパーパラメータを調整すると平均 74% まで上がった。PT は \(r=0.11\) で 73% と DR の 76% を下回った。論文は、連続の特徴量のまま学習した PT の過学習が原因だろうと推測している。</p>
+    <p class="src">付録の結果の表では B-PT の深さ 2 の最適性ギャップが平均 52.30% となっており、本文の「150% を超える」と食い違う。表の値は 3 つの設定をまとめた平均のようで、深さ 3・4 の DR の OOSP（82.47%・84.78%）も本文の 86.0%・87.3% とは一致しない。このページの本文の数値は論文本文の記述に従った（解説者の注）。</p>
+  </section>
+
+  <section id="constraints">
+    <div class="kicker">制約の追加</div>
+    <h2>MIO なので、予算や公平性の条件を線形の制約として足せる</h2>
+    <p>流れの変数 \(z\) を数えれば、各処置を割り当てる人数が線形の式で書ける。そのため、深さで決まる木の大きさに加えて、次のような条件を制約として加えられる。再帰的に木を作る PT や CF には、こうした制約は入れられないと論文は述べている。</p>
+    <ul class="def">
+      <li><b>解釈しやすさ</b>：木の大きさを \(M\) までに抑える制約 \(\sum_n p_n\le M\)（\(p_n\) は処置を割り当てるノードを表す。論文はこれを分岐ノードの数の制限と説明している）。</li>
+      <li><b>予算</b>：処置 \(k\) を割り当てる人を全体の割合 \(C_k\) 以下に抑える。<div class="eq">\[ \sum_{n\in\mathcal B\cup\mathcal T}\sum_{x\in\mathcal X}\sum_{i:X_i=x} z_x^{n,t_k}\le|\mathcal I|\,C_k\qquad\forall k\in\mathcal K \]</div></li>
+      <li><b>処置の割当ての公平性</b>：保護属性のグループの間で、処置 \(k\) を受ける割合の差を \(\delta\) 以下にする。正当な特徴量で条件づけた制約も書ける。</li>
+      <li><b>結果の公平性</b>：各グループの推定した結果の平均を \(\gamma_p\) 以上にする。すべてのグループに共通の \(\gamma\) を、実行可能な範囲で最大にすれば max-min の公平性になる。</li>
+      <li><b>確率的な方策</b>：制約を足すと実行不能になることがある。そのときは \(w\) と \(z\) の整数性を外し、\(w_{nk}\) をノード \(n\) で処置 \(k\) を割り当てる確率と読む。</li>
+    </ul>
+    <p>合成データでは、処置 \(K=1\) を受けられる人の割合を \(C\in[0.05,0.4]\) に制限して DR の木を学習した。制約がなければ約半数が \(K=1\) を必要とするので、予算を絞るほど性能は下がり、制約なしで最大 78% の OOSP が \(C=0.05\) では 57% になった。線形回帰と決定木の組では、どの \(p\) でも性能が揃った。劣った推定量を使うと、無作為でない設定（\(p\neq0.5\)）で性能が下がった。</p>
+    <figure>
+      <img src="assets/fig9_budget.png" alt="Four line charts of out-of-sample probability of correct treatment assignment against budget in percent, for nu estimated by LR or Lasso (columns) and mu estimated by DT or Log (rows). Lines for five values of p rise from about 53 to 59 at small budgets to plateaus of about 68 to 79 at a budget of 40 percent and stay flat to 100 percent; with LR and DT the lines nearly coincide, with Lasso and Log they spread widely." loading="lazy">
+      <figcaption>図6　予算（\(K=1\) を受けられる人の割合）と DR の木の OOSP。列は \(\hat\nu\) の推定法（線形回帰・Lasso）、行は \(\hat\mu\) の推定法（決定木・ロジスティック回帰）、線の色はデータで最適な処置が割り当てられた確率 \(p\)（論文 Fig. 9、arXiv v2。横軸は 100% まで描かれているが、本文が述べる予算の範囲は 5〜40%。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>ワルファリンのデータでは、前節で学習した木がいずれも白人の患者に不利だった。白人と非白人の結果の差の中央値は、無作為の設定で 0.04、無作為でない設定で 0.08 だった。そこで DM で推定した 2 グループの結果の平均の差を \(\delta\in[0.01,0.08]\) 以下にする制約を加えた。\(\delta\) を小さくすると実際の差も小さくなり、無作為の設定で \(\delta=0.01\) とすると差の中央値は約 −0.02、無作為でない設定では \(\delta=0.01\)（\(r=0.06\)）、\(0.02\)（\(r=0.11\)）で差の中央値が 0 になった。ただし、制約は推定値について課すので、有限の標本で実際の差が \(\delta\) 以内に収まる保証はないと論文は注意している。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>強い最適分類木のフローの定式化を、因果推論の推定量を目的にした処方的な木に移した</h2>
+    <ul class="def">
+      <li><b>木の形</b>：二分木で、分岐は 1 つの特徴量としきい値による単変量の分岐。共変量は有限個の整数値をとると仮定し、連続の特徴量は事前に離散化する。木の大きさは最大の深さ \(d\) で決め、処置を割り当てるノードの数の上限も制約で入れられる。</li>
+      <li><b>目的関数</b>：IPW・直接法・二重頑健法で推定した方策の価値（期待される結果）の最大化。予測の精度ではなく、割り当てた処置の結果を直接評価する。</li>
+      <li><b>解き方</b>：<a href="../strong-oct/">強い最適分類木</a>のフローにもとづく MIO を、処置ごとの終点をもつグラフに広げ、同じ共変量のデータ点をまとめて扱う。実験は Gurobi 10.0.0 で解いた。</li>
+      <li><b>最適性の保証</b>：MIO を解き切れば、推定した価値について深さ \(d\) 以下の木のなかで最適になる。推定量が一致性をもてば、標本が増えるにつれて母集団で最適な木に収束する（命題 1〜3）。実験では、ワルファリンのデータの深さ 3・4 は 4 時間で解き切れず、ギャップが残った。</li>
+      <li><b>データ</b>：Athey と Imbens にならった合成データと、ワルファリンの投与量のデータ（3 つの処置）。どちらも反事実の結果が分かるように作ってある。</li>
+      <li><b>関連する論文</b>：<a href="../kallus-2017/">Kallus（2017）</a>と<a href="../opt/">Bertsimas ら（2019）</a>は仮定 1 に頼る先行研究として分析し、比較している。<a href="../multi-action-policy/">Zhou ら</a>の policytree は同じ二重頑健な目的を再帰的に最適化する比較相手である。</li>
+    </ul>
+    <p>（解説者の注）分類の最適決定木の研究からみると、この論文の要点は 2 つある。1 つは、処方の問題を「データ点ごとの重みが処置によって変わる分類」に書き換えれば、分類で発展した強い定式化がそのまま使えることである。もう 1 つは、目的関数を偏りを補正した推定値にすれば、仮定 1 のような木の構造への強い仮定がいらなくなることである。一方で、推定値の質は \(\hat\mu\)、\(\hat\nu\) の質に左右され、ワルファリンの公平性の実験では、傾向スコアが極端に小さいデータ点のため DR の推定値が偏ると著者らは述べている。同じ考え方は同じグループの<a href="../robust-oct/">頑健な木</a>や<a href="../fair-oct-tradeoffs/">公平な木</a>でも使われている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・式・命題の番号・図は arXiv 2108.13628 v2（2023 年 7 月 24 日）による。Management Science の出版版（2026 年 7 月 30 日オンライン公開）の本文は自動取得できなかったため、照合していない。書誌は Crossref で確認したが、巻・号・ページはまだ登録されていない。出版版での所属は、Jo が USC の Center for Artificial Intelligence in Society、ほかの 3 人がそれに加えて Department of Industrial and Systems Engineering（Vayanos は Department of Computer Science も）と Crossref に記載されている。コードは論文本文には書かれておらず、同じグループの ODTlearn パッケージが処方的な木の実装としてこの論文を挙げている。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{jo2026learning,
+  title   = {Learning Optimal Prescriptive Trees from Observational Data},
+  author  = {Jo, Nathanael and Aghaei, Sina and G{\'o}mez, Andr{\'e}s and Vayanos, Phebe},
+  journal = {Management Science},
+  year    = {2026},
+  doi     = {10.1287/mnsc.2021.02813}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- interactive figure: Example 1 with assignment bias p (explainer's calculation) ----------
+(function () {
+  var inp = document.getElementById('pk');
+  function upd() {
+    var p = +inp.value, y0 = p, y1 = 0.8 * (1 - p) + 0.2 * p;
+    var best = Math.max(y0, y1), noTreat = y0 >= y1;
+    var pickX2 = best > 0.6 + 1e-9;
+    document.getElementById('pOut').textContent = p.toFixed(2);
+    document.getElementById('b12').style.width = (best * 100).toFixed(1) + '%';
+    document.getElementById('v12').textContent = best.toFixed(3);
+    document.getElementById('t12').textContent = noTreat ? '誰も処置しない' : '全員を処置';
+    document.getElementById('c12').classList.toggle('bad', pickX2);
+    document.getElementById('state').textContent = pickX2
+      ? 'K-PT は雑音の X² で分岐する木を選ぶ。この木の真の価値は 0.5 で、最適な 0.6 より低い。'
+      : 'K-PT は X¹ で分岐する最適な木を選ぶ。';
+  }
+  inp.addEventListener('input', upd); upd();
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

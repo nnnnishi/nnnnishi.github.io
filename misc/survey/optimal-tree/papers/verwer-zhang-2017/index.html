@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DTIP：制約と目的を変えられる決定木の整数計画（論文解説）</title>
+<meta name="description" content="Learning Decision Trees with Flexible Constraints and Objectives Using Integer Optimization（CPAIOR 2017）の非公式の解説。深さを決めた分類木・回帰木の学習を整数計画（DTIP）で表し、各行の経路を深さごとの 0-1 変数で表す。CART の木を初期解にして改善し、差別をなくす制約や偽陽性をなくす目的も 1 本の式で加えられることを示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (layout copied from the budget-uplift explainers)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = CART (scikit-learn): greedy, the starting trees, and its accuracy / error
+            --b  (blue)   = DTIP / DTIPs: the whole tree as one integer program (DTIPs = started from CART),
+                         and the extra constraints / objectives it can take
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- small results table ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A { color: var(--a); } table.tbl th.B { color: var(--b); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">CPAIOR 2017 · LNCS 10335</div>
+  <h1>Learning Decision Trees with Flexible Constraints and Objectives Using Integer Optimization</h1>
+  <p class="subtitle">整数最適化による、制約と目的を柔軟に変えられる決定木の学習</p>
+
+  <ul class="authors">
+    <li><b>Sicco Verwer</b><span>Delft University of Technology, The Netherlands</span></li>
+    <li><b>Yingqian Zhang</b><span>Eindhoven University of Technology, The Netherlands</span></li>
+  </ul>
+
+  <p class="lead"><span class="A">CART</span> のような貪欲法は速いが、できる木が最適から遠いことがある。<span class="B">DTIP</span> は深さを決めた分類木・回帰木の学習を 1 つの整数計画で表し、各行がたどる経路を深さごとの 0-1 変数で表す。CART の木を初期解にすると、論文の 5 データのどの深さでも CART と同じかより良い木が得られた。差別をなくす制約や偽陽性をなくす目的も、式を 1 本足すだけで加えられる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1007/978-3-319-59776-8_8">Paper</a>
+    <a class="btn" href="https://repository.tudelft.nl/record/uuid:df0669ab-945a-4e59-a68e-be378ab2adf7">Author manuscript</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。分岐を1つずつ決めるCART、特徴量の値を整数の順位に置き換える変換、深さごとの0-1変数で行の経路を表す符号化、Diabetesデータでの深さごとの精度、差別をなくす制約と偽陽性をなくす目的の例とまとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">どの深さでも CART 以上</span><span class="d">CART の木を初期解にした DTIPs は、5 データ（分類 3、回帰 2）・深さ 1〜5 のすべてで、学習データでの精度が CART と同じか高く、誤差は同じか小さかった。</span></li>
+    <li><span class="k">差別 0.05 → 0</span><span class="d">Bank の先頭 1,000 行で、精度 0.86・差別 0.05 の CART の木から始め、15 分で差別 0・精度 0.85 の深さ 3 の木を得た。</span></li>
+    <li><span class="k">偽陽性 0 の木</span><span class="d">同じデータで、偽陽性 0・偽陰性 101 の木と、偽陽性 672・偽陰性 0 の木を、目的に式を 1 つ足すだけで得た。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>貪欲法は各ノードの分岐を局所的に決めるので、できる木が最適から遠いことがある</h2>
+    <p>最適な決定木を学習する問題は NP 完全で（<a href="../hyafil-rivest/">Hyafil &amp; Rivest 1976</a>）、ふだんは <span class="A">CART</span> や ID3 のような貪欲法が使われる。貪欲法はノードごとに、そこに届いたデータだけで局所的に最良の分岐を選び、子ノードで同じことを繰り返す。計算は速いが、できる木は最適から遠いことがある。</p>
+    <p>論文は深さ \(k\) を決めた木のすべての決定を同時に最適にするため、学習の問題を整数線形計画で表す。これを <span class="B">DTIP</span>（decision trees as integer programs）と呼び、CPLEX のような MIP ソルバーで解く。論文は、決定木の学習全体を整数計画で表したのは自分たちが最初だと述べている。同じ年に出た <a href="../oct/">OCT</a>（Bertsimas &amp; Dunn 2017）も混合整数最適化で決定木を学習する。</p>
+  </section>
+
+  <section id="transform">
+    <div class="kicker">手法 1　データの変換</div>
+    <h2>特徴量の値を順位の整数に置き換え、しきい値を整数変数として扱えるようにする</h2>
+    <p>先行研究は特徴量を \([0, 1]\) に線形に縮めていた。big-M の値を小さく保てるからである。DTIP はこれに代えて、各特徴量の異なる値を、大小の順だけを保って整数に置き換える非線形の変換を使う。論文が挙げる利点は 4 つある。</p>
+    <ul class="def">
+      <li>ノードのしきい値を連続値ではなく整数で表せる。ソルバーは各行が左右どちらに進むかではなく、しきい値の値で分枝でき、探索木が小さく、偏りにくくなる。</li>
+      <li>連続する整数の値をもつ行がすべて同じクラスなら、それらの値を 1 つの整数にまとめられる。</li>
+      <li>最も多く出る値を 0 にすれば、制約の係数に 0 が増える。</li>
+      <li>値の範囲を 0 のまわりに寄せられるので、big-M の値が小さくなる。</li>
+    </ul>
+    <p>Iris の例では、SepLen の 4.9、4.7、4.6 は Iris-setosa にしか出ないので 1 つの整数 −11 にまとめられ、SepWid で最も多い 3.0 は 0 になる（論文 Table 1）。論文は、線形の変換のほうが良い問題もあるが、この変換で得られる解が大きく良くなったと述べ、1,000 行のデータを扱えたのもこの変換のおかげだとしている。</p>
+  </section>
+
+  <section id="encoding">
+    <div class="kicker">手法 2　符号化</div>
+    <h2>各行の経路を、葉ごとの変数ではなく深さごとの 0-1 変数 k 個で表す</h2>
+    <p>分岐ノード \(j\) には、使う特徴量を選ぶ 0-1 変数 \(f_{i,j}\)（\(\sum_i f_{i,j} = 1\)）と、しきい値を表す整数変数 \(c_j\) を置く。行 \(r\) が深さ \(h\) で左右どちらに進むかを 0-1 変数 \(d_{h,r}\) で表す。葉ごとに「その葉に入るか」の変数を置くと 1 行に \(2^k\) 個要るが、深さごとなら \(k\) 個で済む。論文はこれを単項ではなく二進の符号化と呼ぶ。</p>
+    <p>行 \(r\) がノード \(j\) に届き、そこで左に進むなら、選んだ特徴量の値 \(\sum_i v(r,i) f_{i,j}\) はしきい値 \(c_j\) 以下でなければならない。右に進むなら \(c_j\) より大きい。この条件を、根から \(j\) までの経路の向き \(\mathrm{dlr}(h, j, r)\) の和を使った big-M の制約で書く。\(M_r\) は行ごとに決めたできるだけ小さい定数である。</p>
+    <div class="eq">\[ M_r \sum_{h=1}^{d(j)} \mathrm{dlr}(h, j, r) + M_r\, d_{d(j),r} + \sum_{i} v(r,i)\, f_{i,j} \ \le\ M_r\, d(j) + c_j \]</div>
+    <p>\(d(j)\) はノード \(j\) の深さで、\(\mathrm{dlr}(h, j, r)\) は \(j\) への経路が深さ \(h\) で左なら \(d_{h,r}\)、右なら \(1 - d_{h,r}\) である。経路が \(j\) を通らない行では、左辺の和が小さくなって制約は自動的に満たされる。右に進む場合も同じ形の制約を置く。誤分類は、行が葉 \(l\) に届き、その葉の予測 \(p_{l,t}\) が行のクラス \(t(r)\) と違うときに \(e_r = 1\) となる制約で数え、\(\sum_r e_r\) を最小にする。</p>
+    <div class="eq">\[ \sum_{h=1}^{k} \mathrm{dlr}'(h, l, r) + \sum_{t \ne t(r)} p_{l,t} \ \le\ e_r + k \]</div>
+    <p>全体で制約は \(O(n(u + v))\) 本、0-1 変数は \(O(mu + nk + vy)\) 個、整数変数は \(u\) 個である（\(n\) は行数、\(m\) は特徴量の数、\(u\) は分岐ノードの数、\(v\) は葉の数、\(y\) はクラスの数）。行数に対して線形で、0-1 変数は行数の \(k\) 倍程度にしかならない。さらに、しきい値を選んだ特徴量の値の範囲に収める制約と、同じ親をもつ 2 つの葉が同じ予測をしないようにする制約で定式化を強める。回帰木では誤分類の制約を、葉の予測値 \(p_l\) との絶対誤差を数える 2 本の制約に置き換える。</p>
+    <figure style="max-width:44rem">
+      <img src="assets/fig1_row_encoding.png" alt="A cascade of linear constraints for one example row with feature values 5, 8 and 10 and target 2, following the path with d1 = 0, d2 = 1, d3 = 1. At each depth the node constraints are shown; branches not taken reduce to always-true constraints marked with a top symbol, and the final leaf constraint forces the error e_r to 1 if leaf 5 predicts a class other than 2." loading="lazy">
+      <figcaption>図1　特徴量の値が (5, 8, 10)、クラスが 2 の行 \(r\) の符号化。\((d_{1,r}, d_{2,r}, d_{3,r}) = (0, 1, 1)\) のとき、行はノード 3、ノード 6 を経て葉 5 に入る。通らない枝の制約は常に満たされ（⊤）、葉 5 の予測が 2 でなければ \(e_r = 1\) になる（論文 Fig. 1）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験の結果</div>
+    <h2>CART の木を初期解にした DTIPs は、すべてのデータと深さで CART と同じかより良い木を得た</h2>
+    <p>比較したのは scikit-learn の <span class="A">CART</span>、初期解なしで解く <span class="B">DTIP</span>、CART の木を初期解にする <span class="B">DTIPs</span> で、1 問 30 分の時間制限で深さ 1〜5 の木を学習した。目的は DTIP の性能を示すことなので、全データで木を作り、その全データでの精度（回帰では絶対誤差）を報告している。分類は Iris（150 行）、Diabetes（768 行）、Bank（4,521 行、51 属性）、回帰は RedWine（1,599 行）と Boston（506 行）である。</p>
+    <table class="tbl">
+      <thead><tr><th>Diabetes（精度）</th><th>深さ 1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+      <tbody>
+        <tr><td class="A">CART</td><td>0.7357</td><td>0.7721</td><td>0.776</td><td>0.7930</td><td>0.8372</td></tr>
+        <tr><td class="B">DTIP</td><td>0.75*</td><td>0.7773</td><td>0.7969</td><td>0.7852</td><td>0.7852</td></tr>
+        <tr><td class="B">DTIPs</td><td>0.75*</td><td>0.7773</td><td>0.7943</td><td>0.8255</td><td>0.8503</td></tr>
+      </tbody>
+    </table>
+    <p class="src">表1　Diabetes データの学習データでの精度（論文 Table 3 の一部）。* は最適解であることを示す。</p>
+    <p>Iris では、DTIP と DTIPs は深さ 1〜5 のすべてで最適な木を得た。CART が最適だったのは深さ 1、2、5 だけである。Diabetes では深さ 1 で最適な木を得たが、深い木ほど問題が難しくなり、深さ 4 と 5 では初期解なしで解いた DTIP の精度が CART を下回った。Bank の深さ 4 と 5 では DTIP の精度が 0.1152 にとどまり、論文はソルバーがまだ前処理の段階にあったと説明している。一方、初期解を与えた DTIPs はどのデータ・深さでも CART の木を改善するか同じ精度を保った。回帰でも結論は同じで、DTIPs が最も良かった（たとえば Boston の深さ 5 で絶対誤差 954、CART は 1012）。</p>
+  </section>
+
+  <section id="flexible">
+    <div class="kicker">柔軟性</div>
+    <h2>差別をなくす制約や、偽陽性・偽陰性を減らす目的も、式を 1 本足すだけで加えられる</h2>
+    <p>整数計画で表すと、正解率や誤差以外の線形な目的や、木を作る段階での制約を直接書ける。差別を考慮した木では、異なる行の集合のあいだで陽性と予測される割合の差を誤差 \(e_r\) の和から計算する制約を足し、その差にデータの大きさの重みをかけて目的関数に加えた。Bank の婚姻の有無（married）を保護すべき属性とみなし、Bank は DTIP で効率よく解くには大きすぎるので先頭 1,000 行を使った。精度 0.86、差別 0.05 の scikit-learn の木から始めて 15 分解くと、差別 0、精度 0.85 の深さ 3 の木が得られた。差別の制約なしで 15 分解いた DTIP の精度は 0.81 だった。</p>
+    <p>不均衡なデータでは、問題によっては偽陽性か偽陰性をほとんど出さない木が必要になる。同じ 1,000 行で偽陽性（または偽陰性）の数を数える式を足し、大きな重みで目的関数に加えて 15 分解くと、偽陽性 0・偽陰性 101 の深さ 3 の木と、偽陽性 672・偽陰性 0 の木が得られた。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>決定木の学習を整数計画で表す初期の定式化で、制約と目的を足しやすいことを先に示した</h2>
+    <ul class="def">
+      <li><strong>解く問題</strong>：深さちょうど \(k\) の分類木（誤分類の数）と回帰木（絶対誤差の和）。木の複雑さへの罰則はない。</li>
+      <li><strong>分岐</strong>：単変量。特徴量を順位の整数に置き換え、しきい値は整数変数で表す。</li>
+      <li><strong>規模</strong>：論文は深さ 5 までの木を 1,000 行程度のデータから学習できると結論し、それより大きいデータでは制約が多すぎて MIP ソルバーでは効率よく解けないと述べている。</li>
+    </ul>
+    <p>（解説者の注）同じ著者らの <a href="../binoct/">BinOCT</a>（2019）は、しきい値を二値のビットで表し、行の制約をまとめることで、0-1 変数の数を行数によらない形にした。差別を考慮した最適な木は、<a href="../fair-oct/">Aghaei ら（2019）</a>が MIO の目的関数に差別の指標を加える形で扱っている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{verwer2017learning,
+  title     = {Learning Decision Trees with Flexible Constraints and Objectives Using Integer Optimization},
+  author    = {Verwer, Sicco and Zhang, Yingqian},
+  booktitle = {Integration of AI and OR Techniques in Constraint Programming (CPAIOR 2017)},
+  editor    = {Salvagnin, D. and Lombardi, M.},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {10335},
+  pages     = {94--103},
+  publisher = {Springer},
+  year      = {2017},
+  doi       = {10.1007/978-3-319-59776-8_8}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は、TU Delft の機関リポジトリにある著者稿（Accepted author manuscript）による。Springer の出版版の本文は自動取得できなかったため、照合していない。書誌は Crossref と著者稿の表紙で確認した。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

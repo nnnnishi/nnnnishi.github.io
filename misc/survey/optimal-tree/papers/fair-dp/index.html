@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DPF：統計的パリティを満たす最適な木を動的計画法で（論文解説）</title>
+<meta name="description" content="Fair and Optimal Decision Trees: A Dynamic Programming Approach（NeurIPS 2022）の非公式の解説。木全体にかかる公平性の制約が部分問題の独立性を壊す問題を、残りの木の不均衡の上下界で部分解を比べて枝刈りすることで解き、MIP の FairOCT より桁違いに速く公平で最適な決定木とパレート集合を求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (paper-project-page skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the global fairness constraint that couples subtrees, unresolved imbalance,
+                         and the MIP baseline FairOCT
+            --b  (blue)   = DPF: bounds on the rest of the tree, pruning, and its runtimes
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">NeurIPS 2022</div>
+  <h1>Fair and Optimal Decision Trees: A Dynamic Programming Approach</h1>
+  <p class="subtitle">公平で最適な決定木：動的計画法によるアプローチ</p>
+
+  <ul class="authors">
+    <li><b>Jacobus G.M. van der Linden</b><span>Delft University of Technology, Department of Computer Science</span></li>
+    <li><b>Mathijs M. de Weerdt</b><span>Delft University of Technology, Department of Computer Science</span></li>
+    <li><b>Emir Demirović</b><span>Delft University of Technology, Department of Computer Science</span></li>
+  </ul>
+
+  <p class="lead">小さな最適決定木は動的計画法（DP）で速く求められるが、グループ間の公平性は木全体にかかる制約なので、<span class="A">左右の部分木を独立に最適化できなくなる</span>。そのため公平で最適な木を求める既存の方法は混合整数計画（MIP）に限られ、小さなデータでも数時間かかることがあった。この論文の DPF は<span class="B">残りの木の不均衡の上下界</span>を使って部分解どうしを比べ、公平になりえない解を早めに枝刈りする。MIP の FairOCT より何桁も速く、精度と公平性のパレート集合全体も求められる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.neurips.cc/paper_files/paper/2022/hash/fe248e22b241ae5a9adf11493c8c12bc-Abstract-Conference.html">Paper</a>
+    <a class="btn" href="https://gitlab.tudelft.nl/jgmvanderlinde/dpf">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。MIP の FairOCT では深さ 2 でも 1 時間を超えるデータが多いこと、部分木の不均衡が打ち消し合うので部分木だけでは比べられないこと、残りの木の不均衡の範囲から最終的な不均衡の上下界を求めて枝刈りする DPF の考え方、DPF の計算時間、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">深さ 2 なら全データで 1 秒未満</span><span class="d">不均衡を 1% 以下にする制約で、DPF は 12 データのすべてで深さ 2 の最適な木を 1 秒未満で求めた。FairOCT は 8 データで 1 時間を超え、1 データではメモリが足りなかった（論文 Table 1）。</span></li>
+    <li><span class="k">Adult の深さ 4 で 1,012 秒</span><span class="d">45,000 件を超える Adult でも、深さ 4 の公平で最適な木を求められた。深さ 3 は全データで 1 分以内に解けた。</span></li>
+    <li><span class="k">パレート集合 29 個を 0.12 秒</span><span class="d">COMPAS recid. の深さ 2 で、精度と公平性のパレート集合全体（29 個の解）を 0.12 ± 0.04 秒で求めた。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>小さな最適決定木を速く求める動的計画法に、木全体にかかる公平性の制約はそのままでは入らない</h2>
+    <p>信用の審査や刑事司法のように差別に敏感な判断では、公平で、解釈しやすく、精度の高いモデルが求められる。保護属性をデータから外すだけでは差別が減るとは限らないので、分類器に公平性の制約を課す。決定木は小さいほど解釈しやすく、同じ大きさなら最適な木は平均してヒューリスティックの木より精度が高いので、小さな最適決定木が適している。</p>
+    <p>公平で最適な決定木を求める既存の方法（<a href="../verwer-zhang-2017/">Verwer と Zhang</a>、<a href="../fair-oct/">Aghaei ら</a>、<a href="../fair-oct-tradeoffs/">FairOCT</a>）はどれも MIP で、規模が大きくなると解けなくなる。一方、公平性を考えない最適決定木は、木の構造による分離可能性を使う DP（<a href="../dl85/">DL8.5</a>、<a href="../murtree/">MurTree</a>、<a href="../osdt/">OSDT</a> など）で速く求められる。精度だけなら、ノードで分岐する特徴量を決めたあと、左右の部分木を別々に解けばよい。ところがグループ間の公平性は木全体で測るので、木の一部の偏りが別の部分で打ち消されることがあり、左右の部分木を独立に最適化できない。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>統計的パリティを、葉ごとの部分的な不均衡の和として書き、誤分類の最小化に制約として課す</h2>
+    <p>特徴量もラベルも二値とし、保護属性 \(a\) で 2 つのグループに分ける。統計的パリティ（demographic parity）は、正の結果を受ける割合がグループで等しいこと \(\Pr(\hat y=1\mid a=1)=\Pr(\hat y=1\mid a=0)\) である。各グループで正の予測を受ける割合を \(\hat p_a=N_{\hat y,a}/N_a\) とし、不均衡を \(I=\hat p_a-\hat p_{\bar a}\) と書く。正のラベルを予測する葉 \(n\) の部分的な不均衡は次のとおりで、負のラベルの葉では 0、分岐ノードでは 2 つの子の和になる。</p>
+    <div class="eq">\[ I_n=\frac{N_{n,a}}{N_a}-\frac{N_{n,\bar a}}{N_{\bar a}},\qquad \min_h\ \sum_{(x,a,y)\in D}|h(x)-y|\quad\text{s.t.}\quad |I|\le\delta \]</div>
+    <p>深さ \(d\) の木 \(h\) のうち、不均衡の絶対値を \(\delta\) 以下に保ちながら学習データの誤分類を最小にする木を求める。\(\delta\) を決めずに、誤分類 \(M\) と不均衡 \(I\) の 2 つを目的とするパレート集合を求めることもできる。論文の手法は機会均等のような別のグループ公平性にも簡単に広げられると述べている。</p>
+  </section>
+
+  <section id="dependency">
+    <div class="kicker">部分問題の依存</div>
+    <h2>不均衡は絶対値で測るので、部分木だけを見ても、どちらの部分解がよいかは残りの木しだいで決まる</h2>
+    <p>DPF の出発点は、2 つの目的のパレート集合を DP で求める Demirović と Stuckey の方法（<a href="../nonlinear-metrics/">非線形指標の最適決定木</a>）である。この方法は部分解を足し合わせられること（加法性）と、各目的が小さいほうが良いこと（単調性）を前提に、部分問題を独立に解く。公平性は不均衡の絶対値で測るので、加法性も単調性も成り立たない。</p>
+    <p>たとえば、グループ A に不利な部分木と、グループ B に不利な部分木のどちらがよいかは、木の残りの部分で何が起きるかによる。同じグループ A に不利な 2 つの部分木でも、差別の小さいほうがよいとは限らない。残りの木でグループ A に有利な偏りがあれば、打ち消し合って全体の不均衡が小さくなりうるからである。</p>
+  </section>
+
+  <section id="bounds">
+    <div class="kicker">DPF の考え方</div>
+    <h2>残りの木の不均衡の範囲が分かれば、最終的な不均衡の絶対値の上下界が求まり、部分解を比べて枝刈りできる</h2>
+    <p>残りの木 \(R\) の不均衡の下界 \(\underline I_R\) と上界 \(\overline I_R\) が分かれば、ノード \(n\) を含む木の最終的な不均衡は \([\underline I_R+I_n,\ \overline I_R+I_n]\) に入る。そこから最終的な不均衡の絶対値の下界と上界が決まる。</p>
+    <div class="eq">\[ \begin{gathered} \underline{|I|}=\begin{cases}0 & 0\in[\underline I_R+I_n,\ \overline I_R+I_n]\\ \min\bigl(|\underline I_R+I_n|,\,|\overline I_R+I_n|\bigr) & \text{それ以外}\end{cases}\\[4pt] \overline{|I|}=\max\bigl(|\underline I_R+I_n|,\,|\overline I_R+I_n|\bigr) \end{gathered} \]</div>
+    <p>これを使って支配関係を定め直す。解 1 が解 2 を支配するのは、誤分類が解 2 以下で、しかも解 1 の不均衡の絶対値の上界が解 2 の下界以下であるか、不均衡がちょうど等しいときである。\(\delta\) を決めて 1 本の木を求めるときは、絶対値の下界が \(\delta\) を超える部分解を「公平になりえない」として捨てる。残りの木の範囲は、片方のグループに一方のラベルを、もう片方に逆のラベルを全部つけたときの最大の差別から得るか、キャッシュした部分解の不均衡の最小値と最大値から得る。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label for="in"><span class="row"><span>この部分木の不均衡 \(I_n\)</span><output id="inOut"></output></span>
+          <input type="range" id="in" min="-15" max="15" step="0.5" value="6"></label>
+        <label for="lo"><span class="row"><span>残りの木の下界 \(\underline I_R\)</span><output id="loOut"></output></span>
+          <input type="range" id="lo" min="-15" max="0" step="0.5" value="-4"></label>
+        <label for="hi"><span class="row"><span>残りの木の上界 \(\overline I_R\)</span><output id="hiOut"></output></span>
+          <input type="range" id="hi" min="0" max="15" step="0.5" value="1"></label>
+        <label for="dl"><span class="row"><span>許す不均衡 \(\delta\)</span><output id="dlOut"></output></span>
+          <input type="range" id="dl" min="0" max="10" step="0.5" value="1"></label>
+      </div>
+      <div>
+        <svg id="labsvg" viewBox="0 0 560 230" role="img" aria-label="Number line of the final imbalance from minus 20 to plus 20 percent, showing the interval of possible final imbalance, the band of allowed imbalance plus or minus delta, and the resulting lower and upper bounds on the absolute imbalance."></svg>
+        <div class="grid" style="grid-template-columns: 1fr auto;">
+          <span>最終的な \(|I|\) の下界</span><output id="lbOut"></output>
+          <span>最終的な \(|I|\) の上界</span><output id="ubOut"></output>
+          <p class="note" id="state"></p>
+        </div>
+      </div>
+    </div>
+    <p class="src">図1　残りの木の範囲から最終的な不均衡の上下界を求める計算（論文の式 11・12・17 から解説者が作った計算機。値は % で、例として置いたもの）。</p>
+    <p>ほかにも、merge の前に互いの範囲から部分解を絞り込み、誤分類の順に並べて早めに打ち切るなどの改良を加えている。深さ 2 の専用の解法も使う。付録では、完全な二分木でない小さな木を探す拡張と、最悪の場合の計算量 \(\mathcal O(n_t^2+2^d|F|^d|D|)\)（\(n_t\) は深さ \(d\) の完全な木の数）を示している。</p>
+  </section>
+
+  <section id="runtime">
+    <div class="kicker">実験の結果 1　計算時間</div>
+    <h2>DPF は FairOCT より何桁も速く、深さ 2 は全データで 1 秒未満、深さ 3 は全データで 1 分以内に解けた</h2>
+    <p>公平性を考慮した機械学習のデータの調査（Le Quy ら）に載っているデータを、同じ前処理と二値化で使った。最良の深さ 3 の木が自明な解とほぼ同じになる Diabetes と Law-school を除いた 12 データである。不均衡の上限を \(\delta=1\%\) とし、5 回の平均、1 回の制限時間は 1 時間、1 スレッドで実行した。比較相手は、事前の比較で Aghaei ら（2019）の MIP を大きく上回った FairOCT で、Gurobi 9.0 の既定のパラメータで解いた。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 740 400" role="img" aria-label="Table of runtimes in seconds for 12 data sets. FairOCT at depth 2 exceeds one hour on 8 data sets and runs out of memory on KDD census income. DPF solves depth 2 in under one second on all data sets, depth 3 within 32 seconds, and depth 4 on 8 data sets within one hour, for example Adult in 1012 seconds.">
+        <text x="20" y="40" font-size="13" font-weight="600" fill="#5B6676" text-anchor="start">データ</text>
+        <text x="20" y="58" font-size="12" fill="#5B6676" text-anchor="start"></text>
+        <text x="200" y="40" font-size="13" font-weight="600" fill="#5B6676" text-anchor="start">保護属性</text>
+        <text x="200" y="58" font-size="12" fill="#5B6676" text-anchor="start"></text>
+        <text x="340" y="40" font-size="13" font-weight="600" fill="#5B6676" text-anchor="end">|D|</text>
+        <text x="340" y="58" font-size="12" fill="#5B6676" text-anchor="end"></text>
+        <text x="400" y="40" font-size="13" font-weight="600" fill="#5B6676" text-anchor="end">|F|</text>
+        <text x="400" y="58" font-size="12" fill="#5B6676" text-anchor="end"></text>
+        <text x="500" y="40" font-size="13" font-weight="600" fill="#C2410C" text-anchor="end">FairOCT</text>
+        <text x="500" y="58" font-size="12" fill="#C2410C" text-anchor="end">d = 2</text>
+        <text x="580" y="40" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">DPF</text>
+        <text x="580" y="58" font-size="12" fill="#1D4ED8" text-anchor="end">d = 2</text>
+        <text x="650" y="40" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">DPF</text>
+        <text x="650" y="58" font-size="12" fill="#1D4ED8" text-anchor="end">d = 3</text>
+        <text x="720" y="40" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">DPF</text>
+        <text x="720" y="58" font-size="12" fill="#1D4ED8" text-anchor="end">d = 4</text>
+        <line x1="20" x2="720" y1="66" y2="66" stroke="#16202E"/>
+        <rect x="14" y="71" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="88" font-size="13" fill="#16202E" text-anchor="start">Adult</text>
+        <text x="200" y="88" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="88" font-size="13" fill="#16202E" text-anchor="end">45,222</text>
+        <text x="400" y="88" font-size="13" fill="#16202E" text-anchor="end">17</text>
+        <text x="500" y="88" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="88" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">1012</text>
+        <text x="20" y="114" font-size="13" fill="#16202E" text-anchor="start">Bank Marketing</text>
+        <text x="200" y="114" font-size="13" fill="#16202E" text-anchor="start">Married</text>
+        <text x="340" y="114" font-size="13" fill="#16202E" text-anchor="end">45,211</text>
+        <text x="400" y="114" font-size="13" fill="#16202E" text-anchor="end">46</text>
+        <text x="500" y="114" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="114" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="114" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">2</text>
+        <text x="720" y="114" font-size="13" fill="#5B6676" text-anchor="end">> 1h</text>
+        <rect x="14" y="123" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="140" font-size="13" fill="#16202E" text-anchor="start">Communities &amp; Crime</text>
+        <text x="200" y="140" font-size="13" fill="#16202E" text-anchor="start">Race</text>
+        <text x="340" y="140" font-size="13" fill="#16202E" text-anchor="end">1,994</text>
+        <text x="400" y="140" font-size="13" fill="#16202E" text-anchor="end">97</text>
+        <text x="500" y="140" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="140" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="140" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">4</text>
+        <text x="720" y="140" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">1261</text>
+        <text x="20" y="166" font-size="13" fill="#16202E" text-anchor="start">COMPAS recid.</text>
+        <text x="200" y="166" font-size="13" fill="#16202E" text-anchor="start">Race</text>
+        <text x="340" y="166" font-size="13" fill="#16202E" text-anchor="end">6,172</text>
+        <text x="400" y="166" font-size="13" fill="#16202E" text-anchor="end">9</text>
+        <text x="500" y="166" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="166" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="166" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="166" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">9</text>
+        <rect x="14" y="175" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="192" font-size="13" fill="#16202E" text-anchor="start">COMPAS viol. recid.</text>
+        <text x="200" y="192" font-size="13" fill="#16202E" text-anchor="start">Race</text>
+        <text x="340" y="192" font-size="13" fill="#16202E" text-anchor="end">4,020</text>
+        <text x="400" y="192" font-size="13" fill="#16202E" text-anchor="end">9</text>
+        <text x="500" y="192" font-size="13" fill="#16202E" text-anchor="end">1594</text>
+        <text x="580" y="192" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="192" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="192" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="20" y="218" font-size="13" fill="#16202E" text-anchor="start">Dutch census</text>
+        <text x="200" y="218" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="218" font-size="13" fill="#16202E" text-anchor="end">60,420</text>
+        <text x="400" y="218" font-size="13" fill="#16202E" text-anchor="end">58</text>
+        <text x="500" y="218" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="218" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="218" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">5</text>
+        <text x="720" y="218" font-size="13" fill="#5B6676" text-anchor="end">> 1h</text>
+        <rect x="14" y="227" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="244" font-size="13" fill="#16202E" text-anchor="start">German credit</text>
+        <text x="200" y="244" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="244" font-size="13" fill="#16202E" text-anchor="end">1,000</text>
+        <text x="400" y="244" font-size="13" fill="#16202E" text-anchor="end">69</text>
+        <text x="500" y="244" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="244" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="244" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">2</text>
+        <text x="720" y="244" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">741</text>
+        <text x="20" y="270" font-size="13" fill="#16202E" text-anchor="start">KDD census income</text>
+        <text x="200" y="270" font-size="13" fill="#16202E" text-anchor="start">Race</text>
+        <text x="340" y="270" font-size="13" fill="#16202E" text-anchor="end">284,556</text>
+        <text x="400" y="270" font-size="13" fill="#16202E" text-anchor="end">117</text>
+        <text x="500" y="270" font-size="13" fill="#C2410C" text-anchor="end">—</text>
+        <text x="580" y="270" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="270" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">32</text>
+        <text x="720" y="270" font-size="13" fill="#5B6676" text-anchor="end">> 1h</text>
+        <rect x="14" y="279" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="296" font-size="13" fill="#16202E" text-anchor="start">OULAD</text>
+        <text x="200" y="296" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="296" font-size="13" fill="#16202E" text-anchor="end">21,562</text>
+        <text x="400" y="296" font-size="13" fill="#16202E" text-anchor="end">45</text>
+        <text x="500" y="296" font-size="13" fill="#C2410C" text-anchor="end">> 1h</text>
+        <text x="580" y="296" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="296" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">3</text>
+        <text x="720" y="296" font-size="13" fill="#5B6676" text-anchor="end">> 1h</text>
+        <text x="20" y="322" font-size="13" fill="#16202E" text-anchor="start">Ricci</text>
+        <text x="200" y="322" font-size="13" fill="#16202E" text-anchor="start">Race</text>
+        <text x="340" y="322" font-size="13" fill="#16202E" text-anchor="end">118</text>
+        <text x="400" y="322" font-size="13" fill="#16202E" text-anchor="end">4</text>
+        <text x="500" y="322" font-size="13" fill="#16202E" text-anchor="end">< 1</text>
+        <text x="580" y="322" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="322" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="322" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <rect x="14" y="331" width="712" height="26" fill="#F2F4F7"/>
+        <text x="20" y="348" font-size="13" fill="#16202E" text-anchor="start">Student-Mathematics</text>
+        <text x="200" y="348" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="348" font-size="13" fill="#16202E" text-anchor="end">395</text>
+        <text x="400" y="348" font-size="13" fill="#16202E" text-anchor="end">55</text>
+        <text x="500" y="348" font-size="13" fill="#16202E" text-anchor="end">284</text>
+        <text x="580" y="348" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="348" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="348" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">24</text>
+        <text x="20" y="374" font-size="13" fill="#16202E" text-anchor="start">Student-Portuguese</text>
+        <text x="200" y="374" font-size="13" fill="#16202E" text-anchor="start">Gender</text>
+        <text x="340" y="374" font-size="13" fill="#16202E" text-anchor="end">649</text>
+        <text x="400" y="374" font-size="13" fill="#16202E" text-anchor="end">55</text>
+        <text x="500" y="374" font-size="13" fill="#16202E" text-anchor="end">866</text>
+        <text x="580" y="374" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="650" y="374" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">< 1</text>
+        <text x="720" y="374" font-size="13" fill="#16202E" text-anchor="end" font-weight="600">32</text>
+      </svg>
+      <figcaption>図2　FairOCT と DPF の計算時間（秒）（論文 Table 1 を解説者が表にしたもの）。<span class="A">オレンジ</span>は FairOCT が 1 時間以内に解けなかった欄（— はメモリ不足）。</figcaption>
+    </figure>
+    <p>FairOCT は各データ点を二値変数で表すので、データが大きくなると解けなくなる。DPF でも深さ 4 では問題の指数的な性質が表れ、特徴量もデータも多いデータは 1 時間で解けなくなるが、45,000 件を超える Adult は解けた。新しい枝刈りがないと、深さ 4 を 1 時間以内に解けるデータは 12 個中 8 個から 4 個に減った。merge の改良は、公平性を考えない最適な木の不均衡が大きい Adult（18%）、COMPAS recid.（16%）、Dutch census（14%）で計算時間を 1 桁縮めた。</p>
+  </section>
+
+  <section id="pareto">
+    <div class="kicker">実験の結果 2　パレート集合</div>
+    <h2>速くなったことで、精度と公平性のパレート集合全体を求められるようになった</h2>
+    <p>Valdivia らの進化的アルゴリズムは一部の、最適とは限らないパレート集合を返し、FairOCT は不均衡の上限を変えて何度も解くことで、最適だが一部だけのパレート集合を作る。DPF はパレート集合全体を一度に求め、COMPAS recid. の深さ 2 では 29 個の解からなる集合を 0.12 ± 0.04 秒で求めた。</p>
+    <figure>
+      <img src="assets/fig1_pareto.png" alt="Full Pareto fronts of training accuracy versus discrimination for Adult, Communities and Crime, COMPAS-recid. and Student-Portuguese, for trees of depth 2, 3 and 4. Higher accuracy comes with higher discrimination; deeper trees reach higher accuracy at the same discrimination.">
+      <figcaption>図3　DPF が求めた、学習データでの精度と差別のパレート集合（論文 Fig. 1）。深さ 2〜4 の木。精度と公平性のトレードオフが、先行研究の報告と同じように表れている。</figcaption>
+    </figure>
+  </section>
+
+  <section id="scaling">
+    <div class="kicker">実験の結果 3　何が計算時間を決めるか</div>
+    <h2>計算時間を最も左右するのは特徴量の数で、データの件数はある程度を超えるとほとんど効かない</h2>
+    <p>深さ 3 で、特徴量の数、件数、葉の最小の大きさ、許す不均衡 \(\delta\) を変えた。特徴量の数を増やすと計算時間は指数的に増え、先行研究とも一致した。件数を増やしてもある程度から先はほとんど増えない。計算時間は merge する部分解の種類の数でほぼ決まり、その数は特徴量の数に強く、件数には弱くしか依存しないためである。葉の最小の大きさを大きくすると部分解の種類が減り、計算時間は大きく減った。精度にはふつう大きな影響はない。</p>
+    <figure>
+      <img src="assets/fig2_scaling.png" alt="Runtime of DPF at depth 3 on Bank Marketing, Dutch census and OULAD on a log scale, versus number of features (exponential increase), number of instances (levels off), minimum leaf node size (decreases) and maximum bias delta (rises then falls for Dutch census).">
+      <figcaption>図4　特徴量の数・件数・葉の最小の大きさ・\(\delta\) と計算時間（論文 Fig. 2、縦軸は対数）。</figcaption>
+    </figure>
+    <p>\(\delta\) を 1% より緩めると、Dutch census では探索空間が広がり上下界も弱くなるので計算時間が増えた。さらに緩めると通常の最適木の探索に近づき、精度の上下界が効いて再び短くなる。公平性を考えないときの差別が 1.2%・3.0% と小さい Bank Marketing と OULAD では、\(\delta\) を変えても計算時間はほとんど変わらなかった（Dutch census は 14.1%）。</p>
+  </section>
+
+  <section id="test">
+    <div class="kicker">実験の結果 4　テストデータでの性能（付録 D）</div>
+    <h2>木の大きさを検証データで選ぶと、DPF の木は 12 データ中 7 データでヒューリスティックより有意に精度が高かった</h2>
+    <p>付録では、データの前処理で差別をなくす Kamiran らの方法（KamPre）と、葉のラベルを後から付け替える方法（KamPost）とテストデータで比べた。\(\delta=5\%\)、深さ 3 まで、分岐の数を検証データで選ぶと、テストの差別が平均 5% 未満に収まった方法のなかで、DPF は 7 データで両者より有意に精度が高かった（\(p<5\%\)）。差は Student-Mathematics で 11.6%、Dutch census で 9.2% に達した。KamPost が最もよかったのは Ricci と Adult で、Adult では DPF の差別が上限を 0.1% 超えた。</p>
+    <p>テストデータでの差別のばらつきは特に小さなデータで大きく、どの方法もしばしば上限を超えた。差別についての過学習をどう減らすかは未解決の問題だと論文は述べている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>DP による最適決定木の系統に、部分問題を独立に解けなくする木全体の制約を持ち込んだ研究である</h2>
+    <p>公平で最適な木はそれまで MIP の系統（<a href="../fair-oct/">Fair OCT</a>、<a href="../fair-oct-tradeoffs/">FairOCT</a>）だけが扱っていた。DPF は <a href="../murtree/">MurTree</a> や <a href="../nonlinear-metrics/">非線形指標の最適決定木</a> と同じ DP の系統で、加法性と単調性が崩れる制約でも、残りの木の上下界を使えば部分解を比べて枝刈りできることを示した。同じ TU Delft のグループはのちに <a href="../streed/">STreeD</a> を発表している。</p>
+    <p>限界として論文は、二値の特徴量と二値分類だけを扱うこと、小さな木しか求められないこと、計算時間が特徴量の数に対して指数的に増えることを挙げている。今後の課題には、機会均等など別のグループ公平性への拡張、不均衡なデータのための目的関数（balanced accuracy など）、全部の部分解でなく代表的な一部だけを考えるヒューリスティックが挙がっている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・式・図は NeurIPS 2022 の論文集の PDF と補足資料による。書誌は NeurIPS の論文集のページの BibTeX で確認した。コードのリンクは論文に書かれたもので、gitlab.tudelft.nl には接続できず確認していない。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{vanderlinden2022fair,
+  title     = {Fair and Optimal Decision Trees: A Dynamic Programming Approach},
+  author    = {van der Linden, Jacobus G.M. and de Weerdt, Mathijs M. and Demirovi{\'c}, Emir},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {35},
+  pages     = {38899--38911},
+  year      = {2022},
+  doi       = {10.52202/068431-2819}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+
+// ---------- interactive figure: bounds on the final absolute imbalance (Eqs. 11, 12, 17 of the paper) ----------
+(function () {
+  var NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('labsvg');
+  function mk(t, a, p) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  var X0 = 30, X1 = 530, L = -30, R = 30, Y = 120;
+  function x(v) { return X0 + (Math.max(L, Math.min(R, v)) - L) / (R - L) * (X1 - X0); }
+  var band = mk('rect', { y: Y - 50, height: 100, fill: '#E7EEFC' });
+  mk('line', { x1: X0, x2: X1, y1: Y, y2: Y, stroke: '#16202E', 'stroke-width': 1.3 });
+  [-30, -20, -10, 0, 10, 20, 30].forEach(function (v) {
+    mk('line', { x1: x(v), x2: x(v), y1: Y, y2: Y + 6, stroke: '#16202E' });
+    var t = mk('text', { x: x(v), y: Y + 24, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'middle' }); t.textContent = (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + '%';
+  });
+  var tl = mk('text', { x: X1, y: Y + 48, 'font-size': 13, fill: '#5B6676', 'text-anchor': 'end' }); tl.textContent = '最終的な不均衡 I →';
+  var bl = mk('text', { x: 0, y: Y - 56, 'font-size': 13, fill: '#1D4ED8', 'text-anchor': 'middle' }); bl.textContent = '許す範囲 ±δ';
+  var seg = mk('rect', { y: Y - 12, height: 24, rx: 4, fill: '#C2410C', opacity: 0.85 });
+  var sl = mk('text', { x: 0, y: Y - 20, 'font-size': 13, fill: '#C2410C', 'text-anchor': 'middle' }); sl.textContent = 'I がとりうる範囲';
+  var inn = document.getElementById('in'), lo = document.getElementById('lo'), hi = document.getElementById('hi'), dl = document.getElementById('dl');
+  function f(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%'; }
+  function upd() {
+    var In = +inn.value, a = +lo.value + In, b = +hi.value + In, d = +dl.value;
+    var lb = (a <= 0 && 0 <= b) ? 0 : Math.min(Math.abs(a), Math.abs(b));
+    var ub = Math.max(Math.abs(a), Math.abs(b));
+    band.setAttribute('x', x(-d)); band.setAttribute('width', x(d) - x(-d));
+    bl.setAttribute('x', x(0));
+    seg.setAttribute('x', x(a)); seg.setAttribute('width', Math.max(3, x(b) - x(a)));
+    sl.setAttribute('x', (x(a) + x(b)) / 2);
+    document.getElementById('inOut').textContent = f(In);
+    document.getElementById('loOut').textContent = f(+lo.value);
+    document.getElementById('hiOut').textContent = f(+hi.value);
+    document.getElementById('dlOut').textContent = Math.abs(d).toFixed(1) + '%';
+    document.getElementById('lbOut').textContent = lb.toFixed(1) + '%';
+    document.getElementById('ubOut').textContent = ub.toFixed(1) + '%';
+    document.getElementById('state').textContent = lb > d
+      ? '下界が δ を超えるので、この部分解は公平になりえず、枝刈りされる。'
+      : (ub <= d ? '上界も δ 以下なので、残りの木がどうなっても公平性の制約を満たす。' : '下界は δ 以下なので残すが、公平になるかは残りの木しだいで決まる。');
+  }
+  [inn, lo, hi, dl].forEach(function (e) { e.addEventListener('input', upd); }); upd();
+})();
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

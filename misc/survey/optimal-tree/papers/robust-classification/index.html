@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robust Classification：特徴量とラベルの誤りに備える分類（論文解説）</title>
+<meta name="description" content="Robust Classification（INFORMS Journal on Optimization 2019）の非公式の解説。特徴量の摂動とラベルの誤りをロバスト最適化の不確実性集合で表し、SVM・ロジスティック回帰・最適決定木のロバスト版を導いて、UCI の 75 データで効果が出やすい問題の目安を示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (paper-project-page skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the nominal classifiers (no robustness; CART for trees) and the
+                         errors in the data they ignore
+            --b  (blue)   = the robust counterparts: margin rho around each split, label budget Gamma,
+                         robust-in-both
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">INFORMS Journal on Optimization · 2019</div>
+  <h1>Robust Classification</h1>
+  <p class="subtitle">ロバストな分類</p>
+
+  <ul class="authors">
+    <li><b>Dimitris Bertsimas</b><span>Sloan School of Management and Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Jack Dunn</b><span>Sloan School of Management and Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Colin Pawlowski</b><span>Sloan School of Management and Operations Research Center, Massachusetts Institute of Technology</span></li>
+    <li><b>Ying Daisy Zhuo</b><span>Sloan School of Management and Operations Research Center, Massachusetts Institute of Technology</span></li>
+  </ul>
+
+  <p class="lead">学習データの特徴量には測定の誤差が、ラベルには記入や申告の誤りが入りうるが、<span class="A">通常の分類器はデータを正しいものとして学習する</span>。この論文は特徴量の摂動とラベルの反転をロバスト最適化の不確実性集合で表し、SVM・ロジスティック回帰・最適決定木について、<span class="B">最悪の場合に備えたロバスト版</span>を同じ手順で導く。最適決定木では、分岐のしきい値のまわりに幅 ρ の余白を取る制約と、各葉の多数派に Γ に応じた差を求める制約になり、混合整数線形最適化のまま解ける。UCI の 75 データでは、次元が高く通常の手法の精度が低い問題で効果が大きかった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/ijoo.2018.0001">Paper</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。データすれすれにしきい値を置く通常の木、特徴量の誤差とラベルの誤り、しきい値のまわりに余白を取るロバストな木、判定ルールの上側でのロバスト化による精度の改善、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">しきい値のまわりに余白 ρ</span><span class="d">特徴量の摂動に対するロバスト版の最適決定木は、各分岐で左に進む点はしきい値より ρ 以上小さく、右に進む点は ρ 以上大きいことを求める。ノルムの選び方によらず混合整数線形最適化のままになる（定理 3）。</span></li>
+    <li><span class="k">最大 Γ 個のラベルの反転</span><span class="d">ラベルの誤りに対するロバスト版では、Γ 個までのラベルが反転した最悪の場合を考える。決定木では各葉の多数派に Γ に応じた差を求めることになり、Γ を大きくすると葉の純度が高まる（定理 6）。</span></li>
+    <li><span class="k">+1.3%（対 CART）</span><span class="d">判定ルール \(\log_{10}p \ge 0.05a-2.5\) を満たすデータで、特徴量とラベルの両方に頑健な最適決定木が CART を上回った精度の平均（14 データ中 9 勝 3 敗 2 分）。通常の最適決定木と比べても +1.4% だった（論文 Table 6）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>学習データの特徴量にもラベルにも誤りが入りうるので、それを明示的に表して分類器を学習したい</h2>
+    <p>特徴量の誤差の例として論文は Wisconsin Diagnostic Breast Cancer のデータを挙げる。細胞核の半径や質感などの特徴量は画像から計算されるので、画像のノイズや認識プログラムの精度の影響を受ける。欠損値を補完したデータにも不確かさが入る。ラベルの誤りの例は避妊法の選択を女性に尋ねた Contraceptive Method Choice のデータである。調査なので、一部の回答者が正直に答えていないおそれがある。がんの臨床試験で寛解したかを判定するラベルも主観的で、腫瘍の測定の精度に左右される。</p>
+    <p>こうした不確かさへの対策としては正則化がよく使われる。この論文はロバスト最適化を使い、データの不確かさを不確実性集合として直接表して分類器を学習する。SVM とロジスティック回帰の特徴量の摂動に対するロバスト版はすでに知られていた。一方、ラベルの誤りを扱う既存の方法は主にヒューリスティックで、決定木をロバスト最適化の問題として定式化した研究はなかったと論文は述べている。ロバスト最適化を決定木に使うには木の学習を 1 つの最適化問題として書く必要があり、論文は Bertsimas と Dunn（2017）の <a href="../oct/">OCT</a> の混合整数最適化の定式化を出発点にする。なお、推定量の性質を調べるロバスト統計とは別の分野だと論文は断っている。</p>
+  </section>
+
+  <section id="uncertainty">
+    <div class="kicker">不確実性集合</div>
+    <h2>特徴量は各点を半径 ρ の範囲で動かし、ラベルは最大 Γ 個まで反転させた最悪の場合に備える</h2>
+    <p>ロバスト最適化では、不確かなパラメータがとりうる値の集合を決め、その集合のなかで最も不利な値に対して最適な解を求める。特徴量については、各点 \(\mathbf{x}_i\) に加法的な摂動 \(\Delta\mathbf{x}_i\) が入るとし、その大きさを点ごとに \(\ell_q\) ノルムで抑える。ラベルについては、反転したかを表す二値の変数 \(\Delta y_i\) を置き、反転する点の数を \(\Gamma\) 以下に抑える。</p>
+    <div class="eq">\[ \mathcal U_x=\bigl\{\Delta X:\ \|\Delta\mathbf{x}_i\|_q\le\color{#1D4ED8}{\rho},\ i=1,\dots,n\bigr\},\qquad \mathcal U_y=\Bigl\{\Delta\mathbf{y}\in\{0,1\}^n:\ \textstyle\sum_i\Delta y_i\le\color{#1D4ED8}{\Gamma}\Bigr\} \]</div>
+    <p>本当のラベルは \(y_i(1-2\Delta y_i)\) と書ける。\(\mathcal U_x\) は点ごとの集合の直積なので扱いやすいが、\(\mathcal U_y\) はそのように分解できない。\(\rho\) と \(\Gamma\) は検証データで選ぶ。\(\rho=\Gamma=0\) なら通常の問題に戻るので、通常の分類器も候補に含まれ、ロバスト版が選ばれるのは検証の精度が上がるときだけになる。両方に頑健な分類器（robust-in-both）の検証では、通常版・特徴量版・ラベル版も候補に入る。</p>
+  </section>
+
+  <section id="svm-lr">
+    <div class="kicker">SVM とロジスティック回帰</div>
+    <h2>SVM とロジスティック回帰では、特徴量の摂動は双対ノルムの項になり、ラベルの反転は問題の種類を変える</h2>
+    <p>特徴量の摂動に対するロバスト版は、内側の最悪化が双対ノルムの問題 \(\max_{\|\Delta\mathbf{x}\|_q\le\rho}\mathbf{a}^\top\Delta\mathbf{x}=\rho\|\mathbf{a}\|_{q^*}\) になることから導ける。SVM では制約が \(y_i(\mathbf{w}^\top\mathbf{x}_i-b)-\rho\|\mathbf{w}\|_{q^*}\ge 1-\xi_i\) になり、Xu ら（2009）の結果と一致する。正則化つきの SVM 自体がある不確実性集合でのロバスト版と等価なので、ロバスト性を二重に数えないよう、論文は正則化項のないヒンジ損失を通常の SVM として扱う。ロジスティック回帰では \(\rho\|\boldsymbol\beta\|_{q^*}\) がロジットの中に入る。正則化項が尤度全体への線形の罰則であるのに対し、こちらは対数オッズへの罰則で、1 次のテイラー展開で両者の関係を示している。</p>
+    <p>ラベルの反転に対するロバスト版では、問題の種類が変わる。SVM は二値変数が入って混合整数最適化になり、ロジスティック回帰は制約なしの凸最適化から制約つきの凸最適化になる。特徴量の摂動に対するロバスト化は、3 つの手法のどれでも問題の種類を変えない（論文 Table 9）。</p>
+  </section>
+
+  <section id="tree-features">
+    <div class="kicker">最適決定木　特徴量の摂動</div>
+    <h2>最適決定木では特徴量の摂動に備えることがしきい値のまわりに幅 ρ の余白を取る制約になる</h2>
+    <p>出発点は OCT の定式化で、各ノード \(k\) で分岐 \(\mathbf{a}_k^\top\mathbf{x}&lt;b_k\) を置くかを決め、二値変数 \(z_{ik}\) で点 \(i\) がどの葉に入るかを表し、各葉の少数派の数を誤分類として最小にする。CART にならって 1 つの特徴量だけで分岐する単変量の木を考え、\(\mathbf{a}_k\) は成分が 0 か 1 で、和が 1 になる。この問題を \(\mathcal U_x\) に対してロバスト化すると、点を葉に割り当てる制約が次のように変わる。</p>
+    <div class="eq">\[ \mathbf{a}_j^\top\mathbf{x}_i\color{#1D4ED8}{+\rho}+\epsilon\le b_j+M(1-z_{ik}),\qquad \mathbf{a}_j^\top\mathbf{x}_i\color{#1D4ED8}{-\rho}\ge b_j-M(1-z_{ik}) \]</div>
+    <p>前者は葉 \(k\) の祖先のうち左に進んだノード \(j\)、後者は右に進んだノードについての制約である。一般には摂動の最悪値は \(\rho\|\mathbf{a}_j\|_{q^*}\) になるが、単変量の分岐では \(\mathbf{a}_j\) の 1 つの成分だけが 1 なので、どの \(q\) でも \(\|\mathbf{a}_j\|_{q^*}=1\) になり、最悪値は \(\rho\) そのものになる（定理 3）。通常の問題との違いは各しきい値 \(b_j\) のまわりに幅 \(\rho\) の余白が入ることだけで、問題は混合整数線形最適化のままである。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 260" role="img" aria-label="Schematic of one split on a single feature. The nominal split puts its threshold in a narrow gap between two points. With margin rho, no training point assigned to a leaf may lie within rho of the threshold, so the robust split moves to a wider gap.">
+        <text x="20" y="28" font-size="15" font-weight="600" fill="#16202E">1 つの特徴量での分岐（模式図）</text>
+        <g font-size="14" fill="#16202E">
+          <text x="20" y="92" fill="#C2410C" font-weight="600">通常</text>
+          <line x1="80" x2="620" y1="88" y2="88" stroke="#16202E" stroke-width="1.3"/>
+          <line x1="343" x2="343" y1="58" y2="112" stroke="#C2410C" stroke-width="2.5"/>
+          <text x="343" y="52" text-anchor="middle" fill="#C2410C">b</text>
+          <text x="20" y="192" fill="#1D4ED8" font-weight="600">ロバスト</text>
+          <line x1="80" x2="620" y1="188" y2="188" stroke="#16202E" stroke-width="1.3"/>
+          <rect x="255" y="160" width="60" height="56" fill="#E7EEFC"/>
+          <line x1="285" x2="285" y1="158" y2="218" stroke="#1D4ED8" stroke-width="2.5"/>
+          <text x="285" y="152" text-anchor="middle" fill="#1D4ED8">b</text>
+          <text x="285" y="238" text-anchor="middle" fill="#1D4ED8" font-size="13">b ± ρ には点を置けない</text>
+        </g>
+        <g fill="#fff" stroke="#16202E" stroke-width="2">
+          <circle cx="105" cy="88" r="7"/><circle cx="150" cy="88" r="7"/><circle cx="195" cy="88" r="7"/><circle cx="235" cy="88" r="7"/><circle cx="335" cy="88" r="7"/>
+          <circle cx="105" cy="188" r="7"/><circle cx="150" cy="188" r="7"/><circle cx="195" cy="188" r="7"/><circle cx="235" cy="188" r="7"/><circle cx="335" cy="188" r="7"/>
+        </g>
+        <g fill="#16202E">
+          <circle cx="352" cy="88" r="7"/><circle cx="420" cy="88" r="7"/><circle cx="470" cy="88" r="7"/><circle cx="520" cy="88" r="7"/><circle cx="575" cy="88" r="7"/>
+          <circle cx="352" cy="188" r="7"/><circle cx="420" cy="188" r="7"/><circle cx="470" cy="188" r="7"/><circle cx="520" cy="188" r="7"/><circle cx="575" cy="188" r="7"/>
+        </g>
+        <text x="620" y="130" font-size="13" fill="#5B6676" text-anchor="end">○ と ● は 2 つのクラス</text>
+      </svg>
+      <figcaption>図1　しきい値のまわりの余白（解説者による模式図。点の位置は架空）。通常の木は学習データをすべて正しく分けるしきい値を狭いすき間に置ける。余白 \(\rho\) を求めると、葉に割り当てる点はしきい値から \(\rho\) 以上離れていなければならないので、しきい値は広いすき間に移り、境目の近くの ○ を 1 つ誤分類する。</figcaption>
+    </figure>
+  </section>
+
+  <section id="tree-labels">
+    <div class="kicker">最適決定木　ラベルの反転</div>
+    <h2>ラベルの反転に備えると、各葉の多数派が Γ に応じた差で勝つことを求める制約になり、葉の純度が上がる</h2>
+    <p>ラベルの反転に対するロバスト化では、葉 \(k\) の正例の数 \(g_k\)、負例の数 \(h_k\)、誤分類の数 \(f_k\) を結ぶ制約が、反転の最悪の場合を含む形に変わる。\(\mathcal U_y\) の凸包の端点は整数なので、内側の最小化は線形緩和で置き換えられ、強双対性で変数 \(\mu\)・\(\nu\) を加えた線形の制約になる（定理 6）。この場合も混合整数線形最適化のままである。</p>
+    <p>論文はこの制約を次のように解釈している。\(\mu_{m,k}=1\)、\(\nu_{m,ik}=0\) とおくと実行可能な解が得られ、そのとき \(|g_k-h_k|\ge 2\Gamma\)、\(f_k=\min\{g_k,h_k\}+\Gamma\) が必要になる。つまり、実行可能な解では各葉の多数派がはっきり多数でなければならず、その差の大きさを \(\Gamma\) が決める。\(\Gamma\) を大きくすると木のすべての葉で純度が上がり、どこかの葉でこの差が足りない木は実行不能として扱われる。特徴量とラベルの両方に頑健な木は、図1の余白の制約とこの制約を両方とも入れたものである（定理 9）。</p>
+  </section>
+
+  <section id="synthetic">
+    <div class="kicker">実験の結果 1　合成データ</div>
+    <h2>外れ値を混ぜた 2 次元の合成データでは、両方に頑健な SVM とロジスティック回帰が正則化よりも真の境界に近づいた</h2>
+    <p>合成データの実験は SVM とロジスティック回帰だけで行った。\(N(1.5\mathbf{e},I)\) から正例を 25 点、\(N(-1.5\mathbf{e},I)\) から負例を 25 点、さらに \(N(\mathbf{0},3I)\) から外れ値を 10 点（ラベルはランダム）作る。真の境界は \(\mathbf{e}^\top\mathbf{x}=0\) である。75% を学習、25% を検証に使い、テストには 10,000 点を作った。正則化には \(\ell_1\) ノルムを使い、ロバスト版も \(q=\infty\) として双対ノルムを \(\ell_1\) にそろえている。2,000 回繰り返した結果は次のとおりである（論文 Table 1・Table 2）。</p>
+    <ul class="def">
+      <li>SVM のテスト誤差の平均は、通常版 2.571%、正則化 2.643%、特徴量版 2.516%、ラベル版 2.396%、両方 2.363%。真の境界との距離も両方が最小（0.310）だった。</li>
+      <li>ロジスティック回帰では、通常版 2.717%、正則化 2.694%、特徴量版 2.701%、ラベル版 2.450%、両方 2.436%。正則化と特徴量版はほぼ同じで、正則化がわずかに上回った。</li>
+      <li>テスト誤差の 90 パーセンタイルでは、両方に頑健な SVM が 3.325%、ロジスティック回帰が 3.515% で、正則化の 3.941%、4.041% より小さかった。分布の悪い側ほど差が開いた。</li>
+    </ul>
+    <p>この単純な問題ではラベルの不確実性集合から導いた手法が最もよかった。正則化つきの SVM もある不確実性集合でのロバスト版なので、論文はこの結果を、不確実性集合の選び方が重要になりうることを示すものとしている。</p>
+  </section>
+
+  <section id="uci">
+    <div class="kicker">実験の結果 2　UCI の 75 データ</div>
+    <h2>UCI の 75 データでは、どの手法でもロバスト版が通常版より多くのデータで勝ち、決定木では特徴量版が最も効いた</h2>
+    <p>UCI Machine Learning Repository から大きさや難しさの違う 75 の問題を選んだ。最大のものは \(n=245{,}057\)、特徴量の最大は \(p=857\) である。最初のクラスかどうかを当てる二値分類にし、学習 60%・検証 20%・テスト 20% に分けて、検証で選んだパラメータで学習と検証を合わせて学び直し、テストの精度を測った。分け方を変えて 5 回繰り返し、平均をとっている。決定木のロバスト版は通常の最適決定木ではなく R の rpart による CART と比べた。広く使われている最先端の手法を比較の基準にするためである。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 400" role="img" aria-label="Stacked bars of wins, ties and losses of each robust method against its nominal counterpart over 75 data sets. Wins exceed losses in every row; for trees against CART, feature-robust has 36 wins, 16 ties and 23 losses.">
+        <text x="20" y="28" font-size="15" font-weight="600" fill="#16202E">通常版と比べた勝ち・引き分け・負け（75 データ）</text>
+        <rect x="250" y="44" width="14" height="14" fill="#1D4ED8"/><text x="270" y="56" font-size="13" fill="#16202E">ロバスト版の勝ち</text>
+        <rect x="390" y="44" width="14" height="14" fill="#CBD2DC"/><text x="410" y="56" font-size="13" fill="#16202E">引き分け</text>
+        <rect x="480" y="44" width="14" height="14" fill="#C2410C"/><text x="500" y="56" font-size="13" fill="#16202E">通常版の勝ち</text>
+        <text x="20" y="98" font-size="14" font-weight="600" fill="#16202E">SVM</text>
+        <text x="240" y="98" font-size="13.5" fill="#16202E" text-anchor="end">特徴量</text>
+        <rect x="250.0" y="82" width="170.2" height="22" fill="#1D4ED8"/>
+        <text x="335.1" y="98" font-size="13" fill="#fff" text-anchor="middle">37</text>
+        <rect x="420.2" y="82" width="87.4" height="22" fill="#CBD2DC"/>
+        <text x="463.9" y="98" font-size="13" fill="#16202E" text-anchor="middle">19</text>
+        <rect x="507.6" y="82" width="87.4" height="22" fill="#C2410C"/>
+        <text x="551.3" y="98" font-size="13" fill="#fff" text-anchor="middle">19</text>
+        <text x="240" y="126" font-size="13.5" fill="#16202E" text-anchor="end">ラベル</text>
+        <rect x="250.0" y="110" width="161.0" height="22" fill="#1D4ED8"/>
+        <text x="330.5" y="126" font-size="13" fill="#fff" text-anchor="middle">35</text>
+        <rect x="411.0" y="110" width="101.2" height="22" fill="#CBD2DC"/>
+        <text x="461.6" y="126" font-size="13" fill="#16202E" text-anchor="middle">22</text>
+        <rect x="512.2" y="110" width="82.8" height="22" fill="#C2410C"/>
+        <text x="553.6" y="126" font-size="13" fill="#fff" text-anchor="middle">18</text>
+        <text x="240" y="154" font-size="13.5" fill="#16202E" text-anchor="end">両方</text>
+        <rect x="250.0" y="138" width="179.4" height="22" fill="#1D4ED8"/>
+        <text x="339.7" y="154" font-size="13" fill="#fff" text-anchor="middle">39</text>
+        <rect x="429.4" y="138" width="73.6" height="22" fill="#CBD2DC"/>
+        <text x="466.2" y="154" font-size="13" fill="#16202E" text-anchor="middle">16</text>
+        <rect x="503.0" y="138" width="92.0" height="22" fill="#C2410C"/>
+        <text x="549.0" y="154" font-size="13" fill="#fff" text-anchor="middle">20</text>
+        <text x="20" y="194" font-size="14" font-weight="600" fill="#16202E">ロジスティック回帰</text>
+        <text x="240" y="194" font-size="13.5" fill="#16202E" text-anchor="end">特徴量</text>
+        <rect x="250.0" y="178" width="156.4" height="22" fill="#1D4ED8"/>
+        <text x="328.2" y="194" font-size="13" fill="#fff" text-anchor="middle">34</text>
+        <rect x="406.4" y="178" width="96.6" height="22" fill="#CBD2DC"/>
+        <text x="454.7" y="194" font-size="13" fill="#16202E" text-anchor="middle">21</text>
+        <rect x="503.0" y="178" width="92.0" height="22" fill="#C2410C"/>
+        <text x="549.0" y="194" font-size="13" fill="#fff" text-anchor="middle">20</text>
+        <text x="240" y="222" font-size="13.5" fill="#16202E" text-anchor="end">ラベル</text>
+        <rect x="250.0" y="206" width="161.0" height="22" fill="#1D4ED8"/>
+        <text x="330.5" y="222" font-size="13" fill="#fff" text-anchor="middle">35</text>
+        <rect x="411.0" y="206" width="87.4" height="22" fill="#CBD2DC"/>
+        <text x="454.7" y="222" font-size="13" fill="#16202E" text-anchor="middle">19</text>
+        <rect x="498.4" y="206" width="96.6" height="22" fill="#C2410C"/>
+        <text x="546.7" y="222" font-size="13" fill="#fff" text-anchor="middle">21</text>
+        <text x="240" y="250" font-size="13.5" fill="#16202E" text-anchor="end">両方</text>
+        <rect x="250.0" y="234" width="184.0" height="22" fill="#1D4ED8"/>
+        <text x="342.0" y="250" font-size="13" fill="#fff" text-anchor="middle">40</text>
+        <rect x="434.0" y="234" width="69.0" height="22" fill="#CBD2DC"/>
+        <text x="468.5" y="250" font-size="13" fill="#16202E" text-anchor="middle">15</text>
+        <rect x="503.0" y="234" width="92.0" height="22" fill="#C2410C"/>
+        <text x="549.0" y="250" font-size="13" fill="#fff" text-anchor="middle">20</text>
+        <text x="20" y="290" font-size="14" font-weight="600" fill="#16202E">決定木（対 CART）</text>
+        <text x="240" y="290" font-size="13.5" fill="#16202E" text-anchor="end">特徴量</text>
+        <rect x="250.0" y="274" width="165.6" height="22" fill="#1D4ED8"/>
+        <text x="332.8" y="290" font-size="13" fill="#fff" text-anchor="middle">36</text>
+        <rect x="415.6" y="274" width="73.6" height="22" fill="#CBD2DC"/>
+        <text x="452.4" y="290" font-size="13" fill="#16202E" text-anchor="middle">16</text>
+        <rect x="489.2" y="274" width="105.8" height="22" fill="#C2410C"/>
+        <text x="542.1" y="290" font-size="13" fill="#fff" text-anchor="middle">23</text>
+        <text x="240" y="318" font-size="13.5" fill="#16202E" text-anchor="end">ラベル</text>
+        <rect x="250.0" y="302" width="151.8" height="22" fill="#1D4ED8"/>
+        <text x="325.9" y="318" font-size="13" fill="#fff" text-anchor="middle">33</text>
+        <rect x="401.8" y="302" width="82.8" height="22" fill="#CBD2DC"/>
+        <text x="443.2" y="318" font-size="13" fill="#16202E" text-anchor="middle">18</text>
+        <rect x="484.6" y="302" width="110.4" height="22" fill="#C2410C"/>
+        <text x="539.8" y="318" font-size="13" fill="#fff" text-anchor="middle">24</text>
+        <text x="240" y="346" font-size="13.5" fill="#16202E" text-anchor="end">両方</text>
+        <rect x="250.0" y="330" width="151.8" height="22" fill="#1D4ED8"/>
+        <text x="325.9" y="346" font-size="13" fill="#fff" text-anchor="middle">33</text>
+        <rect x="401.8" y="330" width="82.8" height="22" fill="#CBD2DC"/>
+        <text x="443.2" y="346" font-size="13" fill="#16202E" text-anchor="middle">18</text>
+        <rect x="484.6" y="330" width="110.4" height="22" fill="#C2410C"/>
+        <text x="539.8" y="346" font-size="13" fill="#fff" text-anchor="middle">24</text>
+        <text x="250" y="386" font-size="13" fill="#5B6676">ロバスト化の種類：特徴量・ラベル・両方</text>
+      </svg>
+      <figcaption>図2　各ロバスト版と通常版のテスト精度の比較（論文 Table 4 の数値から解説者が作図）。決定木の通常版は CART。</figcaption>
+    </figure>
+    <p>どの手法でも、3 種類のロバスト化はすべて通常版より勝ちが多かった。SVM とロジスティック回帰では両方に頑健な版が最も多く勝ったが、決定木では特徴量版が最も効いた。両方に頑健な版は特徴量版とラベル版を含むので、論文はこの結果を、検証で選んだパラメータの組がテストでは個別のロバスト版ほどよくなかったためかもしれないとしている。3 つの通常版と 3 つの両方に頑健な版の 6 つで比べても、どの分類器でもロバスト版のほうが、単独で最も精度が高かったデータの数が多かった。</p>
+  </section>
+
+  <section id="rule">
+    <div class="kicker">実験の結果 3　効果が出やすい問題</div>
+    <h2>特徴量の次元が高く通常の手法の学習精度が低い問題ほど、ロバスト化の効果が大きい</h2>
+    <p>論文は学習データの次元 \(p\) と通常の手法の学習データでの精度 \(a\)（%）だけで、ロバスト版が効くかを予測する目安を示す。係数 0.05 と 2.5 は手で選んだもので、3 つの手法に同じ線を使っている。</p>
+    <div class="eq">\[ \log_{10}p\;\ge\;0.05\,a-2.5 \]</div>
+    <p>この線より上（次元が高く、精度が低い側）では、両方に頑健な版の精度は通常版より平均で SVM が 5.3%、ロジスティック回帰が 4.0%、決定木が CART に対して 1.3% 高かった。通常の最適決定木と比べても 1.4% 高く、CART と比べたときとほぼ同じ改善だった。線より下ではロバスト版と通常版に大きな差はなく、通常の最適決定木との比較では −0.7% だった。論文は最適決定木が CART より強い基準になるためだと説明している（論文 Table 6）。</p>
+    <figure>
+      <img src="assets/fig5_cart_rule.png" alt="Scatter plot of data sets by baseline in-sample accuracy of CART (x axis, 50 to 100 percent) and dimension p (log y axis). Crosses mark data sets where robust-in-both optimal trees won and dots where CART won; a dashed line separates the upper-left region, where crosses dominate, from the lower-right region.">
+      <figcaption>図3　CART と両方に頑健な最適決定木で勝ったほうを、CART の学習データでの精度と次元で並べた図（論文 Fig. 5 の下段）。× がロバスト版の勝ち、● が CART の勝ち。破線が判定ルールの境界。</figcaption>
+    </figure>
+    <p>正則化した手法との比較では、線より上で正則化つき SVM に対して 0.5%、正則化つきロジスティック回帰に対して 1.9% の改善だった（8.5 節、Table 8）。線より下では正則化つき SVM がロバスト版 SVM を 0.7% 上回った。</p>
+    <p class="src">論文の 1.2 節（貢献のまとめ）では、判定ルールを満たすときの正則化に対する改善が「SVM で 2.1%、ロジスティック回帰で 1.2%」と書かれている。8.5 節と Table 8 の値（0.5% と 1.9%）と合わないので、このページは本文と表の値を使った（解説者の注）。</p>
+  </section>
+
+  <section id="cost">
+    <div class="kicker">計算時間</div>
+    <h2>特徴量のロバスト化は計算時間をほとんど変えないが、ラベルのロバスト化は 1〜2 桁遅くする</h2>
+    <p>代表的な UCI のデータで、\(\rho=0.01\)、\(\Gamma=10\%\) として解くまでの時間を比べた（1 スレッド、制限時間 1 時間、時間内に最適性を示せなければその時点の最良解を見つけた時間）。通常版と特徴量版はおおむね同じ桁の時間で済み、ラベル版はふつう 1〜2 桁遅くなった。両方に頑健な版はラベル版と同程度だった。決定木の例では、cnae-9（1,080 点、856 次元）で通常版 0.65 秒、ラベル版 183.43 秒、両方 146.01 秒である（論文 Table 10）。決定木のロバスト版では、強いヒューリスティックがほぼすぐによい解を見つけ、1 時間たってもそれが改善されないこともあった。混合整数最適化になるラベル版の SVM と決定木は計算の制約を受けやすく、最適まで解けなかった問題もあるので、制限時間を延ばせばさらに精度が上がる可能性があると論文は述べている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の中での位置づけ</div>
+    <h2>混合整数最適化で書いた最適決定木に、ロバスト最適化の不確実性集合を初めて入れた研究である</h2>
+    <p>この論文は混合整数最適化で書いた最適決定木（<a href="../oct/">OCT</a>）の上にロバスト最適化を重ね、学習データの特徴量とラベルの誤りに備える木を、SVM やロジスティック回帰と同じ手順で導いた。木の側では、単変量の分岐なら双対ノルムが 1 になるので、摂動はしきい値のまわりの余白という単純な形になる。</p>
+    <p>ここでの摂動は学習データの誤差に備えて汎化性能を上げるためのものである。テスト時に入力を意図的に動かす攻撃に備える <a href="../roct/">ROCT</a> や、学習時とテスト時で特徴量の分布が変わる場合に備える <a href="../robust-oct/">Justin ら</a> は、同じロバスト最適化の考え方を別の目的で最適決定木に入れている。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <p class="src">このページの数値・式・図は INFORMS Journal on Optimization の出版版（第 1 著者の MIT のページで公開されている PDF）による。書誌は Crossref で確認した。</p>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{bertsimas2019robust,
+  title     = {Robust Classification},
+  author    = {Bertsimas, Dimitris and Dunn, Jack and Pawlowski, Colin and Zhuo, Ying Daisy},
+  journal   = {INFORMS Journal on Optimization},
+  volume    = {1},
+  number    = {1},
+  pages     = {2--34},
+  year      = {2019},
+  doi       = {10.1287/ijoo.2018.0001}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

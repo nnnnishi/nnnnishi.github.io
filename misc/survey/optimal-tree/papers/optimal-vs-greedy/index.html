@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>最適 vs 貪欲：決定木の目的関数・調整・性能を比べ直す（論文解説）</title>
+<meta name="description" content="Optimal or Greedy Decision Trees? Revisiting their Objectives, Tuning, and Performance（TMLR 2026）の非公式の解説。109 個の実データと合成データで、最適な決定木と貪欲な決定木（CART）を、目的関数とハイパーパラメータの調整をそろえて比べ、最適決定木についての 5 つの未解決の問いに答える。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = greedy top-down induction (CART) and the concave proxy objectives it needs
+                         (Gini impurity, entropy), and earlier claims the paper revisits
+            --b (blue)   = optimal decision trees (ODT, here STreeD) optimising the target objective directly
+                         with tuned size, and the results in their favour
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Transactions on Machine Learning Research · 2026</div>
+  <h1>Optimal or Greedy Decision Trees? Revisiting their Objectives, Tuning, and Performance</h1>
+  <p class="subtitle">最適な決定木か、貪欲な決定木か：目的関数、調整、性能を見直す</p>
+
+  <ul class="authors">
+    <li><b>Jacobus G. M. van der Linden</b><span>Delft University of Technology</span></li>
+    <li><b>Daniël Vos</b><span>Delft University of Technology</span></li>
+    <li><b>Mathijs M. de Weerdt</b><span>Delft University of Technology</span></li>
+    <li><b>Sicco Verwer</b><span>Delft University of Technology</span></li>
+    <li><b>Emir Demirović</b><span>Delft University of Technology</span></li>
+  </ul>
+
+  <p class="lead">最適な決定木（ODT）が <span class="A">CART</span> のような貪欲な木より正確かどうかについて、先行研究の結論は食い違っていた。論文は 109 個の実データと合成データで、深さの制限とハイパーパラメータの調整をそろえて両者を比べ直した。<span class="B">ODT</span> は同じ深さの制限なら CART よりテスト精度が平均 1.3〜1.7 ポイント高く、大きさと精度のつり合いでも有利だった。一方、深さを制限しない CART は精度で追いつくが、木がずっと大きくなった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://openreview.net/forum?id=DvDOAtskXl">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2409.12788">arXiv</a>
+    <a class="btn" href="https://github.com/ConSol-Lab/opt-vs-greedy-dts">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。最適な木と貪欲な木のどちらが正確かで食い違う先行研究、食い違いの原因である深さの制限と調整の違い、貪欲法とODTで目的関数の良し悪しが逆になる結果、同じ深さでのテスト精度の差、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">同じ深さなら +1.3〜1.7 ポイント</span><span class="d">109 個のデータでの、ODT と CART の平均テスト精度の差（深さ 3、4、5 でそれぞれ 1.3、1.6、1.7 ポイント）。どの深さでも差は統計的に有意だった。</span></li>
+    <li><span class="k">CART は 5 倍大きな木で追いつく</span><span class="d">深さを制限しない CART の平均テスト精度は最も高かったが、深さ 5 の ODT をわずかに上回るだけで、そのために 5 倍大きな木を使った。</span></li>
+    <li><span class="k">ODT は Gini より正解率</span><span class="d">CART では Gini 不純度やエントロピーのような凹な目的関数が正解率より良かったが、ODT では逆に、正解率を直接最適化するほうが有意に良かった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>最適な決定木が貪欲な木より正確かどうかについて、先行研究の結論は食い違っていた</h2>
+    <p>CART や C4.5 は Gini 不純度や情報利得を分岐ごとに局所的に最適化して、木を上から作る。最適な決定木（ODT）は大きさの制限のもとで訓練データでの目的関数を木全体で最適化する。動的計画法などの進歩で、ODT は数十万件のデータでも求められるようになった。そこで論文は、それまで計算が追いつかずに確かめられなかった、ODT についての 5 つの未解決の問いを調べる。</p>
+    <ul class="def">
+      <li>問い 1：Gini 不純度や情報利得のような従来の目的関数を最適化すると、どうなるか。</li>
+      <li>問い 2：ハイパーパラメータの調整方法は ODT にどう影響するか。</li>
+      <li>問い 3：ODT は貪欲な木より正確か。</li>
+      <li>問い 4：データが増えると、両者の差は小さくなるか。</li>
+      <li>問い 5：ODT は貪欲な木より過学習しやすいか。</li>
+    </ul>
+    <p>問い 3 では、Bertsimas と Dunn（2017）が「ODT は CART より平均で 1〜2% 精度が高い」と報告し、<a href="../gosdt/">GOSDT</a> や <a href="../murtree/">MurTree</a> の論文も同様の結果を示した。一方、Zharmagambetov ら（2021）や Sullivan ら（2024）は ODT のほうが悪い結果を報告し、「最適」と呼べるのかを疑った。論文は先行研究の実験設定を調べ、食い違いの主な原因は CART を ODT と同じ深さに制限したかどうかだと結論づける。先行研究の多くでは、ODT か CART のどちらか、あるいは両方が正しく調整されておらず、データや木も小さかった。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">実験の設定</div>
+    <h2>OpenML の 109 個の二値分類のデータと合成データで、両者を同じ二値化と調整の手順のもとで比べる</h2>
+    <p>ODT には動的計画法の <a href="../streed/">STreeD</a> を使い、分岐の数を 5 分割交差検証で調整した。数値の特徴量は 10 分位のしきい値で、カテゴリの特徴量は one-hot 符号化で二値にし、CART も同じ二値化したデータで学習して、探索の仕方の違いだけを比べた（数値のまま比べた場合も付録で同様の結果だった）。CART は付録で整理した推奨の手順に従い、コスト複雑度で調整した。</p>
+    <p>実データは OpenML から、特徴量 50 個以下（数値は 8 個以下）、欠損なし、250〜100,000 件の二値分類のデータをすべて選んだ 109 個である。合成データでは、ランダムに作った深さ 3 の木（または線形の分離面）でラベルを付け、例の数、特徴量の数、特徴量とクラスのノイズを変えた。比較には各データでのテスト精度の平均順位を使い、Nemenyi の臨界差検定（\(\alpha = 0.05\)）で有意差を判定した。</p>
+  </section>
+
+  <section id="objective">
+    <div class="kicker">問い 1　目的関数</div>
+    <h2>貪欲法には Gini 不純度のような凹な目的関数が要るが、ODT では正解率を直接最適化するほうが有意に良い</h2>
+    <p>深さ 4 で、正解率と、貪欲法でよく使われる 6 つの目的関数（Gini 不純度、エントロピー、最小誤差、C4.5 の二項分布による悲観的な誤差、最小記述長、ベイズの事後確率）を比べた。各目的関数は葉の例の数 \(n\) と誤分類の数 \(m\) から葉の値 \(f(n, m)\) を返す関数として書ける。たとえば正解率は \(f(n, m) = m\)、Gini 不純度は \(f(n, m) = n(1 - p_0^2 - p_1^2)\) である。</p>
+    <p>CART では、Gini 不純度やエントロピーのような強い意味で凹な目的関数が、正解率などの凹でない目的関数より有意に良かった。上から作る貪欲法には強い意味で凹な目的関数が必要だという既知の事実と合う。ODT では逆に、凹な目的関数のほうが有意に悪かった（図1）。論文は、Gini 不純度やエントロピーの凹性は本来必要な性質ではなく、貪欲法の制約から来ていると述べる。ODT は目的関数を自由に選べるので、費用を考慮した分類や公平性の制約のように良い分岐基準が見つかっていない問題でも、目的そのものを直接最適化できる。</p>
+    <figure>
+      <img src="assets/fig1_objectives.png" alt="Four panels comparing seven objectives at maximum depth 4. Top: for CART, the concave objectives Gini impurity, Bayes, entropy and MDL (orange) reach higher average test accuracy and rank significantly better than minimum error, accuracy and binomial error (blue). Bottom: for ODT, the order flips; binomial error, accuracy and minimum error rank best and are significantly better than the concave objectives." loading="lazy">
+      <figcaption>図1　目的関数の比較（深さ 4）。上が CART、下が ODT。左は平均テスト精度と葉の数、右は平均順位と臨界差検定。橙は強い意味で凹な目的関数、青はそれ以外（論文 Fig. 3、TMLR 版。この図の色の意味は論文のもの）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="tuning">
+    <div class="kicker">問い 2　ハイパーパラメータの調整</div>
+    <h2>ODT では大きさの調整が欠かせないが、どの方法で調整してもテスト精度はほとんど変わらない</h2>
+    <p>深さ 5 の ODT で、深さ、分岐の数、コスト複雑度、葉の最小データ数、ラプラス平滑化の 5 つの調整方法を、試す設定の数を 10 にそろえて比べた。どの方法の間にも統計的に有意な差はなく、調整しない場合だけが劣った。ただし、葉の最小データ数や深さの調整では分岐の数を直接制約しないので木がやや大きくなり、深さだけを調整するのが群を抜いて速かった。論文は精度と計算時間を重視するなら深さを、木の大きさと精度を重視するなら分岐の数かコスト複雑度を調整するよう勧めている。</p>
+  </section>
+
+  <section id="accuracy">
+    <div class="kicker">問い 3　テスト精度</div>
+    <h2>同じ深さなら ODT は CART より 1〜2 ポイント正確で、大きさと誤りのつり合いでも ODT が有意に優れていた</h2>
+    <p>109 個のデータで、深さ 3、4、5 の ODT と CART を比べると、どの深さでも ODT のテスト精度が有意に高く、差は平均で 1.3、1.6、1.7 ポイントだった（図2）。これは Bertsimas と Dunn の主張に合う。ただし、深さを制限しない CART の平均テスト精度が最も高く、深さ 5 の ODT をわずかに上回った。そのために CART は 5 倍大きな木を使っていた。論文は Bertsimas と Dunn の主張に「同じ深さの制限のもとで」という条件を付けるべきだとしている。</p>
+    <p>そこで論文は ODT の利点を精度そのものではなく、同じ大きさの制約のもとでの精度とみなし、それを測る指標として大きさと誤りの曲線の下の面積（SE-AUC）を導入した。葉の数を 1 から \(s\) まで変えたときのテスト誤りの、パレートフロントでの平均である。</p>
+    <div class="eq">\[ \text{SE-AUC}_s = \frac{1}{s} \sum_{i=1}^{s} \big(1 - \mathrm{acc}_i\big) \]</div>
+    <p>葉 1〜16 枚の木で比べると、深さ 4 の ODT は深さを制限しない CART より SE-AUC が有意に小さかった。ODT の目的関数のうちベイズの事後確率だけは、CART との差が有意でなかった。</p>
+    <figure>
+      <img src="assets/fig2_accuracy.png" alt="Left: average test accuracy and number of leaf nodes over the 109 datasets for CART without depth limit, ODT and CART at maximum depths 3, 4 and 5. Unlimited CART and depth-5 ODT have nearly the same accuracy, but CART uses far more leaves. At each fixed depth ODT is more accurate than CART. Right: average ranks with a Nemenyi critical-distance test." loading="lazy">
+      <figcaption>図2　109 個のデータでの CART（赤）と ODT（青）の比較。左は平均テスト精度と葉の数、右は平均順位と臨界差検定（論文 Fig. 5、TMLR 版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="data">
+    <div class="kicker">問い 4・5　データの量とノイズ</div>
+    <h2>データが増えても両者の差は縮まらず、調整した ODT は CART よりノイズに強かった</h2>
+    <p>深さ 3 の木から作った合成データでは、1,000 件未満では ODT が深さを制限した CART よりも制限しない CART よりも正確だった。1,000 件を超えるとどちらもテスト精度 100% になったが、CART は葉 11 枚を使い、ODT は真の木と同じ 8 枚で済んだ。深さ 4 に制限した CART は、真の深さが 3 なのに、データを増やしても精度が約 98% で頭打ちになった。特徴量を増やすと CART は不要な分岐を増やして精度が下がったが、ODT は変わらなかった。大きな実データ（Electricity、Covertype、Higgs）でも、調整した ODT は深さを制限した CART より一貫して正確だった。深さを制限しない CART はデータとともに精度を上げたが、木も数万の節点まで大きくなった。たとえば Electricity の 1 万件では、精度はほぼ同じでも、ODT の葉は 8 枚、CART の葉は 100 枚を超えた。論文はこれらの結果から、データが増えると差が縮まるという仮説を否定している。</p>
+    <p>過学習については、調整しない ODT は、データが少ないと深さを制限した CART より過学習しやすかった。しかし調整すると、特徴量やクラスにノイズを加えた合成データで、ODT はつねに CART より精度が高く、木も小さかった。論文は、ODT が貪欲な木より過学習しやすいという懸念を否定している。</p>
+    <p>計算時間の目安として、STreeD は深さ 4 までの木なら、10 万件で二値の特徴量約 250 個、100 万件で約 150 個まで実用的に求められた。</p>
+  </section>
+
+  <section id="recommendations">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>ODT は小さくて正確な木が欲しいときに向いており、比較するときは深さの制限と調整をそろえる必要がある</h2>
+    <ul class="def">
+      <li><strong>ODT が向く場面</strong>：解釈できる小さな木が欲しいとき、意味のある少数の特徴量に整えたデータ、例の数が多いデータ、ノイズの多いデータ、良い分岐基準のない目的関数を直接最適化したいとき。</li>
+      <li><strong>ODT の限界</strong>：大きな木（深さ 5 を超えるもの）と特徴量の多いデータはまだ難しい。特徴量の選択や前処理が助けになる。</li>
+      <li><strong>比較の勧め</strong>：大きさの制限ありとなしの両方で比べること、大小のデータで比べること、深さ 2 より大きな木も評価すること、ODT と貪欲法の両方を正しく調整すること。</li>
+      <li><strong>この文献リストとの関係</strong>：<a href="../dl8/">DL8</a>、<a href="../gosdt/">GOSDT</a>、<a href="../murtree/">MurTree</a> などの比較の仕方を見直し、動的計画法の系統の ODT がどんな条件で役に立つかを整理した論文である。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{linden2026optimal,
+  title   = {Optimal or Greedy Decision Trees? Revisiting their Objectives, Tuning, and Performance},
+  author  = {van der Linden, Jacobus G. M. and Vos, Dani{\"e}l and de Weerdt, Mathijs and Verwer, Sicco and Demirovi{\'c}, Emir},
+  journal = {Transactions on Machine Learning Research},
+  issn    = {2835-8856},
+  year    = {2026},
+  url     = {https://openreview.net/forum?id=DvDOAtskXl}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は arXiv 2409.12788 v3（2026 年 8 月 6 日、TMLR 掲載版と同じ体裁）による。書誌は OpenReview の BibTeX で確認した（著者名の表記 Mathijs de Weerdt も OpenReview に合わせた）。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

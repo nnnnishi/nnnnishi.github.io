@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConTree：連続の特徴量のまま最適な分類木（論文解説）</title>
+<meta name="description" content="Optimal Classification Trees for Continuous Feature Data Using Dynamic Programming with Branch-and-Bound（AAAI 2025）の非公式の解説。連続の特徴量を二値化せずに、並べた値の上でのしきい値の枝刈りと深さ 2 専用の解法を組み合わせた動的計画法で、深さ制約つきの最適な分類木を求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = what ConTree is compared with: coarse binarization, Quant-BnB, the MIP and SAT
+                         methods, and CART
+            --b  (blue)   = ConTree: thresholds kept, pruned with the similarity bound on sorted data, its
+                         depth-two subroutine and measured gains
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AAAI 2025</div>
+  <h1>Optimal Classification Trees for Continuous Feature Data Using Dynamic Programming with Branch-and-Bound</h1>
+  <p class="subtitle">連続の特徴量のデータに対する、動的計画法と分枝限定法による最適な分類木</p>
+
+  <ul class="authors">
+    <li><b>Cătălin E. Brița</b><span>University of Amsterdam / Delft University of Technology</span></li>
+    <li><b>Jacobus G. M. van der Linden</b><span>Delft University of Technology</span></li>
+    <li><b>Emir Demirović</b><span>Delft University of Technology</span></li>
+  </ul>
+
+  <p class="lead">動的計画法で最適決定木を求める手法の多くは、連続の特徴量を<span class="A">前もって二値化</span>する。しきい値を粗く選べば最適性を失い、すべてのしきい値を二値の特徴量にすれば計算時間が大きく増える。<span class="B">ConTree</span> は連続の特徴量をそのまま扱い、値を並べておけば分割点どうしの近さを数えられることを使って、改善の見込みのないしきい値をまとめて枝刈りする。深さ 3 の木を Quant-BnB の 63 倍（幾何平均）の速さで求め、深さ 4 の最適な木も多くのデータで現実的な時間で求めた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1609/aaai.v39i11.33210">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2501.07903">arXiv</a>
+    <a class="btn" href="https://github.com/ConSol-Lab/contree">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。連続の特徴量を粗く二値化すると良い分割点を見逃すこと、すべてのしきい値を調べると時間とメモリがかかること、並べたしきい値の上で近い分割点をまとめて枝刈りするConTreeの仕組み、深さ3でのQuant-BnBとの計算時間の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">深さ 3 で 63 倍速い</span><span class="d">16 データで Quant-BnB と比べた計算時間の幾何平均。Bidding の 7 倍から Fault の 266 倍まで。</span></li>
+    <li><span class="k">分割の計算を 99.6% 省く</span><span class="d">深さ 2 の木で、部分区間の枝刈りだけで深さ 2 の分割の呼び出しの平均 99.6% を省いた。3 つの枝刈りを組み合わせると、さらに約 10% 減った。</span></li>
+    <li><span class="k">テスト精度 CART +4.7%</span><span class="d">深さ 3 の木で、CART より平均 4.7%、10 分位点で二値化した最適な木より 0.7% 高かった（16 データ、5 回の分割）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>動的計画法の最適決定木は速いが、連続の特徴量は二値化しないと扱えなかった</h2>
+    <p>深さを決めたうえで訓練データの誤分類数を最小にする最適決定木は NP 困難な問題である。MIP、制約プログラミング、SAT の定式化は数千件を超えるデータや深さ 3 を超える木で行き詰まり、<a href="../dl85/">DL8.5</a> や <a href="../murtree/">MurTree</a> のような動的計画法と分枝限定法の専用アルゴリズムのほうが大きな問題まで解ける。ただしこれらは二値の特徴量を前提にしている。</p>
+    <p>連続の特徴量を二値化するには 2 つの道がある。しきい値を粗く選ぶと（たとえば 10 個の分位点）、その中で最適でも本来の最適な木は逃しうる。すべてのしきい値を 1 つずつ二値の特徴量にすると最適性は保てるが、計算時間は特徴量の数について指数的に増える。連続の特徴量を直接扱う専用のアルゴリズムとしては <a href="../quant-bnb/">Quant-BnB</a> があるが、深さ 3 の木でも数時間かかるデータがあり、作者自身が深さ 3 を超える使い方を勧めていない。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>ConTree はすべての特徴量とすべてのしきい値で左右に分ける再帰を、二値化せずに解く</h2>
+    <p>特徴量 \(f\) の値を並べたとき、隣り合う異なる値の中点をしきい値の候補 \(S^f\) とする（候補の数は \(m = |S^f|\)）。部分問題はデータ \(\mathcal{D}\) と残りの深さ \(d\) で決まり、次の再帰で最小の誤分類数を求める。</p>
+    <div class="eq">\[ \operatorname{CT}(\mathcal{D}, d) = \begin{cases} \min_{\hat y} \sum_{(x,y) \in \mathcal{D}} \mathbb{1}(\hat y \ne y) & d = 0 \\ \min_{f \in \mathcal{F}} \min_{\tau \in S^f} \big[ \operatorname{CT}(\mathcal{D}(f \le \tau), d-1) + \operatorname{CT}(\mathcal{D}(f > \tau), d-1) \big] & d > 0 \end{cases} \]</div>
+    <p>しきい値 1 つにつき大きな部分問題が 2 つずつ出るので、すべての候補をそのまま調べると重い。ConTree は最適性を保ったまま、(1) 連続の特徴量向けの 3 つの枝刈り、(2) 深さ 2 専用の解法、(3) MurTree と同じデータ単位のキャッシュで速くする。最適解からの差の上限（max-gap）を指定して、時間と精度を引き換えにすることもできる。扱うのは各分岐で 1 つの特徴量としきい値を使う軸に平行な二分木である。</p>
+  </section>
+
+  <section id="pruning">
+    <div class="kicker">手法 1　枝刈り</div>
+    <h2>値を並べておけば分割点どうしの違いを添字の差で数えられるので、近い分割点を下界でまとめて捨てられる</h2>
+    <p>枝刈りのもとになるのは類似度による下界である。前に解いたデータ \(\mathcal{D}_{old}\) の最適な誤分類数 \(\theta_{old}\) から、新しいデータの最適値は \(\theta_{new} \ge \theta_{old} - |\mathcal{D}_{old} \setminus \mathcal{D}_{new}|\) と下から抑えられる。しきい値を \(\tau\) から \(\tau'\) に動かすと、左右を移るデータの数は並べた値の添字の差 \(|z(\tau) - z(\tau')|\) で \(O(1)\) で求まる。ここから定理 1 が出る。</p>
+    <div class="eq">\[ |z(\tau) - z(\tau')| \le \theta_\tau - \mathcal{UB} \ \Longrightarrow\ \tau' \text{ では改善できない} \]</div>
+    <p>\(\mathcal{UB}\) はこれまでの最良値（または改善に必要な値）である。ConTree は特徴量ごとに、まだ最適な分割を含みうるしきい値の添字の区間の集合 \(Q\) を持ち、区間の中点 \(w\) で分割を解いては \(Q\) を削る。</p>
+    <ul class="def">
+      <li><strong>近傍の枝刈り（NB）</strong>：分割点 \(u\) を解いて \(\theta_u\) が \(\mathcal{UB}\) を \(\Delta\) 上回ったら、\(u\) から添字で \(\Delta\) 以内の分割点を捨て、区間を 2 つに分ける。境界は二分探索で \(O(\log m)\) で求まる。</li>
+      <li><strong>区間の縮小（IS）</strong>：\(\mathcal{UB}\) が更新されたとき、区間の外側ですでに解いた最も近い分割点 \(u, v\) から同じ下界をあらためて当てはめ、区間の両端を削る。左（右）の部分木の誤分類が 0 になった分割点があれば、それより左（右）の分割点は改善しないことも使う（定理 2）。</li>
+      <li><strong>部分区間の枝刈り（SP）</strong>：区間 \([i..j]\) の外側の解いた分割点 \(u &lt; i\)、\(v &gt; j\) について、\(\theta_{u,L} + \theta_{v,R} &gt; \mathcal{UB}\) なら区間の中のどの分割点も改善しないので、区間ごと捨てる（定理 3）。左の部分木はしきい値を右に動かすほどデータが増え、右の部分木は減るからである。</li>
+    </ul>
+    <div class="pair">
+      <figure><img src="assets/fig1a_neighborhood_pruning.png" alt="Row of sorted split points between indices i and j. The evaluated point u is yellow; the points within theta_u minus UB on both sides are red (pruned); the outer points remain green." loading="lazy"><figcaption>(a) 近傍の枝刈り</figcaption></figure>
+      <figure><img src="assets/fig1b_interval_shrinking.png" alt="Row of split points with previously evaluated points u and v outside the interval i to j in yellow; points of the interval near u and v are red (pruned) and the middle ones stay green." loading="lazy"><figcaption>(b) 区間の縮小</figcaption></figure>
+    </div>
+    <p class="src">図1　黄色が下界の計算に使う解いた分割点、赤が新たに捨てる分割点、緑が残る分割点、青は区間の外（論文 Fig. 1、arXiv v1）。</p>
+    <p>類似度の下界は OSDT、GOSDT、MurTree も使っていたが、2 つのデータの違いを数えるのに \(O(n)\) かかっていた。ConTree は並べた連続値の性質を使って違いを \(O(1)\) で求め、枝刈りを \(O(\log m)\) で適用する。Quant-BnB の下界の 1 つは部分区間の枝刈りに似ているが、残りの深さによらない点が違う。Quant-BnB のほかの下界はより強いが計算も重く、ConTree に取り入れるのは今後の課題とされている。</p>
+  </section>
+
+  <section id="depth2">
+    <div class="kicker">手法 2　深さ 2 の解法と上界</div>
+    <h2>深さ 2 の木は、並べたデータを 1 回たどるだけで左右の部分木をまとめて解く</h2>
+    <p>MurTree の深さ 2 専用の解法は二値の特徴量の数の 2 乗のメモリを使うので、しきい値ごとに二値の特徴量を作る使い方には向かない。ConTree の D2Split は根の分割点 \(w\) で左右に行くクラスごとの件数 \(FQ^y_L, FQ^y_R\) を数えたあと、2 段目の特徴量 \(f_2\) の順にデータを 1 回たどり、左右それぞれの件数 \(C^y_L, C^y_R\) を更新していく。4 つの葉の件数は \(C^y_L,\ FQ^y_L - C^y_L,\ C^y_R,\ FQ^y_R - C^y_R\) で決まるので、根の分割 1 つにつき \(O(|\mathcal{D}||\mathcal{F}|)\) で最適な深さ 2 の木が求まる。データは最初に 1 回並べておけば、分割しても順序は崩れない。</p>
+    <p>深さ 3 以上では、左の部分木の最適値から右の部分木の上界を作る。上界を \(\mathcal{UB} - \theta_{w,L}\) と厳しくすると右の部分問題を早く打ち切れるが、枝刈りに使える情報が得られず、かえって遅くなることが多かった。そこで上界を \(\mathcal{UB} - \theta_{w,L}\) と、区間の端から中点までの長い方の距離 \(\eta\) の大きい方にした。</p>
+  </section>
+
+  <section id="results-ablation">
+    <div class="kicker">実験の結果 1　各技法の効果</div>
+    <h2>3 つの枝刈りは深さ 2 の分割の呼び出しを大きく減らし、深さ 2 の解法は計算時間を 320 分の 1 にした</h2>
+    <p>実験は UCI の 16 データ（Quant-BnB の訓練用の分割）、Intel Xeon 2.1 GHz、メモリ 25 GB、時間の上限 4 時間で行った。</p>
+    <ul class="def">
+      <li>深さ 2 の木で、近傍の枝刈り、区間の縮小、部分区間の枝刈りは、深さ 2 の分割の呼び出しをそれぞれ平均 91.1%、97.5%、99.6% 省いた。区間ごと捨てられる部分区間の枝刈りがたいてい最も効き、3 つを組み合わせると部分区間の枝刈りだけの場合よりさらに平均 10% 減った。</li>
+      <li>深さ 2 の解法を使うと、使わない場合より計算時間が幾何平均で 320 分の 1 になった（どちらも 3 つの枝刈りを使用）。</li>
+    </ul>
+    <figure>
+      <img src="assets/fig2_split_count.png" alt="Grouped bar chart on a log axis of depth-two split calls for 16 data sets: no pruning reaches about ten thousand to a few hundred thousand calls, NB and IS reduce this, SP and the combination NB+IS+SP are the lowest, typically a few hundred calls or fewer." loading="lazy">
+      <figcaption>図2　深さ 2 の分割（D2Split）の呼び出し回数。枝刈りなし、3 つの枝刈りそれぞれ、3 つの組合せ（論文 Fig. 2、arXiv v1。縦軸は対数。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results-runtime">
+    <div class="kicker">実験の結果 2　計算時間とメモリ</div>
+    <h2>深さ 2 と 3 では既存の最適な手法より 1 桁以上速く、深さ 4 の最適な木も 16 データ中 12 データで 4 時間以内に求めた</h2>
+    <p>比べたのは連続の特徴量を直接扱う最適な手法である。MIP の <a href="../oct/">OCT</a> と RS-OCT（どちらも CART で初期化し、8 スレッドまで）、SAT の手法（<a href="../sat-shati/">Shati ら</a>）、<span class="A">Quant-BnB</span> を、各データで 20 回ずつ動かした（時間切れの場合を除く）。</p>
+    <ul class="def">
+      <li>深さ 2：MIP は 4 時間後でも最適性のギャップが大きく残り、OCT は 2 回メモリ不足になった。SAT の手法は 7 データで時間切れになった。Quant-BnB と ConTree はどちらも 1 秒前後かそれ以下で、ConTree は全データで最も速かった（たとえば Avila で 2 秒と 0.1 秒）。</li>
+      <li>深さ 3：ConTree は Quant-BnB より幾何平均で 63 倍速かった。Htru では 13,147 秒と 74 秒、Fault では Quant-BnB が 4 時間を超え、ConTree は 55 秒だった。</li>
+      <li>深さ 4：Quant-BnB の実装は深さ 3 までしか扱えないので、ConTree だけを測った。4 データ（Bean、Eeg、Htru、Magic）を除いて 4 時間以内に最適な木を求めた。最適値との差を 1% 以内に許すと（max-gap = \(\lfloor 0.01 |\mathcal{D}| \rfloor\)）、Htru は 191 秒、Magic は 5,719 秒で終わるなど、時間は大きく減った。付録では深さ 5 で 8 データ、深さ 6 で 7 データの最適な木を求めて証明している。</li>
+      <li>メモリ：深さ 3 で、Quant-BnB は Eeg と Htru で 15 GB、Fault で 25 GB を使ったが、ConTree は 18 MB、15 MB、7 MB だった。深さ 4 での最大は Skin の 123 MB だった。</li>
+    </ul>
+    <p>Quant-BnB は BinOCT、DL8.5、MurTree（すべてのしきい値を二値化した場合）より 1 桁以上速いという比較が Quant-BnB の論文にあり、論文はそれと合わせて、ConTree が既存の最適な手法より 1 桁以上速いと結論している。</p>
+  </section>
+
+  <section id="results-oos">
+    <div class="kicker">実験の結果 3　途中経過とテスト精度</div>
+    <h2>良い木は早く見つかることが多く、テスト精度は CART や二値化した最適な木より高かった</h2>
+    <p>深さ 4 の探索で最良の解の推移を見ると、Fault では最後の改善が探索の終盤に見つかったが、Avila、Page、Rice では良い解が早く見つかり、残りの時間の大半は最適性の証明に使われた。</p>
+    <figure>
+      <img src="assets/fig3_anytime.png" alt="Step plot of the gap to the optimal solution in percent against time on a log axis for Avila, Fault, Page and Rice at depth four. Page and Rice start below one percent; Avila drops step-wise from about four percent; Fault stays above two percent until late, then drops to zero. Crosses mark the end of each search." loading="lazy">
+      <figcaption>図3　深さ 4 の探索での、最良の解と最適解の差の推移。× は探索の終わり（論文 Fig. 3、arXiv v1。横軸は対数。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+    <p>テスト精度は付録で、全データを使った 80% と 20% の層化分割を 5 回行い、深さ 3 の上限のもとで比べた（付録の表、16 データ）。<span class="A">CART</span> はコスト複雑度、10 分位点やしきい値の推定（<a href="../guessing-thresholds/">McTavish ら</a>）で二値化したデータの最適な木（STreeD で学習）は深さとノード数、ConTree は深さを、検証データで調整した。</p>
+    <ul class="def">
+      <li>ConTree のテスト精度は CART より平均 4.7% 高く、Segment では差が 30%（56.8% と 87.1%）あった。10 分位点の二値化より 0.7%、しきい値の推定による二値化より 1.0% 高く、ウィルコクソンの符号順位検定ではどれも有意だった（\(p &lt; 0.01\)）。</li>
+      <li>16 データのうち最も精度が高かったのは ConTree が 12、しきい値の推定が 5、10 分位点が 2、CART が 0 データ（同率を含む）。Rice ではしきい値の推定のほうが高かった。</li>
+    </ul>
+    <p>要旨と本文は CART より「5%」高いと書き、付録は 4.7% としている。本文は図 3 の説明で「3 つのデータ」と書くが、図と本文の説明には Avila、Fault、Page、Rice の 4 つが出てくる。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">位置づけと限界</div>
+    <h2>二値化に頼らずに深さ 4 まで届く最適な分類木だが、分岐は軸に平行で、目的は誤分類数に限られる</h2>
+    <ul class="def">
+      <li>STreeD などの動的計画法の流れに、連続の特徴量を直接扱う枝刈りを持ち込んだ研究である。<a href="../streed/">STreeD（2023）</a>は今後の課題に連続の特徴量を挙げていた。</li>
+      <li>今後の課題として、分岐ノードの数への罰則や上限による疎な木、<a href="../osrt/">OSRT</a> や <a href="../piecewise-regression/">van den Bos ら</a>の下界を使った回帰への拡張、カテゴリ変数のべき集合での分岐を挙げている。</li>
+      <li>Skin のように大きなデータでは深い木でメモリが増える（深さ 5 で 782 MB）。論文はデータ単位のキャッシュを枝単位のキャッシュに替えればメモリを減らせるとしている。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{brita2025contree,
+  title     = {Optimal Classification Trees for Continuous Feature Data Using Dynamic Programming with Branch-and-Bound},
+  author    = {Bri{\c{t}}a, C{\u{a}}t{\u{a}}lin E. and van der Linden, Jacobus G. M. and Demirovi{\'c}, Emir},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {39},
+  number    = {11},
+  pages     = {11131--11139},
+  year      = {2025},
+  doi       = {10.1609/aaai.v39i11.33210}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は arXiv 2501.07903 v1（付録を含む）による。出版版（AAAI）の本文とは照らし合わせていない。書誌情報と著者名の表記は Crossref と AAAI の論文ページによる。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

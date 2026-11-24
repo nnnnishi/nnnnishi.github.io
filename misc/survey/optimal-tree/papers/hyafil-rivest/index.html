@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyafil & Rivest：最適な二分決定木の構成は NP 完全（論文解説）</title>
+<meta name="description" content="Constructing Optimal Binary Decision Trees is NP-Complete（Information Processing Letters 1976）の非公式の解説。対象を特定するのに必要なテストの回数の合計（平均）を最小にする二分決定木を作る問題が NP 完全であることを、3 要素の集合による完全被覆からの帰着で示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (layout copied from the budget-uplift explainers)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = cost: the path lengths (number of tests) and the minimal cost f(n)
+            --b  (blue)   = the 3-element tests and the exact cover that an optimal tree must embody
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- small results table ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A { color: var(--a); } table.tbl th.B { color: var(--b); }
+/* ---------- threshold-bit lab ---------- */
+.bits { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.bits button { font: 600 0.95rem var(--font-mono); border: 1.5px solid var(--b); color: var(--b); background: #fff; border-radius: 10px; padding: 0.45rem 0.9rem; cursor: pointer; }
+.bits button[aria-pressed="true"] { background: var(--b); color: #fff; }
+.rowsbox { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+.rowsbox div { border: 1px solid var(--hair); border-radius: 8px; text-align: center; padding: 0.35rem 0; font: 500 0.9rem var(--font-mono); line-height: 1.35; }
+.rowsbox div.L { background: var(--b-soft); border-color: var(--b); }
+.rowsbox div small { display: block; font-size: 0.75rem; color: var(--muted); }
+.labout { font-size: 0.95rem; }
+.labout b { color: var(--b); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Information Processing Letters · Vol. 5 · 1976</div>
+  <h1>Constructing Optimal Binary Decision Trees is NP-Complete</h1>
+  <p class="subtitle">最適な二分決定木を作る問題は NP 完全である</p>
+
+  <ul class="authors">
+    <li><b>Laurent Hyafil</b><span>IRIA – Laboria, Rocquencourt, France</span></li>
+    <li><b>Ronald L. Rivest</b><span>Dept. of Electrical Engineering and Computer Science, MIT</span></li>
+  </ul>
+
+  <p class="lead">有限個の対象のうち未知の 1 つを、真か偽を返すテストを順に当てて特定する場面を考える。そのための二分決定木のうち、特定に要するテストの回数の合計（平均）が最小のものを作る問題は NP 完全である。証明は、<span class="B">3 要素の集合による完全被覆</span>の問題を決定木の問題に置き換え、最適な木が必ずその完全被覆を<span class="B">根からの 1 本の鎖</span>として含むことを、<span class="A">最小のコスト</span>の漸化式で示す。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1016/0020-0190(76)90095-8">Paper</a>
+    <a class="btn" href="https://people.csail.mit.edu/rivest/pubs/HR76.pdf">PDF（著者のページ）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。テストを当てて対象を特定する決定木とそのコスト、問題がNP完全であること、完全被覆の3要素の集合が鎖をなす最適な木、最小のコストf(n)の表、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">NP 完全</span><span class="d">与えられたテストの集合で、コスト（根から各対象までのテストの回数の合計）が \(w\) 以下の決定木があるかを判定する問題 DT が NP 完全である。</span></li>
+    <li><span class="k">3 ページの証明</span><span class="d">3 次元マッチング → 3 要素の集合による完全被覆（EC3）→ DT と帰着をつなぐ。</span></li>
+    <li><span class="k">最悪の回数でも同じ</span><span class="d">結論の節で、平均ではなく最悪の場合のテストの回数をコストにしても、同じ構成で NP 完全になると述べている。</span></li>
+  </ul>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>テストを当てて対象を 1 つに特定する二分決定木の、テストの回数の合計を最小にする</h2>
+    <p>対象の有限集合 \(X = \{x_1, \dots, x_n\}\) と、テストの有限集合 \(\mathcal T = \{T_1, \dots, T_t\}\) が与えられる。各テストは各対象に真か偽を返し、\(T_i\) は真になる対象の集合とも見なせる。未知の対象を特定する手続きは二分決定木で、根と内部ノードにテストを置き、偽なら左、真なら右に進み、終端のノードが対象を 1 つ名指しする。</p>
+    <p>対象 \(x_i\) を特定するのに必要なテストの回数を、根から \(x_i\) の終端までの道の長さ \(p(x_i)\) とする。木のコストはその合計 \(\sum_{x_i \in X} p(x_i)\)（外部道長）で、対象が等確率ならテストの回数の期待値の \(n\) 倍にあたる。決定木の問題 \(\mathrm{DT}(\mathcal T, X, w)\) は、コストが \(w\) 以下の決定木があるかを判定する問題である。論文は、決定表のコンパイルなど多くの同定の問題がこの形をとると述べ、テストごとに費用を付けた一般化も当然 NP 完全になるとしている。</p>
+  </section>
+
+  <section id="motivation">
+    <div class="kicker">背景</div>
+    <h2>効率のよい構成法が多く研究されてきたが、P ≠ NP なら多項式時間のアルゴリズムはない</h2>
+    <p>最適な二分決定木を効率よく作るアルゴリズムは、決定表の変換などに関連して多く研究されてきた。論文は、証明は比較的簡単だが、この結果の重要さはそれまでの研究の多さで測れると述べる。P ≠ NP を仮定すれば効率のよいアルゴリズムは存在しないと予想でき、最適に近い決定木を作る効率のよい発見的な方法（ヒューリスティック）を探す動機になる、というのが論文の主張である。</p>
+  </section>
+
+  <section id="reduction">
+    <div class="kicker">証明 1　帰着の流れ</div>
+    <h2>3 次元マッチングから 3 要素の完全被覆へ、さらに決定木の問題へと帰着する</h2>
+    <p>DT が NP に属するのは明らかで、非決定的なチューリング機械が木を推測し、そのコストが \(w\) 以下かを確かめればよい。NP 困難であることは、次の問題 EC3 を DT に帰着して示す。</p>
+    <ul class="def">
+      <li><strong>EC3</strong>：集合 \(X\) と、ちょうど 3 要素の部分集合の族 \(\mathcal T\) が与えられたとき、\(\mathcal T\) から互いに素な部分集合を選んで \(X\) をちょうど覆えるか（3 要素の集合による完全被覆）。</li>
+      <li><strong>3DM ∝ EC3</strong>：3 次元マッチングは Karp が NP 完全であることを示した問題で、3 つの集合 \(B_1, B_2, B_3\) から 1 つずつ要素をとった三つ組の集合 \(U\) を、和集合 \(B_1 \cup B_2 \cup B_3\) 上の 3 要素の部分集合と見れば EC3 になる。よって EC3 も NP 完全である。</li>
+    </ul>
+    <p>EC3 の問題 \((\mathcal T, X)\) から、DT の問題を次のように作る。\(X\) にない 3 つの要素 \(a, b, c\) を足し、テストには元の三つ組に加えて、すべての要素の 1 要素の集合を足す。</p>
+    <div class="eq">\[ X' = X \cup \{a, b, c\}, \qquad \mathcal T' = \mathcal T \cup \big\{ \{x\} : x \in X' \big\} \]</div>
+  </section>
+
+  <section id="optimal">
+    <div class="kicker">証明 2　最適な木の形</div>
+    <h2>大きな集合では根で 3 要素のテストを選ぶのが最適なので、最適な木は完全被覆の鎖を含む</h2>
+    <p>1 要素、2 要素、3 要素のすべての部分集合をテストに使えるときの、\(n\) 要素の集合に対する最小のコストを \(f(n)\) とする。根で \(i\) 要素のテストを選ぶと、木は \(i\) 要素と \(n - i\) 要素の部分木に分かれ、すべての対象の道が 1 ずつ長くなる。</p>
+    <div class="eq">\[ f(n) = \min_{1 \le i \le 3} \big[ f(n - i) + f(i) + n \big] \quad (n \ge 4), \qquad f(1), \dots, f(8) = 0, 2, 5, 8, 12, 16, 20, 25 \]</div>
+    <p>\(n - 2 \le m \le n - 1\) で \(f(m) - f(m-1) > 3\) なら、最小にするには \(i = 3\) を選ぶ必要があり、そのとき \(f(n) - f(n-1) = f(n-3) - f(n-4) + 1 > 3\) も成り立つ。よって \(n \ge 7\) では、根で 3 要素の集合を選ぶのが最適になる。下の図で \(n\) を動かすと、漸化式で選ばれる \(i\) を確かめられる。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label><span class="row"><span>要素の数 \(n\)</span><output id="nout">10</output></span>
+          <input type="range" id="nrange" min="1" max="20" step="1" value="10"></label>
+        <p class="labout" id="labout"></p>
+      </div>
+      <div>
+        <svg id="fchart" viewBox="0 0 520 240" style="width:100%;height:auto" role="img" aria-label="nが1から20までの最小のコストf(n)の棒グラフ。選んだnの棒が強調される。"></svg>
+        <p class="note">論文の漸化式（\(f(1)=0, f(2)=2, f(3)=5\) から）で解説者が計算した値。\(n \le 8\) は論文の Table 1 と一致する。</p>
+      </div>
+    </div>
+    <p>\(\mathcal T'\) にはすべての 2 要素、3 要素の集合があるわけではないので、\(f(|X'|)\) はこの問題のコストの下限になる（解説者の補足）。図1 の形の木、つまり完全被覆をなす三つ組 \(T_{i_1}, \dots, T_{i_k}\) を根から鎖状に並べ、各三つ組の中を 1 要素のテストで見分け、最後に \(a, b, c\) を残す木は、コスト \(f(|X'|)\) をちょうど達成するので最適である。逆に最適な木は、十分大きな部分木の根がどれも \(X\) の 3 要素の部分集合のテストでなければならないので、必ず EC3 の解を含む。したがって EC3 は DT に帰着でき、DT は NP 完全である。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 280" role="img" aria-label="論文Fig. 1の形の決定木。根から左へ、x∈T_i1、x∈T_i2、…、x∈T_ikのテストが鎖状に並び、各テストの右側には3つの対象を見分ける小さな部分木がつく。鎖の最後でa、b、cの3つの対象を見分ける。">
+        <g stroke="#5B6676" stroke-width="1.5" fill="none">
+          <line x1="470" y1="50" x2="360" y2="100"/><line x1="470" y1="50" x2="545" y2="110"/>
+          <line x1="360" y1="100" x2="250" y2="150"/><line x1="360" y1="100" x2="435" y2="160"/>
+          <line x1="250" y1="150" x2="200" y2="172" stroke-dasharray="4 4"/>
+          <line x1="170" y1="190" x2="90" y2="240"/><line x1="170" y1="190" x2="245" y2="250"/>
+        </g>
+        <g fill="#E7EEFC" stroke="#1D4ED8" stroke-width="1.8">
+          <ellipse cx="470" cy="50" rx="60" ry="20"/><ellipse cx="360" cy="100" rx="60" ry="20"/><ellipse cx="170" cy="190" rx="60" ry="20"/>
+        </g>
+        <g font-size="15" fill="#16202E" text-anchor="middle">
+          <text x="470" y="55"><tspan class="mi">x</tspan> ∈ <tspan class="mi">T</tspan><tspan font-size="11" dy="4" class="mi">i1</tspan></text>
+          <text x="360" y="105"><tspan class="mi">x</tspan> ∈ <tspan class="mi">T</tspan><tspan font-size="11" dy="4" class="mi">i2</tspan></text>
+          <text x="170" y="195"><tspan class="mi">x</tspan> ∈ <tspan class="mi">T</tspan><tspan font-size="11" dy="4" class="mi">ik</tspan></text>
+        </g>
+        <g fill="none" stroke="#5B6676" stroke-width="1.3">
+          <path d="M545,110 l-22,30 M545,110 l22,30 M567,140 l-14,22 M567,140 l14,22"/>
+          <path d="M435,160 l-22,30 M435,160 l22,30 M457,190 l-14,22 M457,190 l14,22"/>
+          <path d="M245,250 l-18,22 M245,250 l18,22"/>
+        </g>
+        <g font-size="14" fill="#5B6676" text-anchor="middle"><text x="90" y="260"><tspan class="mi">a</tspan></text><text x="227" y="278"><tspan class="mi">b</tspan></text><text x="263" y="278"><tspan class="mi">c</tspan></text></g>
+        <text x="600" y="90" font-size="13" fill="#5B6676" text-anchor="middle">三つ組の</text>
+        <text x="600" y="106" font-size="13" fill="#5B6676" text-anchor="middle">中を区別</text>
+        <text x="40" y="40" font-size="13" fill="#1D4ED8">偽なら左、真なら右</text>
+      </svg>
+      <figcaption>図1　最適な決定木の形（論文 Fig. 1 にならって解説者が作図）。完全被覆をなす三つ組のテストが根から鎖をなし、各三つ組の 3 つの対象は 1 要素のテストで見分ける。鎖の最後に \(a, b, c\) が残る。</figcaption>
+    </figure>
+  </section>
+
+  <section id="conclusion">
+    <div class="kicker">結論</div>
+    <h2>最適な二分決定木の構成はおそらく多項式時間では解けず、当面はよいヒューリスティックが最善の策になる</h2>
+    <p>論文は、最適な二分決定木の構成は NP 完全であり、P ≠ NP がおそらく正しいとすれば、多項式時間では解けない可能性が高いと結論する。対象に確率を与える場合や、平均ではなく最悪の場合のテストの回数をコストにする場合など、関連するコストの測り方でも、同じ構成で NP 完全になる。そのため、最適に近い二分決定木を作るよいヒューリスティックが、近い将来この問題に対する最善の解決策になるだろうと述べている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>最適な決定木の研究が計算量の根拠として引く出発点だが、証明された問題は対象の同定である</h2>
+    <ul class="def">
+      <li><strong>解く問題</strong>：各終端が対象を 1 つだけ名指しする同定の木で、テストの回数の合計（外部道長）を最小にする。テストは \(X\) の任意の部分集合でよく、特徴量としきい値の形には限らない。</li>
+      <li><strong>結果</strong>：判定版 DT は NP 完全。最悪の場合のテストの回数をコストにしても同じ。</li>
+    </ul>
+    <p>（解説者の注）CART の論文や <a href="../oct/">OCT</a>、<a href="../binoct/">BinOCT</a>、<a href="../verwer-zhang-2017/">Verwer &amp; Zhang（2017）</a>、<a href="../strong-oct/">Aghaei ら</a>は、最適な決定木を学習する問題が NP 困難（NP 完全）である根拠としてこの論文を引いている。ただし、これらが解くのはラベルつきのデータの誤分類を深さの上限のもとで最小にする問題で、この論文が証明した「対象をすべて見分ける木の外部道長の最小化」とは問題の形が違う。論文自身が予想した「ヒューリスティックが最善の策」という見通しは、ソルバーの進歩とともに見直されていった（<a href="../oct/">OCT</a> の論文の導入を参照）。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{hyafil1976constructing,
+  title   = {Constructing optimal binary decision trees is {NP}-complete},
+  author  = {Hyafil, Laurent and Rivest, Ronald L.},
+  journal = {Information Processing Letters},
+  volume  = {5},
+  number  = {1},
+  pages   = {15--17},
+  year    = {1976},
+  doi     = {10.1016/0020-0190(76)90095-8}
+}</pre>
+    </div>
+    <p class="src">本文は Rivest のページで公開されている掲載版のスキャン PDF による。書誌は Crossref で確認した。</p>
+  </section>
+</main>
+
+<script>
+// ---------- f(n) lab: the recurrence of the paper ----------
+(function () {
+  var F = [null, 0, 2, 5], I = [null, null, null, null];
+  for (var n = 4; n <= 20; n++) {
+    var best = Infinity, bi = 0;
+    for (var i = 1; i <= 3; i++) { var v = F[n - i] + F[i] + n; if (v < best) { best = v; bi = i; } }
+    F[n] = best; I[n] = bi;
+  }
+  // record all minimisers for honesty
+  function argmins(n) { if (n < 4) return []; var best = F[n], out = []; for (var i = 1; i <= 3; i++) if (F[n - i] + F[i] + n === best) out.push(i); return out; }
+  var svg = document.getElementById('fchart'), NS = 'http://www.w3.org/2000/svg';
+  function el(t, a, txt) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; }
+  var X0 = 40, Y0 = 200, W = 470, MAX = F[20];
+  el('line', { x1: X0, x2: X0 + W, y1: Y0, y2: Y0, stroke: '#16202E', 'stroke-width': 1.2 });
+  var bars = [];
+  for (var k = 1; k <= 20; k++) {
+    var x = X0 + (k - 0.8) * (W / 20), h = 170 * F[k] / MAX;
+    bars.push(el('rect', { x: x, y: Y0 - h, width: W / 20 * 0.6, height: h, fill: '#CBD2DC' }));
+    if (k % 2 === 0 || k === 1) el('text', { x: x + W / 40 * 0.6, y: Y0 + 16, 'font-size': 11, fill: '#5B6676', 'text-anchor': 'middle' }, k);
+  }
+  var lab = el('text', { x: 0, y: 0, 'font-size': 13, 'font-weight': 600, fill: '#C2410C', 'text-anchor': 'middle' }, '');
+  var rng = document.getElementById('nrange'), out = document.getElementById('nout'), txt = document.getElementById('labout');
+  function draw() {
+    var n = +rng.value; out.textContent = n;
+    bars.forEach(function (b, j) { b.setAttribute('fill', j + 1 === n ? '#C2410C' : '#CBD2DC'); });
+    var b = bars[n - 1]; lab.setAttribute('x', +b.getAttribute('x') + W / 40 * 0.6); lab.setAttribute('y', +b.getAttribute('y') - 6); lab.textContent = F[n];
+    var s = '最小のコスト f(' + n + ') = <b>' + F[n] + '</b>。';
+    if (n >= 4) {
+      var am = argmins(n);
+      s += '漸化式で最小になる根のテストの大きさは i = <b>' + am.join(' と ') + '</b>' + (n >= 2 ? '（f(' + n + ') − f(' + (n - 1) + ') = ' + (F[n] - F[n - 1]) + '）' : '') + '。';
+      if (n >= 7) s += 'n ≥ 7 なので、3 要素のテストを選ぶのが最適になる範囲にある。';
+    } else {
+      s += 'n ≤ 3 は漸化式の初期値である。';
+    }
+    txt.innerHTML = s;
+  }
+  rng.addEventListener('input', draw); draw();
+})();
+</script>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

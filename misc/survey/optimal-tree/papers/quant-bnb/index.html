@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quant-BnB：分位点で絞る浅い最適決定木（論文解説）</title>
+<meta name="description" content="Quant-BnB: A Scalable Branch-and-Bound Method for Optimal Decision Trees with Continuous Features（ICML 2022）の非公式の解説。連続の特徴量のしきい値の範囲を分位点で区切り、上界と下界で見込みのない範囲を捨てる分枝限定法で、深さ 2 と 3 の最適な分類木・回帰木を二値化せずに求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = what Quant-BnB is compared with: binarizing every threshold for MurTree / DL8.5,
+                         the MIP methods (BinOCT, ORT), and the heuristics CART and TAO
+            --b  (blue)   = Quant-BnB: quantile-based upper and lower bounds, the threshold intervals it
+                         keeps, and its measured speed-ups
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2022</div>
+  <h1>Quant-BnB: A Scalable Branch-and-Bound Method for Optimal Decision Trees with Continuous Features</h1>
+  <p class="subtitle">Quant-BnB：連続の特徴量に対する最適決定木のための、大規模なデータに使える分枝限定法</p>
+
+  <ul class="authors">
+    <li><b>Rahul Mazumder</b><span>MIT Sloan School of Management, Operations Research Center and Center for Statistics</span></li>
+    <li><b>Xiang Meng</b><span>MIT Operations Research Center</span></li>
+    <li><b>Haoyue Wang</b><span>MIT Operations Research Center</span></li>
+  </ul>
+
+  <p class="lead">最適決定木の専用アルゴリズムの多くは二値の特徴量を前提にしており、連続の特徴量を<span class="A">すべてのしきい値で二値化</span>すると特徴量の数が膨れ上がる。Quant-BnB は連続の特徴量のまま、根のしきい値の範囲を<span class="B">分位点で区切り、各区間の上界と下界</span>から最適な木を含みえない区間を捨てていく分枝限定法である。分類と回帰の両方で、深さ 2 の最適な木を数秒で、深さ 3 の木も多くのデータで既存の手法より大幅に速く求めた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v162/mazumder22a.html">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2206.11844">arXiv</a>
+    <a class="btn" href="https://github.com/mengxianglgal/Quant-BnB">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。連続の特徴量をすべてのしきい値で二値化すると特徴量が膨れ上がること、既存の手法がメモリや時間の上限に達すること、しきい値の範囲を分位点で区切って下界で捨てるQuant-BnBの仕組み、深さ2での計算時間の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">深さ 2 を数秒で</span><span class="d">16 個の分類データすべてで、深さ 2 の最適な木を 5 秒未満で求めた。BinOCT、MurTree、DL8.5 より数桁速い。</span></li>
+    <li><span class="k">深さ 3 でも 13 データで最速</span><span class="d">深さ 3 では 16 データのうち 13 データで比べた手法の中で最も速かった。時間の上限は 4 時間、メモリの上限は 25 GB。</span></li>
+    <li><span class="k">反復は高々 \(\lceil \log_s n \rceil\) 回</span><span class="d">深さ 2 のアルゴリズムは高々 \(\lceil \log_s n \rceil\) 回の反復で終わり、最適解を返す（定理 1）。\(s\) は区間を区切る数。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>連続の特徴量では候補のしきい値がデータ点の数だけあり、二値化すると特徴量が膨れ上がる</h2>
+    <p>訓練誤差が最小の最適決定木を求める問題は NP 困難で、CART や ID3 などの貪欲法が広く使われてきた。MIP による定式化は大きな問題に広げにくく、DL8.5、MurTree、GOSDT などの専用アルゴリズムは二値の特徴量を前提にしている。論文によれば、二値の特徴量だけなら深さ \(d\) の回帰木の全探索は \(O(np^d)\) だが、連続の特徴量では \(O(n^d p^d)\) になる（\(n\) はデータ点の数、\(p\) は特徴量の数）。</p>
+    <p>連続の特徴量 \(f\) を、異なる値の数 \(u(f)\) に応じて \(u(f) - 1\) 個の二値の特徴量に置き換えれば、最適な木は変わらない（同値変換）。ただし二値の特徴量は最悪で \(O(np)\) 個になる。論文の付録では、bean（特徴量 16 個）が同値変換で 170,481 個になり、MDLP による近似的な二値化なら 428 個で済むが、訓練精度が下がる場合がある。論文は、分類と回帰の両方に使え、連続の特徴量を直接扱い、商用の最適化ソルバーに頼らない最適な木の手法は Quant-BnB が初めてだとしている。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>深さ 2 の木の集合を、根の特徴量としきい値の範囲と子の特徴量の組で表す</h2>
+    <p>しきい値は隣り合う異なる値の中点 \(\tilde w^f_t\) だけを考えればよい。深さ 2 の木の部分集合 \(\mathcal{T}_2(f_0, [a, b], f_1, f_2)\) は、根の特徴量が \(f_0\) でしきい値の添字が \([a, b]\) にあり、左右の子の特徴量が \(f_1, f_2\) の木の集まりである。データの部分集合 \(\mathcal{I}\) に対する定数の当てはめ、深さ 1、深さ 2 の最小の損失を次のように書く。</p>
+    <div class="eq">\[ L_0(\mathcal{I}) = \min_{y} \sum_{i \in \mathcal{I}} \ell(y_i, y), \qquad L_1(\mathcal{I}, f) = \min_{t} \big\{ L_0(\mathcal{I}^f_{[0,t]}) + L_0(\mathcal{I}^f_{[t,u(f)]}) \big\} \]</div>
+    <div class="eq">\[ L_2(\mathcal{I}, f_0, [a,b], f_1, f_2) = \min_{a \le t \le b} \big\{ L_1(\mathcal{I}^{f_0}_{[0,t]}, f_1) + L_1(\mathcal{I}^{f_0}_{[t,u(f_0)]}, f_2) \big\} \]</div>
+    <p>損失 \(\ell\) は回帰なら二乗誤差（多次元の目的変数も可）、分類なら誤分類である。\(L_1\) は並べ替えを含めて \(\tilde O(|\mathcal{I}|)\) で計算できるが、\(L_2\) は根のしきい値をすべて試すので重い。そこで \(L_2\) の上界と下界を少ない計算で求める。</p>
+  </section>
+
+  <section id="bounds">
+    <div class="kicker">手法 1　上界と下界</div>
+    <h2>上界は分位点のしきい値だけで、下界は真ん中のデータを捨てて計算する</h2>
+    <p><strong>上界</strong>：区間 \([a, b]\) をほぼ等間隔に \(s\) 個に区切った点 \(t_0 = a, t_1, \dots, t_s = b\) だけで根のしきい値を試した最小値 \(V_s\) は、\(L_2\) の上界になる。分位点を使う発想は XGBoost などの貪欲法にもあるが、ここでは最適な木を求めるために使う。</p>
+    <p><strong>下界</strong>：しきい値が \([a, b]\) のどこにあっても、値が \(\tilde w_a\) 以下のデータは必ず左に、\(\tilde w_b\) 以上のデータは必ず右に行く。そこで真ん中のデータ \(\mathcal{I}^{f_0}_{[a,b]}\) を捨てて計算した損失 \(W_0\) は下界になる。</p>
+    <div class="eq">\[ W_0 = L_1(\mathcal{I}^{f_0}_{[0,a]}, f_1) + L_1(\mathcal{I}^{f_0}_{[b,u(f_0)]}, f_2) \ \le\ W_{1,s'} \ \le\ W_2 \ \le\ L_2 \]</div>
+    <p>\(W_2\) は捨てた真ん中のデータに別の深さ 2 の木を当てはめた損失を \(W_0\) に足したもの、\(W_{1,s'}\) はその代わりに真ん中を \(s'\) 個に区切り、区切りごとにその部分だけ捨てて計算した下界 \(\widehat L_2\) を足したものである。補題 2 がこの大小関係を示す。下界は強いほど多く捨てられるが、計算も重くなる（補題 3）。\(s' \approx ns/(b-a)\) とすると \(W_{1,s'}\) の計算量は \(W_0\) と同じ \(\tilde O(n \tilde p s)\) で、下界は常に \(W_0\) 以上になる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 220" role="img" aria-label="特徴量f0の値で並べたデータ11点を3つに分けた模式図。しきい値の範囲[a,b]より左のデータは必ず左の部分木へ、右のデータは必ず右の部分木へ行く。真ん中の範囲のデータを捨てて計算した損失W0は、範囲内のどのしきい値の木の損失よりも小さいか等しい。">
+        <rect x="40" y="70" width="150" height="60" fill="#F2F4F7"/>
+        <rect x="190" y="70" width="260" height="60" fill="#FCEBDF"/>
+        <rect x="450" y="70" width="150" height="60" fill="#F2F4F7"/>
+        <g fill="#16202E">
+          <circle cx="65" cy="100" r="9"/><circle cx="115" cy="100" r="9"/><circle cx="165" cy="100" r="9"/>
+          <circle cx="475" cy="100" r="9"/><circle cx="525" cy="100" r="9"/><circle cx="575" cy="100" r="9"/>
+        </g>
+        <g fill="#fff" stroke="#C2410C" stroke-width="2" stroke-dasharray="3 3">
+          <circle cx="215" cy="100" r="9"/><circle cx="265" cy="100" r="9"/><circle cx="315" cy="100" r="9"/><circle cx="365" cy="100" r="9"/><circle cx="415" cy="100" r="9"/>
+        </g>
+        <line x1="40" y1="130" x2="600" y2="130" stroke="#16202E" stroke-width="2"/>
+        <line x1="190" y1="60" x2="190" y2="140" stroke="#1D4ED8" stroke-width="2.5"/>
+        <line x1="450" y1="60" x2="450" y2="140" stroke="#1D4ED8" stroke-width="2.5"/>
+        <text x="190" y="158" font-size="15" fill="#1D4ED8" text-anchor="middle"><tspan class="mi">a</tspan></text>
+        <text x="450" y="158" font-size="15" fill="#1D4ED8" text-anchor="middle"><tspan class="mi">b</tspan></text>
+        <text x="320" y="40" font-size="14" fill="#16202E" text-anchor="middle">特徴量 <tspan class="mi">f</tspan><tspan font-size="11" dy="4">0</tspan><tspan dy="-4"> の値の順 →</tspan></text>
+        <text x="115" y="184" font-size="14" fill="#16202E" text-anchor="middle">必ず左の部分木へ</text>
+        <text x="320" y="184" font-size="14" fill="#C2410C" text-anchor="middle">しきい値しだい（<tspan class="mi">W</tspan><tspan font-size="11" dy="4">0</tspan><tspan dy="-4"> では捨てる）</tspan></text>
+        <text x="525" y="184" font-size="14" fill="#16202E" text-anchor="middle">必ず右の部分木へ</text>
+        <text x="320" y="210" font-size="13" fill="#5B6676" text-anchor="middle">青の線の間が根のしきい値の候補の範囲 [<tspan class="mi">a</tspan>, <tspan class="mi">b</tspan>]</text>
+      </svg>
+      <figcaption>図1　下界 \(W_0\) の考え方（論文の Figure 1 をもとに解説者が作図）。点の数は例で、論文の数値ではない。</figcaption>
+    </figure>
+  </section>
+
+  <section id="algorithm">
+    <div class="kicker">手法 2　分枝限定法</div>
+    <h2>生きている区間を分位点で \(s\) 個に区切り、下界が現在の最良値を超えた区間や特徴量を捨てる</h2>
+    <p>Quant-BnB は「生きている」探索範囲の組 \((f_0, [a, b], F_1, F_2)\) の集合 \(\mathtt{AL}\) を持つ。最初はすべての根の特徴量について、しきい値の範囲全体と子の特徴量の全体 \([p]\) を入れておく。各反復で、組ごとに次の 2 段階を行う。</p>
+    <ul class="def">
+      <li>上界の更新：区間を \(s\) 個に区切った点で \(V_s\) を計算し、現在の最良値 \(U\) より小さければ更新する。</li>
+      <li>下界による枝刈り：区切った小区間 \([t_{j-1}, t_j]\) ごとに、子の特徴量の組の下界 \(W\) を計算し、\(U\) を超えない組がある特徴量だけを残す（命題 1）。残った特徴量が空になった小区間は丸ごと捨て、残りの小区間を次の反復に回す。</li>
+    </ul>
+    <p>区間の幅が \(s\) 以下になったら全探索する。区間は反復ごとに約 \(1/s\) に縮むので、アルゴリズムは高々 \(\lceil \log_s n \rceil\) 回の反復で終わり、最適解を返す（定理 1）。実験では \(s = 3\)、\(s' = \lfloor 0.6 ns/(b-a) \rfloor\) とした。下界に \(W_2\) や \(L_2\) を使うと計算量が \(n\) について線形でなくなる。</p>
+    <p>深さ 3 では、根の範囲と左右の深さ 2 の部分木の候補の集合の組 \((f_0, [a, b], \Phi_1, \Phi_2)\) を同じように絞る（詳細は付録）。深さ 4 以上にも同じ再帰を使えるが、特に特徴量が多いと計算量が増えるので、論文は深さ 3 以下で使うことを勧めている。葉の位置が揃わない木（各ノードを分岐にも葉にもできる木）も、追加の計算量なしに扱えるように変更できると述べている。</p>
+  </section>
+
+  <section id="results-bounds">
+    <div class="kicker">実験の結果 1　下界の選び方</div>
+    <h2>下界は強さより計算の軽さが効き、\(W_{1,s'}\) が多くのデータで最も速かった</h2>
+    <p>実験は UCI の分類 16 データと回帰 11 データで、Intel Xeon 2.30 GHz の 1 コア、メモリ 25 GB で行った。データ点が \(10^4\) 以上のデータで深さ 2 の木を求めた時間を下界ごとに比べた（論文の表 2、上限 10 分）。avila では \(W_0\) が 5.1 秒、\(W_{1,s'}\) が 4.5 秒、\(L_2\) を直接使うと 519 秒で、\(W_2\) は 10 分で終わらなかった。\(W_2\) が 10 分以内に終わったのは htru（244 秒）だけで、強い下界でも計算が重すぎた。以降の実験では \(W_{1,s'}\) を使っている。</p>
+  </section>
+
+  <section id="results-runtime">
+    <div class="kicker">実験の結果 2　計算時間</div>
+    <h2>深さ 2 では既存の最適な手法より数桁速く、深さ 3 でも 16 データ中 13 データで最も速かった</h2>
+    <p>比べたのは MIP の <a href="../binoct/">BinOCT</a>、二値化した特徴量を使う <a href="../murtree/">MurTree</a> と <a href="../dl85/">DL8.5</a> である（論文の表 3）。MurTree と DL8.5 にはすべてのしきい値で二値化した同値変換のデータを与えた。時間の上限は 4 時間、メモリの上限は 25 GB である。</p>
+    <ul class="def">
+      <li>深さ 2：Quant-BnB はすべてのデータで最も速く、最大でも avila の 4.5 秒だった。たとえば segment では Quant-BnB が 1.1 秒、MurTree が 389 秒、DL8.5 が 213 秒で、BinOCT は 4 時間で終わらなかった。MurTree は 4 データ、DL8.5 は 3 データでメモリ不足になった。</li>
+      <li>深さ 3：13 データで Quant-BnB が最も速かった。eeg と skin では MurTree のほうが速く（1,783 秒と 4,042 秒、112 秒と 350 秒）、fault ではどの手法も 4 時間で終わらなかった。htru では Quant-BnB が 10,303 秒かかり、ほかの手法はメモリ不足だった。</li>
+      <li>OCT、FlowOCT、BendersOCT、GOSDT も試したが、16 データのどれでも最適な木を求められなかった。</li>
+      <li>回帰（付録）：MIP の ORT はすべてのデータで時間切れになった。Quant-BnB は数千件規模のデータの深さ 2 を 10 秒未満で解き（特徴量 59 個の news は 349 秒）、深さ 3 も 11 データ中 9 データで 4 時間以内に解いた（energy と news は時間切れ）。</li>
+    </ul>
+    <p>論文は、MurTree と DL8.5 が二値の特徴量だけのデータでは非常に効率的でも、連続の特徴量では二値化で特徴量が増えるために重くなるのだろうと述べている。近似的な二値化を使えば特徴量は減るが、訓練データの情報を失うことがある。</p>
+  </section>
+
+  <section id="results-test">
+    <div class="kicker">実験の結果 3　テスト誤差</div>
+    <h2>深さ 2 では 66% を超えるデータで CART や TAO よりテスト誤差が小さく、深さ 3 では多くのデータで上回った</h2>
+    <p>分類 16 と回帰 11 の計 27 データで、同じ深さの軸に平行な木を作る <span class="A">CART</span> と TAO（交互最適化による発見的な手法）とテスト誤差を比べた。データごとに、相手のテスト誤差 \(L_C\) と Quant-BnB のテスト誤差 \(L_Q\) の相対差 \((L_C - L_Q)/L_Q\) を求め、その分布を示している（正なら Quant-BnB が良い）。深さ 2 では 66% を超えるデータで Quant-BnB のテスト誤差が小さく、深さ 3 では大半のデータで CART と TAO を上回った。TAO は CART よりわずかに良いが、計算が重い。論文は、特に深い木で最適な木が発見的な手法より有利だと結んでいる。</p>
+    <div class="pair">
+      <figure><img src="assets/fig2a_vs_cart_depth2.png" alt="Histogram of the relative test-error difference between CART and Quant-BnB at depth 2 over 27 data sets; most data sets fall in the positive bins, meaning Quant-BnB has lower test error." loading="lazy"><figcaption>(a) CART と比較、深さ 2</figcaption></figure>
+      <figure><img src="assets/fig2b_vs_tao_depth2.png" alt="Histogram of the relative test-error difference between TAO and Quant-BnB at depth 2; most data sets fall in the positive bins." loading="lazy"><figcaption>(b) TAO と比較、深さ 2</figcaption></figure>
+      <figure><img src="assets/fig2c_vs_cart_depth3.png" alt="Histogram of the relative test-error difference between CART and Quant-BnB at depth 3; the bulk of data sets is positive, several with differences above 50 percent." loading="lazy"><figcaption>(c) CART と比較、深さ 3</figcaption></figure>
+      <figure><img src="assets/fig2d_vs_tao_depth3.png" alt="Histogram of the relative test-error difference between TAO and Quant-BnB at depth 3; most data sets are positive." loading="lazy"><figcaption>(d) TAO と比較、深さ 3</figcaption></figure>
+    </div>
+    <p class="src">図2　27 データでの相対的なテスト誤差の差 \((L_C - L_Q)/L_Q\)（%）の分布。横軸が正なら Quant-BnB のテスト誤差が小さい（論文 Fig. 2、arXiv 版）。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">位置づけと限界</div>
+    <h2>連続の特徴量の最適決定木を浅い深さで実用にしたが、深さ 4 以上は勧められていない</h2>
+    <ul class="def">
+      <li>論文は、深さ 3 を大きく超える木は解釈しにくいので浅い最適な木にも意味があり、貪欲法は同じ誤差に届くのにより深い木が要りうると述べる。予測性能を上げたければ浅い木のアンサンブルを使う手もあるとしている。</li>
+      <li>深さ 3 でも数時間かかるデータがある（htru で 10,303 秒）。深さ 4 以上は特徴量が多いと計算量が増えるので勧めていない。</li>
+      <li>のちの <a href="../contree/">ConTree（2025）</a>は、連続の特徴量を直接扱う動的計画法で、深さ 3 の木を Quant-BnB より幾何平均で 63 倍速く求め、深さ 4 の最適な木も多くのデータで求めたと報告している。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{mazumder2022quantbnb,
+  title     = {Quant-{BnB}: A Scalable Branch-and-Bound Method for Optimal Decision Trees with Continuous Features},
+  author    = {Mazumder, Rahul and Meng, Xiang and Wang, Haoyue},
+  booktitle = {Proceedings of the 39th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {162},
+  pages     = {15255--15277},
+  publisher = {PMLR},
+  year      = {2022}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は arXiv 2206.11844（付録を含む版）による。PMLR 版の本文とは照らし合わせていない。表と補題の番号は arXiv 版の順に数えた。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

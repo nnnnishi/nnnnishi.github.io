@@ -1,0 +1,1142 @@
+# /misc/survey/optimal-tree/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
+# category は categories の id のどれか。確認できなかった項目は "" のままにする。
+# id は系譜の図と矢印で使う識別子、short は図での呼び名（論文を足すときは必ず付ける）。
+# explainer を書くと papers/<explainer>/ の解説ページへリンクする。
+# preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
+
+updated: "2026-11-24"
+
+intro: "決定木を貪欲法ではなく目的関数を最適にするように学習する研究（最適決定木）の文献をまとめたページです。CART などの貪欲法は分岐を1つずつ決めるので、深さや葉の数を決めたときの最良の木が得られるとは限りません。最適決定木の研究は木全体を混合整数最適化、動的計画法と分枝限定法、SAT・制約プログラミング、連続最適化などで一度に決めます。解き方の系統ごとに、論文・データセット・評価指標・ライブラリを表にしました。"
+
+categories_note: "論文の表の「系統」は主な貢献で1つに決めています。複数の系統にまたがる論文もあります。"
+
+papers_note: "「分岐」は1つの特徴量でしきい値を決める単変量（軸に平行な分岐）か、複数の特徴量の線形結合で分ける多変量（斜めの分岐）か、「目的・制約」は何を最適にし、何を制約にするかです。会議名とリンクは arXiv や出版社のページで確認できたものだけを載せています。"
+
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。"
+
+datasets_note: "最適決定木の実験でよく使われる公開データです。動的計画法や SAT の系統は二値の特徴量を前提にすることが多く、連続の特徴量をしきい値で二値化したデータ（DL8 の論文で使われたものなど）が共通のベンチマークになっています。"
+
+metrics_note: "最適決定木の論文では、テストデータでの精度に加えて、最適性を証明できたか、何秒で解けたか、どれだけ小さな木で済むかを比べます。"
+
+footer: "掲載している情報は各論文の arXiv・出版社のページで確認した内容にもとづきます。"
+
+categories:
+  - id: foundation
+    label: 基礎
+    color: "#6e7781"
+    idea: 最適な木を求める問題の計算量や、解釈できるモデルを使う理由など、最適決定木の研究の前提
+    setting: 問題設定と動機を整理したいとき
+    examples: Hyafil & Rivest (1976), Rudin (2019)
+  - id: mio
+    label: 混合整数最適化
+    color: "#0969da"
+    idea: 各ノードの分岐と各データの行き先を整数変数で表し、深さを決めた木全体を MIO ソルバーで解く。多変量の分岐や制約を足しやすい
+    setting: 制約や独自の目的関数を入れたいとき、多変量の分岐を使いたいとき
+    examples: Bertsimas & Dunn (2017), Verwer & Zhang (2019), Aghaei et al. (2025)
+  - id: dp-bnb
+    label: 動的計画法・分枝限定
+    color: "#1a7f37"
+    idea: 部分木がそこに届くデータだけで決まる性質を使い、部分問題をキャッシュしながら分枝限定法で探索する。二値の特徴量では MIO より桁違いに速い
+    setting: 単変量の分岐で、大きめのデータを厳密に解きたいとき
+    examples: DL8.5 (2020), GOSDT (2020), MurTree (2022)
+  - id: sat-cp
+    label: SAT・制約プログラミング
+    color: "#8250df"
+    idea: 木の構造を論理式や制約で表し、SAT・MaxSAT ソルバーや制約プログラミングで解く。データを誤りなく分ける最小の木を求める研究から始まった
+    setting: 最小の木を求めたいとき、論理的な制約を入れたいとき
+    examples: Bessiere et al. (2009), Narodytska et al. (2018), Avellaneda (2020)
+  - id: continuous
+    label: 連続最適化
+    color: "#bc4c00"
+    idea: 分岐を確率的で滑らかなものに緩和するか、ノードごとに交互に最適化して、木全体を勾配法などの連続最適化で学習する。厳密な最適性の保証はない
+    setting: 多変量の分岐で、大規模なデータを扱いたいとき
+    examples: Norouzi et al. (2015), TAO (2018), ORCT (2021)
+  - id: regression
+    label: 回帰・生存時間
+    color: "#9a6700"
+    idea: 分類以外の目的変数（連続値、打ち切りのある生存時間）に最適決定木を広げる
+    setting: 回帰や生存時間解析で解釈できるモデルが欲しいとき
+    examples: Optimal Survival Trees (2022), OSRT (2023)
+  - id: prescriptive
+    label: 処方的・方策木
+    color: "#bf3989"
+    idea: 予測ではなく意思決定（どの処置を選ぶか）の良さを目的にして木を学習する。観察データからの方策学習や、予測してから最適化する枠組みと結びつく
+    setting: 処置の割当てや意思決定のルールを木で表したいとき
+    examples: Kallus (2017), Optimal Prescriptive Trees (2019), Athey & Wager (2021)
+  - id: robust-fair
+    label: 頑健性・公平性
+    color: "#cf222e"
+    idea: 敵対的な摂動や分布の変化への頑健性、グループ間の公平性の制約を最適決定木に入れる
+    setting: 公平性の制約や頑健性が求められる意思決定に使うとき
+    examples: Aghaei et al. (2019), Vos & Verwer (2022), van der Linden et al. (2022)
+  - id: rashomon
+    label: ラショモン集合・評価
+    color: "#3d5a80"
+    idea: ほぼ最適な木をすべて列挙して比べる研究や、最適な木と貪欲な木を同じ条件で比べるベンチマーク
+    setting: 最適な木が1つに決まらないとき、手法の比較実験を設計するとき
+    examples: TreeFARMS (2022), van der Linden et al. (2024)
+
+# ---- 系譜（/misc/survey/optimal-tree/ の「系譜」の図）----
+# from → to は「to が from を引き継いだ」。slug は papers の id。
+# kind: ext = 引き継いで発展（直接の拡張・改良、同じグループの続編）、base = 比較・出発点（ベースライン、最も近い先行研究）。
+# why は論文本文の記述にもとづく一言。データセットや評価指標を使っただけの関係は載せない。
+# lineage_lanes は図の上から下への系統の並び。
+lineage_first_year: 2017
+lineage_lanes: [foundation, sat-cp, dp-bnb, rashomon, mio, robust-fair, prescriptive, regression, continuous]
+
+# lineage_groups は図の上の「研究グループ」のボタン。論文の groups に id を書く（著者の所属から決める。共同研究は両方に入れる）。
+lineage_groups:
+  - { id: mit, label: "MIT（Bertsimas）" }
+  - { id: duke, label: "Duke（Rudin・Seltzer）" }
+  - { id: delft, label: "TU Delft（Demirović）" }
+  - { id: louvain, label: "UCLouvain（Nijssen・Schaus）" }
+  - { id: usc, label: "USC（Vayanos）" }
+  - { id: sevilla, label: "Sevilla・CBS（Carrizosa・Romero Morales）" }
+  - { id: stanford, label: "Stanford（Athey・Wager）" }
+
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は手法や結果を直接拡張・改良した関係か、同じグループの続編です。破線は実験で比較した関係か、最も近い先行研究・出発点に挙げた関係です。論文の本文で確認できた関係だけを描いており、データセットや評価指標を使っただけの関係は描いていません。＊のついた論文は arXiv の初版の年に置いています。2016 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めており、共同研究の論文は両方のグループに入れています。破線の枠は解説ページのない論文です。論文をクリックすると解説ページへ移動します。"
+
+lineage:
+  - { from: verwer-zhang-2017, to: binoct, kind: ext, why: "同じ著者らが整数最適化の定式化を二値の線形計画に改め、変数の数をデータ数に依存しにくくする" }
+  - { from: oct, to: binoct, kind: base, why: "OCT と比較する" }
+  - { from: oct, to: strong-oct, kind: base, why: "OCT の定式化と比較し、LP 緩和がより強い定式化を示す" }
+  - { from: binoct, to: strong-oct, kind: base, why: "BinOCT と比較する" }
+  - { from: fair-oct, to: strong-oct, kind: ext, why: "同じグループの先行研究。従来の MIO の定式化の1つに挙げ、LP 緩和がより強い定式化を示す" }
+  - { from: fair-oct, to: fair-oct-tradeoffs, kind: base, why: "最も近い先行研究に挙げ、公平性を罰則ではなく制約で入れる点を違いとする" }
+  - { from: kallus-2017, to: prescriptive-trees-flow, kind: base, why: "Kallus の個別化の木をベースラインとして比較する" }
+  - { from: multi-action-policy, to: prescriptive-trees-flow, kind: base, why: "policytree をベースラインとして比較する" }
+  - { from: oct, to: oct-multivariate-scalable, kind: base, why: "多変量の OCT（OCT-H）と比較する" }
+  - { from: dl8, to: dl85, kind: ext, why: "同じグループ。DL8 のキャッシュつき探索に分枝限定の上下界を加える" }
+  - { from: osdt, to: gosdt, kind: ext, why: "同じグループ。OSDT を連続の特徴量や不均衡データの目的関数に広げ、動的計画法で速くする" }
+  - { from: dl85, to: gosdt, kind: base, why: "DL8.5 と比較する" }
+  - { from: gosdt, to: guessing-thresholds, kind: ext, why: "同じグループ。木のアンサンブルから得たしきい値と下界で GOSDT の探索を絞る" }
+  - { from: dl85, to: murtree, kind: ext, why: "DL8.5 の探索に深さ2の木を求める専用の手順や類似度にもとづく下界を加える" }
+  - { from: gosdt, to: murtree, kind: base, why: "GOSDT と比較する" }
+  - { from: murtree, to: streed, kind: ext, why: "同じグループ。MurTree の動的計画法を、分離可能な目的関数と制約へ一般化する" }
+  - { from: murtree, to: fair-dp, kind: ext, why: "同じグループ。MurTree の探索を公平性の制約つきに広げる" }
+  - { from: murtree, to: nonlinear-metrics, kind: ext, why: "同じグループ。MurTree の探索を F 値などの非線形な評価指標に広げる" }
+  - { from: murtree, to: blossom, kind: base, why: "MurTree と比較し、探索の早い段階から良い木を出す方法を示す" }
+  - { from: murtree, to: contree, kind: ext, why: "同じグループ。二値化せずに連続の特徴量を扱う動的計画法に広げる" }
+  - { from: quant-bnb, to: contree, kind: base, why: "連続の特徴量を扱う先行研究として比較する" }
+  - { from: bessiere-2009, to: sat-dt, kind: base, why: "最小の木を求める先行研究に挙げ、より効率的な SAT の符号化を示す" }
+  - { from: sat-dt, to: maxsat-dt, kind: ext, why: "Narodytska らの SAT の定式化を、誤りを許す MaxSAT の定式化に広げる" }
+  - { from: nonlinear-metrics, to: fair-dp, kind: ext, why: "同じグループ。部分木ごとにパレート最適な解を保持する方法をもとに、公平性の制約を扱う" }
+  - { from: fair-dp, to: streed, kind: base, why: "DPF と比較する" }
+  - { from: nonlinear-metrics, to: streed, kind: base, why: "非線形な指標を扱う MurTree の拡張と比較する" }
+  - { from: dl85, to: guessing-thresholds, kind: base, why: "推測したしきい値と下界を DL8.5 にも適用する" }
+  - { from: policy-trees, to: constrained-prescriptive, kind: base, why: "Optimal Policy Trees の報告値と結果を比べる" }
+  - { from: sat-shati, to: contree, kind: base, why: "二値化しない SAT の手法（SAT-Shati）と比較する" }
+  - { from: dl8, to: cp-dt, kind: ext, why: "同じグループ。DL8 の探索を制約プログラミングの枠組みで書き直す" }
+  - { from: gosdt, to: treefarms, kind: ext, why: "同じグループ。GOSDT の探索を、ほぼ最適な木をすべて列挙するように変える" }
+  - { from: gosdt, to: osrt, kind: ext, why: "同じグループ。GOSDT の探索を回帰に広げ、回帰用の下界を示す" }
+  - { from: oct, to: survival-trees, kind: ext, why: "同じグループ。OCT の局所探索を、打ち切りのある生存時間データに広げる" }
+  - { from: oct, to: opt, kind: ext, why: "同じグループ。OCT の学習法を、処置を選ぶ処方的な木に広げる" }
+  - { from: kallus-2017, to: opt, kind: base, why: "観察データから個別化の木を学ぶ先行研究に挙げ、比較する" }
+  - { from: oct, to: robust-classification, kind: ext, why: "同じグループ。OCT にデータの摂動への頑健性を入れる" }
+  - { from: policy-learning, to: multi-action-policy, kind: ext, why: "同じグループ。二値の処置の方策学習を多値の行動に広げ、木の厳密な探索を示す" }
+  - { from: opt, to: policy-trees, kind: ext, why: "同じグループ。処方的な木を、二重頑健な報酬の推定値から学ぶように改める" }
+  - { from: multi-action-policy, to: policy-trees, kind: base, why: "観察データからの方策木の先行研究に挙げ、比較する" }
+  - { from: strong-oct, to: prescriptive-trees-flow, kind: ext, why: "同じグループ。フローにもとづく強い定式化を処方的な木に広げる" }
+  - { from: opt, to: prescriptive-trees-flow, kind: base, why: "処方的な木の先行研究として比較する" }
+  - { from: strong-oct, to: robust-oct, kind: ext, why: "同じグループ。フローにもとづく定式化に、特徴量の分布の変化への頑健性を入れる" }
+  - { from: strong-oct, to: fair-oct-tradeoffs, kind: ext, why: "同じグループ。フローにもとづく定式化に、さまざまな公平性の制約を入れる" }
+  - { from: norouzi-2015, to: tao, kind: base, why: "木のパラメータ全体を最適化する先行研究に挙げ、上界を SGD で最適化するので実際の損失が減る保証がないと指摘する" }
+  - { from: orct, to: sparse-orct, kind: ext, why: "同じグループ。ORCT に、ノード単位（L1）と木全体（L∞）のまばらさの罰則を加える" }
+  - { from: orct, to: sparse-ort, kind: ext, why: "同じグループ。確率的な分岐の木を回帰に広げ、まばらさの罰則を入れる" }
+  - { from: oct, to: spo-trees, kind: base, why: "MIO で木を学習する方法を踏襲し、予測してから最適化する損失で学習する" }
+
+papers:
+  # ---- 基礎 ----
+  - id: hyafil-rivest
+    title: "Constructing optimal binary decision trees is NP-complete"
+    authors: "L. Hyafil, R. L. Rivest"
+    year: 1976
+    venue: "Information Processing Letters"
+    url: "https://doi.org/10.1016/0020-0190(76)90095-8"
+    explainer: hyafil-rivest
+    short: "Hyafil & Rivest"
+    code: ""
+    category: foundation
+    split: 任意の二値のテスト
+    objective: テストの期待回数（外部経路長）
+    method: 計算量の証明
+    data: ""
+    note: 各葉が対象を1つだけ名指しする同定の二分木のうち、テストの期待回数が最小のものを求める問題が NP 完全であることを示す
+  - id: rudin-stop
+    title: "Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead"
+    authors: "C. Rudin"
+    year: 2019
+    venue: "Nature Machine Intelligence"
+    url: "https://doi.org/10.1038/s42256-019-0048-x"
+    explainer: rudin-stop
+    short: "Rudin"
+    groups: [duke]
+    code: ""
+    category: foundation
+    split: ""
+    objective: ""
+    method: 論説
+    data: ""
+    note: 重要な意思決定では、ブラックボックスを事後に説明するのではなく、最初から解釈できるモデルを使うべきだと論じる。疎で最適な木の研究の動機になっている
+
+  # ---- 混合整数最適化 ----
+  - id: oct
+    title: "Optimal classification trees"
+    authors: "D. Bertsimas, J. Dunn"
+    year: 2017
+    venue: "Machine Learning"
+    url: "https://doi.org/10.1007/s10994-017-5633-9"
+    explainer: oct
+    short: "OCT"
+    groups: [mit]
+    code: ""
+    category: mio
+    split: 単変量・多変量
+    objective: 誤分類 ＋ α × 分岐の数
+    method: MIO（Gurobi）、CART の解を初期解にする
+    data: UCI の 53 データ
+    note: 深さを決めた分類木の学習を MIO で定式化し、CART より精度が高いことを UCI のデータで示す。多変量の分岐の OCT-H も扱う。最適決定木の研究が広がるきっかけになった
+  - id: verwer-zhang-2017
+    title: "Learning decision trees with flexible constraints and objectives using integer optimization"
+    authors: "S. Verwer, Y. Zhang"
+    year: 2017
+    venue: "CPAIOR 2017"
+    url: "https://doi.org/10.1007/978-3-319-59776-8_8"
+    explainer: verwer-zhang-2017
+    short: "Verwer & Zhang"
+    code: ""
+    category: mio
+    split: 単変量
+    objective: 誤分類（回帰では誤差）
+    method: MIO（CPLEX）
+    data: 分類 3 データ（Iris, Diabetes, Bank）、回帰 2 データ（RedWine, Boston）
+    note: 分類木と回帰木の学習を整数最適化で表し、制約や目的関数を柔軟に変えられることを示す
+  - id: binoct
+    title: "Learning optimal classification trees using a binary linear program formulation"
+    authors: "S. Verwer, Y. Zhang"
+    year: 2019
+    venue: "AAAI 2019"
+    url: "https://doi.org/10.1609/aaai.v33i01.33011624"
+    explainer: binoct
+    short: "BinOCT"
+    code: "https://github.com/SiccoVerwer/binoct"
+    category: mio
+    split: 単変量
+    objective: 誤分類
+    method: 二値の線形計画（CPLEX）
+    data: UCI の 16 データ
+    note: しきい値を二値変数の組合せで表し、変数の数がデータ数にほぼ依存しない定式化にする。10 分で打ち切っても、OCT の報告値より精度の高い木を多くのデータで得る
+  - id: fair-oct
+    title: "Learning optimal and fair decision trees for non-discriminative decision-making"
+    authors: "S. Aghaei, M. J. Azizi, P. Vayanos"
+    year: 2019
+    venue: "AAAI 2019"
+    url: "https://doi.org/10.1609/aaai.v33i01.33011418"
+    explainer: fair-oct
+    short: "Fair OCT"
+    groups: [usc]
+    code: ""
+    category: robust-fair
+    split: 単変量・多変量
+    objective: 誤分類 ＋ 差別の指標
+    method: MIO（Gurobi）
+    data: 分類は Default, Adult, COMPAS、回帰は Communities and Crime
+    note: 処遇の不平等と結果の不平等の両方を罰則として入れた MIO で、公平な分類木・回帰木を学習する
+  - id: strong-oct
+    title: "Strong optimal classification trees"
+    authors: "S. Aghaei, A. Gómez, P. Vayanos"
+    year: 2025
+    venue: "Operations Research"
+    url: "https://doi.org/10.1287/opre.2021.0034"
+    explainer: strong-oct
+    preprint_year: 2021
+    short: "FlowOCT"
+    groups: [usc]
+    code: "https://github.com/D3M-Research-Group/StrongTree"
+    category: mio
+    split: 単変量
+    objective: 正解数 − λ × 分岐の数
+    method: フローにもとづく MIO、ベンダーズ分解
+    data: 二値化した UCI のカテゴリの 12 データ、連続値も含む UCI の 28 データ
+    note: データが根から葉へ流れるフローとして木を表し、LP 緩和が強い定式化を示す。ベンダーズ分解で大きなデータにも広げる
+  - id: oct-multivariate-scalable
+    title: "A scalable MIP-based method for learning optimal multivariate decision trees"
+    authors: "H. Zhu, P. Murali, D. Phan, L. Nguyen, J. Kalagnanam"
+    year: 2020
+    venue: "NeurIPS 2020"
+    url: "https://proceedings.neurips.cc/paper/2020/hash/1373b284bc381890049e92d324f56de0-Abstract.html"
+    explainer: oct-multivariate-scalable
+    short: "Zhu ら"
+    code: ""
+    category: mio
+    split: 多変量
+    objective: 誤分類 ＋ 1-ノルム SVM のマージン（SVM1-ODT）
+    method: MIO（CPLEX）、切除平面、LP にもとづくデータ選択
+    data: UCI のデータ（大きいもので 7,494〜245,057 行）
+    note: 多変量の分岐の木を1つの MIO で表し、LP にもとづいてデータを絞ることで大きなデータに広げる
+  - id: categorical-ip
+    title: "Optimal decision trees for categorical data via integer programming"
+    authors: "O. Günlük, J. Kalagnanam, M. Li, M. Menickelly, K. Scheinberg"
+    year: 2021
+    venue: "Journal of Global Optimization"
+    url: "https://doi.org/10.1007/s10898-021-01009-y"
+    explainer: categorical-ip
+    preprint_year: 2016
+    short: "Günlük ら"
+    code: ""
+    category: mio
+    split: 単変量（カテゴリの値の部分集合で分岐、数値はしきい値）
+    objective: 正しく分類した数（クラスの不均衡を重みで調整、木の形は固定）
+    method: MIO（CPLEX）、対称性を除く工夫
+    data: 二値分類の 10 データ（UCI 7、LIBSVM 2、FICO）
+    note: カテゴリ変数の値の部分集合で分岐する、形を固定した最適な二分木を整数計画で求める
+
+  # ---- 動的計画法・分枝限定 ----
+  - id: dl8
+    title: "Mining optimal decision trees from itemset lattices"
+    authors: "S. Nijssen, E. Fromont"
+    year: 2007
+    venue: "KDD 2007"
+    url: "https://doi.org/10.1145/1281192.1281250"
+    explainer: dl8
+    short: "DL8"
+    groups: [louvain]
+    code: ""
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類など（制約つき）
+    method: 動的計画法、アイテム集合の束の探索
+    data: 二値化した UCI のデータ
+    note: 頻出アイテム集合の探索と動的計画法で、深さや葉のデータ数の制約のもとで最適な木を求める。のちの動的計画法の系統の出発点
+  - id: osdt
+    title: "Optimal sparse decision trees"
+    authors: "X. Hu, C. Rudin, M. Seltzer"
+    year: 2019
+    venue: "NeurIPS 2019"
+    url: "https://arxiv.org/abs/1904.12847"
+    explainer: osdt
+    short: "OSDT"
+    groups: [duke]
+    code: "https://github.com/xiyanghu/OSDT"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類 ＋ λ × 葉の数
+    method: 分枝限定、解析的な下界
+    data: COMPAS, FICO, Monk など
+    note: 葉の数に罰則をかけた目的関数で、深さを決めずに疎で最適な木を分枝限定法で求める。解析的な下界で探索を大きく減らす
+  - id: dl85
+    title: "Learning optimal decision trees using caching branch-and-bound search"
+    authors: "G. Aglin, S. Nijssen, P. Schaus"
+    year: 2020
+    venue: "AAAI 2020"
+    url: "https://doi.org/10.1609/aaai.v34i04.5711"
+    explainer: dl85
+    short: "DL8.5"
+    groups: [louvain]
+    code: "https://github.com/aia-uclouvain/pydl8.5"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類
+    method: キャッシュつき分枝限定
+    data: 二値化した UCI のデータ（DL8 のベンチマーク）
+    note: DL8 のキャッシュつき探索に分枝限定法の上下界を加え、BinOCT より桁違いに速く深さ制約つきの最適な木を求める
+  - id: gosdt
+    title: "Generalized and scalable optimal sparse decision trees"
+    authors: "J. Lin, C. Zhong, D. Hu, C. Rudin, M. Seltzer"
+    year: 2020
+    venue: "ICML 2020"
+    url: "https://arxiv.org/abs/2006.08690"
+    explainer: gosdt
+    short: "GOSDT"
+    groups: [duke]
+    code: "https://github.com/Jimmy-Lin/GeneralizedOptimalSparseDecisionTrees"
+    category: dp-bnb
+    split: 単変量
+    objective: 誤分類（F 値・AUC なども） ＋ λ × 葉の数
+    method: 動的計画法 ＋ 分枝限定
+    data: COMPAS, FICO, Monk など
+    note: OSDT を連続の特徴量や不均衡データ向けの目的関数（重みつき誤分類、F 値、AUC など）に広げ、動的計画法で速くする
+  - id: guessing-thresholds
+    title: "Fast sparse decision tree optimization via reference ensembles"
+    authors: "H. McTavish, C. Zhong, R. Achermann, I. Karimalis, J. Chen, C. Rudin, M. Seltzer"
+    year: 2022
+    venue: "AAAI 2022"
+    url: "https://doi.org/10.1609/aaai.v36i9.21194"
+    explainer: guessing-thresholds
+    short: "GOSDT-guesses"
+    groups: [duke]
+    code: "https://github.com/ubc-systopia/gosdt-guesses"
+    category: dp-bnb
+    split: 単変量
+    objective: 誤分類 ＋ λ × 葉の数
+    method: 動的計画法 ＋ 分枝限定、勾配ブースティングから推測したしきい値と下界
+    data: COMPAS, FICO, Netherlands など
+    note: 勾配ブースティングの木から特徴量のしきい値と下界を推測して探索を絞り、精度をほぼ落とさずに桁違いに速くする
+  - id: murtree
+    title: "MurTree: Optimal decision trees via dynamic programming and search"
+    authors: "E. Demirović, A. Lukina, E. Hebrard, J. Chan, J. Bailey, C. Leckie, K. Ramamohanarao, P. J. Stuckey"
+    year: 2022
+    venue: "JMLR"
+    url: "https://jmlr.org/papers/v23/20-520.html"
+    explainer: murtree
+    preprint_year: 2020
+    short: "MurTree"
+    groups: [delft]
+    code: "https://bitbucket.org/EmirD/murtree"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類（深さ・分岐数の制約つき、分岐数の罰則も可）
+    method: 動的計画法 ＋ 探索、深さ2の専用の手順
+    data: 二値化した UCI のデータ（DL8 のベンチマーク）
+    note: 深さ2の木を頻度の数え上げで一度に求める手順、類似度にもとづく下界、キャッシュの工夫で、DL8.5 より速く最適な木を求める
+  - id: quant-bnb
+    title: "Quant-BnB: A scalable branch-and-bound method for optimal decision trees with continuous features"
+    authors: "R. Mazumder, X. Meng, H. Wang"
+    year: 2022
+    venue: "ICML 2022"
+    url: "https://arxiv.org/abs/2206.11844"
+    explainer: quant-bnb
+    short: "Quant-BnB"
+    code: "https://github.com/mengxianglgal/Quant-BnB"
+    category: dp-bnb
+    split: 単変量（連続の特徴量）
+    objective: 誤分類・二乗誤差
+    method: 分位点にもとづく分枝限定
+    data: UCI のデータ
+    note: 連続の特徴量のしきい値の範囲を分位点で区切って分枝限定法で絞り、二値化せずに浅い最適な木（深さ2・3）を求める
+  - id: streed
+    title: "Necessary and sufficient conditions for optimal decision trees using dynamic programming"
+    authors: "J. G. M. van der Linden, M. M. de Weerdt, E. Demirović"
+    year: 2023
+    venue: "NeurIPS 2023"
+    url: "https://arxiv.org/abs/2305.19706"
+    explainer: streed
+    short: "STreeD"
+    groups: [delft]
+    code: "https://github.com/AlgTUDelft/pystreed"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 分離可能な任意の目的（コスト考慮、方策、公平性、F 値など）
+    method: 動的計画法
+    data: 二値化した公開データ
+    note: 動的計画法で最適な木が求まるための必要十分条件（目的関数と制約の分離可能性）を示し、コストを考慮した分類、処方的な木、公平性の制約、F 値などを1つの枠組みで解く
+  - id: nonlinear-metrics
+    title: "Optimal decision trees for nonlinear metrics"
+    authors: "E. Demirović, P. J. Stuckey"
+    year: 2021
+    venue: "AAAI 2021"
+    url: "https://doi.org/10.1609/aaai.v35i5.16490"
+    explainer: nonlinear-metrics
+    short: "非線形指標"
+    groups: [delft]
+    code: "https://bitbucket.org/EmirD/murtree-bi-objective"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: F 値などの非線形な指標
+    method: 動的計画法 ＋ パレート最適な解の列挙
+    data: 二値化した公開データ
+    note: 2つのクラスの誤分類数のパレート最適な組を部分木ごとに保持し、F 値など非線形な指標で最適な木を求める
+  - id: blossom
+    title: "Blossom: an anytime algorithm for computing optimal decision trees"
+    authors: "E. Demirović, E. Hebrard, L. Jean"
+    year: 2023
+    venue: "ICML 2023"
+    url: "https://proceedings.mlr.press/v202/demirovic23a.html"
+    explainer: blossom
+    short: "Blossom"
+    code: "https://gitlab.laas.fr/ehebrard/blossom"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類（深さの制約つき）
+    method: 深さ優先の動的計画法（途中で打ち切れる）
+    data: 二値化した公開データ
+    note: 深さ優先で探索し、早い段階で貪欲法と同程度の木を出し、時間をかけるほど精度を上げる。深い木でも使える
+  - id: contree
+    title: "Optimal classification trees for continuous feature data using dynamic programming with branch-and-bound"
+    authors: "C. E. Brița, J. G. M. van der Linden, E. Demirović"
+    year: 2025
+    venue: "AAAI 2025"
+    url: "https://doi.org/10.1609/aaai.v39i11.33210"
+    explainer: contree
+    short: "ConTree"
+    groups: [delft]
+    code: "https://github.com/ConSol-Lab/contree"
+    category: dp-bnb
+    split: 単変量（連続の特徴量）
+    objective: 誤分類（深さの制約つき）
+    method: 動的計画法 ＋ 分枝限定
+    data: UCI のデータ
+    note: 連続の特徴量を二値化せずに扱う動的計画法に分枝限定法を組み合わせ、Quant-BnB や MIO より速く深さ制約つきの最適な木を求める
+  - id: born-again
+    title: "Born-again tree ensembles"
+    authors: "T. Vidal, M. Schiffer"
+    year: 2020
+    venue: "ICML 2020"
+    url: "https://proceedings.mlr.press/v119/vidal20a.html"
+    explainer: born-again
+    short: "Born-again"
+    code: "https://github.com/vidalt/BA-Trees"
+    category: dp-bnb
+    split: 単変量
+    objective: 木の深さ・葉の数（アンサンブルと同じ予測をすることが制約）
+    method: 動的計画法
+    data: UCI のデータなど
+    note: 特徴空間のどこでもランダムフォレストと同じ予測をする最小の決定木を、動的計画法で求める
+
+  # ---- SAT・制約プログラミング ----
+  - id: bessiere-2009
+    title: "Minimising decision tree size as combinatorial optimisation"
+    authors: "C. Bessiere, E. Hebrard, B. O'Sullivan"
+    year: 2009
+    venue: "CP 2009"
+    url: "https://doi.org/10.1007/978-3-642-04244-7_16"
+    short: "Bessiere ら"
+    code: ""
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: ノードの数（データを誤りなく分けることが制約）
+    method: SAT・制約プログラミング
+    data: UCI のデータ
+    note: データを誤りなく分ける最小の木を求める問題を、SAT と制約プログラミングで定式化する
+  - id: sat-dt
+    title: "Learning optimal decision trees with SAT"
+    authors: "N. Narodytska, A. Ignatiev, F. Pereira, J. Marques-Silva"
+    year: 2018
+    venue: "IJCAI 2018"
+    url: "https://doi.org/10.24963/ijcai.2018/189"
+    explainer: sat-dt
+    short: "Narodytska ら"
+    code: ""
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: ノードの数（データを誤りなく分けることが制約）
+    method: SAT
+    data: Bessiere らのデータ、PMLB のデータ
+    note: データを誤りなく分ける最小の木を求める SAT の符号化を改良し、Bessiere らの方法より大きなデータで解く
+  - id: avellaneda-2020
+    title: "Efficient inference of optimal decision trees"
+    authors: "F. Avellaneda"
+    year: 2020
+    venue: "AAAI 2020"
+    url: "https://doi.org/10.1609/aaai.v34i04.5717"
+    explainer: avellaneda-2020
+    short: "Avellaneda"
+    code: "https://github.com/FlorentAvellaneda/InferDT"
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: 深さ、ノードの数（データを誤りなく分けることが制約）
+    method: SAT、データを少しずつ足す探索
+    data: Mouse, Car、BinOCT の実験の 6 データ、人工データ
+    note: 深さを先に最小化してからノード数を減らす SAT の符号化と、必要なデータだけを少しずつ足す探索で、SAT で最小の木を求める方法を大きなデータに広げる
+  - id: maxsat-dt
+    title: "Learning optimal decision trees with MaxSAT and its integration in AdaBoost"
+    authors: "H. Hu, M. Siala, E. Hebrard, M.-J. Huguet"
+    year: 2020
+    venue: "IJCAI 2020"
+    url: "https://doi.org/10.24963/ijcai.2020/163"
+    explainer: maxsat-dt
+    short: "MaxSAT"
+    code: "https://gepgitlab.laas.fr/hhu/maxsat-decision-trees"
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: 正しく分類する例の数（木の大きさを固定、深さの制約も入れられる）
+    method: MaxSAT
+    data: CP4IM の 15 データ（二値化）
+    note: Narodytska らの SAT の定式化を、誤りを許して誤分類数を最小にする MaxSAT の定式化に広げ、AdaBoost の弱学習器にも使う
+  - id: sat-shati
+    title: "SAT-based optimal classification trees for non-binary data"
+    authors: "P. Shati, E. Cohen, S. A. McIlraith"
+    year: 2023
+    venue: "Constraints"
+    url: "https://doi.org/10.1007/s10601-023-09348-1"
+    explainer: sat-shati
+    preprint_year: 2021
+    short: "Shati ら"
+    code: ""
+    category: sat-cp
+    split: 単変量（数値はしきい値、カテゴリは値の部分集合で分岐）
+    objective: 深さ（データを誤りなく分けることが制約）、誤分類（深さの制約つき）
+    method: SAT・部分 MaxSAT
+    data: UCI の 15 データ
+    note: 数値やカテゴリの特徴量を二値化せずに扱う SAT の符号化で、データを誤りなく分ける最小の深さの木と、深さを決めたときに誤分類が最小の木を求める。前身は CP 2021 の会議版
+  - id: slim
+    title: "SAT-based decision tree learning for large data sets"
+    authors: "A. Schidler, S. Szeider"
+    year: 2021
+    venue: "AAAI 2021"
+    url: "https://doi.org/10.1609/aaai.v35i5.16509"
+    explainer: slim
+    short: "Schidler & Szeider"
+    code: ""
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: 深さ（データを誤りなく分けることが制約。部分木ごとに SAT で減らす）
+    method: SAT による局所改善
+    data: UCI などの 37 データ
+    note: 貪欲法などで作った木の一部を取り出して SAT で最適な部分木に置き換える局所改善を繰り返し、SAT を大きなデータに使えるようにする
+  - id: cp-dt
+    title: "Learning optimal decision trees using constraint programming"
+    authors: "H. Verhaeghe, S. Nijssen, G. Pesant, C.-G. Quimper, P. Schaus"
+    year: 2020
+    venue: "Constraints"
+    url: "https://doi.org/10.1007/s10601-020-09312-3"
+    explainer: cp-dt
+    short: "CP-DT"
+    groups: [louvain]
+    code: "https://bitbucket.org/helene_verhaeghe/classificationtree"
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: 誤分類（深さの制約つき）
+    method: 制約プログラミング（AND/OR 探索、キャッシュ）
+    data: CP4IM と UCI の 24 データ（二値化）
+    note: DL8 のキャッシュつき探索を制約プログラミングの枠組みで表し、専用の制約伝播で探索を減らす
+
+  # ---- 連続最適化 ----
+  - id: norouzi-2015
+    title: "Efficient non-greedy optimization of decision trees"
+    authors: "M. Norouzi, M. D. Collins, M. Johnson, D. J. Fleet, P. Kohli"
+    year: 2015
+    venue: "NIPS 2015"
+    url: "https://arxiv.org/abs/1511.04056"
+    explainer: norouzi-2015
+    short: "Norouzi ら"
+    code: ""
+    category: continuous
+    split: 多変量
+    objective: 経験損失の上界（凸関数と凹関数の和）
+    method: 確率的勾配法
+    data: LIBSVM のベンチマーク（SensIT, Connect4, Protein, MNIST）
+    note: 構造化予測の考え方で木の誤分類の上界を作り、全ノードの分岐を確率的勾配法で同時に学習する
+  - id: tao
+    title: "Alternating optimization of decision trees, with application to learning sparse oblique trees"
+    authors: "M. Á. Carreira-Perpiñán, P. Tavallali"
+    year: 2018
+    venue: "NeurIPS 2018"
+    url: "https://papers.nips.cc/paper_files/paper/2018/hash/185c29dc24325934ee377cfda20e414c-Abstract.html"
+    explainer: tao
+    short: "TAO"
+    code: ""
+    category: continuous
+    split: 多変量（まばら）
+    objective: 誤分類 ＋ 分岐の重みの L1 罰則
+    method: ノードごとの交互最適化
+    data: MNIST, letter, pendigits, protein, seismic
+    note: 木のほかの部分を固定して同じ深さのノードをまとめて最適化することを繰り返す交互最適化（TAO）で、まばらな斜めの分岐の木を学習する。各ノードの問題を厳密に解ければ、目的関数は単調に減る
+  - id: orct
+    title: "Optimal randomized classification trees"
+    authors: "R. Blanquero, E. Carrizosa, C. Molero-Río, D. Romero Morales"
+    year: 2021
+    venue: "Computers & Operations Research"
+    url: "https://doi.org/10.1016/j.cor.2021.105281"
+    explainer: orct
+    preprint_year: 2018
+    short: "ORCT"
+    groups: [sevilla]
+    code: ""
+    category: continuous
+    split: 多変量（確率的）
+    objective: 期待誤分類コスト
+    method: 非線形連続最適化
+    data: UCI の 13 個のデータ
+    note: 各ノードでデータが左に進む確率を累積分布関数（実験ではロジスティック関数）で表し、深さを決めた木を連続最適化で学習する。クラスごとの誤分類のコストや精度の制約も入れられる
+  - id: sparse-orct
+    title: "Sparsity in optimal randomized classification trees"
+    authors: "R. Blanquero, E. Carrizosa, C. Molero-Río, D. Romero Morales"
+    year: 2020
+    venue: "EJOR"
+    url: "https://doi.org/10.1016/j.ejor.2019.12.002"
+    explainer: sparse-orct
+    short: "Sparse ORCT"
+    groups: [sevilla]
+    code: ""
+    category: continuous
+    split: 多変量（確率的、まばら）
+    objective: 期待誤分類 ＋ ノード単位・全体の L1・L∞ 罰則
+    method: 非線形連続最適化
+    data: UCI の 18 個のデータ
+    note: 確率的な分岐の木に、各ノードで使う特徴量と木全体で使う特徴量を減らす罰則を入れる
+
+  - id: latent-trees
+    title: "Learning binary decision trees by argmin differentiation"
+    authors: "V. Zantedeschi, M. J. Kusner, V. Niculae"
+    year: 2021
+    venue: "ICML 2021"
+    url: "https://proceedings.mlr.press/v139/zantedeschi21a.html"
+    explainer: latent-trees
+    preprint_year: 2020
+    short: "LatentTrees"
+    code: "https://github.com/vzantedeschi/LatentTrees"
+    category: continuous
+    split: 多変量
+    objective: 下流のタスクの損失
+    method: argmin 微分による勾配法
+    data: Year, Microsoft, Yahoo, Click, Higgs, Glass, Covtype
+    note: どのノードを残すかを凸な二次計画の解として表し、その解を微分して木の構造と分岐を勾配法で同時に学習する
+  - id: gradtree
+    title: "GradTree: Learning axis-aligned decision trees with gradient descent"
+    authors: "S. Marton, S. Lüdtke, C. Bartelt, H. Stuckenschmidt"
+    year: 2024
+    venue: "AAAI 2024"
+    url: "https://doi.org/10.1609/aaai.v38i13.29345"
+    explainer: gradtree
+    preprint_year: 2023
+    short: "GradTree"
+    code: "https://github.com/s-marton/GradTree"
+    category: continuous
+    split: 単変量
+    objective: 交差エントロピー
+    method: straight-through 推定による勾配法
+    data: UCI の二値分類 22 データ、多クラス分類 14 データ
+    note: 軸に平行な分岐をそのまま保ち、straight-through 推定で勾配を通すことで、深さを決めた単変量の木全体を勾配法で学習する
+
+  # ---- 回帰・生存時間 ----
+  - id: sparse-ort
+    title: "On sparse optimal regression trees"
+    authors: "R. Blanquero, E. Carrizosa, C. Molero-Río, D. Romero Morales"
+    year: 2022
+    venue: "EJOR"
+    url: "https://doi.org/10.1016/j.ejor.2021.12.022"
+    explainer: sparse-ort
+    short: "Sparse ORT"
+    groups: [sevilla]
+    code: ""
+    category: regression
+    split: 多変量（確率的、まばら）
+    objective: 二乗誤差 ＋ まばらさの罰則
+    method: 非線形連続最適化
+    data: UCI の 9 データ、人工データ
+    note: 確率的な分岐の木（ORCT）を回帰に広げ、使う特徴量を減らす罰則を入れて連続最適化で学習する
+  - id: survival-trees
+    title: "Optimal survival trees"
+    authors: "D. Bertsimas, J. Dunn, E. Gibson, A. Orfanoudaki"
+    year: 2022
+    venue: "Machine Learning"
+    url: "https://doi.org/10.1007/s10994-021-06117-0"
+    explainer: survival-trees
+    preprint_year: 2020
+    short: "OST"
+    groups: [mit]
+    code: ""
+    category: regression
+    split: 単変量
+    objective: 生存時間の尤度にもとづく誤差 ＋ 罰則
+    method: 座標降下の局所探索
+    data: 合成データ、Framingham、打ち切りを人工的に加えた UCI の 44 データ
+    note: OCT の局所探索を打ち切りのある生存時間データに広げ、生存木を学習する。木の良さを測る指標も提案する
+  - id: piecewise-regression
+    title: "Piecewise constant and linear regression trees: An optimal dynamic programming approach"
+    authors: "M. van den Bos, J. G. M. van der Linden, E. Demirović"
+    year: 2024
+    venue: "ICML 2024"
+    url: "https://proceedings.mlr.press/v235/van-den-bos24a.html"
+    explainer: piecewise-regression
+    short: "van den Bos ら"
+    groups: [delft]
+    code: "https://github.com/AlgTUDelft/pystreed"
+    category: regression
+    split: 単変量
+    objective: 二乗誤差 ＋ 葉の数の罰則（葉は定数か線形回帰）
+    method: 動的計画法
+    data: ""
+    note: 葉が定数の回帰木に加えて、葉ごとに線形回帰を持つ回帰木も動的計画法で最適に求める
+  - id: osrt
+    title: "Optimal sparse regression trees"
+    authors: "R. Zhang, R. Xin, M. Seltzer, C. Rudin"
+    year: 2023
+    venue: "AAAI 2023"
+    url: "https://doi.org/10.1609/aaai.v37i9.26334"
+    explainer: osrt
+    short: "OSRT"
+    groups: [duke]
+    code: "https://github.com/rayyy-zhang/optimal-sparse-regression-tree-public"
+    category: regression
+    split: 単変量
+    objective: 二乗誤差 ＋ λ × 葉の数
+    method: 動的計画法 ＋ 分枝限定、k-means による下界
+    data: UCI などの公開データ
+    note: 1次元の k-means の最適解を下界にして、葉の数に罰則をかけた最適な回帰木を求める
+
+  # ---- 処方的・方策木 ----
+  - id: kallus-2017
+    title: "Recursive partitioning for personalization using observational data"
+    authors: "N. Kallus"
+    year: 2017
+    venue: "ICML 2017"
+    url: "https://proceedings.mlr.press/v70/kallus17a.html"
+    explainer: kallus-2017
+    preprint_year: 2016
+    short: "Kallus"
+    code: ""
+    category: prescriptive
+    split: 単変量
+    objective: 葉で最良の処置を選んだときの結果の和（個別化の不純度）
+    method: 再帰的分割（貪欲）、MIP（Gurobi）、バギング（個別化の森）
+    data: Warfarin の投与量（処置の割当てを人工的に偏らせた観察データ）、職業訓練（NSW と PSID）
+    note: 観察データから、葉ごとに処置を選ぶ個別化の木（personalization tree）を学習する。貪欲法に加えて、木全体を MIO で最適化する方法も示す
+  - id: opt
+    title: "Optimal prescriptive trees"
+    authors: "D. Bertsimas, J. Dunn, N. Mundru"
+    year: 2019
+    venue: "INFORMS Journal on Optimization"
+    url: "https://doi.org/10.1287/ijoo.2018.0005"
+    explainer: opt
+    short: "OPT"
+    groups: [mit]
+    code: ""
+    category: prescriptive
+    split: 単変量
+    objective: 処方の結果 ＋ 予測誤差の重みつき和
+    method: 座標降下の局所探索（葉は定数か線形回帰）
+    data: 合成データ、Warfarin の投与量、糖尿病の治療、職業訓練、IHDP
+    note: 観察データから、葉ごとに処置を選ぶ処方的な木を学習する。処方の良さと結果の予測精度を重みつきで足した目的関数を使う
+  - id: policy-learning
+    title: "Policy learning with observational data"
+    authors: "S. Athey, S. Wager"
+    year: 2021
+    venue: "Econometrica"
+    url: "https://doi.org/10.3982/ECTA15732"
+    explainer: policy-learning
+    preprint_year: 2017
+    short: "Athey & Wager"
+    groups: [stanford]
+    code: "https://github.com/grf-labs/policytree"
+    category: prescriptive
+    split: 単変量
+    objective: 二重頑健なスコアにもとづく方策の価値
+    method: 方策のクラス上の最大化（実験は木）
+    data: カリフォルニアの GAIN（就労支援）
+    note: 二重頑健なスコアで方策の価値を推定し、それを最大にする方策を選ぶ方策学習で、後悔の上界が √(VC 次元 / n) の速さで小さくなり、定数倍を除いて下界と一致することを示す
+  - id: multi-action-policy
+    title: "Offline multi-action policy learning: Generalization and optimization"
+    authors: "Z. Zhou, S. Athey, S. Wager"
+    year: 2023
+    venue: "Operations Research"
+    url: "https://doi.org/10.1287/opre.2022.2271"
+    explainer: multi-action-policy
+    preprint_year: 2018
+    short: "Zhou ら"
+    groups: [stanford]
+    code: "https://github.com/grf-labs/policytree"
+    category: prescriptive
+    split: 単変量
+    objective: 二重頑健なスコアにもとづく方策の価値
+    method: 木の厳密な探索、MIO
+    data: 合成データ、投票の働きかけの実験
+    note: 方策学習を多値の行動に広げ、方策の木を厳密に探索する方法や MIO による定式化を示す。policytree として実装されている
+  - id: policy-trees
+    title: "Optimal policy trees"
+    authors: "M. Amram, J. Dunn, Y. D. Zhuo"
+    year: 2022
+    venue: "Machine Learning"
+    url: "https://doi.org/10.1007/s10994-022-06128-5"
+    explainer: policy-trees
+    preprint_year: 2020
+    short: "Policy Trees"
+    groups: [mit]
+    code: ""
+    category: prescriptive
+    split: 単変量
+    objective: 推定した報酬（離散の処置は二重頑健、連続の用量は回帰の予測値）の合計
+    method: 座標降下の局所探索
+    data: 合成データ、食料品の価格設定、糖尿病の治療、金融商品の価格設定
+    note: 処置ごとの報酬を先に二重頑健な方法で推定し、その合計を最大にする方策の木を局所探索で学習する。連続の処置も扱う
+  - id: prescriptive-trees-flow
+    title: "Learning optimal prescriptive trees from observational data"
+    authors: "N. Jo, S. Aghaei, A. Gómez, P. Vayanos"
+    year: 2026
+    venue: "Management Science"
+    url: "https://doi.org/10.1287/mnsc.2021.02813"
+    explainer: prescriptive-trees-flow
+    preprint_year: 2021
+    short: "Jo ら（処方）"
+    groups: [usc]
+    code: "https://github.com/D3M-Research-Group/odtlearn"
+    category: prescriptive
+    split: 単変量
+    objective: 逆確率重みなどで推定した方策の価値
+    method: フローにもとづく MIO
+    data: Warfarin の投与量、合成データ
+    note: フローにもとづく強い定式化を処方的な木に広げ、観察データから最適な処方的な木を MIO で求める
+  - id: spo-trees
+    title: "Decision trees for decision-making under the predict-then-optimize framework"
+    authors: "A. N. Elmachtoub, J. C. N. Liang, R. McNellis"
+    year: 2020
+    venue: "ICML 2020"
+    url: "https://proceedings.mlr.press/v119/elmachtoub20a.html"
+    explainer: spo-trees
+    short: "SPOT"
+    code: "https://github.com/rtm2130/SPOTree"
+    category: prescriptive
+    split: 単変量
+    objective: SPO 損失（決定の後悔）
+    method: 貪欲法・MIO、SPOT を使った森（SPO Forests）
+    data: 最短経路の合成データ、ニュースの推薦
+    note: 予測の誤差ではなく、予測を使って最適化したときの決定の損失（SPO 損失）で木を学習する。貪欲法と MIO の両方を示す
+
+  - id: constrained-prescriptive
+    title: "Constrained prescriptive trees via column generation"
+    authors: "S. Subramanian, W. Sun, Y. Drissi, M. Ettl"
+    year: 2022
+    venue: "AAAI 2022"
+    url: "https://doi.org/10.1609/aaai.v36i4.20384"
+    explainer: constrained-prescriptive
+    short: "Subramanian ら"
+    code: ""
+    category: prescriptive
+    split: 多分岐（カテゴリの値か区間）
+    objective: 教師モデルが推定した結果の合計（ルール数・業務上の制約つき）
+    method: 列生成で候補のルールを作り、MIO で選ぶ（発見的手法）
+    data: 合成データ、Dunnhumby の購買データ、Kaggle の住宅価格、航空会社の座席価格（非公開）
+    note: 根から葉への経路（ルール）を列として扱う列生成で、需要・在庫・地域ごとの価格などの業務上の制約つきの処方的な木を大きなデータで学習する
+
+  # ---- 頑健性・公平性 ----
+  - id: robust-classification
+    title: "Robust classification"
+    authors: "D. Bertsimas, J. Dunn, C. Pawlowski, Y. D. Zhuo"
+    year: 2019
+    venue: "INFORMS Journal on Optimization"
+    url: "https://doi.org/10.1287/ijoo.2018.0001"
+    explainer: robust-classification
+    short: "Robust OCT"
+    groups: [mit]
+    code: ""
+    category: robust-fair
+    split: 単変量
+    objective: 最悪の摂動のもとでの誤分類
+    method: ロバスト最適化 ＋ MIO
+    data: UCI のデータ
+    note: 特徴量やラベルの摂動に対するロバスト最適化を、ロジスティック回帰・SVM・最適決定木に入れる
+  - id: roct
+    title: "Robust optimal classification trees against adversarial examples"
+    authors: "D. Vos, S. Verwer"
+    year: 2022
+    venue: "AAAI 2022"
+    url: "https://doi.org/10.1609/aaai.v36i8.20829"
+    explainer: roct
+    short: "ROCT"
+    code: "https://github.com/tudelft-cda-lab/ROCT"
+    category: robust-fair
+    split: 単変量
+    objective: 敵対的な摂動のもとでの誤分類
+    method: MIO（Gurobi）・MaxSAT
+    data: 8 つの公開データ
+    note: 各特徴量を一定の範囲で動かす攻撃に対して、最悪の誤分類を最小にする木を MIO や MaxSAT で求める
+  - id: robust-oct
+    title: "Learning optimal classification trees robust to distribution shifts"
+    authors: "N. Justin, S. Aghaei, A. Gómez, P. Vayanos"
+    year: 2026
+    venue: "Operations Research"
+    url: "https://doi.org/10.1287/opre.2024.0711"
+    explainer: robust-oct
+    preprint_year: 2023
+    short: "Justin ら"
+    groups: [usc]
+    code: "https://github.com/D3M-Research-Group/odtlearn"
+    category: robust-fair
+    split: 単変量
+    objective: 特徴量の変化に対する最悪の誤分類
+    method: ロバスト最適化 ＋ MIO（制約生成）
+    data: UCI の 12 データ（monk, tic-tac-toe, kr-vs-kp など、整数・カテゴリの特徴量）
+    note: 学習時とテスト時で特徴量が変わる場合に備え、ロバスト最適化で最悪の場合の精度を高める分類木を学習する
+  - id: fair-dp
+    title: "Fair and optimal decision trees: A dynamic programming approach"
+    authors: "J. G. M. van der Linden, M. M. de Weerdt, E. Demirović"
+    year: 2022
+    venue: "NeurIPS 2022"
+    url: "https://proceedings.neurips.cc/paper_files/paper/2022/hash/fe248e22b241ae5a9adf11493c8c12bc-Abstract.html"
+    explainer: fair-dp
+    short: "DPF"
+    groups: [delft]
+    code: "https://gitlab.tudelft.nl/jgmvanderlinde/dpf"
+    category: robust-fair
+    split: 単変量（二値の特徴量）
+    objective: 誤分類（統計的パリティの制約つき）
+    method: 動的計画法
+    data: Le Quy らの調査の 12 データ（Adult, COMPAS など）
+    note: 公平性の制約が部分木に分かれないことに対処する動的計画法で、MIO（FairOCT）より桁違いに速く、統計的パリティの制約を満たす最適な木を求める
+  - id: fair-oct-tradeoffs
+    title: "Learning optimal fair decision trees: Trade-offs between interpretability, fairness, and accuracy"
+    authors: "N. Jo, S. Aghaei, J. Benson, A. Gómez, P. Vayanos"
+    year: 2023
+    venue: "AIES 2023"
+    url: "https://doi.org/10.1145/3600211.3604664"
+    explainer: fair-oct-tradeoffs
+    preprint_year: 2022
+    short: "FairOCT"
+    groups: [usc]
+    code: "https://github.com/D3M-Research-Group/odtlearn"
+    category: robust-fair
+    split: 単変量
+    objective: 誤分類（さまざまな公平性の制約つき）
+    method: フローにもとづく MIO
+    data: Adult, COMPAS, German など
+    note: 統計的パリティや機会均等など複数の公平性の定義を MIO の制約として入れ、解釈しやすさ・公平性・精度のトレードオフを調べる
+
+  # ---- ラショモン集合・評価 ----
+  - id: treefarms
+    title: "Exploring the whole Rashomon set of sparse decision trees"
+    authors: "R. Xin, C. Zhong, Z. Chen, T. Takagi, M. Seltzer, C. Rudin"
+    year: 2022
+    venue: "NeurIPS 2022"
+    url: "https://doi.org/10.52202/068431-1023"
+    explainer: treefarms
+    short: "TreeFARMS"
+    groups: [duke]
+    code: "https://github.com/ubc-systopia/treeFarms"
+    category: rashomon
+    split: 単変量
+    objective: 目的関数の値が最適値に近い木をすべて
+    method: 動的計画法 ＋ 分枝限定で列挙
+    data: COMPAS, FICO, Monk など
+    note: 目的関数の値が最適値から一定以内の疎な木（ラショモン集合）をすべて列挙して保存し、特徴量の重要度などを木の集合全体で調べられるようにする
+  - id: optimal-vs-greedy
+    title: "Optimal or greedy decision trees? Revisiting their objectives, tuning, and performance"
+    authors: "J. G. M. van der Linden, D. Vos, M. M. de Weerdt, S. Verwer, E. Demirović"
+    year: 2026
+    venue: "TMLR"
+    url: "https://openreview.net/forum?id=DvDOAtskXl"
+    explainer: optimal-vs-greedy
+    preprint_year: 2024
+    short: "最適 vs 貪欲"
+    groups: [delft]
+    code: "https://github.com/ConSol-Lab/opt-vs-greedy-dts"
+    category: rashomon
+    split: 単変量
+    objective: 7 つの目的関数と 5 つの調整方法を比較
+    method: ベンチマーク
+    data: OpenML の 109 データと合成データ
+    note: 最適な木と貪欲な木を、目的関数とハイパーパラメータの調整をそろえて多数のデータで比べ、どのような場合に最適な木の精度が高いかを調べる
+
+datasets:
+  - name: "DL8 のベンチマーク（CP4IM）"
+    provider: "Nijssen ら（CP4IM）"
+    url: "https://github.com/aia-uclouvain/pydl8.5/tree/master/datasets"
+    features: 二値化した特徴量
+    target: 2クラス
+    size: CP4IM の 16 個（anneal, audiology, hepatitis, kr-vs-kp, splice など。DL8.5 の配布版は 24 個）。数百〜8,124 行
+    usage: 動的計画法・SAT・CP の系統の共通のベンチマーク。DL8.5、MurTree、STreeD などが使う。リンク先は DL8.5 のリポジトリの配布版
+  - name: "UCI Machine Learning Repository"
+    provider: "UC Irvine"
+    url: "https://archive.ics.uci.edu/"
+    features: 連続・カテゴリ
+    target: 多クラス・連続値
+    size: データによる
+    usage: MIO と連続最適化の系統の標準のベンチマーク。OCT は 53 個、ORCT や Quant-BnB も UCI のデータで比べる
+  - name: "COMPAS"
+    provider: "ProPublica"
+    url: "https://github.com/propublica/compas-analysis"
+    features: 年齢、前科の数など（二値化して使うことが多い）
+    target: 2年以内の再犯（0/1）
+    size: 約7,000行
+    usage: OSDT、GOSDT、TreeFARMS など Rudin らの研究と、公平性の研究で使われる
+  - name: "FICO HELOC"
+    provider: "FICO Explainable Machine Learning Challenge"
+    url: "https://community.fico.com/s/explainable-machine-learning-challenge"
+    features: 信用履歴の特徴量 23 個
+    target: 返済の遅延（0/1）
+    size: 10,459行
+    usage: OSDT、GOSDT、GOSDT-guesses などで使われる
+  - name: "Monk's Problems"
+    provider: "UCI"
+    url: "https://archive.ics.uci.edu/dataset/70/monk+s+problems"
+    features: カテゴリの特徴量 6 個
+    target: 2クラス（正解の規則が既知）
+    size: 数百行
+    usage: 正解の木が分かっているので、最適な木が規則を復元できるかを確かめるのに使う
+  - name: "Adult"
+    provider: "UCI"
+    url: "https://archive.ics.uci.edu/dataset/2/adult"
+    features: 年齢、学歴、性別、人種など
+    target: 年収が 5 万ドルを超えるか
+    size: 約48,000行
+    usage: 公平性の制約つきの木（Fair OCT、DPF、FairOCT）で、性別や人種を保護属性にして使う
+  - name: "Warfarin（IWPC）"
+    provider: "International Warfarin Pharmacogenetics Consortium（PharmGKB・ClinPGx で配布）"
+    url: "https://www.clinpgx.org/downloads"
+    features: 年齢、体重、遺伝子型など
+    target: 適切な投与量（処置の候補を3つに分けて使う）
+    size: 約5,700人
+    usage: 処方的な木（Kallus、OPT、Jo らの処方の木）で、投与量の選択を処置とみなして使う
+
+metrics:
+  - name: "テスト精度"
+    how: テストデータでの正解率（不均衡なデータでは F 値や AUC）
+    what: 汎化の性能。最適な木は学習データに過剰に合うこともあるので、深さや罰則の値を交差検証で決めて比べる
+    refs: Bertsimas & Dunn (2017), van der Linden et al. (2024)
+  - name: "学習時の目的関数の値"
+    how: 学習データでの誤分類数（＋ 罰則）
+    what: 最適化の性能。同じ深さで CART より誤分類が少ないかを見る
+    refs: Verwer & Zhang (2019), Aglin et al. (2020)
+  - name: "最適性ギャップ・最適性の証明"
+    how: （上界 − 下界）÷ 上界、または制限時間内に最適性を証明できたか
+    what: 制限時間内に最適解を見つけ、その最適性を示せたか。MIO の系統では途中で打ち切ったときのギャップを報告する
+    refs: Aghaei et al. (2025), Demirović et al. (2022)
+  - name: "計算時間"
+    how: 最適解とその証明が得られるまでの時間（データ数・深さを変えて測る）
+    what: どこまで大きなデータ・深い木を厳密に解けるか
+    refs: Demirović et al. (2022), Briţa et al. (2025)
+  - name: "木の大きさ"
+    how: 葉の数、分岐の数、深さ、使う特徴量の数
+    what: 解釈しやすさの目安。精度と葉の数のトレードオフの曲線で比べることが多い
+    refs: Hu et al. (2019), Lin et al. (2020)
+  - name: "後悔・方策の価値"
+    how: 最適な処置を選んだときとの結果の差、または推定した方策の価値
+    what: 処方的な木の意思決定の良さ
+    refs: Bertsimas et al. (2019, OPT), Zhou et al. (2023)
+
+resources:
+  - name: "Classification and Regression Trees"
+    kind: 書籍
+    year: 1984
+    url: "https://doi.org/10.1201/9781315139470"
+    note: Breiman, Friedman, Olshen, Stone。決定木を貪欲に作る代表的な方法 CART と、コスト複雑度による剪定を示した本。最適決定木の論文の比較の基準
+  - name: "Machine Learning Under a Modern Optimization Lens"
+    kind: 書籍
+    year: 2019
+    url: "https://www.dynamic-ideas.com/books/machine-learning-under-a-modern-optimization-lens"
+    note: Bertsimas & Dunn。最適な分類木・回帰木・処方的な木を MIO と局所探索で学習する方法をまとめる
+  - name: "Mathematical optimization in classification and regression trees"
+    kind: サーベイ
+    year: 2021
+    url: "https://doi.org/10.1007/s11750-021-00594-1"
+    note: Carrizosa, Molero-Río, Romero Morales（TOP）。数理最適化で分類木・回帰木を学習する研究を整理する
+  - name: "Interpretable machine learning: Fundamental principles and 10 grand challenges"
+    kind: サーベイ
+    year: 2022
+    url: "https://doi.org/10.1214/21-SS133"
+    note: Rudin ら（Statistics Surveys）。解釈できる機械学習の課題を10個挙げ、疎で最適な決定木を最初の課題に含める
+  - name: "Recent advances in decision trees: an updated survey"
+    kind: サーベイ
+    year: 2023
+    url: "https://doi.org/10.1007/s10462-022-10275-5"
+    note: Costa & Pedreira（Artificial Intelligence Review）。最適決定木を含む決定木の研究の最近の動向を整理する
+  - name: "ODTlearn"
+    kind: ライブラリ
+    year: 2023
+    url: "https://github.com/D3M-Research-Group/odtlearn"
+    note: USC の Vayanos らの Python パッケージ。フローにもとづく最適な分類木・公平な木・頑健な木・処方的な木を MIO で学習する
+  - name: "pydl8.5"
+    kind: ライブラリ
+    year: 2020
+    url: "https://github.com/aia-uclouvain/pydl8.5"
+    note: DL8.5 の Python 実装。scikit-learn 風の API を備える
+  - name: "PySTreeD"
+    kind: ライブラリ
+    year: 2023
+    url: "https://github.com/AlgTUDelft/pystreed"
+    note: STreeD の Python 実装。コストを考慮した分類、回帰、処方的な木などの最適な木を動的計画法で学習する
+  - name: "GOSDT"
+    kind: ライブラリ
+    year: 2022
+    url: "https://github.com/ubc-systopia/gosdt-guesses"
+    note: GOSDT と GOSDT-guesses の実装（pip install gosdt）
+  - name: "policytree"
+    kind: ライブラリ
+    year: 2020
+    url: "https://github.com/grf-labs/policytree"
+    note: 二重頑健なスコアから最適な方策の木を厳密な探索で学習する（R）
+  - name: "Interpretable AI（IAI）"
+    kind: ソフトウェア
+    year: ""
+    url: "https://www.interpretable.ai/"
+    note: Bertsimas・Dunn らの商用ソフトウェア。最適な分類木・回帰木・生存木・処方的な木・方策の木を実装する（学術ライセンスあり）

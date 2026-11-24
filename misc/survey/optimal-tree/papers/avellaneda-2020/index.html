@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avellaneda 2020：反例を足しながら SAT で求める最小の決定木（論文解説）</title>
+<meta name="description" content="Efficient Inference of Optimal Decision Trees（AAAI 2020）の非公式の解説。学習データを誤りなく分ける深さ最小の決定木を、葉の番号の2進表記を使う SAT の符号化と、今の木が誤る例だけを1つずつ足す探索で求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the earlier exact SAT approaches that encode every training example at
+                         once (Bessiere et al. 2009 = DT2, Narodytska et al. 2018 = DT1), their
+                         formula sizes and run times
+            --b  (blue)   = this paper: the leaf-index encoding with counterexamples added one at a
+                         time (DT_depth / DT_size), the examples it actually uses, its run times
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+<style>
+/* ---------- results table (this page only) ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.res { border-collapse: collapse; font-size: 0.9rem; line-height: 1.4; min-width: 40rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--hair); text-align: right; white-space: nowrap; }
+table.res th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+table.res td.B { color: var(--b); } table.res td.A { color: var(--a); }
+table.res tr.avg td { font-weight: 600; border-top: 1.5px solid var(--ink); }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">AAAI 2020</div>
+  <h1>Efficient Inference of Optimal Decision Trees</h1>
+  <p class="subtitle">最適な決定木の効率的な推論</p>
+
+  <ul class="authors">
+    <li><b>Florent Avellaneda</b><span>Computer Research Institute of Montreal (CRIM), Canada（arXiv 版の表記）</span></li>
+  </ul>
+
+  <p class="lead">学習データをすべて正しく分ける最小の決定木を SAT で求める既存の方法は、<span class="A">すべての例を一度に論理式にする</span>ので、例が数千あると解けなかった。この論文は葉の番号の 2 進表記で例の行き先を表す簡潔な符号化を作り、<span class="B">今の木が誤って分類する例だけを <span style="white-space:nowrap">1 つずつ</span>式に足していく</span>。Mouse データでは、既存の 2 手法が 1,728 例すべてを式にしたのに対し、33 例だけを使って深さ最小の木を 0.015 秒で求めた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1609/aaai.v34i04.5717">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/1904.06314">arXiv（前版）</a>
+    <a class="btn" href="https://github.com/FlorentAvellaneda/InferDT">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。すべての例を一度に式にする既存のSATの方法、例の多いCarデータで既存法が10%の例しか使えなかったこと、誤って分類された例を1つずつ足して木を直していく提案法の仕組み、Mouseデータでの計算時間の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">Mouse を 0.015 秒</span><span class="d">深さ最小の木（深さ 4）を求めた平均時間（表 1、DT_depth）。Bessiere らの SAT 符号化では 577 秒、Narodytska らの符号化では 12.9 秒だった。</span></li>
+    <li><span class="k">1,728 例のうち 33 例</span><span class="d">同じ Mouse で、DT_depth が実際に式に入れた例の数。既存の 2 手法は 1,728 例すべてを式にした。節の数は 38K で、既存の 2 手法は 1.2M と 3.5M だった。</span></li>
+    <li><span class="k">Car で精度 98.8%</span><span class="d">データ全体を誤りなく分ける最小の木がそれまで厳密法で求められていなかった Car で、深さ 8 の木を 170 秒で求めた（10 分割交差検証の精度）。例を 10% だけ使った Narodytska らの木は 55% だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>学習データを誤りなく分ける最小の木を求める厳密法は、例が増えると式が大きくなりすぎて解けなかった</h2>
+    <p>決定木は分類の理由がはっきりしているので、説明できるモデルとして使われる。論文は誤りが許されない用途を念頭に、学習データをすべて正しく分類する（データと矛盾しない）木のうち、いちばん単純なものを求める。単純さの基準は木の深さとノードの数である。最適な決定木を求める問題は、いくつもの最適性の定義で NP 完全であることが知られている（<a href="../hyafil-rivest/">Hyafil と Rivest 1976</a> ほか）。そのため CART や C4.5 などの多くの方法は貪欲法で、最小である保証はない。</p>
+    <p>この問題にいちばん近い先行研究は、ノードの数が最小の木を SAT で求める Bessiere ら（2009）と <a href="../sat-dt/">Narodytska ら（2018）</a>である。どちらもすべての例を一度に論理式にする。Bessiere らの SAT の定式化はノードが 15 個ほどの小さな木までしか解けなかった。Narodytska らの新しい符号化は Mouse データを 13 秒で解いたが、例の多い Car データでは例を 10% に減らして解いていた。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題設定</div>
+    <h2>最適性は 2 段階で定める：まず深さを最小にし、その深さのなかでノードの数を最小にする</h2>
+    <p>例 \(e_0, \dots, e_{n-1}\) は \(m\) 個の二値の特徴量 \(f_0, \dots, f_{m-1}\) の値の組で、\(c\) 個のクラスのどれかに属する。カテゴリや数値の特徴量は、「カテゴリ \(x\) に属するか」や「値が \(t\) 以下か」を表す二値の特徴量に置き換えて扱う。論文は 2 つのアルゴリズムを示す。</p>
+    <ul class="def">
+      <li><strong>DT_depth</strong>：データと矛盾しない<em>完全</em>な決定木（すべての葉が同じ深さ）のうち、深さ \(k\) が最小のものを求める。\(k = 1\) から始め、解がなければ \(k\) を 1 増やす。</li>
+      <li><strong>DT_size</strong>：DT_depth で最小の深さ \(k\) を求めたあと、ノードの数の上限を 1 から \(2^{k+1} - 1\) のあいだで二分探索し、深さ \(k\) 以下でノードの数が最小の木を求める。こちらの木は完全とは限らない。</li>
+    </ul>
+    <p>深さに制限をかけずにノードの数だけを最小にする先行研究とは目的が違う。また、深さを決めて訓練データでの誤分類を最小にする <a href="../binoct/">BinOCT</a> や <a href="../oct/">OCT</a> とも違い、この論文の木は訓練データの例をすべて正しく分類しなければならない。</p>
+  </section>
+
+  <section id="encoding">
+    <div class="kicker">手法 1　SAT の符号化</div>
+    <h2>例が入る葉の番号を 2 進表記の変数で表すと、根から葉までの分岐の向きがそのまま読み取れる</h2>
+    <p>深さ \(k\) の完全な木で、ノードに根から順に番号を付ける。根を \(V[1]\) とし、\(V[i]\) の左の子を \(V[2i]\)、右の子を \(V[2i+1]\) とする（左が偽、右が真）。葉 \(V'[0], \dots, V'[2^k - 1]\) の番号を 2 進表記で上の桁から読むと、根からその葉までどちらの枝を進んだかがわかる。そこで例 \(e_i\) ごとに \(k\) 個の変数 \(X_{i,0}, \dots, X_{i,k-1}\) を置き、その 2 進表記 \(X_i\) を例が入る葉の番号とする。\(X_{i,j}\) が真なら、例は深さ \(j\) のノードで右へ進む。</p>
+    <p>ほかの変数は、ノード \(V[q]\) が特徴量 \(f\) で分岐することを表す \(F_{q,f}\) と、葉 \(V'[v]\) にクラス \(a\) が付くことを表す \(C_{v,a}\) である。各ノードの特徴量はちょうど 1 つと決め、例を置いた位置から次の制約を足す。</p>
+    <div class="eq">\[ \begin{aligned} & e_i[f] = 1 \text{ のとき } \ \neg X_{i,j} \Rightarrow \neg F_{q_{ij},f}, \qquad e_i[f] = 0 \text{ のとき } \ X_{i,j} \Rightarrow \neg F_{q_{ij},f} \\ & e_i \in E_a \text{ のとき } \ (X_i = v) \Rightarrow C_{v,a}, \qquad (X_i = v) \Rightarrow \neg C_{v,a'} \ \ (a' \ne a) \end{aligned} \]</div>
+    <p>\(q_{ij}\) は例 \(e_i\) の道筋で深さ \(j\) にあるノードの番号である。左へ進んだノードはその例で真になる特徴量を使えず、右へ進んだノードは偽になる特徴量を使えない。また、例が入った葉にはその例のクラスが付き、ほかのクラスは付かない。式の大きさは変数（論文の言い方ではリテラル）が \(O(2^k (n + m + c))\)、節が \(O(2^k (m^2 + mn + c))\) である。なお論文の式 (3) と (4) の印刷上の向きは、付録の例やアルゴリズム 1 と食い違うので、ここでは意味に沿って書いた（解説者の注）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 330" role="img" aria-label="深さ2の完全な決定木の模式図。根V[1]、左の子V[2]、右の子V[3]、葉V'[0]からV'[3]に2進表記00、01、10、11が付く。例eが葉V'[2]（10）に入ると、根では右へ進むので根の特徴量はeで真、V[3]では左へ進むのでV[3]の特徴量はeで偽でなければならない。">
+        <g stroke="#5B6676" stroke-width="1.6" fill="none">
+          <line x1="250" y1="62" x2="150" y2="142"/><line x1="250" y1="62" x2="350" y2="142"/>
+          <line x1="150" y1="162" x2="95" y2="232"/><line x1="150" y1="162" x2="205" y2="232"/>
+          <line x1="350" y1="162" x2="295" y2="232"/>
+        </g>
+        <g stroke="#1D4ED8" stroke-width="4" fill="none" stroke-linecap="round">
+          <line x1="250" y1="62" x2="350" y2="142"/><line x1="350" y1="162" x2="295" y2="232"/>
+        </g>
+        <line x1="350" y1="162" x2="405" y2="232" stroke="#5B6676" stroke-width="1.6"/>
+        <g fill="#fff" stroke="#16202E" stroke-width="1.5">
+          <circle cx="250" cy="52" r="22"/><circle cx="150" cy="152" r="22"/><circle cx="350" cy="152" r="22"/>
+          <rect x="70" y="232" width="50" height="40" rx="6"/><rect x="180" y="232" width="50" height="40" rx="6"/>
+          <rect x="270" y="232" width="50" height="40" rx="6" stroke="#1D4ED8" stroke-width="3"/><rect x="380" y="232" width="50" height="40" rx="6"/>
+        </g>
+        <g font-size="15" fill="#16202E" text-anchor="middle">
+          <text x="250" y="57"><tspan class="mi">V</tspan>[1]</text><text x="150" y="157"><tspan class="mi">V</tspan>[2]</text><text x="350" y="157"><tspan class="mi">V</tspan>[3]</text>
+          <text x="95" y="257"><tspan class="mi">V′</tspan>[0]</text><text x="205" y="257"><tspan class="mi">V′</tspan>[1]</text><text x="295" y="257" fill="#1D4ED8" font-weight="600"><tspan class="mi">V′</tspan>[2]</text><text x="405" y="257"><tspan class="mi">V′</tspan>[3]</text>
+        </g>
+        <g font-size="15" fill="#5B6676" text-anchor="middle">
+          <text x="95" y="294">00</text><text x="205" y="294">01</text><text x="295" y="294" fill="#1D4ED8" font-weight="600">10</text><text x="405" y="294">11</text>
+          <text x="185" y="96">偽</text><text x="318" y="96">真</text><text x="108" y="202">偽</text><text x="195" y="202">真</text><text x="308" y="202">偽</text><text x="395" y="202">真</text>
+        </g>
+        <text x="460" y="70" font-size="15" font-weight="600" fill="#1D4ED8">例 <tspan class="mi">e</tspan> が葉 10 に入る</text>
+        <text x="460" y="96" font-size="15" fill="#16202E"><tspan class="mi">X</tspan><tspan font-size="11" dy="4">0</tspan><tspan dy="-4"> = 1：根で右へ</tspan></text>
+        <text x="460" y="120" font-size="14" fill="#5B6676">→ 根の特徴量は <tspan class="mi">e</tspan> で真</text>
+        <text x="460" y="156" font-size="15" fill="#16202E"><tspan class="mi">X</tspan><tspan font-size="11" dy="4">1</tspan><tspan dy="-4"> = 0：</tspan><tspan class="mi">V</tspan>[3] で左へ</text>
+        <text x="460" y="180" font-size="14" fill="#5B6676">→ <tspan class="mi">V</tspan>[3] の特徴量は <tspan class="mi">e</tspan> で偽</text>
+        <text x="460" y="216" font-size="14" fill="#5B6676">→ 葉 10 のクラスは</text>
+        <text x="460" y="238" font-size="14" fill="#5B6676">　<tspan class="mi">e</tspan> のクラスになる</text>
+        <text x="20" y="320" font-size="14" fill="#5B6676">模式図（論文 Fig. 1 の番号の付け方を深さ 2 で描いたもの）</text>
+      </svg>
+      <figcaption>図1　ノードと葉の番号の付け方と、例の置き場所から生まれる制約。葉の番号の 2 進表記が根から葉までの枝の向きを表す。解説者による模式図。</figcaption>
+    </figure>
+  </section>
+
+  <section id="size">
+    <div class="kicker">手法 2　ノードの数の上限</div>
+    <h2>ノードの数の上限は、クラスが付いた葉の数を数える制約に置き換えて入れる</h2>
+    <p>完全な木にはむだなノードが多い。同じ深さで、もっとノードの少ない完全でない木がデータと矛盾しないこともある。論文はクラスが付かなかった葉に注目する。そういう葉があれば、その親ノードをもう一方の子で置き換えてよい。これを繰り返すと、葉の数が内部ノードの数よりちょうど 1 多い木になる。したがって、ノードの数を MaxNodes 以下にする制約は、クラスが付いた葉の数を \(\lfloor \text{MaxNodes}/2 \rfloor + 1\) 以下にする制約と同じ働きをする。</p>
+    <p>葉 \(i\) にクラスが付いたら真になる変数 \(U_i\) と、先頭から \(i\) 枚の葉のうちクラスが付いた葉が \(j\) 枚以上なら真になる変数 \(H_{i,j}\) を足し、葉の数を 1 つずつ数える（単項の数え上げ）。変数と節の数の桁は、上限を入れない場合と変わらない。ただし最小のノード数は二分探索で探すので、DT_size は DT_depth より時間がかかる。</p>
+  </section>
+
+  <section id="incremental">
+    <div class="kicker">手法 3　例を少しずつ足す</div>
+    <h2>今の木が誤って分類する例を 1 つ選んで式に足し、SAT を解き直すことを繰り返す</h2>
+    <p>例が多いと式が大きくなる問題には、例を少しずつ足すことで対処する。最初は「各ノードに特徴量がちょうど 1 つ」という制約だけを解き、得られた木で学習データのすべての例を分類する。すべて正しければ、その木を返す。誤って分類された例があれば、そのうち 1 つについての制約（上の符号化の節）を式に足し、もう一度解く。式が充足できなくなったら、その深さ（とノード数）では解がない。</p>
+    <p>論文はこれを能動学習になぞらえ、どのクラスかを答える役（オラクル）を学習データに任せたものと説明する。答えられるのは学習データにある例だけだが、それでも学習データ全体と矛盾しない木を求められる。必要な例がそろえば、残りの例は式に入らない。論文の付録の例（深さ 2、8 例）では、5 例を足したところでデータ全体と矛盾しない木が得られる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="例を1つずつ足していく流れの図。SATで木を求め、全例を分類し、すべて正しければ終了。誤る例があれば1つ選んで式に足し、もう一度SATを解く。">
+        <g fill="#fff" stroke="#16202E" stroke-width="1.5">
+          <rect x="40" y="110" width="150" height="64" rx="10"/>
+          <rect x="245" y="110" width="150" height="64" rx="10"/>
+          <rect x="450" y="40" width="160" height="56" rx="10" stroke="#1D4ED8" stroke-width="2"/>
+          <rect x="450" y="190" width="160" height="64" rx="10" stroke="#1D4ED8" stroke-width="2"/>
+        </g>
+        <g font-size="15" fill="#16202E" text-anchor="middle">
+          <text x="115" y="138">SAT を解いて</text><text x="115" y="160">木を得る</text>
+          <text x="320" y="138">学習データの</text><text x="320" y="160">全例を分類</text>
+          <text x="530" y="73" fill="#1D4ED8" font-weight="600">全部正しい → 返す</text>
+          <text x="530" y="218" fill="#1D4ED8" font-weight="600">誤る例を 1 つ選び</text><text x="530" y="240" fill="#1D4ED8" font-weight="600">その節を式に足す</text>
+        </g>
+        <g stroke="#16202E" stroke-width="1.6" fill="none">
+          <path d="M190,142 H238"/><path d="M232,136 L240,142 L232,148"/>
+          <path d="M395,130 L445,76"/><path d="M436,78 L446,74 L443,85"/>
+          <path d="M395,156 L445,206"/><path d="M436,204 L446,208 L443,197"/>
+          <path d="M450,240 H115 V182"/><path d="M109,190 L115,180 L121,190"/>
+        </g>
+        <text x="40" y="40" font-size="15" fill="#5B6676">最初の式：各ノードの特徴量はちょうど 1 つ</text>
+        <text x="280" y="268" font-size="14" fill="#5B6676" text-anchor="middle">式が充足できなければ、その深さでは解なし</text>
+      </svg>
+      <figcaption>図2　例を少しずつ足す探索（論文の Algorithm 3）を解説者が図にしたもの。</figcaption>
+    </figure>
+  </section>
+
+  <section id="known">
+    <div class="kicker">実験の結果 1　先行研究のデータ</div>
+    <h2>Mouse では 33 例だけを使って 0.015 秒で解き、Car ではデータ全体と矛盾しない深さ 8 の木を求めた</h2>
+    <p>実装は C++ で、SAT ソルバーには MiniSAT を使った。Mouse と Car は Bessiere らから提供されたデータである。Mouse では、先行研究の SAT 符号化（Bessiere らを DT2、Narodytska らを DT1 と呼ぶ）が 1,728 例すべてを使ったのに対し、DT_size は 37 例、DT_depth は 33 例しか使わなかった（100 回の平均）。表の時間は DT2 が 577 秒、DT1 が 12.9 秒、DT_size が 0.075 秒、DT_depth が 0.015 秒で、ノードの数はどれも 15（DT_depth は完全な木なので 31）である。DT1 と DT2 の精度はそれぞれの論文に載っていないので比べていない。</p>
+    <p>Car は 1,729 例で、論文によれば、データ全体と矛盾しない最適な木を求めた方法はそれまでなかった。DT1 は例の 10% だけを使い、684 秒で解いた。DT_depth は 635 例を使い、170 秒で深さ 8・ノード 511 の木を求めた。DT_size は 758 例を使い、260 秒でノード 136 の木を求めた（10 回の平均）。10 分割交差検証の精度はどちらも 98.8% で、DT1 は 55% だった。Bessiere らの線形計画による方法（DT3）は最適性の保証がないが、44.8 秒でノード 92 の木を求め、精度は 99.22% と高かった。DT3 には深さの制約がないので、ノードは少ないが木は深くなる。</p>
+    <p>（解説者の注）DT1 と DT2 の時間と節の数は Narodytska らの論文の値と一致するので、同じ計算機で測り直したものではないと考えられる。論文自身はこの点を書いていない。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>Mouse（表 1）</th><th>時間（秒）</th><th>使った例</th><th>節の数</th><th>深さ</th><th>ノード</th><th>精度</th></tr></thead>
+        <tbody>
+          <tr><td>DT2（Bessiere ら）</td><td class="A">577</td><td class="A">1,728</td><td class="A">3.5M</td><td>–</td><td>15</td><td>–</td></tr>
+          <tr><td>DT1（Narodytska ら）</td><td class="A">12.9</td><td class="A">1,728</td><td class="A">1.2M</td><td>–</td><td>15</td><td>–</td></tr>
+          <tr><td>DT_size</td><td class="B">0.075</td><td class="B">37</td><td class="B">42K</td><td>4</td><td>15</td><td>84.0%</td></tr>
+          <tr><td>DT_depth</td><td class="B">0.015</td><td class="B">33</td><td class="B">38K</td><td>4</td><td>31</td><td>85.6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表は論文の Table 1（arXiv 前版）から解説者が作成した。精度は 10 分割交差検証による。</p>
+  </section>
+
+  <section id="uci">
+    <div class="kicker">実験の結果 2　誤分類を最小にする方法との比較</div>
+    <h2>BinOCT のデータ 6 つで、深さが大きい木が必要なデータほど、誤りなく分ける木の精度が高かった</h2>
+    <p>深さを決めて訓練データでの誤分類を最小にする方法とも比べた。データは <a href="../binoct/">Verwer と Zhang（2019）</a>の 16 個から取り、5 分割交差検証を使う。比較相手の BinOCT*、CART、OCT については、深さ 2〜4 のうち最もよい値を載せている。誤りなく分ける木は大きく深くなりすぎることがあり、実行できたのは 16 個のうち 6 個だけだった。</p>
+    <p>論文によれば、木が浅い（深さ 5 未満）データでは精度は手法のあいだでほぼ同じに見え、深い木が必要なデータほど提案法の精度が高くなる。最もはっきりしているのは balance-scale で、DT_depth は深さ 8 の木を 55 秒で求め、精度は 92.6% だった（BinOCT* は 78.9%）。6 データの平均精度は DT_size が 87.9%、DT_depth が 85.8%、BinOCT* が 85.5%、CART が 82.18%、OCT が 81.1% である。ただし Monks-probl-3 では BinOCT* や CART、OCT のほうが高い。</p>
+    <div class="tblwrap">
+      <table class="res">
+        <thead><tr><th>データ</th><th>DT_depth 時間（秒）</th><th>精度</th><th>深さ</th><th>DT_size 時間（秒）</th><th>精度</th><th>ノード</th><th>BinOCT*</th><th>CART</th><th>OCT</th></tr></thead>
+        <tbody>
+          <tr><td>iris</td><td>0.012</td><td class="B">97.9%</td><td>3</td><td>0.019</td><td class="B">95.8%</td><td>10.6</td><td>98.4%</td><td>92.4%</td><td>93.5%</td></tr>
+          <tr><td>Monks-probl-1</td><td>0.016</td><td class="B">89.0%</td><td>4.4</td><td>0.12</td><td class="B">92.3%</td><td>17</td><td>87.1%</td><td>76.8%</td><td>74.2%</td></tr>
+          <tr><td>Monks-probl-2</td><td>0.18</td><td class="B">68.4%</td><td>5.8</td><td>8.6</td><td class="B">73.0%</td><td>47.8</td><td>63.3%</td><td>63.3%</td><td>54.0%</td></tr>
+          <tr><td>Monks-probl-3</td><td>0.02</td><td class="B">78.7%</td><td>4.8</td><td>0.2</td><td class="B">81.9%</td><td>23.4</td><td>93.5%</td><td>94.2%</td><td>94.2%</td></tr>
+          <tr><td>wine</td><td>0.6</td><td class="B">88.4%</td><td>3</td><td>1.6</td><td class="B">92.0%</td><td>7.8</td><td>92.0%</td><td>88.9%</td><td>94.2%</td></tr>
+          <tr><td>balance-scale</td><td>55</td><td class="B">92.6%</td><td>8</td><td>350</td><td class="B">92.6%</td><td>206</td><td>78.9%</td><td>77.5%</td><td>71.6%</td></tr>
+          <tr class="avg"><td>平均</td><td></td><td class="B">85.8%</td><td></td><td></td><td class="B">87.9%</td><td></td><td>85.5%</td><td>82.18%</td><td>81.1%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">論文の Table 3（arXiv 前版）から解説者が作成した。深さとノードは交差検証の各回の平均。BinOCT*、CART、OCT は深さ 2〜4 のうち最もよい値で、制限時間は BinOCT* が 10 分、OCT が 30 分〜2 時間。</p>
+  </section>
+
+  <section id="scaling">
+    <div class="kicker">実験の結果 3　人工データ</div>
+    <h2>計算時間は深さと特徴量の数には指数的に増えるが、例の数には必要な数に達したところで頭打ちになる</h2>
+    <p>深さ、特徴量の数、クラスの数を決めて木をランダムに作り、その木から例を生成した人工データで、1 つのパラメータだけを動かした。クラスの数に対して時間はほぼ線形に増えた。深さ \(k\) に対しては指数的に増えた（図3）が、木のノードの数は深さに対して指数的に増えるので、論文はノードの数に対してはほぼ多項式的だと述べる。特徴量の数に対しても時間はほぼ指数的に増え、論文は特徴量の数が計算時間に最も大きく影響するようだとし、その影響を減らすことを改善の方向に挙げている。</p>
+    <p>例の数を増やすと、時間は初めは急に増えるが、ある数で頭打ちになった（図4）。この数はデータ全体と矛盾しない木を得るのに必要な例の数にあたる。それより例を増やしても式に入る例は増えないので、時間はほとんど変わらない。例の数とともに時間が大きく増えた先行研究の SAT による方法との違いはここにある。</p>
+    <div class="pair">
+      <figure>
+        <img src="assets/fig3_depth_time.png" alt="Line chart on a log scale of average run time in seconds against tree depth from 3 to 8, for DT_size (blue) and DT_depth (red). Both rise roughly exponentially with depth; DT_size is slower than DT_depth and its curve ends at depth 7." loading="lazy">
+        <figcaption>図3　木の深さと平均計算時間（100 回、クラス 2、特徴量 10。縦軸は対数）（論文 Fig. 3、arXiv 前版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fig5_examples_time.png" alt="Line chart of average run time in milliseconds against the number of training examples from 0 to about 230, for DT_size (blue) and DT_depth (red). Both rise at first and then level off; DT_size levels off earlier and higher than DT_depth, and neither grows further as more examples are added." loading="lazy">
+        <figcaption>図4　例の数と平均計算時間（10,000 回、深さ 4、クラス 2、特徴量 10）（論文 Fig. 5、arXiv 前版。図中の色は論文のもの）。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>SAT で最小の木を求める系統で、データ全体を一度に扱わずに済む探索を持ち込んだ</h2>
+    <ul class="def">
+      <li><strong>目的</strong>：訓練データの例をすべて正しく分類することを制約にして、深さを最小にし、その深さでノードの数を最小にする。深さの制約のもとで誤分類を最小にする <a href="../binoct/">BinOCT</a> や DL8.5 などとは問題が違う。訓練データを誤りなく分ける木が大きく深くなりすぎて、解けないデータもある（BinOCT のデータでは 16 個のうち 10 個）。</li>
+      <li><strong>符号化</strong>：<a href="../sat-dt/">Narodytska ら（2018）</a>は木の形そのものを変数で表したが、この論文は完全な木に番号を付け、例の行き先を葉の番号の 2 進表記で表す。ノードの数はクラスの付いた葉を数える制約で抑える。</li>
+      <li><strong>大きなデータへの対処</strong>：誤って分類された例（反例）を 1 つずつ足す探索で、式に入る例を必要な分だけに抑える。誤りを許して誤分類を最小にする MaxSAT への拡張は <a href="../maxsat-dt/">Hu ら（2020）</a>、木の一部だけを SAT で解き直す局所改善は <a href="../slim/">Schidler と Szeider（2021）</a>が扱う。</li>
+      <li><strong>特徴量</strong>：二値の特徴量を前提にする。数値の特徴量は「しきい値以下か」を表す二値の特徴量の組に置き換える。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{avellaneda2020efficient,
+  title     = {Efficient Inference of Optimal Decision Trees},
+  author    = {Avellaneda, Florent},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {34},
+  number    = {04},
+  pages     = {3195--3202},
+  year      = {2020},
+  doi       = {10.1609/aaai.v34i04.5717}
+}</pre>
+    </div>
+    <p class="src">このページの内容と数値と図は、arXiv の前版 1904.06314 v1（2019 年 4 月 12 日、題名は “Learning Optimal Decision Trees from Large Datasets”）による。AAAI 2020 の出版版の本文は確認していないので、手法の細部や実験の数値が出版版と違う可能性がある。書誌情報は Crossref で確認した。所属は arXiv 版の表記である。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

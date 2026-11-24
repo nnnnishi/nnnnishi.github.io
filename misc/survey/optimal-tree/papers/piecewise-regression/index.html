@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>区分定数・区分線形の回帰木：動的計画法で最適に（論文解説）</title>
+<meta name="description" content="Piecewise Constant and Linear Regression Trees: An Optimal Dynamic Programming Approach（ICML 2024）の非公式の解説。二乗誤差を 3 つの和に分けて深さ 2 の木を事前計算で速く解く動的計画法で、葉が定数の回帰木を速くし、葉に線形回帰を持つ回帰木も初めて動的計画法で最適に求める。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = what the paper compares with: OSRT, the MIP methods (ORT, ORT-L, DTIP), the
+                         heuristics CART / GUIDE and the local search IAI
+            --b  (blue)   = the paper's SRT-C / SRT-SL / SRT-L, the per-instance sums behind the depth-two
+                         solver, and their measured gains
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2024</div>
+  <h1>Piecewise Constant and Linear Regression Trees: An Optimal Dynamic Programming Approach</h1>
+  <p class="subtitle">区分定数と区分線形の回帰木：動的計画法による最適化</p>
+
+  <ul class="authors">
+    <li><b>Mim van den Bos</b><span>Delft University of Technology</span></li>
+    <li><b>Jacobus G. M. van der Linden</b><span>Delft University of Technology</span></li>
+    <li><b>Emir Demirović</b><span>Delft University of Technology</span></li>
+  </ul>
+
+  <p class="lead">最適な回帰木の手法は、MIP では深い木を解けず、動的計画法の <span class="A">OSRT</span> は葉が定数の木しか扱えなかった。この論文は二乗誤差を「\(y\) の和、\(y^2\) の和、件数」の 3 つの和で書けることを使い、分類で効果のあった<span class="B">深さ 2 専用の解法</span>を回帰に持ち込んだ。葉が定数の木（SRT-C）を OSRT より平均 18 倍速く解き、葉に線形回帰を置く木も初めて動的計画法で最適に求めた（SRT-L、SRT-SL）。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v235/van-den-bos24a.html">Paper</a>
+    <a class="btn" href="https://github.com/AlgTUDelft/pystreed">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。葉が定数の回帰木と葉に線形回帰を置く回帰木、二乗誤差が葉の全点に依存すること、3つの和に分けて深さ2の木を事前計算から求める仕組み、OSRTに対する速さ、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">OSRT より 18 倍速い</span><span class="d">葉が定数の最適な回帰木で、SRT-C は OSRT より幾何平均で 18 倍速かった。差が最も大きい深さ 3 では 131 倍。</span></li>
+    <li><span class="k">最適な区分線形の回帰木</span><span class="d">葉に重回帰（elastic net）や単回帰（ridge）を置く回帰木を、動的計画法で最適に求める初めての手法。</span></li>
+    <li><span class="k">深さ 2 の解法で約 1 桁</span><span class="d">深さ 2 専用の解法は、SRT-C と SRT-SL の計算時間を平均で 8 分の 1 と 10 分の 1 にした（深さ 3 では 20 分の 1 と 12 分の 1）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>最適な回帰木は MIP では深い木を解けず、動的計画法の OSRT は葉が定数の木に限られていた</h2>
+    <p>回帰木はデータを分けてから回帰モデルを当てはめる点で線形回帰を一般化したものと見なせる（下図）。人が読めるかどうかは木の大きさで決まるので、小さくて誤差の小さい木が欲しい。CART のような貪欲法は速いが、与えられた大きさの中で最良とは限らない。最適な木を MIP、制約プログラミング、MaxSAT で求める手法は、小さなデータと深さ 3 程度を超えると解けないことが多い。</p>
+    <p>回帰では、Dunn（2018）の MIP が葉が定数の木と葉に線形モデルを置く木の両方を扱うが、Dunn 自身が実用的な規模には対応できないとして局所探索（IAI の実装）を勧めている。動的計画法を回帰に使ったのは <a href="../osrt/">OSRT</a> だけで、葉が定数の木しか扱わず、分類の最適な木で進んだ高速化の一部も取り入れていなかった。</p>
+    <figure>
+      <img src="assets/fig1_one_split_lr.png" alt="Scatter plot with one linear regression line through all points that fits poorly, and two dashed regression lines fitted separately to the left and right clusters after a single split." loading="lazy" style="max-width:34rem">
+      <figcaption>図1　全点への線形回帰（実線）と、1 回分けてから当てはめた 2 本の線形回帰（破線）（論文 Fig. 1、PMLR 版。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">定式化</div>
+    <h2>深さの上限のもとで、二乗誤差の和に分岐ノードの数の罰則を足した目的を最小にする</h2>
+    <p>木の分岐は前もって二値化した特徴量で行い、葉の線形モデルは元の連続の特徴量で学習する。目的は最大の深さ \(d\) のもとでの二乗誤差の和（SSE）と、分岐ノードの数 \(N(\tau)\) に係数 \(\lambda\)（訓練データの全平方和で正規化）を掛けた罰則の和である。</p>
+    <div class="eq">\[ \min_\tau \sum_{(x, b, y) \in \mathcal{D}} \big(y - \tau(x, b)\big)^2 + \lambda N(\tau) \]</div>
+    <p>葉が定数の場合、MurTree の動的計画法を回帰に直すと次の再帰になる。葉では平均 \(\bar y\) を予測して SSE を返し、分岐ごとに \(\lambda\) を足す。実装は <a href="../streed/">STreeD</a> の枠組みの上にある。</p>
+    <div class="eq">\[ T(\mathcal{D}, d) = \begin{cases} \sum_{(b, y) \in \mathcal{D}} (y - \bar y)^2 & d = 0 \\ \min_{f \in \mathcal{F}_b} \big\{ T(\mathcal{D}_f, d-1) + T(\mathcal{D}_{\bar f}, d-1) + \lambda \big\} & d > 0 \end{cases} \]</div>
+  </section>
+
+  <section id="depth2">
+    <div class="kicker">手法 1　区分定数の深さ 2 の解法</div>
+    <h2>二乗誤差を 3 つの和に書き直すと、深さ 2 の木の誤差を特徴量の組ごとの事前計算から求められる</h2>
+    <p>MurTree の深さ 2 専用の解法は、各データ点がどの特徴量を持つかだけをたどって、特徴量の組ごとのクラスの件数を前もって数える。STreeD はこれを、葉のコストが点ごとの寄与の関数で書ける問題に一般化した。回帰では、点を 1 つ足すと葉の平均が変わってほかの点の誤差も変わるので、そのままでは使えない。そこで論文は SSE を 3 つの和で書き直した。</p>
+    <div class="eq">\[ \sum_{(b, y) \in \mathcal{D}} (y - \bar y)^2 = \sum y^2 - \frac{\big(\sum y\big)^2}{|\mathcal{D}|} \]</div>
+    <p>たとえば値が 4、5、6 なら平均は 5 で SSE は 2、右辺も \(77 - 225/3 = 2\) になる。点ごとの寄与を組 \((y, y^2, 1)\) とすれば、要素ごとに足すだけで任意の部分集合の SSE が求まる。特徴量 \(f_i\) と組 \((f_i, f_j)\) について和 \(Q(f_i)\)、\(Q(f_i, f_j)\) を前もって計算しておけば、残りの葉の和は引き算で出る。</p>
+    <div class="eq">\[ Q(\bar f_i) = P(\mathcal{D}) - Q(f_i), \quad Q(f_i, \bar f_j) = Q(f_i) - Q(f_i, f_j), \quad Q(\bar f_i, \bar f_j) = P(\mathcal{D}) - Q(f_i) - Q(f_j) + Q(f_i, f_j) \]</div>
+    <p>深さ 2 の木を求める時間は \(O(|\mathcal{F}|^2 |\mathcal{D}|)\) から \(O(m^2 |\mathcal{D}|)\) に減る（\(m\) は 1 つのデータ点が持つ二値の特徴量の最大数）。二値の特徴量はたいてい疎なので効果が大きく、代わりに \(O(|\mathcal{F}|^2)\) の追加メモリを使う。下界には OSRT の同値点、k-means、先読みの下界と、MurTree の類似度の下界を取り入れた。</p>
+  </section>
+
+  <section id="linear">
+    <div class="kicker">手法 2　区分線形</div>
+    <h2>葉に重回帰を置く木は動的計画法でそのまま解き、単回帰の木は和の組を増やして深さ 2 の解法を使う</h2>
+    <ul class="def">
+      <li><strong>重回帰（SRT-L）</strong>：葉ごとに elastic net（L1 と L2 の罰則つきの線形回帰）を当てはめる。上の再帰の葉の計算を elastic net に置き換え、GLMNet の座標降下法で解く（1 万回の反復か、SSE の変化が 0.1% 未満で止める）。重回帰を点ごとの寄与に分ける効率的な方法はまだなく、深さ 2 専用の解法はない。</li>
+      <li><strong>単回帰（SRT-SL）</strong>：葉ごとに説明変数を 1 つだけ選ぶ ridge 回帰を当てはめる。2 次元の図に描けるので読み取りやすい。最適な係数と SSE は和で書けるので、組を \((y, y^2, 1, x_1, x_1^2, x_1 y, \dots)\)（長さ \(3 + 3|\mathcal{F}|\)）に広げれば、区分定数と同じ深さ 2 の解法が使える。</li>
+    </ul>
+    <div class="eq">\[ \hat\beta_j = \frac{n \sum x_j y - \sum y \sum x_j}{n \sum x_j^2 - \big(\sum x_j\big)^2 + n\gamma}, \qquad \hat\beta_0 = \frac{\sum y}{n} - \hat\beta_j \frac{\sum x_j}{n} \]</div>
+    <p>葉の線形モデルにはデータ点が説明変数の数の 10 倍以上要るという経験則に従い、葉の大きさの下限を \(10|\mathcal{F}|\)（単回帰では 10）とした。</p>
+  </section>
+
+  <section id="scalability">
+    <div class="kicker">実験の結果 1　速さ</div>
+    <h2>最適な手法の中では 1 桁以上速く、MIP は深さ 2 を超える木を解けなかった</h2>
+    <p>UCI の 12 データ（それぞれ 5 分割）で、深さ 1〜9、正規化した \(\lambda = 0.1, 0.01, 0.001, 0.0001\) について動かした。数値の特徴量は、その特徴量だけで分岐ノード 10 個以下の回帰木を学習し、その分岐を二値の判定に使った。Intel Xeon 3.0 GHz の 1 スレッド、メモリ 100 GB、時間の上限 15 分である。</p>
+    <ul class="def">
+      <li>MIP の ORT と DTIP は深さ 2 を超える木を解けず、ORT-L は最も小さなデータでしか深い木を解けなかった。</li>
+      <li>SRT-C は <span class="A">OSRT</span> より幾何平均で 18 倍速く、深さ 3 では 131 倍速かった。深い木では深さ 2 の解法の効果が小さくなるので差が縮んだ。</li>
+      <li>局所探索の IAI と別の計算機で比べると、SRT-C は深さ 3 と 4 で 26 倍と 5 倍速く、深さ 6 では IAI が 9 倍速かった。SRT-L は深さ 3 まで IAI-L より速く、深さ 4〜5 で同程度だった。最適性を保証しながら、調べた範囲では局所探索と張り合える時間で解いた。</li>
+      <li>どの動的計画法も、計算時間はデータ点の数について線形、特徴量の数について指数的に増えた。SRT-SL は SRT-C に近い速さで、OSRT が定数を当てはめるより速く単回帰を当てはめた。OSRT はデータ点が \(10^6\) 以上でメモリの上限 100 GB を超えた。</li>
+      <li>深さ 2 の解法は SRT-C と SRT-SL の時間を平均で 8 分の 1 と 10 分の 1 に、深さ 3 では 20 分の 1 と 12 分の 1 にした。特徴量が多いほど効果が大きい。</li>
+    </ul>
+    <figure>
+      <img src="assets/fig2_runtime_cdf.png" alt="Grid of cumulative run-time curves by depth range (1-2, 3-4, 5-6, 7-9). Left column, piecewise constant: SRT-C solves more instances faster than OSRT, and ORT and DTIP solve few. Middle, piecewise linear: SRT-SL and SRT-L far above ORT-L. Right: dashed curves without the depth-two solver lie to the right of the solid ones." loading="lazy">
+      <figcaption>図2　時間内に最適な木を求められた問題の割合（横軸は対数、高いほど良い）。左：区分定数、中央：区分線形、右：深さ 2 の解法の有無（論文 Fig. 3、PMLR 版の PDF から切り出し。図中の色は論文のもので、このページの色の意味とは対応しない）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="oos">
+    <div class="kicker">実験の結果 2　テストでの性能</div>
+    <h2>テストでの決定係数は既存の手法と同程度かそれ以上で、単回帰の葉を持つ SRT-SL が最も多くのデータで最良だった</h2>
+    <p>5 分割の各分割で、CART と提案法は \(\lambda\) を交差検証で、GUIDE と IAI は既定の調整で選んだ。最大の深さは区分定数で 5、区分線形で 4 である。MIP の手法はほぼすべて時間切れになったので除いた。</p>
+    <ul class="def">
+      <li>区分定数（論文の表 2）：決定係数 \(R^2\) はどの手法も近く、SRT-C が最良のデータが最も多かった（12 データ中 7）。有意水準 5% のウィルコクソンの符号順位検定で、SRT-C は GUIDE より良く、IAI、OSRT、CART と同等だった。OSRT はいくつかのデータで時間切れになった。</li>
+      <li>区分線形（論文の表 3）：どの手法も通常の線形回帰より有意に良かった。全体で最良のデータが最も多かったのは SRT-SL（9 データ）で、次が SRT-L だった。たとえば Optical Net. では、線形回帰 0.29、GUIDE-SL 0.15 に対して SRT-SL は 0.96 だった。SRT-SL と SRT-L は GUIDE-SL と GUIDE-L より有意に良く、ほかの差は有意でなかった。</li>
+      <li>Household（2,049,280 件）では、線形回帰、CART、SRT-C、SRT-SL 以外のすべての手法が時間切れかメモリ不足になった。</li>
+      <li>Airfoil の訓練データの \(R^2\) で比べると、SRT-C は二値化で情報を失っていても、数値の特徴量のまま学習した IAI とほぼ同じで、二値化したデータで学習した IAI と CART よりはっきり良かった。</li>
+    </ul>
+    <p>論文は、SRT-C は OSRT と同じ最適解を求めるにもかかわらず、OSRT の論文より慎重な結論になった理由として 4 点を挙げる。OSRT の論文はすべての手法を二値化したデータで比べていた、多くのデータで数値の特徴量を 4 つに区切っていた（この論文は最大 10）、GUIDE の評価で訓練データの予測をテストに使い回す誤りがあった、統計的な有意性を検定していなかった、の 4 点である。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">位置づけと限界</div>
+    <h2>分類の動的計画法の高速化を回帰に移したが、二値化と木の大きさの調整の仕方はまだ課題として残る</h2>
+    <ul class="def">
+      <li><a href="../streed/">STreeD</a> が示した「部分木を独立に解ける問題なら動的計画法が使える」という枠組みを回帰に当てはめ、<a href="../murtree/">MurTree</a> の深さ 2 の解法を二乗誤差に合う形に直した研究である。</li>
+      <li>最適性は与えられた大きさの上限と二値化のもとでの訓練データ上のものである。論文は、二値化の選び方と木の大きさの調整の仕方が文献で十分に調べられておらず、最適な手法の強みを生かしきれていないと述べる。</li>
+      <li>今後の課題として、木の大きさの調整法の研究、二値でない特徴量での分岐（<a href="../quant-bnb/">Quant-BnB</a> のような）、部分木の独立性を使った並列化を挙げる。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{vandenbos2024piecewise,
+  title     = {Piecewise Constant and Linear Regression Trees: An Optimal Dynamic Programming Approach},
+  author    = {van den Bos, Mim and van der Linden, Jacobus G. M. and Demirovi{\'c}, Emir},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {235},
+  pages     = {48994--49007},
+  publisher = {PMLR},
+  year      = {2024}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は PMLR 版の PDF による（arXiv 版は見つからなかった）。Mim van den Bos と Jacobus G. M. van der Linden は同等の貢献とされている。実装は STreeD の Python パッケージ（pystreed）に含まれる。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

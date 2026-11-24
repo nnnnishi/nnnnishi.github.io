@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blossom：途中で止めても使える最適決定木の探索（論文解説）</title>
+<meta name="description" content="Blossom: an Anytime Algorithm for Computing Optimal Decision Trees（ICML 2023）の非公式の解説。深さ制約つきの最適決定木を求める動的計画法と同じ探索空間を、未展開の枝を先に伸ばす順に探索し、CART 並みの木をすぐに出してから時間とともに精度を上げる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = the depth-first dynamic programming order (DL8 / DL8.5 / MurTree: optimise one
+                         subtree completely before the sibling) and the methods compared with
+            --b  (blue)   = Blossom: expand every bud first, complete a tree, then backtrack; its anytime gains
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">ICML 2023</div>
+  <h1>Blossom: an Anytime Algorithm for Computing Optimal Decision Trees</h1>
+  <p class="subtitle">Blossom：最適決定木を求める、いつ止めても木を返せるアルゴリズム</p>
+
+  <ul class="authors">
+    <li><b>Emir Demirović</b><span>TU Delft, The Netherlands</span></li>
+    <li><b>Emmanuel Hebrard</b><span>LAAS-CNRS, Université de Toulouse, CNRS, France</span></li>
+    <li><b>Louis Jean</b><span>Jolibrain, Toulouse, France</span></li>
+  </ul>
+
+  <p class="lead">深さ制約つきの最適決定木を求める動的計画法は、<span class="A">一方の部分木を最適にし終えるまで</span>もう一方に手をつけないので、最初の木が完成するまで時間がかかる。Blossom は同じ探索空間を、<span class="B">未展開の枝を先に伸ばして木を完成させてから</span>別の選択肢を試す順に探索する。CART 並みの木をすぐに返し、時間をかけるほど精度を上げ、時間が足りれば最適性も証明する。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://proceedings.mlr.press/v202/demirovic23a.html">Paper</a>
+    <a class="btn" href="https://gitlab.laas.fr/ehebrard/blossom">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。一方の部分木を最適にし終えるまで木が完成しない従来の動的計画法、最初の木が出るまでの時間の差、未展開の枝を先に伸ばすBlossomの探索、深さ10での平均の誤分類数の推移、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">最初の木は CART 並み</span><span class="d">深さ 10 で、最初に返す木の平均誤分類数は 407（CART は 412）。1 分後には 374 まで減った（58 データの平均）。</span></li>
+    <li><span class="k">深い木で MurTree より高精度</span><span class="d">1 時間以内に最適性を証明できなかったデータで、訓練精度は MurTree より平均 1.6 ポイント（深さ 7）、1.1 ポイント（深さ 10）高かった。</span></li>
+    <li><span class="k">メモリは入力の大きさ程度</span><span class="d">キャッシュを持たないので、最悪の場合の空間計算量は \(\Theta(2^k m)\)。\(2^k \le n\) なら入力の大きさを超えない。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>動的計画法は大きなデータでも最適な木を求められるが、途中で止めると使える木が手元にない</h2>
+    <p>Hyafil と Rivest が精度最大の決定木を求める問題を NP 困難と示して以来、実際に使われてきたのは CART や C4.5 などの貪欲法である。論文が扱うのは、深さの上限 \(k\) のもとで訓練データの誤分類数を最小にする問題で、特徴量は二値である。SAT や整数計画法の定式化は変数の数がデータ点の数と木の大きさに比例し、数千件を超えるデータには広げにくい。一方、DL8、DL8.5 などの動的計画法は、ある特徴量で分けたあとの左右の部分木を独立に最適化できることを使い、大きなデータにも広がる。</p>
+    <div class="eq">\[ \mathrm{DP}(N, P, F, k) = \min\Big( \min(|N|, |P|),\ \min_{f \in F} \big[ \mathrm{DP}(N(f), P(f), F \setminus f, k-1) + \mathrm{DP}(N(\bar f), P(\bar f), F \setminus f, k-1) \big] \Big) \]</div>
+    <p>\(N\) と \(P\) は負例と正例の集合、\(N(f)\) は特徴量 \(f\) を満たす負例である。ただし DL8.5 はメモリを多く使い、途中で止めたときに木を返せない（anytime でない）。MurTree と LDS-DL8.5 は途中で返せる性質を改善した。論文は、深い木では Blossom がこれらを大きく上回りうると述べる（ただし LDS-DL8.5 とは実験で比べていない）。</p>
+  </section>
+
+  <section id="problem">
+    <div class="kicker">問題</div>
+    <h2>動的計画法は最初の再帰呼び出しを終えるまで完全な木を 1 本も作れない</h2>
+    <p>特徴量の数を \(m\)、データ点の数を \(n\) とすると、上の再帰の計算量は \(\Theta((n + 2^k) P(m, k)) \subset O((n + 2^k) m^k)\) である（\(P(m, k) = m!/(m-k)!\)）。問題は探索の順番にある。左の部分木を最適にし終えるまで右の部分木を探索しないので、最初の完全な木が見つかるのは最初の再帰呼び出しが終わったとき、つまり \(\Theta((n + 2^k) P(m-1, k-1))\) 時間後になる。深い木ではこれが現実的な時間に収まらない。DL8.5 や MurTree は同じ部分問題を使い回すキャッシュも持つが、論文の実験ではキャッシュの参照にかかる負担が見合わない場合もあった。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>Blossom は未展開の枝（つぼみ）を先に伸ばして木を完成させ、そのあとで枝ごとに別の特徴量を試す</h2>
+    <p>深さが \(k\) 未満で誤分類が残る枝を「つぼみ（bud）」と呼ぶ。Blossom（アルゴリズム 2）は動的計画法と同じ探索空間を、同じ枝を 2 度探索せずにたどる。違うのは順番で、つぼみが残っている間はそれを展開し、つぼみがなくなって木が完成したら、最後に決めた枝に戻って最良の誤分類数を更新し、まだ試していない特徴量があればその枝をつぼみに戻す。論文の図 1（深さ 2、特徴量 3 つ）では、動的計画法が 3 番目に調べる枝 \((a, c)\) を Blossom は 7 番目に調べ、最初の完全な木は Blossom では 4 番目の葉、動的計画法では 6 番目の葉で得られる。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="探索順の模式図。左は動的計画法で、根aの左の部分木で特徴量bとcを順に最適化し終えるまで右の部分木は空のまま。右はBlossomで、まず左右とも特徴量bで展開して完全な木を作り、そのあとで左の枝の特徴量をcに替える。">
+        <text x="160" y="30" font-size="16" font-weight="600" fill="#C2410C" text-anchor="middle">動的計画法</text>
+        <text x="480" y="30" font-size="16" font-weight="600" fill="#1D4ED8" text-anchor="middle">Blossom</text>
+        <line x1="320" y1="44" x2="320" y2="280" stroke="#D9DEE6"/>
+        <g stroke="#16202E" stroke-width="1.5"><line x1="160" y1="80" x2="95" y2="140"/><line x1="160" y1="80" x2="225" y2="140"/><line x1="480" y1="80" x2="415" y2="140"/><line x1="480" y1="80" x2="545" y2="140"/></g>
+        <g fill="#fff" stroke="#16202E" stroke-width="1.5"><circle cx="160" cy="70" r="18"/><circle cx="480" cy="70" r="18"/></g>
+        <g font-size="16" fill="#16202E" text-anchor="middle"><text x="160" y="76" class="mi">a</text><text x="480" y="76" class="mi">a</text></g>
+        <rect x="65" y="140" width="60" height="40" rx="8" fill="#FCEBDF" stroke="#C2410C" stroke-width="2"/>
+        <text x="95" y="166" font-size="15" fill="#C2410C" text-anchor="middle"><tspan class="mi">b</tspan>→<tspan class="mi">c</tspan></text>
+        <rect x="195" y="140" width="60" height="40" rx="8" fill="#fff" stroke="#D9DEE6" stroke-width="2" stroke-dasharray="4 4"/>
+        <text x="225" y="166" font-size="15" fill="#5B6676" text-anchor="middle">未着手</text>
+        <rect x="385" y="140" width="60" height="40" rx="8" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <rect x="515" y="140" width="60" height="40" rx="8" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <g font-size="15" fill="#1D4ED8" text-anchor="middle"><text x="415" y="166" class="mi">b</text><text x="545" y="166" class="mi">b</text></g>
+        <text x="40" y="214" font-size="14" fill="#16202E">左の部分木で <tspan class="mi">b</tspan>、<tspan class="mi">c</tspan> を試し終えて</text>
+        <text x="40" y="236" font-size="14" fill="#16202E">から右の部分木に進む。</text>
+        <text x="40" y="262" font-size="14" fill="#C2410C">完全な木は右に進むまでできない</text>
+        <text x="360" y="214" font-size="14" fill="#16202E">左右とも <tspan class="mi">b</tspan> で展開して木を完成</text>
+        <text x="360" y="236" font-size="14" fill="#16202E">させ、そのあと左の枝を <tspan class="mi">c</tspan> に替える。</text>
+        <text x="360" y="262" font-size="14" fill="#1D4ED8">最初から完全な木を持っている</text>
+      </svg>
+      <figcaption>図1　探索順の違いの模式図（論文の図 1 の考え方を解説者が単純化したもの）。調べる枝の集合は同じで、順番だけが違う。</figcaption>
+    </figure>
+    <p>定理 3.1 により、Blossom の最悪の場合の時間計算量は動的計画法と同じ \(\Theta((n + 2^k) P(m, k))\) で、空間計算量は \(\Theta(2^k m)\) である（現在の木の枝は高々 \(2^k\) 本で、それぞれが試した特徴量を覚える）。最初の木は \(\Theta(2^k + nk) = \Theta(nk)\) の線形時間で得られる。</p>
+  </section>
+
+  <section id="extensions">
+    <div class="kicker">工夫</div>
+    <h2>特徴量の順序、兄弟の部分木による下界、前処理の 3 つで、良い木を早く見つけて探索を絞る</h2>
+    <ul class="def">
+      <li><strong>特徴量の順序</strong>：各枝で、ジニ不純度が小さい特徴量から試す（誤分類数とエントロピーも試し、ジニ不純度が最も良かった）。深さ \(k-1\) の枝では誤分類数が最小の特徴量が最適なので、それだけを使い、ほかの特徴量は試さない。最初に完成する木は深さ \(k\) で止めた CART の木とほぼ同じになる。</li>
+      <li><strong>下界</strong>：枝 \(b\) の祖先 \(b'\) について、\(b'\) から \(b\) までの間ですでに最適になった兄弟の部分木の誤分類数を足すと、\(b\) を含む木の下界 \(lb(b', b)\) になる。これが \(b'\) の現在の最良値 \(best(b')\) 以上なら、\(b\) をそれ以上伸ばしても改善しないので打ち切る。どのつぼみから伸ばすかは、先に入れたものから順（FIFO）が最も良かった。</li>
+      <li><strong>前処理</strong>：同じ特徴量を持つデータ点をまとめ、ラベルが矛盾する組（同じ特徴量で正例と負例）を取り除く。誤分類数が正の木の最適性を示すには探索空間を調べ尽くす必要があるが、矛盾を除けば、誤りのない木が見つかった時点で止められる。どのデータ点でも値が同じか逆になる冗長な特徴量も除く。one-hot 符号化した公開データには冗長な特徴量が多い。</li>
+    </ul>
+  </section>
+
+  <section id="generalization">
+    <div class="kicker">実験の結果 1　汎化</div>
+    <h2>浅い木では Blossom の木のほうが CART よりテスト精度が高く、深い木では刈り込みを加えると上回った</h2>
+    <p>実験は先行研究の 50 データと、Kaggle と UCI の大きなデータ 8 つの計 58 データで行った。時間の上限は 1 時間、メモリの上限は 50 GB である。テスト精度の実験では、データごとに 20% を検証用に取り分ける無作為抽出を 50 回繰り返し、Blossom は各回 10 分で止めて最後の木を使った。</p>
+    <ul class="def">
+      <li>深さ 6 以下では Blossom のほうがテスト精度が高かった。差が統計的に有意なのは深さ 3（信頼度 99.9%）と 4（95%）で、深さ 5 と 6 の信頼度は 50% と 60% にとどまった。もっと深い木では有意な差はなく、CART のほうがわずかに良くさえ見えた。</li>
+      <li>論文はこれを過学習と考え、Blossom の木をコスト複雑度の刈り込みで訓練精度が 1% または 3% 下がるまで刈った。刈り込んだ木は、深さが増えても CART より精度が高かった。深さに応じて上限を \(0.3 \cdot k^2\)% にする刈り込みが全体で最も良かった。</li>
+      <li>テスト精度が訓練精度とほとんど相関しないデータもあった。深さ 10 の CART が最良の 1 特徴量の判定より悪いデータを除くと（58 データ中 18 データを除外）、残る 40 データでは刈り込みなしの Blossom も平均で CART を上回った（深さ 5 以上で、Blossom のほうが正確だという対応のある t 検定の信頼度は約 75%）。Blossom が最初に見つけた木は CART と同等で、3 番目の木はそれより高く、最後の木はさらに高かった。</li>
+    </ul>
+    <div class="pair">
+      <figure><img src="assets/fig3_test_accuracy_all.png" alt="Line chart of test accuracy against maximum depth 3 to 10 over all 58 data sets. Blossom is above CART up to depth 6, then slightly below; the pruned variants Blossom 1%, Blossom 3% and the adaptive Blossom star stay above CART at all depths." loading="lazy"><figcaption>(a) 全 58 データ（論文 Fig. 3）。Blossom の上付き 1%、3% は刈り込みの上限、* は \(0.3 \cdot k^2\)%</figcaption></figure>
+      <figure><img src="assets/fig4_test_accuracy_filtered.png" alt="Line chart of test accuracy against depth on the 40 filtered data sets. Blossom is highest at every depth, Blossom's third solution next, and Blossom's first solution overlaps CART." loading="lazy"><figcaption>(b) 絞り込んだ 40 データ（論文 Fig. 4）。1st、3rd は Blossom が最初、3 番目に見つけた木</figcaption></figure>
+    </div>
+    <p class="src">図2　最大の深さに対するテスト精度の平均（PMLR 版の PDF から切り出し。図中の色は論文のもので、このページの色の意味とは対応しない）。</p>
+  </section>
+
+  <section id="exact">
+    <div class="kicker">実験の結果 2　最適性の証明と訓練精度</div>
+    <h2>Blossom と MurTree はほかの厳密解法を大きく上回り、深い木の訓練精度では Blossom が、最適性の証明では MurTree が強い</h2>
+    <p>MurTree、DL8.5、MIP の binOCT、CP の手法（Verhaeghe ら）と比べた（論文の表 1）。データは特徴量の数で 2 つに分けた。CP、DL8.5、binOCT は深い木に広がらず、DL8.5 と binOCT はしばしばメモリの上限 50 GB を超えた。DL8.5 は 460 回中 164 回、binOCT は 138 回超えた。</p>
+    <ul class="def">
+      <li>訓練精度の平均では、Blossom が MurTree を一貫して上回り、深さと特徴量が増えるほど差が開いた。特徴量が 100 未満の 29 データ、深さ 10 では 0.9733 と 0.9623、特徴量が 100 以上の 29 データ、深さ 10 では 0.9613 と 0.9542 である。最適性を証明できなかったデータに限ると、Blossom の上回り幅は深さ 7 で平均 1.6 ポイント（31 データ）、深さ 10 で 1.1 ポイント（39 データ）だった。論文はこの差を、特徴量の頻度にもとづく順序で探索を有望な木へ導いたためとしている。</li>
+      <li>最適性の証明では、キャッシュを使う MurTree のほうが強い。深さ 4 の 100 以上の特徴量のデータでは、証明できた割合が Blossom 0.57、MurTree 0.75 だった。深い木では誤りのない木を見つけて証明が済む場合が増え、良い木を早く見つける Blossom はこうした証明を多く得る。論文の前処理を加えた MurTree（MurTree<sup>P</sup>）が全体では最も多く証明した。</li>
+    </ul>
+    <p>なお論文は執筆時点では LDS-DL8.5 を知らず比べていないと断っている。連続の特徴量を直接扱う手法（<a href="../quant-bnb/">Quant-BnB</a> など）とも、二値化の扱いの違いで公平な比較が難しいとして比べていない。</p>
+  </section>
+
+  <section id="anytime">
+    <div class="kicker">実験の結果 3　途中で止めたときの精度</div>
+    <h2>Blossom は CART と同程度の木を最初に返し、その後の改善も MurTree より速かった</h2>
+    <p>58 データの平均の誤分類数を、最初の解、10 秒後、1 分後で比べた（論文の表 3）。</p>
+    <ul class="def">
+      <li>Blossom の最初の木は CART（scikit-learn、深さ制限つき）とほぼ同じで、わずかに良かった。深さ 10 では 407 と 412 である。論文は、CART の事後の刈り込みと、Blossom が最も深い判定だけはジニ不純度ではなく誤分類数で選ぶことで説明している。</li>
+      <li>最初の木は深さやデータの大きさによらずすぐに見つかり、時間をかけると大きく改善した。深さ 10 では 10 秒後に 382、1 分後に 374 になった。前処理を加えた MurTree は 10 秒後に 448、1 分後に 441 で、最初の解（2,101）は完全な木ではなかった。</li>
+    </ul>
+    <div class="pair">
+      <figure><img src="assets/fig5a_anytime_depth4.png" alt="Average accuracy (x) against CPU time on a log axis (y) for maximum depth 4. Blossom's curve lies to the right of Murtree and MurtreeP, reaching higher accuracy earlier; CART is shown as a vertical line." loading="lazy"><figcaption>(a) 最大の深さ 4</figcaption></figure>
+      <figure><img src="assets/fig5d_anytime_depth10.png" alt="Same plot for maximum depth 10: Blossom's first tree is already more accurate than the early Murtree and MurtreeP solutions, and its curve stays to the right of both at every time." loading="lazy"><figcaption>(b) 最大の深さ 10</figcaption></figure>
+    </div>
+    <p class="src">図3　時間（縦軸、対数）とともに上がる平均精度（横軸）。右にあるほど同じ時間で精度が高い（論文 Fig. 5 の (a) と (d)、PMLR 版の PDF から切り出し。図中の色は論文のもので、このページの色の意味とは対応しない）。</p>
+    <p>要因分析（論文の表 2）では、ジニ不純度の順序を外すと深さ 3〜4 では計算時間が 15〜20% ほど減ったが、深い木では精度が急に落ち、証明の数も減った。前処理を外すと多くの場合で証明が減り、精度が下がり、時間が延びた。下界を外すと平均の計算時間はわずかに増え（データによっては最大 200%）、精度と証明の数への影響は小さかった。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">位置づけと限界</div>
+    <h2>浅い木なら MurTree の高度な技法が効くが、深い木では単純な Blossom が実用的な選択肢になる</h2>
+    <ul class="def">
+      <li>論文は、Blossom がほぼ 5 以下の比較的浅い木では <a href="../murtree/">MurTree</a> に及ばない場合があるとしている。キャッシュや深さ 2 専用の解法など、より複雑な技法が効くからである。</li>
+      <li>扱う問題は二値の特徴量で深さの上限のもとに訓練の誤分類数を最小にする問題に限られる。論文は結論で、木の大きさを目的に入れることにも利点があるという実験の示唆を挙げ、適合度と複雑さの釣り合いをどう目的に入れるかを問いとして残している。</li>
+      <li>同じく途中で止められる探索としては、<a href="../dl85/">DL8.5</a> を限定逸脱探索に組み込んだ LDS-DL8.5（Kiossou ら 2022）がある。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{demirovic2023blossom,
+  title     = {Blossom: an Anytime Algorithm for Computing Optimal Decision Trees},
+  author    = {Demirovi{\'c}, Emir and Hebrard, Emmanuel and Jean, Louis},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {202},
+  pages     = {7533--7562},
+  publisher = {PMLR},
+  year      = {2023}
+}</pre>
+    </div>
+    <p class="src">ページの数値と図は PMLR 版の PDF による（arXiv 版は見つからなかった）。所属は PDF の表記である。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
