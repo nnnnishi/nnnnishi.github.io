@@ -1,13 +1,17 @@
 # /misc/survey/reciprocal-rec/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
+# id は系譜の図と矢印で使う識別子、short は図での呼び名（論文を足すときは必ず付ける）。
+# explainer を書くと papers/<explainer>/ の解説ページへリンクする。groups は lineage_groups の id。
 
-updated: "2026-11-23"
+updated: "2026-11-25"
 
 intro: "求人サービスやオンラインデートのように、利用者に別の利用者を推薦する双方向市場（二面市場）の推薦の文献をまとめたページです。ふつうの推薦はアイテムを薦められた利用者が選べば成功ですが、双方向市場では薦められた相手も応じたときにだけマッチングが成立します。そのため、双方の選好をどう組み合わせるか、人気のある利用者に推薦が集中する混雑をどう避けるか、両側の機会をどう公平に配るかが問題になります。相互推薦の手法、マッチング理論、混雑と公平性、オフ方策評価、求人とオンラインデートの応用を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
 categories_note: "論文の表の「系統」は主な貢献で1つに決めています。複数の系統にまたがる論文もあります。"
 
 papers_note: "「領域」は対象のサービス、「双方の選好」は両側の選好をどう推定し組み合わせるか、「評価」は理論・シミュレーション・オフライン評価・オンライン実験のどれで検証したかです。会議名とリンクは arXiv や出版社のページで確認できたものだけを載せています。"
+
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。"
 
 datasets_note: "相互推薦や求人推薦の実験に使える公開データです。両側の反応（送った好意と返した好意、応募と採用）がそろったデータは少なく、合成データで実験する論文も多くあります。"
 
@@ -71,13 +75,73 @@ categories:
     setting: "デートの領域で利用者がどう相手を選ぶかを知りたいとき"
     examples: "Hitsch et al. (2010), Lee & Niederle (2015)"
 
+# ---- 系譜（/misc/survey/reciprocal-rec/ の「系譜」の図）----
+# from → to は「to が from を引き継いだ」。slug は papers の id。
+# kind: ext = 引き継いで発展（直接の拡張・改良、同じグループの続編）、base = 比較・出発点（ベースライン、最も近い先行研究）。
+# why は論文本文の記述にもとづく一言。データセットや評価指標を使っただけの関係は載せない。
+# guess: true は解説者の推測で、本文ではまだ確認していない矢印（図では点線、表では「推測」と出る）。確認したら消す。
+# lineage_lanes は図の上から下への系統の並び。
+lineage_first_year: 2017
+lineage_lanes: [reciprocal, market-ranking, matching, causal, fairness, congestion, bandit, job, dating]
+
+# lineage_groups は図の上の「研究グループ」のボタン。論文の groups に id を書く（著者の所属から決める。共同研究は両方に入れる）。
+lineage_groups:
+  - { id: cornell, label: "Cornell（Joachims）" }
+  - { id: cyberagent, label: "CyberAgent（Tomita）" }
+  - { id: recruit, label: "リクルート・東工大（西村・中田）" }
+  - { id: sony, label: "ソニー（Kawamura）" }
+  - { id: berkeley, label: "UC Berkeley（Jordan）" }
+  - { id: kanoria, label: "Columbia・Stanford（Kanoria・Johari）" }
+  - { id: linkedin, label: "LinkedIn" }
+  - { id: mpi-sws, label: "MPI-SWS（Gummadi・Chakraborty）" }
+  - { id: ruc, label: "中国人民大学（Zhao）" }
+  - { id: sydney, label: "Sydney（Pizzato・Kay）" }
+
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は手法や結果を直接拡張・改良した関係か、同じグループの続編です。破線は実験で比較した関係か、最も近い先行研究・出発点に挙げた関係です。論文の本文で確認できた関係を描いており、データセットや評価指標を使っただけの関係は描いていません。点線の矢印は解説者の推測で、本文ではまだ確認していません。2016 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めており、共同研究の論文は両方のグループに入れています。破線の枠は解説ページのない論文です。論文をクリックすると解説ページへ移動します。これは初版で、本文を確認できた論文はまだ一部です。"
+
+lineage:
+  - { from: tu-2014, to: su-2022, kind: base, why: "最も近い先行研究に挙げ、推薦がすべて見られるという仮定を外して、順位で見られる確率が変わるモデルにする" }
+  - { from: su-2022, to: tomita-2023, kind: base, why: "Su らの期待マッチ数の最適化（SW）を主な比較相手とし、計算量と見る確率の関数への依存を問題にする" }
+  - { from: neve-palomares, to: tomita-2023, kind: base, why: "両側の関心の積で並べる方法（Neve & Palomares らの集約）をベースラインにする" }
+  - { from: tomita-2023, to: fair-reciprocal, kind: ext, why: "同じグループ。TU マッチングによる順位をベースラインとして比べ、両側の公平性を加える" }
+  - { from: su-2022, to: fair-reciprocal, kind: base, why: "相互推薦を後処理の最適化として定式化した先行研究に挙げ、合成データの作り方を踏襲する" }
+  - { from: fair-division, to: fair-reciprocal, kind: ext, why: "Saito & Joachims のインパクトにもとづく公平性とナッシュ社会厚生の方法を、双方向の推薦に広げる" }
+  - { from: neve-palomares, to: fair-reciprocal, kind: base, why: "両側の関心の積で並べる方法（Prod）をベースラインにする" }
+  - { from: su-2022, to: mode, kind: ext, why: "Su らの順位の定式化の上に組み立て、その近似の期待マッチ数を比較相手（ApproxSW）にする" }
+  - { from: tomita-2023, to: mode, kind: ext, why: "同じ著者。TU マッチングによる順位に改善の余地があるとして発展させ、比較相手にする" }
+  - { from: tomita-2023, to: parallel-stable, kind: ext, why: "TU マッチングの推論を引き継ぎ、全員の組をメモリに持つ必要があるという制約をミニバッチで解く" }
+  - { from: su-2022, to: parallel-stable, kind: base, why: "ベースラインとして試したが、最適化が現実的な時間で終わらず結果は載せていない" }
+  - { from: neve-palomares, to: parallel-stable, kind: base, why: "Neve & Palomares の cross-ratio の集約をベースラインにする" }
+  - { from: neve-palomares, to: counterfactual-rrs, kind: base, why: "選択の偏りを考えない潜在因子モデルの相互推薦（LFRR）をベースラインにする" }
+  - { from: neve-palomares, to: reseq, kind: base, why: "潜在因子モデルの相互推薦（LFRR）をベースラインにする" }
+  - { from: dpgnn, to: reseq, kind: base, why: "DPGNN をベースラインにし、評価の手順も DPGNN にならう" }
+  - { from: pjfnn, to: reseq, kind: base, why: "CNN による求職者と求人の適合（PJFNN）をベースラインにする" }
+  - { from: apjfnn, to: reseq, kind: base, why: "Qin らの person-job fit のモデルをベースラインにする" }
+  - { from: rios-2023, to: sekiya-2026, kind: base, why: "ログインの確率と履歴の効果を組み合わせた品ぞろえの最適化を、最も近い例外的な先行研究に挙げる" }
+  - { from: fairness-exposure, to: wang-joachims-2021, kind: ext, why: "同じグループ。露出の公平性の制約を、提供者の側の公平性の定義に使う" }
+  - { from: fairness-exposure, to: fair-division, kind: ext, why: "同じグループ。露出を配分する後処理の枠組みを踏襲し、露出の公平性がインパクトの公理を満たさないことを示す" }
+  - { from: fairrec, to: fair-division, kind: base, why: "最も近い先行研究に挙げ、位置による偏りを扱わない点を違いとする" }
+  - { from: fairrec, to: lorenz-fairness, kind: base, why: "FairRec をベースラインとして比べる" }
+  - { from: fairness-exposure, to: lorenz-fairness, kind: base, why: "露出の平等と質で重みづけた露出の基準をベースラインにする" }
+  - { from: wang-joachims-2021, to: lorenz-fairness, kind: base, why: "最も近い関連研究に挙げる", guess: true }
+  - { from: fair-division, to: coupon-allocation, kind: base, why: "インパクトの積を最大化する方法（NSW モデル）を比較する配分法の1つにする" }
+  - { from: competing-bandits, to: decentralized-bandit, kind: ext, why: "同じグループ。中央で調整する設定の方法を、分散型の市場に広げる" }
+  - { from: recon, to: pizzato-2013, kind: ext, why: "同じグループ。RECON をもとに、相互推薦とアイテムの推薦の違いを整理する", guess: true }
+  - { from: neve-palomares, to: imrec, kind: ext, why: "同じ著者。潜在因子モデルの相互推薦を、画像から選好を学ぶ方法に広げる", guess: true }
+  - { from: pjfnn, to: apjfnn, kind: ext, why: "同じグループ。求職者と求人の表現の同時学習に、能力を考える仕組みを加える", guess: true }
+  - { from: mv-cotn, to: dpgnn, kind: ext, why: "同じグループ。求人と職務経歴書のマッチングを、双方向の選好のグラフに広げる", guess: true }
+  - { from: recsys-challenge-2016, to: recsys-challenge-2017, kind: ext, why: "同じ主催者による翌年の求人推薦のコンペで、オンライン評価を加える", guess: true }
+
 papers:
   # ---- 相互推薦 ----
-  - title: "RECON: a reciprocal recommender for online dating"
+  - id: recon
+    title: "RECON: a reciprocal recommender for online dating"
     authors: "L. Pizzato, T. Rej, T. Chung, I. Koprinska, J. Kay"
     year: 2010
     venue: "RecSys 2010"
     url: "https://doi.org/10.1145/1864708.1864747"
+    short: "RECON"
+    groups: [sydney]
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -85,11 +149,13 @@ papers:
     eval: "オフライン"
     data: "自社データ（オンラインデートサイト）"
     note: "利用者のプロフィールとメッセージの履歴から選好を推定し、双方向の適合度の調和平均で相手を順位づける。相互推薦の出発点になった研究"
-  - title: "MEET: a generalized framework for reciprocal recommender systems"
+  - id: meet
+    title: "MEET: a generalized framework for reciprocal recommender systems"
     authors: "L. Li, T. Li"
     year: 2012
     venue: "CIKM 2012"
     url: "https://doi.org/10.1145/2396761.2396770"
+    short: "MEET"
     code: ""
     category: "reciprocal"
     domain: ""
@@ -97,11 +163,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "相互推薦の問題を一般的な枠組みとして定式化する"
-  - title: "Recommending people to people: the nature of reciprocal recommenders with a case study in online dating"
+  - id: pizzato-2013
+    title: "Recommending people to people: the nature of reciprocal recommenders with a case study in online dating"
     authors: "L. Pizzato, T. Rej, J. Akehurst, I. Koprinska, K. Yacef, J. Kay"
     year: 2013
     venue: "UMUAI"
     url: "https://doi.org/10.1007/s11257-012-9125-0"
+    short: "Pizzato+ 2013"
+    groups: [sydney]
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -109,11 +178,13 @@ papers:
     eval: "オフライン"
     data: "自社データ（オンラインデートサイト）"
     note: "人を人に推薦する相互推薦が、アイテムの推薦とどう違うかを整理し、オンラインデートの事例で検証する"
-  - title: "Reciprocal recommendation system for online dating"
+  - id: xia-2015
+    title: "Reciprocal recommendation system for online dating"
     authors: "P. Xia, B. Liu, Y. Sun, C. Chen"
     year: 2015
     venue: "ASONAM 2015"
     url: "https://doi.org/10.1145/2808797.2809282"
+    short: "Xia+ 2015"
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -121,11 +192,13 @@ papers:
     eval: "オフライン"
     data: "オンラインデートサイトのデータ"
     note: "メッセージの送信と返信の履歴から、相手への関心と相手からの関心を推定して推薦する"
-  - title: "Real-time personalization using embeddings for search ranking at Airbnb"
+  - id: airbnb-embedding
+    title: "Real-time personalization using embeddings for search ranking at Airbnb"
     authors: "M. Grbovic, H. Cheng"
     year: 2018
     venue: "KDD 2018"
     url: "https://doi.org/10.1145/3219819.3219885"
+    short: "Airbnb 埋め込み"
     code: ""
     category: "reciprocal"
     domain: "民泊（C2C）"
@@ -133,11 +206,13 @@ papers:
     eval: "オフライン、オンライン実験"
     data: "自社データ（Airbnb）"
     note: "閲覧と予約のセッションから物件の埋め込みを学習し、検索順位を個人に合わせる。ゲストを断るホストの選好も学習に反映する"
-  - title: "Optimally balancing receiver and recommended users' importance in reciprocal recommender systems"
+  - id: kleinerman-2018
+    title: "Optimally balancing receiver and recommended users' importance in reciprocal recommender systems"
     authors: "A. Kleinerman, A. Rosenfeld, F. Ricci, S. Kraus"
     year: 2018
     venue: "RecSys 2018"
     url: "https://doi.org/10.1145/3240323.3240349"
+    short: "Kleinerman+"
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -145,11 +220,13 @@ papers:
     eval: ""
     data: ""
     note: "推薦を受ける利用者の関心と、推薦される利用者が応じる見込みのどちらをどれだけ重視するかを最適化する"
-  - title: "Latent factor models and aggregation operators for collaborative filtering in reciprocal recommender systems"
+  - id: neve-palomares
+    title: "Latent factor models and aggregation operators for collaborative filtering in reciprocal recommender systems"
     authors: "J. Neve, I. Palomares"
     year: 2019
     venue: "RecSys 2019"
     url: "https://doi.org/10.1145/3298689.3347026"
+    short: "Neve & Palomares"
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -157,11 +234,13 @@ papers:
     eval: "オフライン"
     data: "オンラインデートの実データ"
     note: "双方向の選好を潜在因子モデルで推定し、集約演算子で1つのスコアにまとめる"
-  - title: "ImRec: Learning Reciprocal Preferences Using Images"
+  - id: imrec
+    title: "ImRec: Learning Reciprocal Preferences Using Images"
     authors: "J. Neve, R. McConville"
     year: 2020
     venue: "RecSys 2020"
     url: "https://doi.org/10.1145/3383313.3411476"
+    short: "ImRec"
     code: ""
     category: "reciprocal"
     domain: "オンラインデート"
@@ -169,11 +248,14 @@ papers:
     eval: "オフライン"
     data: "オンラインデートの実データ"
     note: "プロフィール画像から利用者どうしの相互の選好を学習する"
-  - title: "Reciprocal Sequential Recommendation"
+  - id: reseq
+    title: "Reciprocal Sequential Recommendation"
     authors: "B. Zheng, Y. Hou, W. X. Zhao, Y. Song, H. Zhu"
     year: 2023
     venue: "RecSys 2023"
     url: "https://arxiv.org/abs/2306.14712"
+    short: "ReSeq"
+    groups: [ruc]
     code: "https://github.com/RUCAIBox/ReSeq"
     category: "reciprocal"
     domain: "求人"
@@ -182,11 +264,15 @@ papers:
     data: "求人サイトの実データ"
     note: "求職者と求人の双方の行動の系列をモデル化し、両方向の関心を同時に学習する"
   # ---- 市場全体の順位最適化 ----
-  - title: "Optimizing Rankings for Recommendation in Matching Markets"
+  - id: su-2022
+    title: "Optimizing Rankings for Recommendation in Matching Markets"
     authors: "Y. Su, M. Bayoumi, T. Joachims"
     year: 2022
     venue: "WWW 2022"
     url: "https://arxiv.org/abs/2106.01941"
+    short: "Su+ 2022"
+    explainer: su-2022
+    groups: [cornell]
     code: ""
     category: "market-ranking"
     domain: "求人"
@@ -194,11 +280,15 @@ papers:
     eval: "シミュレーション、実システムのデータ"
     data: "合成データ、学会の交流推薦システム"
     note: "候補者が応募して雇用者が評価する過程をモデル化し、全員のランキングを同時に最適化して社会厚生を最大化する。局所的なスコアで並べると最適から遠いことを示す"
-  - title: "Fast and Examination-agnostic Reciprocal Recommendation in Matching Markets"
+  - id: tomita-2023
+    title: "Fast and Examination-agnostic Reciprocal Recommendation in Matching Markets"
     authors: "Y. Tomita, R. Togashi, Y. Hashizume, N. Ohsaka"
     year: 2023
     venue: "RecSys 2023"
     url: "https://arxiv.org/abs/2306.09060"
+    short: "Tomita+ 2023"
+    explainer: tomita-2023
+    groups: [cyberagent]
     code: ""
     category: "market-ranking"
     domain: "オンラインデート"
@@ -206,11 +296,14 @@ papers:
     eval: "オフライン"
     data: "合成データ、日本のオンラインデートの実データ"
     note: "TU マッチングのモデルでランキングを決める。既存手法より速く、位置ベースモデルの閲覧確率の関数の形に依存しない"
-  - title: "双方向推薦システムにおけるコントラスト効果の応用"
+  - id: contrast-effect
+    title: "双方向推薦システムにおけるコントラスト効果の応用"
     authors: "西村直樹, 安藤智弥, 小林健, 中田和秀"
     year: 2025
     venue: "JSAI 2025"
     url: "https://doi.org/10.11517/pjsai.JSAI2025.0_4D2OS33b05"
+    short: "コントラスト効果"
+    groups: [recruit]
     code: ""
     category: "market-ranking"
     domain: ""
@@ -218,11 +311,14 @@ papers:
     eval: ""
     data: ""
     note: "比べる対象によって相対的な価値が変わるコントラスト効果を、双方向推薦の提示順序や組み合わせに応用する"
-  - title: "双方向推薦システムにおける長期的マッチング最大化に向けた代理目的関数の設計と実証"
+  - id: long-term-surrogate
+    title: "双方向推薦システムにおける長期的マッチング最大化に向けた代理目的関数の設計と実証"
     authors: "西村直樹, 小林健, 中田和秀"
     year: 2026
     venue: "JSAI 2026"
     url: "https://doi.org/10.11517/pjsai.JSAI2026.0_5H2OS18a03"
+    short: "長期の代理目的"
+    groups: [recruit]
     code: ""
     category: "market-ranking"
     domain: "求人"
@@ -230,11 +326,14 @@ papers:
     eval: ""
     data: ""
     note: "各時点のマッチング確率だけを最大化すると、まだ知らない好条件の求人の探索が妨げられ、求職者が活動する意欲を失ったり早く離脱したりする原因になる。サービス利用期間全体のマッチング確率を目指し、各時点のマッチング確率と将来のマッチング確率の増分の重み和を代理目的関数にする"
-  - title: "MODE: Mutual Optimality in Direct Effects of Reciprocal Recommendations in Matching Markets"
+  - id: mode
+    title: "MODE: Mutual Optimality in Direct Effects of Reciprocal Recommendations in Matching Markets"
     authors: "Y. Tomita"
     year: 2026
     venue: "RecSys 2026"
     url: "https://arxiv.org/abs/2608.01731"
+    short: "MODE"
+    groups: [cyberagent]
     code: "https://github.com/CyberAgentAILab/mode"
     category: "market-ranking"
     domain: "求人、オンラインデート"
@@ -243,11 +342,13 @@ papers:
     data: "合成データ、実データ"
     note: "ほかの利用者への推薦を固定したときの、個々の利用者にとっての推薦リストの最適性（直接効果の最適性）を定義し、全員について同時に最適な推薦を求める"
   # ---- マッチング理論 ----
-  - title: "Learning to Match via Inverse Optimal Transport"
+  - id: iot-match
+    title: "Learning to Match via Inverse Optimal Transport"
     authors: "R. Li, X. Ye, H. Zhou, H. Zha"
     year: 2019
     venue: "JMLR"
     url: "https://www.jmlr.org/papers/v20/18-700.html"
+    short: "逆最適輸送"
     code: ""
     category: "matching"
     domain: ""
@@ -255,11 +356,13 @@ papers:
     eval: ""
     data: ""
     note: "観測されたマッチングの結果から、逆最適輸送で双方の選好（マッチングのコスト）を学習する"
-  - title: "Online dating recommendations: matching markets and learning preferences"
+  - id: tu-2014
+    title: "Online dating recommendations: matching markets and learning preferences"
     authors: "K. Tu, B. Ribeiro, D. Jensen, D. Towsley, B. Liu, H. Jiang, X. Wang"
     year: 2014
     venue: "WWW 2014 Companion"
     url: "https://doi.org/10.1145/2567948.2579240"
+    short: "Tu+ 2014"
     code: ""
     category: "matching"
     domain: "オンラインデート"
@@ -267,11 +370,14 @@ papers:
     eval: ""
     data: ""
     note: "オンラインデートの推薦を二面のマッチング市場として扱い、利用者の選好を学習する"
-  - title: "Clearing Matching Markets Efficiently: Informative Signals and Match Recommendations"
+  - id: ashlagi-2020
+    title: "Clearing Matching Markets Efficiently: Informative Signals and Match Recommendations"
     authors: "I. Ashlagi, M. Braverman, Y. Kanoria, P. Shi"
     year: 2020
     venue: "Management Science"
     url: "https://doi.org/10.1287/mnsc.2018.3265"
+    short: "Ashlagi+"
+    groups: [kanoria]
     code: ""
     category: "matching"
     domain: ""
@@ -279,11 +385,14 @@ papers:
     eval: "理論"
     data: ""
     note: "安定マッチングに近い結果を少ないやりとりで得るために、プラットフォームが送る情報やマッチの推薦をどう設計すればよいかを理論的に分析する"
-  - title: "Parallel and Mini-Batch Stable Matching for Large-Scale Reciprocal Recommender Systems"
+  - id: parallel-stable
+    title: "Parallel and Mini-Batch Stable Matching for Large-Scale Reciprocal Recommender Systems"
     authors: "K. Nakada, K. Kawamura, R. Furukawa"
     year: 2024
     venue: "arXiv"
     url: "https://arxiv.org/abs/2411.19214"
+    short: "Nakada+"
+    groups: [sony]
     code: ""
     category: "matching"
     domain: "求人、オンラインデート"
@@ -291,11 +400,13 @@ papers:
     eval: "オフライン"
     data: "合成データ、実データ"
     note: "譲渡可能効用の安定マッチングにもとづく相互推薦を、並列計算とミニバッチで高速にし、1枚の GPU で100万人規模まで扱えるようにする"
-  - title: "Integrating Predictive Models into Two-Sided Recommendations: A Matching-Theoretic Approach"
+  - id: sekiya-2026
+    title: "Integrating Predictive Models into Two-Sided Recommendations: A Matching-Theoretic Approach"
     authors: "K. Sekiya, S. Otani, Y. Komatsu, S. Ohkawa, S. Noda"
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2602.19689"
+    short: "Sekiya+"
     code: ""
     category: "matching"
     domain: "オンラインデート"
@@ -303,11 +414,14 @@ papers:
     eval: "シミュレーション、フィールド実験"
     data: "日本の大規模なデートサービスの予測値"
     note: "受け手の露出を人数ではなく期待される好意やマッチの数で制限する受入保留アルゴリズム（ECDA）を提案する。総マッチ数は減るものの、混雑を割り引いたマッチ数が増えることを、シミュレーションと地域単位のフィールド実験で確かめる"
-  - title: "Feature-Based Dynamic Matching"
+  - id: feature-dynamic
+    title: "Feature-Based Dynamic Matching"
     authors: "Y. Chen, Y. Kanoria, A. Kumar, W. Zhang"
     year: 2026
     venue: "Operations Research"
     url: "https://doi.org/10.1287/opre.2024.0730"
+    short: "Chen+ 2026"
+    groups: [kanoria]
     code: ""
     category: "matching"
     domain: "オンデマンドの家事サービス"
@@ -316,11 +430,14 @@ papers:
     data: ""
     note: "顧客と提供者が高次元の特徴量で表される動的な二面マッチングで、到着した顧客を空いている最良の提供者に割り当てる近視眼的な方法は大きく劣りうることを示す。将来の到着を模擬して最適化する SOAR を提案し、経験最適輸送との関係を使って regret がほぼ最適になることを示す"
   # ---- 学習しながらのマッチング ----
-  - title: "Competing Bandits in Matching Markets"
+  - id: competing-bandits
+    title: "Competing Bandits in Matching Markets"
     authors: "L. T. Liu, H. Mania, M. I. Jordan"
     year: 2020
     venue: "AISTATS 2020"
     url: "https://proceedings.mlr.press/v108/liu20c.html"
+    short: "Liu+ 2020"
+    groups: [berkeley]
     code: ""
     category: "bandit"
     domain: ""
@@ -328,11 +445,14 @@ papers:
     eval: "理論、シミュレーション"
     data: "合成データ"
     note: "選好の分からない参加者が、マッチングを繰り返しながら相手の価値を学ぶバンディット問題を定式化し、安定マッチングに対する後悔を評価する"
-  - title: "Bandit Learning in Decentralized Matching Markets"
+  - id: decentralized-bandit
+    title: "Bandit Learning in Decentralized Matching Markets"
     authors: "L. T. Liu, F. Ruan, H. Mania, M. I. Jordan"
     year: 2021
     venue: "JMLR"
     url: "https://jmlr.org/papers/v22/20-1429.html"
+    short: "Liu+ 2021"
+    groups: [berkeley]
     code: ""
     category: "bandit"
     domain: ""
@@ -340,11 +460,14 @@ papers:
     eval: "理論"
     data: ""
     note: "中央の調整役がいない分権型のマッチング市場で、各参加者が自分で選好を学ぶ方法と後悔の上界を示す"
-  - title: "Matching While Learning"
+  - id: matching-while-learning
+    title: "Matching While Learning"
     authors: "R. Johari, V. Kamble, Y. Kanoria"
     year: 2021
     venue: "Operations Research"
     url: "https://doi.org/10.1287/opre.2020.2013"
+    short: "Johari+ 2021"
+    groups: [kanoria]
     code: ""
     category: "bandit"
     domain: "ギグワーク"
@@ -352,11 +475,14 @@ papers:
     eval: "理論"
     data: ""
     note: "新しく参加した働き手の種類を、仕事を割り当てながら学ぶ問題を扱い、探索と活用のバランスを取る割当て方策を示す"
-  - title: "Learning Equilibria in Matching Markets with Bandit Feedback"
+  - id: jagadeesan-2023
+    title: "Learning Equilibria in Matching Markets with Bandit Feedback"
     authors: "M. Jagadeesan, A. Wei, Y. Wang, M. I. Jordan, J. Steinhardt"
     year: 2023
     venue: "J. ACM"
     url: "https://doi.org/10.1145/3583681"
+    short: "Jagadeesan+"
+    groups: [berkeley]
     code: ""
     category: "bandit"
     domain: ""
@@ -364,11 +490,13 @@ papers:
     eval: "理論"
     data: ""
     note: "移転（価格）を伴うマッチング市場で、選好を学びながら均衡（安定な結果）に近づく方法を示す"
-  - title: "Learn to Match: Two-Sided Matching with Temporally Extended Feedback"
+  - id: learn-to-match
+    title: "Learn to Match: Two-Sided Matching with Temporally Extended Feedback"
     authors: "H. Zong, Y. Liang, B. Zhou, N. Jaques"
     year: 2026
     venue: "arXiv"
     url: "https://arxiv.org/abs/2606.06744"
+    short: "Learn to Match"
     code: "https://sites.google.com/view/learn-to-match/home"
     category: "bandit"
     domain: ""
@@ -376,11 +504,13 @@ papers:
     eval: "シミュレーション"
     data: "合成データ"
     note: "面接による事前の選別、マッチ後の観測、潜在的な特徴の変化、マッチの解消を含む二面マッチングを部分観測マルコフゲームとして定式化し、マルチエージェント強化学習のベンチマーク Learn2Match を作る"
-  - title: "Optimal Analysis for Bandit Learning in Matching Markets with Serial Dictatorship"
+  - id: serial-dictatorship
+    title: "Optimal Analysis for Bandit Learning in Matching Markets with Serial Dictatorship"
     authors: "Z. Wang, S. Li"
     year: 2024
     venue: "Theor. Comput. Sci."
     url: "https://doi.org/10.1016/j.tcs.2024.114703"
+    short: "Wang & Li"
     code: ""
     category: "bandit"
     domain: ""
@@ -389,11 +519,14 @@ papers:
     data: ""
     note: "腕の側の選好が全員共通（serial dictatorship）の市場で、多段階の逐次選択アルゴリズムが regret の下界に一致する上界を達成することを示す"
   # ---- 混雑と容量制約 ----
-  - title: "LiJAR: A System for Job Application Redistribution towards Efficient Career Marketplace"
+  - id: lijar
+    title: "LiJAR: A System for Job Application Redistribution towards Efficient Career Marketplace"
     authors: "F. Borisyuk, L. Zhang, K. Kenthapadi"
     year: 2017
     venue: "KDD 2017"
     url: "https://doi.org/10.1145/3097983.3098028"
+    short: "LiJAR"
+    groups: [linkedin]
     code: ""
     category: "congestion"
     domain: "求人"
@@ -401,11 +534,13 @@ papers:
     eval: "オンライン実験"
     data: "自社データ（LinkedIn）"
     note: "応募が一部の求人に集中しないよう、求人推薦の露出を再配分する仕組み。LinkedIn で運用した"
-  - title: "Recommendation with Capacity Constraints"
+  - id: capacity-rec
+    title: "Recommendation with Capacity Constraints"
     authors: "K. Christakopoulou, J. Kawale, A. Banerjee"
     year: 2017
     venue: "CIKM 2017"
     url: "https://doi.org/10.1145/3132847.3133034"
+    short: "容量制約の推薦"
     code: ""
     category: "congestion"
     domain: ""
@@ -413,11 +548,13 @@ papers:
     eval: "オフライン"
     data: ""
     note: "求人のようにアイテムが受け入れられる人数に上限があるとき、その容量制約を入れて推薦を学習する"
-  - title: "Competing by Restricting Choice: The Case of Matching Platforms"
+  - id: halaburda-2018
+    title: "Competing by Restricting Choice: The Case of Matching Platforms"
     authors: "H. Halaburda, M. J. Piskorski, P. Yıldırım"
     year: 2018
     venue: "Management Science"
     url: "https://doi.org/10.1287/mnsc.2017.2797"
+    short: "Halaburda+"
     code: ""
     category: "congestion"
     domain: "オンラインデート"
@@ -425,11 +562,13 @@ papers:
     eval: "理論"
     data: ""
     note: "利用者に見せる選択肢を制限するマッチングプラットフォームが、選択肢の多いプラットフォームと競争できることを示す"
-  - title: "Optimizing Long-term Social Welfare in Recommender Systems: A Constrained Matching Approach"
+  - id: mladenov-2020
+    title: "Optimizing Long-term Social Welfare in Recommender Systems: A Constrained Matching Approach"
     authors: "M. Mladenov, E. Creager, O. Ben-Porat, K. Swersky, R. Zemel, C. Boutilier"
     year: 2020
     venue: "ICML 2020"
     url: "https://proceedings.mlr.press/v119/mladenov20a.html"
+    short: "Mladenov+"
     code: ""
     category: "congestion"
     domain: ""
@@ -437,11 +576,14 @@ papers:
     eval: "シミュレーション"
     data: "合成データ"
     note: "十分な露出が得られない提供者は離脱するとき、提供者が存続できるように制約つきのマッチングで推薦を決め、長期の社会厚生を高める"
-  - title: "Facilitating the Search for Partners on Matching Platforms"
+  - id: kanoria-saban
+    title: "Facilitating the Search for Partners on Matching Platforms"
     authors: "Y. Kanoria, D. Saban"
     year: 2021
     venue: "Management Science"
     url: "https://doi.org/10.1287/mnsc.2020.3794"
+    short: "Kanoria & Saban"
+    groups: [kanoria]
     code: ""
     category: "congestion"
     domain: ""
@@ -449,11 +591,14 @@ papers:
     eval: "理論"
     data: ""
     note: "相手を探すのにコストがかかる市場で、片側だけが連絡を始められるようにするなど利用者の行動を制限すると、厚生が上がる場合があることを示す"
-  - title: "Managing Congestion in Matching Markets"
+  - id: arnosti-2021
+    title: "Managing Congestion in Matching Markets"
     authors: "N. Arnosti, R. Johari, Y. Kanoria"
     year: 2021
     venue: "MSOM"
     url: "https://doi.org/10.1287/msom.2020.0927"
+    short: "Arnosti+"
+    groups: [kanoria]
     code: ""
     category: "congestion"
     domain: ""
@@ -461,11 +606,13 @@ papers:
     eval: "理論"
     data: ""
     note: "応募が集まりすぎる分権型の市場では、相手がすでに埋まっているかが分からず無駄な応募が生じる。応募の数を制限すると厚生が上がることを示す"
-  - title: "Improving Match Rates in Dating Markets Through Assortment Optimization"
+  - id: rios-2023
+    title: "Improving Match Rates in Dating Markets Through Assortment Optimization"
     authors: "I. Rios, D. Saban, F. Zheng"
     year: 2023
     venue: "MSOM"
     url: "https://doi.org/10.1287/msom.2022.1107"
+    short: "Rios+"
     code: ""
     category: "congestion"
     domain: "オンラインデート"
@@ -473,11 +620,13 @@ papers:
     eval: "フィールド実験"
     data: "デートアプリのデータ"
     note: "デートアプリで利用者に見せる相手の集合（品揃え）を最適化してマッチ率を上げ、フィールド実験で効果を確かめる"
-  - title: "Designing Approximately Optimal Search on Matching Platforms"
+  - id: immorlica-2023
+    title: "Designing Approximately Optimal Search on Matching Platforms"
     authors: "N. Immorlica, B. Lucier, V. Manshadi, A. Wei"
     year: 2023
     venue: "Management Science"
     url: "https://doi.org/10.1287/mnsc.2022.4601"
+    short: "Immorlica+"
     code: ""
     category: "congestion"
     domain: ""
@@ -485,11 +634,13 @@ papers:
     eval: "理論"
     data: ""
     note: "利用者がどの相手を探せるかをプラットフォームが設計するとき、近似的に最適な探索の設計を示す"
-  - title: "Scalable Job Recommendation With Lower Congestion Using Optimal Transport"
+  - id: ot-job-rec
+    title: "Scalable Job Recommendation With Lower Congestion Using Optimal Transport"
     authors: "Y. Mashayekhi, B. Kang, J. Lijffijt, T. De Bie"
     year: 2024
     venue: "IEEE Access"
     url: "https://doi.org/10.1109/ACCESS.2024.3390229"
+    short: "OT 求人推薦"
     code: ""
     category: "congestion"
     domain: "求人"
@@ -497,11 +648,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "最適輸送で求人推薦の配分を決め、推薦が一部の求人に集中する混雑を抑える。大規模なデータでも計算できるようにする"
-  - title: "Strategic coupon allocation for increasing providers' sales experiences in two-sided marketplaces"
+  - id: coupon-allocation
+    title: "Strategic coupon allocation for increasing providers' sales experiences in two-sided marketplaces"
     authors: "K. Ohashi, S. Sekine, D. Jobson, J. Yang, N. Nishimura, N. Sukegawa, Y. Takano"
     year: 2024
     venue: "KDD 2024 WS (TSMO)"
     url: "https://arxiv.org/abs/2407.14895"
+    short: "クーポン配分"
+    groups: [recruit]
     code: ""
     category: "congestion"
     domain: ""
@@ -509,11 +663,13 @@ papers:
     eval: "オフライン"
     data: "クーポン配布の実データ"
     note: "販売を経験した提供者の数を最大化するように、個人ごとのクーポンの配布を最適化する。売上が一部の提供者に集中しないようにする"
-  - title: "Personalized Recommendations Without Inducing Congestion: Mitigating Disparities in the NYC High School Match"
+  - id: chiang-2026
+    title: "Personalized Recommendations Without Inducing Congestion: Mitigating Disparities in the NYC High School Match"
     authors: "E. Chiang, K. Peng, R. Lichtenstein et al."
     year: 2026
     venue: "EC 2026（予備版）"
     url: "https://arxiv.org/abs/2610.08275"
+    short: "Chiang+"
     code: ""
     category: "congestion"
     domain: "学校選択（NYC の高校マッチング）"
@@ -522,11 +678,13 @@ papers:
     data: "実データ（NYC の高校マッチング）"
     note: "容量に限りのある市場で多くの人に同じプログラムを推薦すると、競争が増えて合格率が下がる（推薦が引き起こす混雑）。混雑を考慮した二段階の最適化とシミュレーションで推薦を配り、2025-26年度の NYC 高校マッチングの RCT で推薦先への出願と合格が増えた"
   # ---- 両側の公平性 ----
-  - title: "Multisided Fairness for Recommendation"
+  - id: multisided-fairness
+    title: "Multisided Fairness for Recommendation"
     authors: "R. Burke"
     year: 2017
     venue: "FAT/ML 2017"
     url: "https://arxiv.org/abs/1707.00093"
+    short: "多面的公平性"
     code: ""
     category: "fairness"
     domain: ""
@@ -534,11 +692,14 @@ papers:
     eval: ""
     data: ""
     note: "推薦の公平性を、利用者側・提供者側・その両方の立場に分けて整理する"
-  - title: "Fairness of Exposure in Rankings"
+  - id: fairness-exposure
+    title: "Fairness of Exposure in Rankings"
     authors: "A. Singh, T. Joachims"
     year: 2018
     venue: "KDD 2018"
     url: "https://doi.org/10.1145/3219819.3220088"
+    short: "露出の公平性"
+    groups: [cornell]
     code: ""
     category: "fairness"
     domain: ""
@@ -546,11 +707,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "ランキングで提供者が受ける露出の公平性を定義し、確率的なランキングの最適化として解く。提供者側の公平性の基本になった研究"
-  - title: "Two-Sided Fairness for Repeated Matchings in Two-Sided Markets: A Case Study of a Ride-Hailing Platform"
+  - id: suhr-2019
+    title: "Two-Sided Fairness for Repeated Matchings in Two-Sided Markets: A Case Study of a Ride-Hailing Platform"
     authors: "T. Sühr, A. J. Biega, M. Zehlike, K. P. Gummadi, A. Chakraborty"
     year: 2019
     venue: "KDD 2019"
     url: "https://doi.org/10.1145/3292500.3330793"
+    short: "Sühr+"
+    groups: [mpi-sws]
     code: ""
     category: "fairness"
     domain: "配車（ギグワーク）"
@@ -558,11 +722,14 @@ papers:
     eval: ""
     data: ""
     note: "配車サービスで乗客と運転手のマッチングを繰り返すとき、運転手の収入の公平性と乗客側の公平性を長い期間でならして満たす"
-  - title: "FairRec: Two-Sided Fairness for Personalized Recommendations in Two-Sided Platforms"
+  - id: fairrec
+    title: "FairRec: Two-Sided Fairness for Personalized Recommendations in Two-Sided Platforms"
     authors: "G. K. Patro, A. Biswas, N. Ganguly, K. P. Gummadi, A. Chakraborty"
     year: 2020
     venue: "WWW 2020"
     url: "https://arxiv.org/abs/2002.10764"
+    short: "FairRec"
+    groups: [mpi-sws]
     code: "https://github.com/gourabkumarpatro/FairRec_www_2020"
     category: "fairness"
     domain: ""
@@ -570,11 +737,13 @@ papers:
     eval: "オフライン"
     data: ""
     note: "推薦を公平な分配の問題とみなし、提供者には最低限の露出を、利用者には嫉妬のなさに近い性質を保証するアルゴリズムを示す"
-  - title: "TFROM: A Two-sided Fairness-Aware Recommendation Model for Both Customers and Providers"
+  - id: tfrom
+    title: "TFROM: A Two-sided Fairness-Aware Recommendation Model for Both Customers and Providers"
     authors: "Y. Wu, J. Cao, G. Xu, Y. Tan"
     year: 2021
     venue: "SIGIR 2021"
     url: "https://doi.org/10.1145/3404835.3462882"
+    short: "TFROM"
     code: ""
     category: "fairness"
     domain: ""
@@ -582,11 +751,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "利用者側と提供者側の両方の公平性を考えて推薦リストを並べ替える"
-  - title: "User Fairness, Item Fairness, and Diversity for Rankings in Two-Sided Markets"
+  - id: wang-joachims-2021
+    title: "User Fairness, Item Fairness, and Diversity for Rankings in Two-Sided Markets"
     authors: "L. Wang, T. Joachims"
     year: 2021
     venue: "ICTIR 2021"
     url: "https://arxiv.org/abs/2010.01470"
+    short: "Wang & Joachims"
+    groups: [cornell]
     code: ""
     category: "fairness"
     domain: ""
@@ -594,11 +766,13 @@ papers:
     eval: ""
     data: ""
     note: "二面市場のランキングで、利用者側の公平性、アイテム側の公平性、多様性の関係を分析する"
-  - title: "Two-sided fairness in rankings via Lorenz dominance"
+  - id: lorenz-fairness
+    title: "Two-sided fairness in rankings via Lorenz dominance"
     authors: "V. Do, S. Corbett-Davies, J. Atif, N. Usunier"
     year: 2021
     venue: "NeurIPS 2021"
     url: "https://arxiv.org/abs/2110.15781"
+    short: "Lorenz 優越"
     code: ""
     category: "fairness"
     domain: ""
@@ -606,11 +780,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "利用者の効用と提供者の露出の両方について、ローレンツ優越の意味で効率的なランキングを求める"
-  - title: "Fair Ranking as Fair Division: Impact-Based Individual Fairness in Ranking"
+  - id: fair-division
+    title: "Fair Ranking as Fair Division: Impact-Based Individual Fairness in Ranking"
     authors: "Y. Saito, T. Joachims"
     year: 2022
     venue: "KDD 2022"
     url: "https://arxiv.org/abs/2206.07247"
+    short: "公平分配"
+    groups: [cornell]
     code: "https://github.com/usaito/kdd2022-fair-ranking-nsw"
     category: "fairness"
     domain: ""
@@ -618,11 +795,15 @@ papers:
     eval: "オフライン"
     data: ""
     note: "露出ではなく提供者が受ける影響（インパクト）にもとづく公平性を、公平分配の考え方で定める。ナッシュ社会厚生を最大化して嫉妬のない配分に近づける"
-  - title: "Fair Reciprocal Recommendation in Matching Markets"
+  - id: fair-reciprocal
+    title: "Fair Reciprocal Recommendation in Matching Markets"
     authors: "Y. Tomita, T. Yokoyama"
     year: 2024
     venue: "RecSys 2024"
     url: "https://arxiv.org/abs/2409.00720"
+    short: "公平な相互推薦"
+    explainer: fair-reciprocal
+    groups: [cyberagent]
     code: ""
     category: "fairness"
     domain: "オンラインデート"
@@ -630,11 +811,14 @@ papers:
     eval: "オフライン"
     data: "合成データ、実データ"
     note: "推薦される機会について嫉妬のなさを定義する。期待マッチ数の最大化と機会の公平性のトレードオフを、ナッシュ社会厚生を使って扱う"
-  - title: "Fairness-Aware Ranking in Search & Recommendation Systems with Application to LinkedIn Talent Search"
+  - id: linkedin-fair-ranking
+    title: "Fairness-Aware Ranking in Search & Recommendation Systems with Application to LinkedIn Talent Search"
     authors: "S. C. Geyik, S. Ambler, K. Kenthapadi"
     year: 2019
     venue: "KDD 2019"
     url: "https://arxiv.org/abs/1905.01989"
+    short: "Geyik+"
+    groups: [linkedin]
     code: ""
     category: "fairness"
     domain: "求人（人材検索）"
@@ -643,11 +827,14 @@ papers:
     data: "自社データ（LinkedIn）"
     note: "候補者の属性の分布が目標の分布に近くなるように順位を並べ替える。LinkedIn の人材検索で運用した"
   # ---- オフ方策評価・因果推論 ----
-  - title: "Experimental Design in Two-Sided Platforms: An Analysis of Bias"
+  - id: two-sided-experiment
+    title: "Experimental Design in Two-Sided Platforms: An Analysis of Bias"
     authors: "R. Johari, H. Li, I. Liskovich, G. Y. Weintraub"
     year: 2022
     venue: "Management Science"
     url: "https://doi.org/10.1287/mnsc.2021.4247"
+    short: "Johari+ 2022"
+    groups: [kanoria]
     code: ""
     category: "causal"
     domain: ""
@@ -655,11 +842,15 @@ papers:
     eval: "理論、シミュレーション"
     data: ""
     note: "二面市場の A/B テストでは処置群と対照群が同じ供給を奪い合うため、効果の推定に偏りが出る。顧客側と供給側のどちらで無作為化するかによる偏りを分析する"
-  - title: "An IPW-based Unbiased Ranking Metric in Two-sided Markets"
+  - id: ipw-two-sided
+    title: "An IPW-based Unbiased Ranking Metric in Two-sided Markets"
     authors: "K. Oh, N. Nishimura, M. Sung, K. Kobayashi, K. Nakata"
     year: 2023
     venue: "KDD 2023 WS (CIML)"
     url: "https://arxiv.org/abs/2307.10204"
+    short: "IPW 指標"
+    explainer: ipw-two-sided
+    groups: [recruit]
     code: ""
     category: "causal"
     domain: ""
@@ -667,11 +858,15 @@ papers:
     eval: "オフライン"
     data: "二面市場のプラットフォームの実データ"
     note: "二面市場の暗黙的なフィードバックには両側の利用者の位置バイアスが含まれることを指摘し、IPW を拡張した推定量（two-sided IPW）が真の順位指標に対して不偏であることを示す"
-  - title: "Off-Policy Evaluation and Learning for Matching Markets"
+  - id: ope-matching
+    title: "Off-Policy Evaluation and Learning for Matching Markets"
     authors: "Y. Hayashi, S. Goda, Y. Saito"
     year: 2025
     venue: "RecSys 2025"
     url: "https://arxiv.org/abs/2507.13608"
+    short: "OPE マッチング"
+    explainer: ope-matching
+    groups: [cornell]
     code: ""
     category: "causal"
     domain: "求人"
@@ -679,11 +874,14 @@ papers:
     eval: "オフライン"
     data: "合成データ、求人マッチングの A/B テストのログ"
     note: "マッチングの報酬が疎らで分散が大きくなる問題に対し、DM・IPS・DR を組み合わせて中間ラベルを使う推定量 DiPS と DPR を提案する。方策の学習にも広げる"
-  - title: "Counterfactual Reciprocal Recommender Systems for User-to-User Matching"
+  - id: counterfactual-rrs
+    title: "Counterfactual Reciprocal Recommender Systems for User-to-User Matching"
     authors: "K. Kawamura, T. Udagawa, K. Tateno"
     year: 2025
     venue: "KDD 2025 WS (TSMO)"
     url: "https://arxiv.org/abs/2508.01867"
+    short: "Kawamura+"
+    groups: [sony]
     code: ""
     category: "causal"
     domain: "オンラインデート、ゲーム、人材"
@@ -692,11 +890,13 @@ papers:
     data: "DBLP、合成データ"
     note: "過去の推薦方策の露出の偏りで人気のある利用者がログに多く現れる問題を、逆傾向スコアで重みづけした自己正規化の目的関数で補正する"
   # ---- 求人推薦 ----
-  - title: "RecSys Challenge 2016: Job Recommendations"
+  - id: recsys-challenge-2016
+    title: "RecSys Challenge 2016: Job Recommendations"
     authors: "F. Abel, A. Benczúr, D. Kohlsdorf, M. Larson, R. Pálovics"
     year: 2016
     venue: "RecSys 2016"
     url: "https://doi.org/10.1145/2959100.2959207"
+    short: "RecSys Ch. 2016"
     code: ""
     category: "job"
     domain: "求人"
@@ -704,11 +904,13 @@ papers:
     eval: "オフライン"
     data: "XING"
     note: "XING の利用者が翌週にどの求人に反応するかを予測するコンテスト"
-  - title: "RecSys Challenge 2017: Offline and Online Evaluation"
+  - id: recsys-challenge-2017
+    title: "RecSys Challenge 2017: Offline and Online Evaluation"
     authors: "F. Abel, Y. Deldjoo, M. Elahi, D. Kohlsdorf"
     year: 2017
     venue: "RecSys 2017"
     url: "https://doi.org/10.1145/3109859.3109954"
+    short: "RecSys Ch. 2017"
     code: ""
     category: "job"
     domain: "求人"
@@ -716,11 +918,14 @@ papers:
     eval: "オフライン、オンライン実験"
     data: "XING"
     note: "新しい求人に関心を持ち、かつ採用側にとっても適した利用者を選ぶコンテスト。オフラインの選考のあと、XING の実システムでオンライン評価した"
-  - title: "Personalized Job Recommendation System at LinkedIn: Practical Challenges and Lessons Learned"
+  - id: linkedin-job-rec
+    title: "Personalized Job Recommendation System at LinkedIn: Practical Challenges and Lessons Learned"
     authors: "K. Kenthapadi, B. Le, G. Venkataraman"
     year: 2017
     venue: "RecSys 2017"
     url: "https://doi.org/10.1145/3109859.3109921"
+    short: "Kenthapadi+"
+    groups: [linkedin]
     code: ""
     category: "job"
     domain: "求人"
@@ -728,11 +933,13 @@ papers:
     eval: ""
     data: "自社データ（LinkedIn）"
     note: "LinkedIn の求人推薦の運用で直面した課題と、そこから得た教訓をまとめる"
-  - title: "Person-Job Fit: Adapting the Right Talent for the Right Job with Joint Representation Learning"
+  - id: pjfnn
+    title: "Person-Job Fit: Adapting the Right Talent for the Right Job with Joint Representation Learning"
     authors: "C. Zhu, H. Zhu, H. Xiong, C. Ma, F. Xie, P. Ding, P. Li"
     year: 2018
     venue: "ACM TMIS"
     url: "https://doi.org/10.1145/3234465"
+    short: "PJFNN"
     code: ""
     category: "job"
     domain: "求人"
@@ -740,11 +947,13 @@ papers:
     eval: "オフライン"
     data: ""
     note: "職務経歴書と求人票の文章を同時に表現学習し、求職者と求人の適合度を予測する"
-  - title: "Enhancing Person-Job Fit for Talent Recruitment: An Ability-aware Neural Network Approach"
+  - id: apjfnn
+    title: "Enhancing Person-Job Fit for Talent Recruitment: An Ability-aware Neural Network Approach"
     authors: "C. Qin, H. Zhu, T. Xu, C. Zhu, L. Jiang, E. Chen, H. Xiong"
     year: 2018
     venue: "SIGIR 2018"
     url: "https://doi.org/10.1145/3209978.3210025"
+    short: "APJFNN"
     code: ""
     category: "job"
     domain: "求人"
@@ -752,11 +961,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "求人票の要件ごとに候補者の経験との対応を注意機構で学び、適合度を予測する"
-  - title: "Learning to Match Jobs with Resumes from Sparse Interaction Data using Multi-View Co-Teaching Network"
+  - id: mv-cotn
+    title: "Learning to Match Jobs with Resumes from Sparse Interaction Data using Multi-View Co-Teaching Network"
     authors: "S. Bian, X. Chen, W. X. Zhao, K. Zhou, Y. Hou, Y. Song, T. Zhang, J.-R. Wen"
     year: 2020
     venue: "CIKM 2020"
     url: "https://doi.org/10.1145/3340531.3411929"
+    short: "MV-CoN"
+    groups: [ruc]
     code: ""
     category: "job"
     domain: "求人"
@@ -764,11 +976,14 @@ papers:
     eval: "オフライン"
     data: ""
     note: "求職者と求人のやりとりのデータが疎らな状況で、文章とグラフの2つの見方のモデルを互いに教え合わせて適合度を学習する"
-  - title: "Modeling Two-Way Selection Preference for Person-Job Fit"
+  - id: dpgnn
+    title: "Modeling Two-Way Selection Preference for Person-Job Fit"
     authors: "C. Yang, Y. Hou, Y. Song, T. Zhang, J.-R. Wen, W. X. Zhao"
     year: 2022
     venue: "RecSys 2022"
     url: "https://doi.org/10.1145/3523227.3546752"
+    short: "DPGNN"
+    groups: [ruc]
     code: "https://github.com/RUCAIBox/DPGNN"
     category: "job"
     domain: "求人"
@@ -776,11 +991,13 @@ papers:
     eval: "オフライン"
     data: ""
     note: "求職者が求人を選ぶ選好と、採用側が求職者を選ぶ選好を、グラフニューラルネットワークで別々に表現して学習する（DPGNN）"
-  - title: "Toward Job Recommendation for All"
+  - id: bied-2023
+    title: "Toward Job Recommendation for All"
     authors: "G. Bied, S. Nathan, E. Perennes, M. Hoffmann, P. Caillou, B. Crépon, C. Gaillac, M. Sebag"
     year: 2023
     venue: "IJCAI 2023"
     url: "https://doi.org/10.24963/ijcai.2023/655"
+    short: "Bied+"
     code: ""
     category: "job"
     domain: "求人（公的職業紹介）"
@@ -788,11 +1005,13 @@ papers:
     eval: "オフライン"
     data: "フランスの公的職業紹介のデータ"
     note: "フランスの公的な職業紹介のデータで、求職者全体を対象にした求人推薦を作り、評価する"
-  - title: "The Effects of Algorithmic Labor Market Recommendations: Evidence from a Field Experiment"
+  - id: horton-2017
+    title: "The Effects of Algorithmic Labor Market Recommendations: Evidence from a Field Experiment"
     authors: "J. J. Horton"
     year: 2017
     venue: "J. Labor Economics"
     url: "https://doi.org/10.1086/689213"
+    short: "Horton"
     code: ""
     category: "job"
     domain: "ギグワーク"
@@ -800,11 +1019,13 @@ papers:
     eval: "フィールド実験"
     data: "オンラインの労働市場（oDesk）"
     note: "オンラインの労働市場で、雇用者に働き手を推薦するフィールド実験を行い、推薦が採用を増やすことを示す"
-  - title: "Providing Advice to Jobseekers at Low Cost: An Experimental Study on Online Advice"
+  - id: belot-2019
+    title: "Providing Advice to Jobseekers at Low Cost: An Experimental Study on Online Advice"
     authors: "M. Belot, P. Kircher, P. Muller"
     year: 2019
     venue: "Review of Economic Studies"
     url: "https://doi.org/10.1093/restud/rdy059"
+    short: "Belot+"
     code: ""
     category: "job"
     domain: "求人"
@@ -813,11 +1034,13 @@ papers:
     data: ""
     note: "求職者に関連する職種を提案すると、探す職種の幅が広がり面接の数が増えることを実験で示す"
   # ---- オンラインデートの実証 ----
-  - title: "Matching and Sorting in Online Dating"
+  - id: hitsch-2010
+    title: "Matching and Sorting in Online Dating"
     authors: "G. J. Hitsch, A. Hortaçsu, D. Ariely"
     year: 2010
     venue: "American Economic Review"
     url: "https://doi.org/10.1257/aer.100.1.130"
+    short: "Hitsch+"
     code: ""
     category: "dating"
     domain: "オンラインデート"
@@ -825,11 +1048,13 @@ papers:
     eval: ""
     data: "米国のオンラインデートサイトのデータ"
     note: "オンラインデートの利用者の行動から選好を推定し、その選好のもとでの安定マッチングが実際の成立と似た傾向を示すことを確かめる"
-  - title: "Propose with a rose? Signaling in internet dating markets"
+  - id: rose-signal
+    title: "Propose with a rose? Signaling in internet dating markets"
     authors: "S. Lee, M. Niederle"
     year: 2015
     venue: "Experimental Economics"
     url: "https://doi.org/10.1007/s10683-014-9425-9"
+    short: "バラの信号"
     code: ""
     category: "dating"
     domain: "オンラインデート"
@@ -837,11 +1062,13 @@ papers:
     eval: "フィールド実験"
     data: "韓国のオンラインデートのイベント"
     note: "数の限られた仮想の「バラ」を添えて申し込むと承諾されやすくなることを、フィールド実験で示す。好意の強さを伝える手段が混雑した市場で役立つ"
-  - title: "Collaborative Filtering for people-to-people recommendation in online dating: Data analysis and user trial"
+  - id: krzywicki-2015
+    title: "Collaborative Filtering for people-to-people recommendation in online dating: Data analysis and user trial"
     authors: "A. Krzywicki, W. Wobcke, Y. S. Kim, X. Cai, M. Bain, A. Mahidadia, P. Compton"
     year: 2015
     venue: "IJHCS"
     url: "https://doi.org/10.1016/j.ijhcs.2014.12.003"
+    short: "Krzywicki+"
     code: ""
     category: "dating"
     domain: "オンラインデート"

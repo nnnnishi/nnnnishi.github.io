@@ -13,7 +13,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/misc/survey/budget-uplift/` | `misc/survey/budget-uplift/index.html` | 予算制約つきアップリフトの文献リスト。中身は `_data/survey_budget_uplift.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/optimal-tree/` | `misc/survey/optimal-tree/index.html` | 最適決定木の文献リスト。中身は `_data/survey_optimal_tree.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/pricing/` | `misc/survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml` |
-| `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml` |
+| `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml`。解説ページは `papers/<slug>/`。系譜の図の矢印は `lineage`（推測の矢印は `guess: true`） |
 | （404） | `404.html` | 旧 URL `/survey/...` を `/misc/survey/...` に転送する |
 
 共通のヘッダー・ナビ・フッターは `_layouts/default.html`、ナビの項目は `_config.yml` の `nav`。

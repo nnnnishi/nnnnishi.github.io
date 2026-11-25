@@ -1,7 +1,7 @@
 # /misc/survey/pricing/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
-updated: "2026-11-23"
+updated: "2026-11-24"
 
 intro: "過去の販売データから需要と価格の関係を推定し、その推定にもとづいて価格を決める研究の文献をまとめたページです。需要を予測してから価格を最適化する方法、学習しながら価格を変える動的価格、顧客ごとに価格を変える個別価格、推定の誤差や価格の内生性への対処を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -12,6 +12,8 @@ papers_note: "「需要モデル」は需要（購買確率や販売数）をど
 datasets_note: "価格が動いている公開データです。価格を無作為に変えた実験のデータはほとんど公開されておらず、多くは観察データです。観察データの価格は需要の見込みに合わせて決められていることが多く、そのまま回帰すると価格の効果に偏りが出ます。"
 
 metrics_note: "動的価格の理論研究では regret、実データの研究では過去の価格や既存の方法と比べた収益の改善が主な指標です。観察データから価格を決める場合は、新しい価格での収益を実際には観測していないので、その推定の偏りも評価の対象になります。"
+
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。"
 
 footer: "掲載している情報は各論文の arXiv・出版社・Crossref のページで確認した内容にもとづきます。"
 
@@ -65,9 +67,76 @@ categories:
     setting: 価格を無作為に変えた実験がなく、観察データしかないとき
     examples: Berry et al. (1995), Hartford et al. (2017), Chernozhukov et al. (2018)
 
+# ---- 系譜（/misc/survey/pricing/ の「系譜」の図）----
+# from → to は「to が from を引き継いだ」。slug は papers の id。
+# kind: ext = 引き継いで発展（直接の拡張・改良、同じグループの続編）、base = 比較・出発点（ベースライン、最も近い先行研究）。
+# why は論文本文の記述にもとづく一言。データセットや評価指標を使っただけの関係は載せない。
+# guess: true は初版で本文をまだ確認していない矢印（解説者の推測）。確認したら消す。図の下の表に「未確認」と出る。
+# lineage_lanes は図の上から下への系統の並び。
+lineage_first_year: 2014
+lineage_lanes: [pto, shape, robust, personal, endog, contextual, dynamic, rm]
+
+# lineage_groups は図の上の「研究グループ」のボタン。論文の groups に id を書く（著者の所属から決める。共同研究は両方に入れる）。
+lineage_groups:
+  - { id: nec, label: "NEC（藤巻・伊藤）" }
+  - { id: tsukuba, label: "筑波大・リクルート（高野・西村）" }
+  - { id: columbia, label: "Columbia（Zeevi・Elmachtoub）" }
+  - { id: mit, label: "MIT（Simchi-Levi・Bertsimas）" }
+  - { id: ibm, label: "IBM（Harsha・Ettl）" }
+
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は手法や結果を直接拡張・改良した関係か、同じグループの続編です。破線は実験で比較した関係か、最も近い先行研究・出発点に挙げた関係です。データセットや評価指標を使っただけの関係は描いていません。この図は初版で、解説ページのある論文以外の矢印は本文をまだ確認していません（図の下の表で「未確認」と示しています）。＊のついた論文は arXiv の初版の年に置いています。2013 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めており、共同研究の論文は両方のグループに入れています。破線の枠は解説ページのない論文です。論文をクリックすると解説ページへ移動します。"
+
+lineage:
+  # 予測→最適化・頑健
+  - { from: ppo, to: ito-netflow-2016, kind: ext, why: "同じ著者らが、代替財の仮定のもとで処方的価格最適化をネットワークフローで大規模に解く", guess: true }
+  - { from: ppo, to: robust-qp, kind: ext, why: "同じグループ。処方的価格最適化の問題が二次計画の形に書けることを示し、回帰係数の推定誤差に頑健な版を作る" }
+  - { from: ito-netflow-2016, to: robust-qp, kind: base, why: "ネットワークフローの方法を頑健でない問題を解く部品（オラクル）に使い、λ=0 のベースラインとして比べる" }
+  - { from: ppo, to: ito-unbiased-2018, kind: ext, why: "同じグループ。予測モデルで最適化したときの目的関数の値が楽観的に偏ることを示し、補正する", guess: true }
+  - { from: ppo, to: ikeda-ort-2023, kind: base, why: "処方的価格最適化の枠組みを引き継ぎ、需要の予測に最適な回帰木を使う", guess: true }
+  - { from: ppo, to: ikeda-travel-2023, kind: base, why: "処方的価格最適化を旅行パックの価格に応用する", guess: true }
+  - { from: ikeda-ort-2023, to: ikeda-robust-2025, kind: ext, why: "同じグループ。購買確率の推定の不確実性に頑健な個別価格に広げる", guess: true }
+  - { from: robust-qp, to: ikeda-robust-2025, kind: base, why: "推定誤差に頑健な価格最適化の先行研究に挙げる", guess: true }
+  - { from: ikeda-range-2023, to: ikeda-bounds-2025, kind: ext, why: "同じグループ。価格の範囲の推定に形状制約を入れて解釈しやすくする", guess: true }
+  - { from: ikeda-bounds-2025, to: inokuma-2025, kind: base, why: "価格の範囲を推定する先行研究に挙げ、利益の出る範囲を推定する", guess: true }
+  - { from: bertsimas-kallus-2020, to: bk-pricing-2023, kind: ext, why: "同じ著者ら。予測にもとづく処方的分析を、交絡のある観察データからの価格決定で検討する", guess: true }
+  - { from: bertsimas-kallus-2020, to: spo, kind: base, why: "特徴量つきの意思決定の先行研究に挙げる", guess: true }
+  # 個別価格
+  - { from: value-personalized-2021, to: balanced-ope-2023, kind: ext, why: "同じグループ。個別価格の方策を過去の記録から評価する方法に進む", guess: true }
+  - { from: kallus-zhou-2021, to: cohen-fair-2022, kind: base, why: "個別価格の公平性の先行研究に挙げる", guess: true }
+  - { from: cohen-fair-2022, to: fair-demand-2026, kind: ext, why: "同じグループ。公平性の制約を需要モデルの学習に入れる", guess: true }
+  - { from: biggs-distill-2021, to: biggs-surrogate-2026, kind: ext, why: "同じ著者。取引データからの個別価格の学習を凸な代理損失で行う", guess: true }
+  # 内生性
+  - { from: dml, to: semenova-2023, kind: ext, why: "同じグループ。DML を高次元の動的パネルでの異質な効果の推定に広げる", guess: true }
+  - { from: deep-iv, to: miao-2023, kind: base, why: "機械学習による操作変数法の先行研究に挙げる", guess: true }
+  # 動的価格
+  - { from: kleinberg-leighton-2003, to: besbes-zeevi-2009, kind: base, why: "需要関数を知らない価格設定の regret の先行研究に挙げる", guess: true }
+  - { from: besbes-zeevi-2009, to: keskin-zeevi-2014, kind: base, why: "需要関数を知らない動的価格の先行研究に挙げ、パラメトリックな需要での最適な方策を示す", guess: true }
+  - { from: besbes-zeevi-2009, to: blind-nrm-2012, kind: ext, why: "同じ著者ら。需要関数を知らない価格設定を複数資源のネットワーク収益管理に広げる", guess: true }
+  - { from: gallego-van-ryzin-1994, to: blind-nrm-2012, kind: base, why: "需要関数が既知のときの在庫つき動的価格を比較の基準にする", guess: true }
+  - { from: keskin-zeevi-2014, to: nambiar-2019, kind: base, why: "需要モデルが正しいことを前提にした動的価格の先行研究に挙げ、誤指定と価格の内生性を扱う", guess: true }
+  - { from: besbes-zeevi-2009, to: bu-2022, kind: base, why: "オフラインのデータがないときの動的価格を比較の基準にする", guess: true }
+  - { from: bu-2022, to: zhang-offline-2025, kind: ext, why: "オフラインのデータつきの動的価格を、特徴量つきで偏りのあるデータに広げる", guess: true }
+  - { from: bwk, to: ferreira-ts-2018, kind: base, why: "在庫制約つきのバンディットの先行研究に挙げ、トンプソン抽出で解く", guess: true }
+  # 特徴量つき動的価格
+  - { from: keskin-zeevi-2014, to: javanmard-nazerzadeh, kind: base, why: "評価額が特徴量の線形関数と雑音の和で決まるモデルの出典に挙げる" }
+  - { from: cohen-feature-2020, to: javanmard-nazerzadeh, kind: base, why: "最も近い先行研究に挙げ、雑音がない点と特徴量が敵対的に来る点が違うとする" }
+  - { from: den-boer-zwart-2014, to: javanmard-nazerzadeh, kind: base, why: "全履歴で推定する方法（GILS など）と違い、価格がそのエピソードの雑音と独立になるとする" }
+  - { from: kleinberg-leighton-2003, to: javanmard-nazerzadeh, kind: base, why: "ノンパラメトリックな動的価格の初期の研究に挙げる" }
+  - { from: keskin-zeevi-2014, to: ban-keskin-2021, kind: ext, why: "同じ著者を含む。半近視眼的な方策を高次元の特徴量と異質な弾力性に広げる", guess: true }
+  - { from: javanmard-nazerzadeh, to: ban-keskin-2021, kind: base, why: "高次元の特徴量つき動的価格の先行研究として比べる", guess: true }
+  - { from: javanmard-nazerzadeh, to: xu-wang-2021, kind: base, why: "特徴量つき動的価格の先行研究に挙げ、regret の上界を改善する", guess: true }
+  - { from: cohen-feature-2020, to: xu-wang-2021, kind: base, why: "雑音のない特徴量つき価格の先行研究に挙げる", guess: true }
+  - { from: shah-2019, to: luo-2024, kind: base, why: "雑音の分布を知らない特徴量つき価格の先行研究に挙げる", guess: true }
+  - { from: javanmard-nazerzadeh, to: luo-2024, kind: base, why: "雑音の分布を知っている設定の先行研究に挙げる", guess: true }
+  - { from: shah-2019, to: fan-2024, kind: base, why: "準パラメトリックな評価額モデルの先行研究に挙げる", guess: true }
+  - { from: sale-2026, to: zou-evolving-2026, kind: ext, why: "同じ著者ら", guess: true }
+
 papers:
   # ---- 予測→最適化 ----
-  - title: "Analytics for an Online Retailer: Demand Forecasting and Price Optimization"
+  - id: ferreira-2016
+    title: "Analytics for an Online Retailer: Demand Forecasting and Price Optimization"
+    short: "Ferreira+"
+    groups: [mit]
     authors: "K. J. Ferreira, B. H. A. Lee, D. Simchi-Levi"
     year: 2016
     venue: "M&SOM"
@@ -79,7 +148,10 @@ papers:
     setting: 初めて売る商品、商品間の価格の相互作用
     data: Rue La La（フラッシュセール）
     note: 過去に販売したことのない商品の需要を予測し、その予測を使って価格を決める。実際の EC で価格の実験をした
-  - title: "Large-Scale Price Optimization via Network Flow"
+  - id: ito-netflow-2016
+    title: "Large-Scale Price Optimization via Network Flow"
+    short: "Ito ネットフロー"
+    groups: [nec]
     authors: "S. Ito, R. Fujimaki"
     year: 2016
     venue: "NeurIPS 2016"
@@ -91,7 +163,12 @@ papers:
     setting: 多数の商品、代替財
     data: ""
     note: 収益の劣モジュラ性と交差弾力性の関係を示し、代替財の仮定のもとで最適な価格をネットワークフローで厳密に求める
-  - title: "Optimization Beyond Prediction: Prescriptive Price Optimization"
+  - id: ppo
+    preprint_year: 2016
+    explainer: ppo
+    title: "Optimization Beyond Prediction: Prescriptive Price Optimization"
+    short: "PPO"
+    groups: [nec]
     authors: "S. Ito, R. Fujimaki"
     year: 2017
     venue: "KDD 2017"
@@ -103,7 +180,10 @@ papers:
     setting: 数十〜数百の商品の価格をまとめて決める
     data: 合成データ, 小売の実データ
     note: 機械学習の予測式から最適化問題を作り、二値二次計画として近似的に解く処方的価格最適化を提案する
-  - title: "The Impact of Linear Optimization on Promotion Planning"
+  - id: cohen-promo-2017
+    title: "The Impact of Linear Optimization on Promotion Planning"
+    short: "Cohen+ 販促"
+    groups: [mit]
     authors: "M. C. Cohen, N.-H. Z. Leung, K. Panchamgam et al."
     year: 2017
     venue: "Operations Research"
@@ -115,7 +195,9 @@ papers:
     setting: 販促の回数などの業務ルール
     data: Oracle Retail との共同研究
     note: 食品小売で各期の価格を選ぶ販促計画の問題を定式化し、線形計画で近似して解く
-  - title: "Customized Regression Model for Airbnb Dynamic Pricing"
+  - id: airbnb-2018
+    title: "Customized Regression Model for Airbnb Dynamic Pricing"
+    short: "Airbnb"
     authors: "P. Ye, J. Qian, J. Chen et al."
     year: 2018
     venue: "KDD 2018"
@@ -127,7 +209,10 @@ papers:
     setting: 宿泊施設ごと・日ごとの価格の提案
     data: 自社データ（Airbnb）
     note: 予約確率の予測と、ホストに提案する価格を出す回帰を組み合わせた Airbnb の価格提案の仕組みを示す
-  - title: "Unbiased Objective Estimation in Predictive Optimization"
+  - id: ito-unbiased-2018
+    title: "Unbiased Objective Estimation in Predictive Optimization"
+    short: "Ito 不偏推定"
+    groups: [nec]
     authors: "S. Ito, A. Yabe, R. Fujimaki"
     year: 2018
     venue: "ICML 2018"
@@ -139,7 +224,10 @@ papers:
     setting: 予測にもとづく最適化の評価
     data: 人工データ, 実データ
     note: 予測モデルで最適化すると目的関数の値が楽観的に偏ることを示し、その偏りを漸近的に除く推定法を提案する
-  - title: "A Practical Price Optimization Approach for Omnichannel Retailing"
+  - id: harsha-omni-2019
+    title: "A Practical Price Optimization Approach for Omnichannel Retailing"
+    short: "Harsha+ オムニ"
+    groups: [ibm]
     authors: "P. Harsha, S. Subramanian, M. Ettl"
     year: 2019
     venue: "INFORMS J. Optimization"
@@ -151,7 +239,10 @@ papers:
     setting: 複数チャネル・複数店舗、販売量と価格の業務上の制約
     data: 小売3社との共同研究（IBM）
     note: 実店舗と EC の価格をまとめて決めるオムニチャネル価格の仕組みを、推定と最適化の両方で示す
-  - title: "From Predictive to Prescriptive Analytics"
+  - id: bertsimas-kallus-2020
+    title: "From Predictive to Prescriptive Analytics"
+    short: "B&K 処方的"
+    groups: [mit]
     authors: "D. Bertsimas, N. Kallus"
     year: 2020
     venue: "Management Science"
@@ -163,7 +254,9 @@ papers:
     setting: 特徴量つきの確率的最適化
     data: ""
     note: k 近傍や木などの機械学習の手法で過去の観測に重みを付け、特徴量に応じた意思決定を求める処方的分析の枠組みを示す。価格に限らない一般的な枠組み
-  - title: "Smart \"Predict, then Optimize\""
+  - id: spo
+    title: "Smart \"Predict, then Optimize\""
+    short: "SPO"
     authors: "A. N. Elmachtoub, P. Grigas"
     year: 2022
     venue: "Management Science"
@@ -175,7 +268,9 @@ papers:
     setting: 予測のあとに線形の最適化を解く問題
     data: ""
     note: 予測の誤差ではなく、予測を使って解いた決定の損失で学習する SPO 損失と、その凸な代理損失を示す。価格に限らない一般的な枠組み
-  - title: "Promotheus: An End-to-End Machine Learning Framework for Optimizing Markdown in Online Fashion E-commerce"
+  - id: promotheus
+    title: "Promotheus: An End-to-End Machine Learning Framework for Optimizing Markdown in Online Fashion E-commerce"
+    short: "Promotheus"
     authors: "E. Loh, J. Khandelwal, B. Regan, D. A. Little"
     year: 2022
     venue: "KDD 2022"
@@ -187,7 +282,10 @@ papers:
     setting: ファッション EC の値下げ
     data: 自社データ（ASOS）
     note: 需要を推定しない値下げの仕組み Ithax と、価格弾力性を使う値下げ最適化の仕組み Promotheus を示し、オフラインでのモデルの評価方法を述べる
-  - title: "The Power and Limits of Predictive Approaches to Observational Data-Driven Optimization: The Case of Pricing"
+  - id: bk-pricing-2023
+    title: "The Power and Limits of Predictive Approaches to Observational Data-Driven Optimization: The Case of Pricing"
+    short: "B&K 価格"
+    groups: [mit]
     authors: "D. Bertsimas, N. Kallus"
     year: 2023
     venue: "INFORMS J. Optimization"
@@ -199,7 +297,10 @@ papers:
     setting: 交絡のある観察データ（操作変数なし）
     data: ""
     note: 因果の識別に必要な条件がない観察データで、価格から収益を予測して最適化する方法がどこまで使えるかを理論と実験で調べる
-  - title: "Prescriptive price optimization using optimal regression trees"
+  - id: ikeda-ort-2023
+    title: "Prescriptive price optimization using optimal regression trees"
+    short: "Ikeda 最適木"
+    groups: [tsukuba]
     authors: "S. Ikeda, N. Nishimura, N. Sukegawa, Y. Takano"
     year: 2023
     venue: "Operations Research Perspectives"
@@ -211,7 +312,10 @@ papers:
     setting: 解釈しやすい需要予測
     data: 合成データ
     note: 最適回帰木で需要を予測し、価格の最適化を混合整数線形計画として解く。大きな問題のためにランダム座標上昇法による近似解法も示す
-  - title: "構造的正則化処方分析による旅行パックの価格最適化"
+  - id: ikeda-travel-2023
+    title: "構造的正則化処方分析による旅行パックの価格最適化"
+    short: "池田 旅行パック"
+    groups: [tsukuba]
     authors: "池田春之介, 朝倉希美, 西村直樹, 高野祐一"
     year: 2023
     venue: "オペレーションズ・リサーチ"
@@ -225,7 +329,9 @@ papers:
     note: 回帰係数を縮小推定する L1 正則化の代わりに構造的正則化で需要を推定し、旅行パックの価格を最適化する
 
   # ---- 形状制約・価格範囲 ----
-  - title: "Nonparametric Pricing Analytics with Customer Covariates"
+  - id: chen-gallego-2021
+    title: "Nonparametric Pricing Analytics with Customer Covariates"
+    short: "Chen & Gallego"
     authors: "N. Chen, G. Gallego"
     year: 2021
     venue: "Operations Research"
@@ -237,7 +343,10 @@ papers:
     setting: 個別価格、需要関数の形を仮定しない
     data: ""
     note: 需要関数に特定の形を仮定せず、顧客の共変量ごとに価格を学習する非パラメトリックな方策と、その regret を示す
-  - title: "Operating range estimation for price optimization"
+  - id: ikeda-range-2023
+    title: "Operating range estimation for price optimization"
+    short: "Ikeda 価格範囲"
+    groups: [tsukuba]
     authors: "S. Ikeda, N. Nishimura, S. Umetani"
     year: 2023
     venue: "ICDMW 2023"
@@ -249,7 +358,10 @@ papers:
     setting: 価格最適化で探索する価格の範囲
     data: ""
     note: 価格最適化で探索する価格の範囲（operating range）を推定する
-  - title: "Interpretable price bounds estimation with shape constraints in price optimization"
+  - id: ikeda-bounds-2025
+    title: "Interpretable price bounds estimation with shape constraints in price optimization"
+    short: "Ikeda 形状制約"
+    groups: [tsukuba]
     authors: "S. Ikeda, N. Nishimura, S. Umetani"
     year: 2025
     venue: "Rev. Socionetwork Strategies"
@@ -261,7 +373,9 @@ papers:
     setting: 解釈しやすく、運用者が受け入れられる価格の範囲
     data: 実際のサービスの価格の記録
     note: 過去の価格データから価格の上下限を3つの方法で推定し、単調性などの形状制約を入れた最適化で調整する
-  - title: "Revenue Maximization Under Sequential Price Competition Via The Estimation Of s-Concave Demand Functions"
+  - id: bracale-2025
+    title: "Revenue Maximization Under Sequential Price Competition Via The Estimation Of s-Concave Demand Functions"
+    short: "Bracale+"
     authors: "D. Bracale, M. Banerjee, C. Shi, Y. Sun"
     year: 2025
     venue: "arXiv"
@@ -273,7 +387,10 @@ papers:
     setting: 複数の売り手の価格競争
     data: ""
     note: 形状制約のある需要関数のもとで均衡の存在を示し、各売り手の価格がナッシュ均衡の価格に収束する動的価格の方策を示す
-  - title: "Estimating profitable price bounds for prescriptive price optimization"
+  - id: inokuma-2025
+    title: "Estimating profitable price bounds for prescriptive price optimization"
+    short: "Inokuma+"
+    groups: [tsukuba]
     authors: "M. Inokuma, S. Ikeda, Y. Takano"
     year: 2025
     venue: "arXiv"
@@ -287,7 +404,9 @@ papers:
     note: 最適化した価格での将来の収益が大きくなるように、処方的価格最適化の価格の上下限を推定する2つの方法を提案する
 
   # ---- 頑健な価格最適化 ----
-  - title: "Relative Entropy, Exponential Utility, and Robust Dynamic Pricing"
+  - id: lim-shanthikumar-2007
+    title: "Relative Entropy, Exponential Utility, and Robust Dynamic Pricing"
+    short: "Lim & Shanthikumar"
     authors: "A. E. B. Lim, J. G. Shanthikumar"
     year: 2007
     venue: "Operations Research"
@@ -299,7 +418,9 @@ papers:
     setting: 在庫つきの動的価格
     data: ""
     note: 需要モデルの誤りを相対エントロピーで表し、最悪の場合を考えた動的価格の問題を解く
-  - title: "Robust monopoly pricing"
+  - id: bergemann-schlag-2011
+    title: "Robust monopoly pricing"
+    short: "Bergemann & Schlag"
     authors: "D. Bergemann, K. Schlag"
     year: 2011
     venue: "J. Economic Theory"
@@ -311,7 +432,11 @@ papers:
     setting: 独占企業の単一の価格
     data: ""
     note: 評価額の分布が基準の分布の近くにあることだけを知る独占企業が、頑健な価格をどう決めるかを調べる
-  - title: "Robust Quadratic Programming for Price Optimization"
+  - id: robust-qp
+    explainer: robust-qp
+    title: "Robust Quadratic Programming for Price Optimization"
+    short: "Yabe 頑健QP"
+    groups: [nec]
     authors: "A. Yabe, S. Ito, R. Fujimaki"
     year: 2017
     venue: "IJCAI 2017"
@@ -323,7 +448,10 @@ papers:
     setting: 処方的価格最適化
     data: 人工データ, 実際の価格データ
     note: 処方的価格最適化の推定の不確実性を行列正規分布で表し、収益の下界を最大にする頑健な二次計画を解く
-  - title: "Distribution-Free Pricing"
+  - id: chen-hu-perakis-2022
+    title: "Distribution-Free Pricing"
+    short: "Chen+ 分布フリー"
+    groups: [mit]
     authors: "H. Chen, M. Hu, G. Perakis"
     year: 2022
     venue: "M&SOM"
@@ -335,7 +463,10 @@ papers:
     setting: 単一商品, 束売り
     data: ""
     note: 評価額の分布を知らず平均と分散だけを知る売り手の頑健な価格を閉じた形で求め、最悪の場合の性能の上下界を示す
-  - title: "Robust personalized pricing under uncertainty of purchase probabilities"
+  - id: ikeda-robust-2025
+    title: "Robust personalized pricing under uncertainty of purchase probabilities"
+    short: "Ikeda 頑健個別"
+    groups: [tsukuba]
     authors: "S. Ikeda, N. Nishimura, N. Sukegawa, Y. Takano"
     year: 2025
     venue: "EJCO"
@@ -347,7 +478,9 @@ papers:
     setting: 単一商品の個別価格
     data: ""
     note: 予測した購買確率の誤差を考えた個別価格の頑健最適化モデルを混合整数線形計画で定式化し、大規模な問題のためにラグランジュ分解による解法を示す
-  - title: "Doubly Robust Distributionally Robust Offline Contextual Pricing"
+  - id: xu-dro-2026
+    title: "Doubly Robust Distributionally Robust Offline Contextual Pricing"
+    short: "Xu+ DRO"
     authors: "M. Xu, X. Yin, Y. Zhang et al."
     year: 2026
     venue: "ICML 2026"
@@ -361,7 +494,10 @@ papers:
     note: 過去の価格の記録から、分布のずれに頑健な個別価格の方策を学習する。二重頑健な推定量を使い、少ない回数の回帰で最悪の場合の期待値を推定する
 
   # ---- 個別価格・オフ方策 ----
-  - title: "The Value of Personalized Pricing"
+  - id: value-personalized-2021
+    title: "The Value of Personalized Pricing"
+    short: "Elmachtoub+ 個別"
+    groups: [columbia]
     authors: "A. N. Elmachtoub, V. Gupta, M. L. Hamilton"
     year: 2021
     venue: "Management Science"
@@ -373,7 +509,9 @@ papers:
     setting: 個別価格と単一の価格の比較
     data: ""
     note: 理想的な個別価格と単一の価格で利益の比がどれだけになるかの上下界を、評価額の分布の簡単な統計量で示す
-  - title: "Fairness, Welfare, and Equity in Personalized Pricing"
+  - id: kallus-zhou-2021
+    title: "Fairness, Welfare, and Equity in Personalized Pricing"
+    short: "Kallus & Zhou"
     authors: "N. Kallus, A. Zhou"
     year: 2021
     venue: "FAccT 2021"
@@ -385,7 +523,10 @@ papers:
     setting: 公平性、厚生、利用の広がり
     data: 任意接種のワクチンの補助, マイクロクレジットの金利
     note: 個別価格が収益、厚生、利用の広がりにどう影響するかを調べ、公平性の観点の違いを整理する
-  - title: "Model Distillation for Revenue Optimization: Interpretable Personalized Pricing"
+  - id: biggs-distill-2021
+    title: "Model Distillation for Revenue Optimization: Interpretable Personalized Pricing"
+    short: "Biggs+ 蒸留"
+    groups: [ibm]
     authors: "M. Biggs, W. Sun, M. Ettl"
     year: 2021
     venue: "ICML 2021"
@@ -397,7 +538,10 @@ papers:
     setting: 解釈しやすい個別価格
     data: 合成データ, 実データ
     note: 複雑な予測モデルの知識を木に蒸留し、評価額の近い顧客をまとめて価格を決める。得られた方策の regret を示す
-  - title: "Price Discrimination with Fairness Constraints"
+  - id: cohen-fair-2022
+    title: "Price Discrimination with Fairness Constraints"
+    short: "Cohen+ 公平"
+    groups: [columbia]
     authors: "M. C. Cohen, A. N. Elmachtoub, X. Lei"
     year: 2022
     venue: "Management Science"
@@ -409,7 +553,9 @@ papers:
     setting: 価格・需要・余剰などの公平性
     data: ""
     note: グループ間の価格の差や需要の差を抑える公平性の制約が、利益と消費者の余剰にどう影響するかを調べる
-  - title: "Personalized Pricing and Consumer Welfare"
+  - id: dube-misra-2023
+    title: "Personalized Pricing and Consumer Welfare"
+    short: "Dubé & Misra"
     authors: "J.-P. Dubé, S. Misra"
     year: 2023
     venue: "J. Political Economy"
@@ -421,7 +567,10 @@ papers:
     setting: 個別価格、消費者の厚生
     data: ZipRecruiter での価格の無作為化実験
     note: 価格を無作為に変えた実験のデータで需要を推定し、個別価格が企業の利益と消費者の厚生に与える影響を測る
-  - title: "Balanced Off-Policy Evaluation for Personalized Pricing"
+  - id: balanced-ope-2023
+    title: "Balanced Off-Policy Evaluation for Personalized Pricing"
+    short: "Elmachtoub+ OPE"
+    groups: [columbia]
     authors: "A. N. Elmachtoub, V. Gupta, Y. Zhao"
     year: 2023
     venue: "AISTATS 2023"
@@ -433,7 +582,9 @@ papers:
     setting: 探索の少ない、または決定的な過去の価格方策
     data: 実際の価格データ
     note: 逆確率重み付けがうまく働かない、探索の少ない価格の記録でも使えるオフ方策評価の方法を提案する
-  - title: "Convex Surrogate Loss Functions for Contextual Pricing with Transaction Data"
+  - id: biggs-surrogate-2026
+    title: "Convex Surrogate Loss Functions for Contextual Pricing with Transaction Data"
+    short: "Biggs 代理損失"
     authors: "M. Biggs"
     year: 2026
     venue: "Management Science"
@@ -445,7 +596,10 @@ papers:
     setting: 過去の価格方策のもとで取った取引データ、解釈しやすい線形の価格方策
     data: 合成データ, 実データ
     note: 需要関数を推定せずに価格方策を直接学習する凸な損失関数を提案し、期待収益の下界を示す
-  - title: "Utility Fairness in Contextual Dynamic Pricing with Demand Learning"
+  - id: chen-utility-fair-2026
+    title: "Utility Fairness in Contextual Dynamic Pricing with Demand Learning"
+    short: "Chen+ 効用公平"
+    groups: [mit]
     authors: "X. Chen, D. Simchi-Levi, Y. Wang"
     year: 2026
     venue: "Management Science"
@@ -457,7 +611,10 @@ papers:
     setting: 効用の公平性の制約
     data: ""
     note: 効用の公平性の制約つきの個別価格のアルゴリズムと regret の上界を示す。需要を学習しながら価格を決める場合は、下界が通常の動的価格と異なる
-  - title: "Learning Fair Demand Models"
+  - id: fair-demand-2026
+    title: "Learning Fair Demand Models"
+    short: "Elmachtoub+ 公平需要"
+    groups: [columbia]
     authors: "A. N. Elmachtoub, H. Kim, J. Y. Tan"
     year: 2026
     venue: "arXiv"
@@ -470,7 +627,9 @@ papers:
     data: "ワクチンの価格データ"
     note: "需要の推定と価格の最適化のどちらの段階で公平性を課すかを比べる。訓練誤差を集団間でそろえる方法は解が一つに定まらず、望ましくない結果を招きうる。パリティ型の公平性では条件によって有利な段階が変わり、ロールズ型では両者が一致する"
   # ---- 動的価格・バンディット ----
-  - title: "The value of knowing a demand curve: bounds on regret for online posted-price auctions"
+  - id: kleinberg-leighton-2003
+    title: "The value of knowing a demand curve: bounds on regret for online posted-price auctions"
+    short: "Kleinberg & Leighton"
     authors: "R. Kleinberg, T. Leighton"
     year: 2003
     venue: "FOCS 2003"
@@ -482,7 +641,10 @@ papers:
     setting: 掲示価格で売る
     data: ""
     note: 需要曲線を知らない売り手が掲示価格で売るときの regret の上下界を示した、価格のバンディットの古典
-  - title: "Dynamic Pricing Without Knowing the Demand Function: Risk Bounds and Near-Optimal Algorithms"
+  - id: besbes-zeevi-2009
+    title: "Dynamic Pricing Without Knowing the Demand Function: Risk Bounds and Near-Optimal Algorithms"
+    short: "Besbes & Zeevi"
+    groups: [columbia]
     authors: "O. Besbes, A. Zeevi"
     year: 2009
     venue: "Operations Research"
@@ -494,7 +656,9 @@ papers:
     setting: 在庫つきの販売期間
     data: ""
     note: 需要関数を知らずに在庫を売る動的価格で、パラメトリックと非パラメトリックの場合の性能の限界と、それに近い方策を示す
-  - title: "Simultaneously Learning and Optimizing Using Controlled Variance Pricing"
+  - id: den-boer-zwart-2014
+    title: "Simultaneously Learning and Optimizing Using Controlled Variance Pricing"
+    short: "den Boer & Zwart"
     authors: "A. V. den Boer, B. Zwart"
     year: 2014
     venue: "Management Science"
@@ -506,7 +670,10 @@ papers:
     setting: 単一商品
     data: ""
     note: 推定した最適価格をそのまま使う方策は真の価格に収束しないことがあると示し、価格のばらつきを一定以上に保つ方策を提案する
-  - title: "Dynamic Pricing with an Unknown Demand Model: Asymptotically Optimal Semi-Myopic Policies"
+  - id: keskin-zeevi-2014
+    title: "Dynamic Pricing with an Unknown Demand Model: Asymptotically Optimal Semi-Myopic Policies"
+    short: "Keskin & Zeevi"
+    groups: [columbia]
     authors: "N. B. Keskin, A. Zeevi"
     year: 2014
     venue: "Operations Research"
@@ -518,7 +685,9 @@ papers:
     setting: 単一商品・複数商品
     data: ""
     note: 線形の需要モデルで、価格のばらつきが十分に増えるように探索を加える半近視眼的な方策が漸近的に最適であることを示す
-  - title: "Dynamic Online Pricing with Incomplete Information Using Multiarmed Bandit Experiments"
+  - id: misra-2019
+    title: "Dynamic Online Pricing with Incomplete Information Using Multiarmed Bandit Experiments"
+    short: "Misra+"
     authors: "K. Misra, E. M. Schwartz, J. Abernethy"
     year: 2019
     venue: "Marketing Science"
@@ -530,7 +699,10 @@ papers:
     setting: オンラインでの価格の実験
     data: ""
     note: 多腕バンディットのアルゴリズムにミクロ経済学の選択理論を組み込んだ、価格の実験の方策を提案する
-  - title: "Meta Dynamic Pricing: Transfer Learning Across Experiments"
+  - id: meta-pricing-2022
+    title: "Meta Dynamic Pricing: Transfer Learning Across Experiments"
+    short: "Bastani+ メタ"
+    groups: [mit]
     authors: "H. Bastani, D. Simchi-Levi, R. Zhu"
     year: 2022
     venue: "Management Science"
@@ -542,7 +714,10 @@ papers:
     setting: 似た商品の価格の実験を繰り返す
     data: ""
     note: 似た商品を次々に売るとき、過去の価格の実験から需要パラメータの事前分布を学び、新しい商品の価格の学習を速める
-  - title: "Online Pricing with Offline Data: Phase Transition and Inverse Square Law"
+  - id: bu-2022
+    title: "Online Pricing with Offline Data: Phase Transition and Inverse Square Law"
+    short: "Bu+ オフライン"
+    groups: [mit]
     authors: "J. Bu, D. Simchi-Levi, Y. Xu"
     year: 2022
     venue: "Management Science"
@@ -554,7 +729,9 @@ papers:
     setting: 過去の価格と販売の記録がある
     data: ""
     note: 過去の価格データの量と価格のばらつきによって、オンラインの価格の学習の regret がどう変わるかを示す
-  - title: "Contextual Online Pricing with (Biased) Offline Data"
+  - id: zhang-offline-2025
+    title: "Contextual Online Pricing with (Biased) Offline Data"
+    short: "Zhang+ 偏りデータ"
     authors: "Y. Zhang, R. Zhu, Q. Xie"
     year: 2025
     venue: "NeurIPS 2025"
@@ -566,7 +743,9 @@ papers:
     setting: 偏りのある過去のデータ
     data: ""
     note: 過去のデータに偏りがある場合の文脈つきオンライン価格で、偏りの大きさなどで決まる regret の上界と、それを達成する方策を示す
-  - title: "The Power of Two Choices in Dynamic Pricing: As Good As Full Feedback, Instance-Wise"
+  - id: dai-2026
+    title: "The Power of Two Choices in Dynamic Pricing: As Good As Full Feedback, Instance-Wise"
+    short: "Dai+ 2択"
     authors: "Y. Dai, T. Lin, A. Slivkins"
     year: 2026
     venue: "arXiv"
@@ -580,7 +759,10 @@ papers:
     note: "価格を1つ提示するだけでは regret が T^{2/3} になるが、販売確率と支払額を組み合わせた選択肢を2つ示せば、評価額をすべて観測できる場合と同じ √T の regret を達成できることを示す"
 
   # ---- 特徴量つき動的価格 ----
-  - title: "Dynamic Pricing in High-dimensions"
+  - id: javanmard-nazerzadeh
+    explainer: javanmard-nazerzadeh
+    title: "Dynamic Pricing in High-dimensions"
+    short: "J&N 高次元"
     authors: "A. Javanmard, H. Nazerzadeh"
     year: 2019
     venue: "JMLR"
@@ -592,7 +774,9 @@ papers:
     setting: 購買の有無だけを観測する
     data: ""
     note: 特徴量が高次元でスパースな場合に、購買の有無だけから学習する価格の方策と、regret の上下界を示す
-  - title: "Semi-Parametric Dynamic Contextual Pricing"
+  - id: shah-2019
+    title: "Semi-Parametric Dynamic Contextual Pricing"
+    short: "Shah+ 準パラ"
     authors: "V. Shah, R. Johari, J. Blanchet"
     year: 2019
     venue: "NeurIPS 2019"
@@ -604,7 +788,10 @@ papers:
     setting: 購買の有無だけを観測する
     data: ""
     note: 誤差の分布を仮定しない半パラメトリックな評価額のモデルで、対数の因子を除いて √T の regret を達成する方策を示す
-  - title: "Feature-Based Dynamic Pricing"
+  - id: cohen-feature-2020
+    preprint_year: 2016
+    title: "Feature-Based Dynamic Pricing"
+    short: "Cohen+ 特徴量"
     authors: "M. C. Cohen, I. Lobel, R. Paes Leme"
     year: 2020
     venue: "Management Science"
@@ -616,7 +803,9 @@ papers:
     setting: 毎回違う特徴量の商品を売る
     data: ""
     note: 商品が毎回違う特徴量で到着するときに、楕円体法で評価額のパラメータの範囲を絞りながら価格を決める
-  - title: "Personalized Dynamic Pricing with Machine Learning: High-Dimensional Features and Heterogeneous Elasticity"
+  - id: ban-keskin-2021
+    title: "Personalized Dynamic Pricing with Machine Learning: High-Dimensional Features and Heterogeneous Elasticity"
+    short: "Ban & Keskin"
     authors: "G.-Y. Ban, N. B. Keskin"
     year: 2021
     venue: "Management Science"
@@ -628,7 +817,9 @@ papers:
     setting: 個別価格、高次元の特徴量
     data: ""
     note: 顧客の特徴量によって価格弾力性が違う場合に、高次元の特徴量から需要を学びながら個別の価格を決める方策を示す
-  - title: "Logarithmic Regret in Feature-based Dynamic Pricing"
+  - id: xu-wang-2021
+    title: "Logarithmic Regret in Feature-based Dynamic Pricing"
+    short: "Xu & Wang"
     authors: "J. Xu, Y.-X. Wang"
     year: 2021
     venue: "NeurIPS 2021"
@@ -640,7 +831,9 @@ papers:
     setting: 確率的な特徴量, 敵対的な特徴量
     data: ""
     note: 確率的な特徴量と敵対的な特徴量のそれぞれで、O(d log T) の regret を達成するアルゴリズムを示す
-  - title: "Distribution-Free Contextual Dynamic Pricing"
+  - id: luo-2024
+    title: "Distribution-Free Contextual Dynamic Pricing"
+    short: "Luo+"
     authors: "Y. Luo, W. W. Sun, Y. Liu"
     year: 2024
     venue: "Math. Oper. Res."
@@ -652,7 +845,9 @@ papers:
     setting: 誤差の分布を仮定しない
     data: ""
     note: 評価額の誤差の分布を仮定しない文脈つき動的価格で、線形の部分と誤差の分布を同時に学ぶ方策を示す
-  - title: "Policy Optimization Using Semiparametric Models for Dynamic Pricing"
+  - id: fan-2024
+    title: "Policy Optimization Using Semiparametric Models for Dynamic Pricing"
+    short: "Fan+"
     authors: "J. Fan, Y. Guo, M. Yu"
     year: 2024
     venue: "JASA"
@@ -664,7 +859,9 @@ papers:
     setting: 購買の有無だけを観測する
     data: オンライン自動車ローンのデータ
     note: 評価額の誤差の分布を非パラメトリックに推定する半パラメトリックなモデルで、文脈つき動的価格の方策と regret を示す
-  - title: "SALE: Source-Aware Dynamic Pricing with Strategic Buyers"
+  - id: sale-2026
+    title: "SALE: Source-Aware Dynamic Pricing with Strategic Buyers"
+    short: "SALE"
     authors: "J. Zou, Y. Li, Z. Zheng"
     year: 2026
     venue: "arXiv"
@@ -676,7 +873,9 @@ papers:
     setting: "戦略的な買い手（自己申告の特徴量の操作）"
     data: ""
     note: "検証済みの特徴量と自己申告の特徴量が混在し、買い手が安い価格を得るために申告を操作する設定を扱う。検証済みの特徴量で探索する価格の範囲を絞り、活用のときに操作を補正する方策を提案し、regret の上界を示す"
-  - title: "Pricing Today, Shaping Tomorrow: Contextual Dynamic Pricing in Purchase-Driven Evolving Systems"
+  - id: zou-evolving-2026
+    title: "Pricing Today, Shaping Tomorrow: Contextual Dynamic Pricing in Purchase-Driven Evolving Systems"
+    short: "Zou+ 購買依存"
     authors: "J. Zou, Y. Li, Z. Zheng"
     year: 2026
     venue: "arXiv"
@@ -688,7 +887,9 @@ papers:
     setting: "購買で状態（業務の負荷、配送時間など）が変わる"
     data: ""
     note: "今日の購買が業務の負荷や配送時間などの状態を変え、将来の顧客の条件に影響する設定の文脈つき動的価格。購買が将来の収益に与える影響を価格に反映し、動的な基準に対する劣線形の regret を示す"
-  - title: "Optimal Contextual Pricing in Non-Stationary Environments"
+  - id: feng-2026
+    title: "Optimal Contextual Pricing in Non-Stationary Environments"
+    short: "Feng+ 非定常"
     authors: "Y. Feng, A. Rezaeimoghadam"
     year: 2026
     venue: "arXiv"
@@ -702,7 +903,9 @@ papers:
     note: "評価額の係数が時間とともに変わる環境で、購買の有無だけを観測する文脈つき動的価格のアルゴリズムを示す。動的 regret は対数因子を除いて下界に一致する"
 
   # ---- 収益管理・在庫 ----
-  - title: "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons"
+  - id: gallego-van-ryzin-1994
+    title: "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons"
+    short: "Gallego & van Ryzin"
     authors: "G. Gallego, G. van Ryzin"
     year: 1994
     venue: "Management Science"
@@ -714,7 +917,10 @@ papers:
     setting: 有限の在庫と販売期間
     data: ""
     note: 期限までに在庫を売る動的価格の古典。最適な方策の性質と、固定価格の方策が大規模な場合に漸近的に最適であることを示す
-  - title: "Blind Network Revenue Management"
+  - id: blind-nrm-2012
+    title: "Blind Network Revenue Management"
+    short: "Besbes & Zeevi NRM"
+    groups: [columbia]
     authors: "O. Besbes, A. Zeevi"
     year: 2012
     venue: "Operations Research"
@@ -726,7 +932,9 @@ papers:
     setting: ネットワーク型の収益管理、複数の資源の容量
     data: ""
     note: 複数の商品が限られた資源を共有するネットワーク型の収益管理で、需要関数を知らずに価格を学ぶ方策を示す
-  - title: "Bandits with Knapsacks"
+  - id: bwk
+    title: "Bandits with Knapsacks"
+    short: "BwK"
     authors: "A. Badanidiyuru, R. Kleinberg, A. Slivkins"
     year: 2018
     venue: "JACM"
@@ -738,7 +946,10 @@ papers:
     setting: 在庫の限られた動的価格を例に含む
     data: ""
     note: 腕を引くたびに資源を消費するバンディットの枠組みを示す。在庫の限られた動的価格はその応用の一つ
-  - title: "Online Network Revenue Management Using Thompson Sampling"
+  - id: ferreira-ts-2018
+    title: "Online Network Revenue Management Using Thompson Sampling"
+    short: "Ferreira+ TS"
+    groups: [mit]
     authors: "K. J. Ferreira, D. Simchi-Levi, H. Wang"
     year: 2018
     venue: "Operations Research"
@@ -750,7 +961,10 @@ papers:
     setting: 在庫制約のある複数商品
     data: ""
     note: トンプソンサンプリングで需要を推定し、在庫制約を線形計画で扱うネットワーク型の収益管理の方策を示す
-  - title: "Dynamic Pricing of Omnichannel Inventories"
+  - id: harsha-omni-inv-2019
+    title: "Dynamic Pricing of Omnichannel Inventories"
+    short: "Harsha+ 在庫"
+    groups: [ibm]
     authors: "P. Harsha, S. Subramanian, J. Uichanco"
     year: 2019
     venue: "M&SOM"
@@ -762,7 +976,9 @@ papers:
     setting: 実店舗と EC で共有する在庫
     data: ""
     note: 実店舗と EC が在庫を共有するオムニチャネルの小売で、在庫を考えた動的価格を扱う
-  - title: "Nonparametric Learning Algorithms for Joint Pricing and Inventory Control with Lost Sales and Censored Demand"
+  - id: chen-chao-shi-2021
+    title: "Nonparametric Learning Algorithms for Joint Pricing and Inventory Control with Lost Sales and Censored Demand"
+    short: "Chen+ 価格と在庫"
     authors: "B. Chen, X. Chao, C. Shi"
     year: 2021
     venue: "Math. Oper. Res."
@@ -774,7 +990,9 @@ papers:
     setting: 欠品は販売機会の損失、需要は販売数までしか観測できない
     data: ""
     note: 欠品で需要が打ち切られて観測される設定で、価格と在庫の補充量を同時に学習する非パラメトリックなアルゴリズムを示す
-  - title: "Markdowns in E-Commerce Fresh Retail: A Counterfactual Prediction and Multi-Period Optimization Approach"
+  - id: hua-markdown-2021
+    title: "Markdowns in E-Commerce Fresh Retail: A Counterfactual Prediction and Multi-Period Optimization Approach"
+    short: "Hua+ 値下げ"
     authors: "J. Hua, L. Yan, H. Xu, C. Yang"
     year: 2021
     venue: "KDD 2021"
@@ -787,7 +1005,9 @@ papers:
     data: 自社データ（Freshippo）
     note: 観察データから反実仮想の需要を予測し、需要の不確実性を考えた多期間の値下げを決める。Freshippo で運用している
   # ---- 価格の内生性 ----
-  - title: "Automobile Prices in Market Equilibrium"
+  - id: blp
+    title: "Automobile Prices in Market Equilibrium"
+    short: "BLP"
     authors: "S. Berry, J. Levinsohn, A. Pakes"
     year: 1995
     venue: "Econometrica"
@@ -799,7 +1019,10 @@ papers:
     setting: 市場シェアのデータ、価格の内生性
     data: 米国の自動車市場
     note: 市場シェアのデータから、価格の内生性を操作変数で扱いながらランダム係数ロジットの需要を推定する（BLP）
-  - title: "Deep IV: A Flexible Approach for Counterfactual Prediction"
+  - id: deep-iv
+    explainer: deep-iv
+    title: "Deep IV: A Flexible Approach for Counterfactual Prediction"
+    short: "Deep IV"
     authors: "J. Hartford, G. Lewis, K. Leyton-Brown, M. Taddy"
     year: 2017
     venue: "ICML 2017"
@@ -811,7 +1034,10 @@ papers:
     setting: 価格の内生性
     data: 合成データ（航空券の価格）
     note: 操作変数を使った反実仮想の予測を、処置のモデルと結果のモデルの2段階の教師あり学習に分けてニューラルネットで解く
-  - title: "Double/debiased machine learning for treatment and structural parameters"
+  - id: dml
+    title: "Double/debiased machine learning for treatment and structural parameters"
+    short: "DML"
+    groups: [mit]
     authors: "V. Chernozhukov, D. Chetverikov, M. Demirer et al."
     year: 2018
     venue: "Econometrics J."
@@ -823,7 +1049,10 @@ papers:
     setting: 高次元の交絡
     data: ""
     note: 機械学習で交絡を除きながら処置効果を推定する DML の基本の論文。部分線形モデルで価格を処置にすれば、価格弾力性を推定できる
-  - title: "Dynamic Learning and Pricing with Model Misspecification"
+  - id: nambiar-2019
+    title: "Dynamic Learning and Pricing with Model Misspecification"
+    short: "Nambiar+"
+    groups: [mit]
     authors: "M. Nambiar, D. Simchi-Levi, H. Wang"
     year: 2019
     venue: "Management Science"
@@ -835,7 +1064,10 @@ papers:
     setting: 需要モデルの誤り、価格の内生性
     data: ""
     note: 需要モデルの誤りが価格の内生性を生むことを示し、価格に加えた無作為の揺らぎを操作変数として使う動的価格の方策を示す
-  - title: "Inference on heterogeneous treatment effects in high-dimensional dynamic panels under weak dependence"
+  - id: semenova-2023
+    title: "Inference on heterogeneous treatment effects in high-dimensional dynamic panels under weak dependence"
+    short: "Semenova+"
+    groups: [mit]
     authors: "V. Semenova, M. Goldman, V. Chernozhukov, M. Taddy"
     year: 2023
     venue: "Quantitative Economics"
@@ -847,7 +1079,9 @@ papers:
     setting: パネルデータ, 高次元
     data: 食料品のスキャナーデータ
     note: 直交化した残差の回帰で、高次元のパネルデータから異質な処置効果を推定・検定する。食料品の価格弾力性の推定に適用する
-  - title: "Personalized Pricing with Invalid Instrumental Variables: Identification, Estimation, and Policy Learning"
+  - id: miao-2023
+    title: "Personalized Pricing with Invalid Instrumental Variables: Identification, Estimation, and Policy Learning"
+    short: "Miao+ 無効IV"
     authors: "R. Miao, Z. Qi, C. Shi, L. Lin"
     year: 2023
     venue: "arXiv"
