@@ -144,21 +144,27 @@
 - type: "refereed"
   authors: ["池田春之介", "朝倉希美", "西村直樹", "高野祐一"]
   title: "構造的正則化処方分析による旅行パックの価格最適化"
+  title_en: "Price optimization of travel packages via structurally regularized prescriptive analytics"
   venue: "オペレーションズ・リサーチ, 68 (2023), 485–490."
+  venue_en: "Communications of the Operations Research Society of Japan, 68 (2023), 485–490."
   year: 2023
   url: "https://orsj.org/wp-content/corsj/or68-9/or68_9_485.pdf"
 
 - type: "refereed"
   authors: ["岩永二郎", "西村直樹", "鮏川矩義", "高野祐一"]
   title: "出産前後の情報検索の分析：数理最適化による検索日の確率分布推定"
+  title_en: "Analyzing information search around childbirth: Estimating probability distributions of search dates via mathematical optimization"
   venue: "人工知能学会論文誌, 37 (2022), D-L74."
+  venue_en: "Transactions of the Japanese Society for Artificial Intelligence, 37 (2022), D-L74."
   year: 2022
   url: "https://www.jstage.jst.go.jp/article/tjsai/37/3/37_37-3_D-L74/_article/-char/ja"
 
 - type: "refereed"
   authors: ["河上佳太", "西村直樹", "白鳥友風", "工藤晃太", "松岡雄大", "最首大輝", "渡邊彰久", "高野祐一"]
   title: "時間付加グラフのベクトル表現を用いたタクシー軌跡データの解析"
+  title_en: "Analyzing taxi trajectory data with vector representations of time-augmented graphs"
   venue: "オペレーションズ・リサーチ, 66 (2021), 246–254."
+  venue_en: "Communications of the Operations Research Society of Japan, 66 (2021), 246–254."
   year: 2021
   url: "https://orsj.org/wp-content/corsj/or66-4/or66_4_246.pdf"
 
@@ -186,7 +192,9 @@
 - type: "refereed"
   authors: ["西村直樹", "小林健", "吉住宗朔"]
   title: "制約つき比例ハザードモデルを用いたヘアサロンの再来店状況分析"
+  title_en: "Analyzing customer revisits to hair salons with a constrained proportional hazards model"
   venue: "オペレーションズ・リサーチ, 64 (2019), 65–72."
+  venue_en: "Communications of the Operations Research Society of Japan, 64 (2019), 65–72."
   year: 2019
   url: "https://orsj.org/wp-content/corsj/or64-2/or64_2_65.pdf"
 
@@ -207,20 +215,25 @@
 - type: "refereed"
   authors: ["西村直樹", "関根琴美", "高野祐一", "村木正昭"]
   title: "季節性を考慮した協調フィルタリング"
+  title_en: "Collaborative filtering that accounts for seasonality"
   venue: "オペレーションズ・リサーチ, 60 (2015), 475–482."
+  venue_en: "Communications of the Operations Research Society of Japan, 60 (2015), 475–482."
   year: 2015
   url: "https://orsj.org/wp-content/corsj/or60-8/or60_8_475.pdf"
 
 - type: "nonrefereed"
   authors: ["西村直樹", "濱田賢吾"]
   title: "大阪大学 数理最適化寄附講座教授に聞く、実務における「数理最適化」活用のポイント"
+  title_en: "Interview with a professor of the Osaka University endowed chair in mathematical optimization: Key points for using mathematical optimization in practice"
   venue: "リクルート事例で分かる数理最適化入門. ITmedia, (2022)."
+  venue_en: "Introduction to Mathematical Optimization through Recruit's Case Studies, ITmedia, (2022)."
   year: 2022
   url: "https://atmarkit.itmedia.co.jp/ait/articles/2211/18/news003.html"
 
 - type: "nonrefereed"
   authors: ["西村直樹"]
   title: "数理最適化技術活用のための取り組みと事例 ―RECRUIT TECH MEET UP #4―"
+  title_en: "Initiatives and case studies for applying mathematical optimization: RECRUIT TECH MEET UP #4"
   venue: "Recruit Data Blog, (2022)."
   year: 2022
   url: "https://blog.recruit.co.jp/data/articles/recruit_tech_meetup_4_opt/"
@@ -228,54 +241,70 @@
 - type: "nonrefereed"
   authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎"]
   title: "形状制約モデルによる顧客の商品選択行動の予測"
+  title_en: "Predicting customers' product choice behavior with shape-constrained models"
   venue: "オペレーションズ・リサーチ, 65 (2020), 328–333."
+  venue_en: "Communications of the Operations Research Society of Japan, 65 (2020), 328–333."
   year: 2020
   url: "https://orsj.org/wp-content/corsj/or65-6/or65_6_328.pdf"
 
 - type: "nonrefereed"
   authors: ["田中宗", "西村直樹", "棚橋耕太郎"]
   title: "量子アニーリングの応用探索"
+  title_en: "Exploring applications of quantum annealing"
   venue: "数理科学, 57 (2019), 47–53."
+  venue_en: "Suri Kagaku (Mathematical Sciences), 57 (2019), 47–53."
   year: 2019
   url: "https://www.saiensu.co.jp/search/?isbn=4910054690798&y=2019"
 
 - type: "nonrefereed"
   authors: ["山根智之", "菅原光太郎", "西村直樹", "小林健", "吉田佑輔", "高野祐一", "中田和秀"]
   title: "時系列モデルによる商品販促効果の分析"
+  title_en: "Analyzing the effects of product promotions with time-series models"
   venue: "オペレーションズ・リサーチ, 61 (2016), 65–70."
+  venue_en: "Communications of the Operations Research Society of Japan, 61 (2016), 65–70."
   year: 2016
   url: "https://orsj.org/wp-content/corsj/or61-2/or61_2_65.pdf"
 
 - type: "nonrefereed"
   authors: ["西村直樹", "鮏川矩義", "高野祐一", "岩永二郎", "水野眞治"]
   title: "EC サイトの商品特性を考慮した2次元確率表による購買予測"
+  title_en: "Purchase prediction with two-dimensional probability tables that account for product characteristics on e-commerce sites"
   venue: "オペレーションズ・リサーチ, 60 (2015), 69–74."
+  venue_en: "Communications of the Operations Research Society of Japan, 60 (2015), 69–74."
   year: 2015
   url: "https://orsj.org/wp-content/corsj/or60-2/or60_2_69.pdf"
 
 - type: "book"
   authors: ["岩永二郎", "石原響太", "西村直樹", "田中一樹"]
   title: "Pythonではじめる数理最適化（第2版）: ケーススタディでモデリングのスキルを身につけよう"
+  title_en: "Mathematical Optimization with Python, 2nd ed.: Building Modeling Skills through Case Studies"
   venue: "オーム社, (2024)."
+  venue_en: "Ohmsha, (2024)."
   year: 2024
   url: "https://www.ohmsha.co.jp/book/9784274231759/"
 
 - type: "book"
   authors: ["岩永二郎", "石原響太", "西村直樹", "田中一樹"]
   title: "Pythonではじめる数理最適化: ケーススタディでモデリングのスキルを身につけよう"
+  title_en: "Mathematical Optimization with Python: Building Modeling Skills through Case Studies"
   venue: "オーム社, (2021)."
+  venue_en: "Ohmsha, (2021)."
   year: 2021
 
 - type: "book"
   authors: ["C. Szepesvári (著)", "小山田創哲 (訳者代表)", "前田新一", "小山雅典 (監訳)", "池田春之介", "大渡勝己", "芝慎太朗", "関根嵩之", "高山晃一", "田中一樹", "西村直樹", "藤田康博", "望月駿一 (訳)"]
   title: "速習 強化学習―基礎理論とアルゴリズム―"
+  title_en: "Algorithms for Reinforcement Learning"
   venue: "共立出版, (2017)."
+  venue_en: "Kyoritsu Shuppan, (2017)."
   year: 2017
   url: "https://www.kyoritsu-pub.co.jp/book/b10003874.html"
 
 - type: "patent"
   authors: ["秋山純", "松本健", "西村直樹"]
   title: "インセンティブ付与対象決定システム及びプログラム"
+  title_en: "System and program for determining incentive recipients"
   venue: "日本国特許庁 (JP), 特開2018-13827, (2018)."
+  venue_en: "Japan Patent Office (JP), JP 2018-13827 A, (2018)."
   year: 2018
   url: "https://www.j-platpat.inpit.go.jp/c1800/PU/JP-2018-013827/0651A31B8679075775B31B15F65682C9975796E2430A6A36E0883017B0358D7F/11/ja"

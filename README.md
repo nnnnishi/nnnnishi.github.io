@@ -14,9 +14,17 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/misc/survey/optimal-tree/` | `misc/survey/optimal-tree/index.html` | 最適決定木の文献リスト。中身は `_data/survey_optimal_tree.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/pricing/` | `misc/survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml`。解説ページは `papers/<slug>/` |
+| `/en/`, `/en/publications/`, `/en/talks/`, `/en/cv/`, `/en/misc/` | `en/**/index.html` | 英語版。中身は日本語版と同じ include と `_data` を使う（文献リストは日本語のみ） |
 | （404） | `404.html` | 旧 URL `/survey/...` を `/misc/survey/...` に転送する |
 
 共通のヘッダー・ナビ・フッターは `_layouts/default.html`、ナビの項目は `_config.yml` の `nav`。
+
+## 英語版
+- 英語のページは front matter に `lang: en` を書く。日本語版と英語版は `translation:` で互いの URL を指し、ヘッダーの切り替えボタンと `hreflang` はそこから作られる。
+- 画面の固定文言（名前・肩書き・メニュー名など）は `_data/i18n.yml`。
+- `_data/*.yml` の日本語の項目には `title_en`・`venue_en`・`place_en`（発表）、`award_en`（受賞）、`text_en`（News）、`period_en`・`org_en`・`role_en`・`name_en`（授業）、`points_en`・`label_en`（Research Interests）を書く。省略すると英語版にも日本語のまま出る。英訳した題名には英語版で "(in Japanese)" が付く。
+- 共著者名のローマ字は `_data/names.yml`。日本語の名前を新しく書いたらここに1行足す。
+- CV の所属・職歴・学歴は `cv/index.html` と `en/cv/index.html` を両方直す。
 
 ## 内容を追加・修正する
 | 内容 | ファイル | メモ |

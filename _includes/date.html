@@ -1,3 +1,3 @@
 {%- assign ym = include.date | split: "-" -%}
-{%- if include.en -%}{%- if ym[1] -%}{%- assign mi = ym[1] | minus: 1 -%}{{ site.months[mi] }} {% endif -%}{{ ym[0] }}
+{%- if include.en or page.lang == "en" -%}{%- if ym[1] -%}{%- assign mi = ym[1] | minus: 1 -%}{{ site.months[mi] }} {% endif -%}{{ ym[0] }}
 {%- else -%}{{ ym[0] }}年{%- if ym[1] -%}{{ ym[1] | plus: 0 }}月{%- endif -%}{%- endif -%}

@@ -1,1 +1,5 @@
+{%- if page.lang == "en" and include.p.title_en -%}
+<li>{% include authors.html list=include.p.authors %}: {% include title.html title=include.p.title_en url=include.p.url %}{{ site.data.i18n.en.in_japanese }}. {{ include.p.venue_en | default: include.p.venue }}</li>
+{%- else -%}
 <li>{% include authors.html list=include.p.authors %}: {% include title.html title=include.p.title url=include.p.url %}. {{ include.p.venue }}</li>
+{%- endif -%}

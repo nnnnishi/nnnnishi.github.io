@@ -1,13 +1,19 @@
 # トップページの News。新しいものを上に書く（上から5件を表示）。text には HTML のリンクを書ける
 - date: "2026-11"
   text: '<a href="https://orsj.org/ramp/ramp2026/program">第38回 RAMP 数理最適化シンポジウム</a>で招待講演を行いました。'
+  text_en: "Gave an invited talk at the <a href=\"https://orsj.org/ramp/ramp2026/program\">38th RAMP Symposium on Mathematical Optimization</a>."
 - date: "2026-10"
   text: '共著論文5本（オフ方策学習、新商品の需要予測、営業架電のスケジューリング、解釈可能なクラスタリング、精度と解釈性を両立する二層加法モデル）が <a href="https://www.sk.tsukuba.ac.jp/~ytakano/papers.html">IEEE BigData 2026</a> に採択されました。'
+  text_en: "Five co-authored papers (off-policy learning, demand forecasting for new products, outbound sales-call scheduling, interpretable clustering, and a two-layer additive model balancing accuracy and interpretability) were accepted to <a href=\"https://www.sk.tsukuba.ac.jp/~ytakano/papers.html\">IEEE BigData 2026</a>."
 - date: "2026-10"
   text: '筑波大学 システム情報系の客員研究員に着任しました（受入：<a href="https://www.sk.tsukuba.ac.jp/~ytakano/lab/">高野研究室</a>）。'
+  text_en: "Joined the Institute of Systems and Information Engineering, University of Tsukuba, as a Visiting Researcher (host: <a href=\"https://www.sk.tsukuba.ac.jp/~ytakano/lab/\">Takano Laboratory</a>)."
 - date: "2026-09"
   text: '共著論文 "Compact representations of impact-based fair-ranking policies" が NeurIPS 2026 に採択されました。'
+  text_en: "Our paper \"Compact representations of impact-based fair-ranking policies\" was accepted to NeurIPS 2026."
 - date: "2026-09"
   text: '日本オペレーションズ・リサーチ学会 <a href="https://kenkoba2119.github.io/cv">第46回 事例研究賞</a>を受賞しました。'
+  text_en: "Received the <a href=\"https://kenkoba2119.github.io/cv\">46th Case Study Award</a> from the Operations Research Society of Japan."
 - date: "2026-08"
   text: '共著論文 "<a href="https://proceedings.mlr.press/v337/yamao26a.html">Robust decision-focused learning via worst-case regret minimization</a>" が UAI 2026 で発表されました。'
+  text_en: "Our paper \"<a href=\"https://proceedings.mlr.press/v337/yamao26a.html\">Robust decision-focused learning via worst-case regret minimization</a>\" was presented at UAI 2026."

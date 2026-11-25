@@ -1,5 +1,7 @@
+{%- comment %} 英語版（page.lang == "en"）では _data/names.yml で日本語の名前をローマ字にする {% endcomment -%}
 {%- for a in include.list -%}
 {%- if forloop.index > 1 %}, {% endif -%}
 {%- if include.presenter and a == include.presenter -%}○{%- endif -%}
-{%- if site.me contains a -%}<strong>{{ a }}</strong>{%- else -%}{{ a }}{%- endif -%}
+{%- assign shown = a -%}{%- if page.lang == "en" and site.data.names[a] -%}{%- assign shown = site.data.names[a] -%}{%- endif -%}
+{%- if site.me contains a -%}<strong>{{ shown }}</strong>{%- else -%}{{ shown }}{%- endif -%}
 {%- endfor -%}

@@ -2,15 +2,20 @@
 # courses の links は年度ごとのシラバス等
 
 - period: "2020年8月–現在"
+  period_en: "Aug 2020–present"
   org: "筑波大学 理工情報生命学術院 システム情報工学研究群"
+  org_en: "Degree Programs in Systems and Information Engineering, Graduate School of Science and Technology, University of Tsukuba"
   org_url: "https://www.sie.tsukuba.ac.jp/"
   role: "非常勤講師"
+  role_en: "Part-time Lecturer"
   courses:
     - name: "応用最適化（サービス工学学位プログラム、共同担当）"
+      name_en: "Applied Optimization (Master's Program in Service Engineering, co-taught)"
       links:
         - { label: "2026年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2026/0ALB003/jpn" }
         - { label: "2025年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2025/0ALB003/jpn" }
     - name: "技術経営（サービス工学学位プログラム、オムニバス講義の1回「数理最適化技術の応用」を担当）"
+      name_en: "Management of Technology (Master's Program in Service Engineering; one omnibus lecture, \"Applications of mathematical optimization\")"
       links:
         - { label: "2024年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2024/0ALB008/jpn" }
         - { label: "2023年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2023/0ALB008/jpn" }
@@ -19,39 +24,54 @@
         - { label: "2020年度", url: "https://kdb.tsukuba.ac.jp/syllabi/2020/0ALB008/jpn" }
 
 - period: "2025年6月"
+  period_en: "Jun 2025"
   org: "九州大学 大学院数理学府・理学部数学科"
+  org_en: "Graduate School of Mathematics and Department of Mathematics, Kyushu University"
   org_url: "https://www.math.kyushu-u.ac.jp/"
   role: "講師（集中講義）"
+  role_en: "Lecturer (intensive course)"
   courses:
     - name: "実務につなげる数理最適化（数理科学特別講義 XIV／数理科学特論14、複数講師による分担）"
+      name_en: "Mathematical Optimization for Practice (Special Lectures in Mathematical Sciences XIV, shared among several lecturers)"
       links:
         - { label: "2025年度", url: "https://www.math.kyushu-u.ac.jp/activities/13461/" }
 
 - period: "2024年9月"
+  period_en: "Sep 2024"
   org: "電気通信大学 データアントレプレナーフェロープログラム"
+  org_en: "Data Entrepreneur Fellow Program, The University of Electro-Communications"
   org_url: "https://de.uec.ac.jp/"
   role: "講師"
+  role_en: "Lecturer"
   courses:
     - name: "応用学習Ⅱ-5「データサイエンティストによるモック（MVP）作成」"
+      name_en: "Applied Learning II-5: Building a mock-up (MVP) as a data scientist"
       links:
         - { label: "2024年度", url: "https://archive.de.uec.ac.jp/mvp_2024/" }
 
 - period: "2021年2月–2024年3月"
+  period_en: "Feb 2021–Mar 2024"
   org: "東京工業大学 情報理工学院"
+  org_en: "School of Computing, Tokyo Institute of Technology"
   org_url: "https://www.isct.ac.jp/ja/001/about/organizations/school-of-computing"
   role: "非常勤講師"
+  role_en: "Part-time Lecturer"
   courses:
     - name: "応用AI・データサイエンス発展C"
+      name_en: "Advanced Applied AI and Data Science C"
       links:
         - { label: "2023年度", url: "https://syllabus.s.isct.ac.jp/courses/2023/4/1-904-340000-120900-0/202331708" }
         - { label: "2022年度", url: "https://syllabus.s.isct.ac.jp/courses/2022/4/1-904-340000-120900-0/202231708" }
     - name: "応用AI・データサイエンスC"
+      name_en: "Applied AI and Data Science C"
       links:
         - { label: "2023年度", url: "https://syllabus.s.isct.ac.jp/courses/2023/4/1-904-340000-120900-0/202326766" }
         - { label: "2022年度", url: "https://syllabus.s.isct.ac.jp/courses/2022/4/1-904-340000-120900-0/202226766" }
     - name: "実践AI・データサイエンスC"
+      name_en: "Practical AI and Data Science C"
       links:
         - { label: "2021年度", url: "https://syllabus.s.isct.ac.jp/courses/2021/4/1-904-340000-120900-0/202131264" }
     - name: "実践AI・データサイエンスB"
+      name_en: "Practical AI and Data Science B"
       links:
         - { label: "2020年度", url: "https://syllabus.s.isct.ac.jp/courses/2020/4/1-904-340000-120900-0/202030812" }

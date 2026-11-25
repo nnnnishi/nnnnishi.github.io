@@ -1,0 +1,18 @@
+# 画面の固定文言（日本語版・英語版）。ページの front matter の lang で切り替える（省略時 ja）
+ja:
+  site_title: "西村 直樹 (Naoki Nishimura)"
+  name: "西村 直樹"
+  name_sub: "Naoki Nishimura"
+  role: "株式会社リクルート データ推進室 アジリティアナリティクスグループ Staff Data Scientist<br>筑波大学 システム情報系 客員研究員"
+  nav_label: "サイト内メニュー"
+  switch_label: "English"
+  in_japanese: ""
+en:
+  site_title: "Naoki Nishimura"
+  name: "Naoki Nishimura"
+  name_sub: "西村 直樹"
+  role: "Staff Data Scientist, Agility Analytics Group, Data Management Office, Recruit Co., Ltd.<br>Visiting Researcher, Institute of Systems and Information Engineering, University of Tsukuba"
+  description: "Homepage of Naoki Nishimura, Staff Data Scientist at Recruit Co., Ltd. Interested in applying mathematical optimization and machine learning to decision-making in online services: recommender systems, pricing, and off-policy evaluation."
+  nav_label: "Site menu"
+  switch_label: "日本語"
+  in_japanese: " (in Japanese)"

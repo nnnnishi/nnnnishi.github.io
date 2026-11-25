@@ -9,9 +9,13 @@ themes:
       - "マッチングサービスで、長期的に成立するマッチングを増やす推薦"
       - "掲載される側にも機会が行き渡る、公平性に配慮したランキング"
       - "推薦の良し悪しを、ログの偏りに左右されずに評価する指標"
+    points_en:
+      - "Recommendations that increase long-lasting matches on matching services"
+      - "Fairness-aware rankings that spread exposure to the listed side as well"
+      - "Metrics that evaluate recommendations without being swayed by biases in the logs"
     works:
       - { label: "NeurIPS 2026", url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html" }
-      - { label: "OR学会 事例研究賞 2026", url: "https://orsj.org/2025f/wp-content/uploads/sites/25/2025/08/737238e1e0779b4b2295ab59ffdd0db1.pdf" }
+      - { label: "OR学会 事例研究賞 2026", label_en: "ORSJ Case Study Award 2026", url: "https://orsj.org/2025f/wp-content/uploads/sites/25/2025/08/737238e1e0779b4b2295ab59ffdd0db1.pdf" }
       - { label: "JSAI 2026", url: "https://www.jstage.jst.go.jp/article/pjsai/JSAI2026/0/JSAI2026_5H2OS18a03/_article/-char/ja" }
       - { label: "KDD 2023 Workshop", url: "https://arxiv.org/abs/2307.10204" }
 
@@ -21,11 +25,15 @@ themes:
       - "閲覧履歴などの行動ログから、顧客がどの商品を選ぶかを予測する（博士論文のテーマ）"
       - "「閲覧が多いほど買われやすい」といった現場の知見をモデルに組み込む"
       - "検索行動から、利用者が置かれている状況の変化を読み取る"
+    points_en:
+      - "Predicting which products customers choose from browsing logs (the topic of my PhD thesis)"
+      - "Building practitioners' knowledge, such as \"more views mean a higher chance of purchase\", into models"
+      - "Reading changes in users' circumstances from their search behavior"
     works:
       - { label: "Information Sciences 2018", url: "https://www.sciencedirect.com/science/article/abs/pii/S002002551632134X" }
       - { label: "Algorithms 2023", url: "https://doi.org/10.3390/a16090415" }
       - { label: "NOLTA 2019 Student Paper Award", url: "https://www.ieice.org/nolta/symposium/student_paper/" }
-      - { label: "人工知能学会論文誌 2022", url: "https://www.jstage.jst.go.jp/article/tjsai/37/3/37_37-3_D-L74/_article/-char/ja" }
+      - { label: "人工知能学会論文誌 2022", label_en: "Trans. JSAI 2022", url: "https://www.jstage.jst.go.jp/article/tjsai/37/3/37_37-3_D-L74/_article/-char/ja" }
 
   - title: "価格・クーポン配布の最適化"
     en: "Pricing & promotion optimization"
@@ -33,6 +41,10 @@ themes:
       - "需要の予測を、価格やクーポン配布の意思決定に直接つなげる"
       - "予測が外れても大きく損をしない、頑健な施策の設計"
       - "現場の担当者が納得して使える、価格の妥当な範囲の提示"
+    points_en:
+      - "Linking demand forecasts directly to pricing and coupon decisions"
+      - "Designing robust policies that do not lose much when forecasts miss"
+      - "Presenting reasonable price ranges that practitioners can trust and use"
     works:
       - { label: "Oper. Res. Perspect. 2023", url: "https://doi.org/10.1016/j.orp.2023.100290" }
       - { label: "INFOR 2024", url: "https://doi.org/10.1080/03155986.2024.2386494" }
@@ -45,6 +57,10 @@ themes:
       - "新しい施策を本番で試す前に、過去のログから効果を見積もる"
       - "目先の収益を確保しながら、将来の評価に役立つデータを集める"
       - "オンライン実験（A/Bテスト）を少ないサンプルで精度よく行う"
+    points_en:
+      - "Estimating the effect of a new policy from past logs before trying it in production"
+      - "Collecting data useful for future evaluation while securing immediate revenue"
+      - "Running online experiments (A/B tests) accurately with fewer samples"
     works:
       - { label: "PRICAI 2024", url: "https://doi.org/10.1007/978-981-96-0125-7_35" }
       - { label: "PRICAI 2025", url: "https://doi.org/10.1007/978-981-95-7072-0_40" }
@@ -55,6 +71,10 @@ themes:
       - "販売実績のない新商品の需要を予測する"
       - "現場の担当者が中身を理解して使える予測モデル"
       - "予測の誤差がその後の意思決定にどう響くかを考慮した学習"
+    points_en:
+      - "Forecasting demand for new products with no sales history"
+      - "Prediction models whose inner workings practitioners can understand and use"
+      - "Learning that accounts for how prediction errors affect downstream decisions"
     works:
       - { label: "UAI 2026", url: "https://proceedings.mlr.press/v337/yamao26a.html" }
       - { label: "IEEE BigData 2026", url: "https://www.sk.tsukuba.ac.jp/~ytakano/lab/result.html" }

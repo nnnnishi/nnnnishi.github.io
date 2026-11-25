@@ -1,0 +1,31 @@
+---
+layout: default
+lang: en
+translation: /misc/
+title: Misc
+description: Literature surveys and other notes by Naoki Nishimura (the surveys are written in Japanese).
+toc:
+  - { id: survey, label: Survey }
+---
+    <section id="survey">
+      <h2>Survey</h2>
+      <p class="note">Tables of papers, datasets, evaluation metrics, and libraries on topics I follow. The survey pages and the explainer pages are written in Japanese.</p>
+      <ul class="cv">
+        <li>
+          <span class="date">Updated {{ site.data.survey_budget_uplift.updated }}</span>
+          <span><a href="{{ '/misc/survey/budget-uplift/' | relative_url }}" hreflang="ja"><strong>Budget-constrained uplift modeling</strong></a> (in Japanese)<br><span class="sub">Papers, datasets, metrics, and libraries on uplift modeling that decides who receives coupons or incentives under budget and cost constraints. Key papers have unofficial explainer pages.</span></span>
+        </li>
+        <li>
+          <span class="date">Updated {{ site.data.survey_optimal_tree.updated }}</span>
+          <span><a href="{{ '/misc/survey/optimal-tree/' | relative_url }}" hreflang="ja"><strong>Optimal decision trees</strong></a> (in Japanese)<br><span class="sub">Papers, datasets, metrics, and libraries on learning decision trees by optimization rather than greedy splitting: mixed-integer optimization, dynamic programming and branch-and-bound, SAT and constraint programming, continuous optimization, and prescriptive trees. Key papers have unofficial explainer pages.</span></span>
+        </li>
+        <li>
+          <span class="date">Updated {{ site.data.survey_pricing.updated }}</span>
+          <span><a href="{{ '/misc/survey/pricing/' | relative_url }}" hreflang="ja"><strong>Data-driven pricing optimization</strong></a> (in Japanese)<br><span class="sub">Papers, datasets, metrics, and libraries that combine demand estimation with price optimization: predict-then-optimize, dynamic pricing, personalized pricing, robust pricing, and price endogeneity.</span></span>
+        </li>
+        <li>
+          <span class="date">Updated {{ site.data.survey_reciprocal_rec.updated }}</span>
+          <span><a href="{{ '/misc/survey/reciprocal-rec/' | relative_url }}" hreflang="ja"><strong>Recommendation in two-sided markets (reciprocal recommendation and matching)</strong></a> (in Japanese)<br><span class="sub">Papers, datasets, metrics, and libraries on recommending users to other users in two-sided markets such as job matching and online dating.</span></span>
+        </li>
+      </ul>
+    </section>

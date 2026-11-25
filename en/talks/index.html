@@ -1,0 +1,24 @@
+---
+layout: default
+lang: en
+translation: /talks/
+title: Talks
+description: Conference presentations and invited talks by Naoki Nishimura.
+toc:
+  - { id: international, label: International }
+  - { id: domestic, label: Domestic }
+  - { id: invited, label: Invited Talks }
+---
+    <p class="note">○ marks the presenter.</p>
+    <section id="international">
+      <h2>International Conferences</h2>
+{% include talks.html kind="international" %}
+    </section>
+    <section id="domestic">
+      <h2>Domestic Conferences</h2>
+{% include talks.html kind="domestic" %}
+    </section>
+    <section id="invited">
+      <h2>Invited Talks</h2>
+{% include talks.html kind="invited" %}
+    </section>

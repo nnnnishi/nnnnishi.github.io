@@ -96,3 +96,9 @@ a.tag { display: inline-block; font-size: .82rem; border: 1px solid var(--line);
 ul.news > li { grid-template-columns: 7.5em 1fr; }
 .more { margin-top: 1rem; font-size: .92rem; }
 @media (max-width: 600px) { ul.news > li { grid-template-columns: 1fr; } }
+
+/* 言語切り替え（日本語 / English） */
+.site-header .wrap { position: relative; }
+.lang-switch { position: absolute; top: 0; right: 16px; margin: 0 !important; font-size: .85rem; }
+.lang-switch a { border: 1px solid var(--line); border-radius: 999px; padding: .05rem .7rem; background: var(--bg); }
+@media (max-width: 600px) { .lang-switch { position: static; text-align: right; margin: 0 0 .3rem !important; } }

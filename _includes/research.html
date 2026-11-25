@@ -1,3 +1,18 @@
+{%- if page.lang == "en" %}
+    <section id="research">
+      <h2>Research Interests</h2>
+      <p class="lead">{{ site.data.research.lead_en }}</p>
+      <div class="themes">
+{%- for t in site.data.research.themes %}
+        <div class="theme">
+          <h3>{{ t.en }}</h3>
+          <p class="points">{{ t.points_en | join: ". " }}.</p>
+          <p class="works">{% for w in t.works %}<a href="{{ w.url }}" class="tag">{{ w.label_en | default: w.label }}</a>{% endfor %}</p>
+        </div>
+{%- endfor %}
+      </div>
+    </section>
+{%- else %}
     <section id="research">
       <h2>Research Interests</h2>
       <p class="lead">{{ site.data.research.lead }}<br><span class="sub">{{ site.data.research.lead_en }}</span></p>
@@ -11,3 +26,4 @@
 {%- endfor %}
       </div>
     </section>
+{%- endif %}

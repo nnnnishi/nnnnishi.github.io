@@ -3,7 +3,8 @@
       <ul class="pubs">
 {%- assign list = site.data.awards | sort: "date" | reverse %}
 {%- for a in list %}
-        <li>{% include authors.html list=a.recipients %}: {% include title.html title=a.award url=a.url %}, {% include date.html date=a.date %}.</li>
+{%- assign award = a.award %}{% if page.lang == "en" and a.award_en %}{% assign award = a.award_en %}{% endif %}
+        <li>{% include authors.html list=a.recipients %}: {% include title.html title=award url=a.url %}, {% include date.html date=a.date %}.</li>
 {%- endfor %}
       </ul>
     </section>

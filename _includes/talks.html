@@ -5,7 +5,10 @@
 {%- assign list = site.data.presentations | where: "scope", include.kind | where_exp: "p", "p.invited != true" | sort: "date" | reverse %}
 {%- endif %}
 {%- for p in list %}
-{%- if include.kind == "international" %}
+{%- if page.lang == "en" %}
+{%- assign tt = p.title_en | default: p.title %}
+        <li>{% include authors.html list=p.authors presenter=p.presenter %}: “{% include title.html title=tt url=p.url %},”{% if p.title_en %}{{ site.data.i18n.en.in_japanese }}{% endif %} {{ p.venue_en | default: p.venue }}{% assign pl = p.place_en | default: p.place %}{% if pl %}, {{ pl }}{% endif %}, {% include date.html date=p.date %}.</li>
+{%- elsif include.kind == "international" %}
         <li>{% include authors.html list=p.authors presenter=p.presenter %}: “{% include title.html title=p.title url=p.url %},” {{ p.venue }}{% if p.place %}, {{ p.place }}{% endif %}, {% include date.html date=p.date en=true %}.</li>
 {%- elsif include.kind == "invited" %}
         <li>{% include authors.html list=p.authors %}: {% include title.html title=p.title url=p.url %}，{{ p.venue }}{% if p.place %}，{{ p.place }}{% endif %}，{% include date.html date=p.date %}.</li>

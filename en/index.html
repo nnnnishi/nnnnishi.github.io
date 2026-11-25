@@ -1,0 +1,16 @@
+---
+layout: default
+lang: en
+translation: /
+---
+{% include research.html %}
+
+    <section id="news">
+      <h2>News</h2>
+      <ul class="cv news">
+{%- for n in site.data.news limit: 5 %}
+        <li><span class="date">{% include date.html date=n.date %}</span><div>{{ n.text_en | default: n.text }}</div></li>
+{%- endfor %}
+      </ul>
+      <p class="more"><a href="{{ '/en/publications/' | relative_url }}">Publications</a> / <a href="{{ '/en/talks/' | relative_url }}">Talks</a> / <a href="{{ '/en/cv/' | relative_url }}">CV and awards</a></p>
+    </section>

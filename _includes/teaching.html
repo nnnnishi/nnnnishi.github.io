@@ -2,8 +2,14 @@
       <h2>Teaching</h2>
       <ul class="cv">
 {%- for t in site.data.teaching %}
+{%- if page.lang == "en" %}
+{%- assign org = t.org_en | default: t.org %}
+        <li><span class="date">{{ t.period_en | default: t.period }}</span><div>{{ t.role_en | default: t.role }}, {% include title.html title=org url=t.org_url %}
+          {%- for c in t.courses %}<br><span class="sub">{{ c.name_en | default: c.name }}{% for l in c.links %} <a href="{{ l.url }}" class="tag">{{ l.label | replace: "年度", "" | prepend: "AY" }}</a>{% endfor %}</span>{% endfor %}</div></li>
+{%- else %}
         <li><span class="date">{{ t.period }}</span><div>{% include title.html title=t.org url=t.org_url %} {{ t.role }}
           {%- for c in t.courses %}<br><span class="sub">{{ c.name }}{% for l in c.links %} <a href="{{ l.url }}" class="tag">{{ l.label }}</a>{% endfor %}</span>{% endfor %}</div></li>
+{%- endif %}
 {%- endfor %}
       </ul>
     </section>
