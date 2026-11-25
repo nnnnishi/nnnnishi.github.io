@@ -1,7 +1,7 @@
 # /misc/survey/pricing/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 
-updated: "2026-11-24"
+updated: "2026-11-25"
 
 intro: "過去の販売データから需要と価格の関係を推定し、その推定にもとづいて価格を決める研究の文献をまとめたページです。需要を予測してから価格を最適化する方法、学習しながら価格を変える動的価格、顧客ごとに価格を変える個別価格、推定の誤差や価格の内生性への対処を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -130,6 +130,9 @@ lineage:
   - { from: javanmard-nazerzadeh, to: luo-2024, kind: base, why: "雑音の分布を知っている設定の先行研究に挙げる", guess: true }
   - { from: shah-2019, to: fan-2024, kind: base, why: "準パラメトリックな評価額モデルの先行研究に挙げる", guess: true }
   - { from: sale-2026, to: zou-evolving-2026, kind: ext, why: "同じ著者ら", guess: true }
+  - { from: xu-wang-2021, to: xu-wang-2026, kind: ext, why: "同じ著者らの続編。雑音の分布が既知の設定から、分布を仮定せず需要曲線が非Lipschitzの設定に進む", guess: true }
+  - { from: kleinberg-leighton-2003, to: xu-wang-2026, kind: base, why: "Õ(T^{2/3}) の regret が下界に一致することを示す比較の基準にする", guess: true }
+  - { from: javanmard-nazerzadeh, to: lykouris-2025, kind: base, why: "買い手が同質な特徴量つき動的価格の先行研究に挙げる", guess: true }
 
 papers:
   # ---- 予測→最適化 ----
@@ -902,6 +905,34 @@ papers:
     data: ""
     note: "評価額の係数が時間とともに変わる環境で、購買の有無だけを観測する文脈つき動的価格のアルゴリズムを示す。動的 regret は対数因子を除いて下界に一致する"
 
+  - id: lykouris-2025
+    title: "Contextual Dynamic Pricing with Heterogeneous Buyers"
+    short: "Lykouris+ 異質な買い手"
+    authors: "T. Lykouris, S. Nietert, P. Okoroafor, C. Podimata, J. Zimmert"
+    year: 2025
+    venue: "NeurIPS 2025"
+    url: "https://papers.nips.cc/paper_files/paper/2025/hash/967980a5011d64fa5feb8825238121d0-Abstract-Conference.html"
+    code: ""
+    category: "contextual"
+    demand: "特徴量で決まる評価額。買い手のタイプは台の大きさ K* の未知の分布から引かれる"
+    method: "楽観的な事後サンプリング、分散を考慮した zooming（特徴量なしの場合）"
+    setting: "異質な買い手、購買の有無だけを観測する"
+    data: ""
+    note: "買い手の評価のタイプが未知の分布から引かれる異質な買い手の設定を定式化する。楽観的な事後サンプリングで Õ(K*√(dT)) の regret を達成し、d と T について対数因子を除いてタイトであることを示す。特徴量のない場合は、分散を考慮した zooming で K* についても最適な依存を達成する"
+  - id: xu-wang-2026
+    title: "Optimal Contextual Pricing under Agnostic Non-Lipschitz Demand"
+    short: "Xu & Wang 非Lipschitz"
+    authors: "J. Xu, Y.-X. Wang"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2605.05609"
+    code: ""
+    category: "contextual"
+    demand: "特徴量の線形の評価額＋台が有界で分布を仮定しない雑音（需要曲線にジャンプや原子があってもよい）"
+    method: "Conservative-Markdown Redirect-UCB Pricing"
+    setting: "需要曲線が非Lipschitz、購買の有無だけを観測する"
+    data: ""
+    note: "需要曲線がジャンプや原子を含む非Lipschitzでもよい弱い仮定のもとで、多項式時間のアルゴリズムで Õ(T^{2/3}) の regret を達成する。Kleinberg & Leighton (2003) の下界に対数因子を除いて一致し、同じ著者の Õ(T^{3/4}) の上界を改善する"
   # ---- 収益管理・在庫 ----
   - id: gallego-van-ryzin-1994
     title: "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons"

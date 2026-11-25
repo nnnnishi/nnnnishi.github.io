@@ -107,6 +107,7 @@ lineage:
   - { from: su-2022, to: fair-reciprocal, kind: base, why: "相互推薦を後処理の最適化として定式化した先行研究に挙げ、合成データの作り方を踏襲する" }
   - { from: fair-division, to: fair-reciprocal, kind: ext, why: "Saito & Joachims のインパクトにもとづく公平性とナッシュ社会厚生の方法を、双方向の推薦に広げる" }
   - { from: neve-palomares, to: fair-reciprocal, kind: base, why: "両側の関心の積で並べる方法（Prod）をベースラインにする" }
+  - { from: fair-reciprocal, to: tomita-nsw-2026, kind: ext, why: "同じ著者ら。NSW による公平な相互推薦に、公平性とマッチ率を調整する α-SW と Sinkhorn による近似アルゴリズムを加える", guess: true }
   - { from: su-2022, to: mode, kind: ext, why: "Su らの順位の定式化の上に組み立て、その近似の期待マッチ数を比較相手（ApproxSW）にする" }
   - { from: tomita-2023, to: mode, kind: ext, why: "同じ著者。TU マッチングによる順位に改善の余地があるとして発展させ、比較相手にする" }
   - { from: tomita-2023, to: parallel-stable, kind: ext, why: "TU マッチングの推論を引き継ぎ、全員の組をメモリに持つ必要があるという制約をミニバッチで解く" }
@@ -811,6 +812,21 @@ papers:
     eval: "オフライン"
     data: "合成データ、実データ"
     note: "推薦される機会について嫉妬のなさを定義する。期待マッチ数の最大化と機会の公平性のトレードオフを、ナッシュ社会厚生を使って扱う"
+  - id: tomita-nsw-2026
+    title: "Balancing Fairness and High Match Rates in Reciprocal Recommender Systems: A Nash Social Welfare Approach"
+    authors: "Y. Tomita, T. Yokoyama"
+    year: 2026
+    venue: "ACM TORS（掲載予定）"
+    url: "https://arxiv.org/abs/2601.13609"
+    short: "NSW による公平な相互推薦"
+    groups: [cyberagent]
+    code: ""
+    category: "fairness"
+    domain: "オンラインデート"
+    prefs: "双方が好意を示したときだけマッチ"
+    eval: "オフライン"
+    data: "合成データ、実データ2つ"
+    note: "推薦機会の配分を公平分配の問題とみなし、嫉妬のなさを定義する。マッチ数をほぼ最大化する社会厚生（SW）の方法では機会が大きく不公平になることを示し、ナッシュ社会厚生（NSW）でほぼ嫉妬のない推薦を得る。公平性とマッチ率の間を調整する α-SW と、Sinkhorn による近似アルゴリズムも示す"
   - id: linkedin-fair-ranking
     title: "Fairness-Aware Ranking in Search & Recommendation Systems with Application to LinkedIn Talent Search"
     authors: "S. C. Geyik, S. Ambler, K. Kenthapadi"
