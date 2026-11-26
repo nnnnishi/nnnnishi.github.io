@@ -3,7 +3,7 @@
 # short は「系譜」の図での呼び名（論文を足すときは必ず付ける）。図の矢印は lineage に足す。
 # preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
 
-updated: "2026-11-23"
+updated: "2026-11-26"
 
 intro: "クーポンやポイントなどのインセンティブを、予算の範囲で誰に配るかを決める問題の文献をまとめたページです。処置にコストがかかるとき、売上の増分をコストの増分で割った値（ROI）の大きい順に配る割当てが、ナップザック問題を連続緩和した問題の最適解になります。この ROI をどう推定し、どう割り当てるかを中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -118,6 +118,8 @@ lineage:
   - { from: free-lunch, to: converted-only, kind: ext, why: "同じグループ。購買者のデータだけで推定する考え方を多値処置の MCKP に広げる" }
   - { from: ipc, to: converted-only, kind: ext, why: "同じグループ。証明で IPC の論文の付録を参照する" }
   - { from: empirical-welfare-maximization, to: policy-learning-observational, kind: ext, why: "EWM を特殊な場合として含む設定（観察データ、二重頑健なスコア）に一般化する" }
+  - { from: empirical-welfare-maximization, to: dynamic-ewm, kind: ext, why: "EWM を同じ人に何段階も処置する場面へ広げる（dynamic EWM）" }
+  - { from: policy-learning-observational, to: dynamic-ewm, kind: base, why: "二重頑健な推定の出発点に挙げ、段階のある場合への拡張を補足資料で論じる" }
   - { from: uncertain-costs, to: pac-bayes-allocation, kind: ext, why: "定理 3.1 が、費用が不確実な場合の結果を一般化している" }
   - { from: rate, to: multi-armed-qini, kind: ext, why: "二値処置の Qini 曲線の中心極限定理をもとに、複数の処置へ拡張する" }
   - { from: ltr-uplift, to: ranking-metalearners, kind: ext, why: "Z-Learner での AUQC の最適化を、任意のメタラーナーに一般化する" }
@@ -909,6 +911,19 @@ papers:
     cost: ""
     data: "合成データ, Gerber らの投票の実験（Michigan 2006）"
     note: 行動ごとの二重頑健スコアをベクトルに並べて方策を学習し、多値の行動でも後悔が 1/√n の速さで減ることを示す。深さを決めた木を厳密に解く木探索も提案する
+  - title: "Estimation of optimal dynamic treatment assignment rules under policy constraints"
+    authors: "S. Sakaguchi"
+    year: 2025
+    venue: "Quantitative Economics"
+    url: "https://doi.org/10.3982/QE2288"
+    explainer: dynamic-ewm
+    short: "Sakaguchi"
+    code: ""
+    category: policy
+    treatment: 二値（段階ごと）
+    cost: 段階ごとの処置の費用。複数の段階にまたがる予算・定員の上限も扱う
+    data: "合成データ, Project STAR"
+    note: EWM を同じ人に何段階も処置する場面に広げる。最後の段階から順に解く方法と、全段階を同時に解く方法を示し、どちらも後悔が 1/√n の速さで減ることを示す。同時に解く方法には段階をまたぐ予算・定員の制約を入れ、予算の超過分の上界も導く
   # ---- オンライン・逐次 ----
   - title: "Model-based Constrained MDP for Budget Allocation in Sequential Incentive Marketing"
     authors: "S. Xiao, L. Guo, Z. Jiang et al."

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>段階のある処置ルールの経験厚生最大化（論文解説）</title>
+<meta name="description" content="Estimation of optimal dynamic treatment assignment rules under policy constraints（Quantitative Economics 2025）の非公式の解説。同じ人に何段階も処置するときのルールを、経験厚生最大化で推定する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — template v0 (to become a skill)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = backward DEWM: solve the stages one by one from the last stage (backward induction)
+            --b  (blue)   = simultaneous DEWM: maximise the sample welfare over all stages at once
+   Lang   : Japanese only (unofficial explainer of someone else's paper). data-lang="ja" is fixed;
+            it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Quantitative Economics · 2025</div>
+  <h1>Estimation of optimal dynamic treatment assignment rules under policy constraints</h1>
+  <p class="subtitle">政策上の制約のもとで、段階のある処置ルールを推定する</p>
+
+  <ul class="authors">
+    <li><b>Shosei Sakaguchi</b><span>Faculty of Economics, The University of Tokyo</span></li>
+  </ul>
+
+  <p class="lead">職業訓練を何回かに分けて受けさせる、教員補助のつくクラスに学年ごとに割り当てる、のように、同じ人に何段階も処置する政策がある。この論文は各段階でそれまでの経過（過去の処置、途中の結果、特徴量）を見て処置を決めるルールを、実験データなどから経験厚生最大化（EWM）の考え方で推定する。最後の段階から順に解く<span class="A">後ろ向き DEWM</span>と、全段階をまとめて解く<span class="B">同時 DEWM</span>を示し、どちらも厚生の損失が \(n^{-1/2}\) の速さで縮み、この速さが最適であることを示す。同時 DEWM には段階をまたぐ予算・定員の制約も入れられる。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.3982/QE2288">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2106.05031">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。2段階の処置で2段階目のルールが経過を見て決まる様子、論文の例で後ろから順に解くと厚生0.6のルールを選ぶこと、まとめて解くと厚生1.0のルールを選ぶこと、Project STAR の結果、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">\(n^{-1/2}\)</span><span class="d">傾向スコアが既知なら、2 つの方法のどちらでも厚生の損失の最悪値はこの速さで縮み、どの推定方法もこれより速くはできない（定理 3.6、3.7）。後ろ向き DEWM には、2 段階目以降の候補に最善のルールが入っているという仮定がいる。</span></li>
+    <li><span class="k">8.86 と 8.80</span><span class="d">Project STAR で、後ろ向き DEWM と同時 DEWM のルールの厚生の増分（1 年生の算数の点数。教員補助の費用を点数に換算して差し引いた値）。全員に同じ処置をするルールでは最大 3.94 だった（Table 2）。</span></li>
+    <li><span class="k">予算の超過も \(1/\sqrt{n}\)</span><span class="d">段階をまたぐ予算・定員の制約を標本の上で課すと、調整パラメータ \(\alpha_n\) を適切に選んだとき、厚生の損失と予算の超過分が高い確率でともに \(1/\sqrt{n}\) の速さで小さくなる（定理 4.1）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>何段階も処置する政策では、各段階の処置をそれまでの経過で決めたい</h2>
+    <p>職業訓練を何回かに分けて受けられる制度、一定期間のあとに給付を下げる失業保険、続けて行う治療や教育のプログラムなど、処置を時間をかけて何度も行う政策は多い。各段階の処置の効果は過去の処置、途中の結果、個人の特徴によって異なる。そのため、各段階で誰に処置するかは、その時点までに分かっている情報で決めるのがよい。論文はこの段階ごとのルールの組を、統計学の用語に合わせて動的処置レジーム（DTR）と呼ぶ。</p>
+    <p>DTR の推定は生物統計学で多く研究されており、G-estimation や Q-learning が代表的である。これらは潜在的な結果のモデルを当てはめるので、モデルが誤っていると推定も誤るおそれがある。Zhao ら（2015）は分類の手法（重みつきのサポートベクターマシン）で DTR を推定したが、ルールの形に外から課す制約は扱えない。公共政策では、説明しやすさや公平性のためにルールの形を限ることが多い。論文は静的な場合の EWM（Kitagawa and Tetenov 2018）を段階のある場合に広げ、候補のルールの集合を先に決めてその中で厚生を最大にする方法として、dynamic EWM（DEWM）を提案する。</p>
+  </section>
+
+  <section id="setup">
+    <div class="kicker">問題設定</div>
+    <h2>目標は、段階ごとのルールの組の中で、重みつきの結果の平均が最大になるものを選ぶこと</h2>
+    <p>処置は \(T\) 段階あり、段階 \(t\) の処置を \(D_t \in \{0,1\}\)、段階の終わりに観測する結果を \(Y_t\)、処置の前に観測する特徴量を \(X_t\) と書く。段階 \(t\) で使える情報（履歴）は \(H_t = (D_1,\dots,D_{t-1},\, Y_1,\dots,Y_{t-1},\, X_1,\dots,X_t)\) である。DTR は段階ごとのルール \(g_t : H_t \mapsto \{0,1\}\) の組 \(g = (g_1,\dots,g_T)\) で、その厚生は次のとおり定義する。</p>
+    <div class="eq">\[ W(g) = \sum_{t=1}^{T} \gamma_t\, \mathbb{E}\big[\tilde Y_t(g)\big] = \sum_{t=1}^{T} \mathbb{E}\!\left[ \frac{\prod_{s=1}^{t} \mathbf{1}\{D_s = g_s(H_s)\}}{\prod_{s=1}^{t} e_s(D_s, H_s)}\, \gamma_t Y_t \right] \]</div>
+    <p>\(\tilde Y_t(g)\) は、段階 \(t\) までの処置をルール \(g\) に従って決めたときの段階 \(t\) の潜在的な結果、\(\gamma_t \in [0,1]\) は政策担当者が決める重みである。最後の段階の結果だけを見るなら \(\gamma_T = 1\)、ほかを 0 にする。右辺は各段階の傾向スコア \(e_s\) を使って厚生を観測できる量だけで書いたもので、データの処置の履歴がルールと一致した人だけを、傾向スコアの積の逆数で重みづけて数える。</p>
+    <p>仮定は 4 つある。</p>
+    <ul class="def">
+      <li>逐次の無交絡：各段階の処置は、履歴を条件とすれば、現在と将来の潜在的な結果や将来の特徴量と独立である。段階ごとに無作為化した実験なら満たされる。</li>
+      <li>結果が有界：\(Y_t \in [-M_t/2,\, M_t/2]\)。</li>
+      <li>重なり：候補のどれかのルールが選びうる処置については、傾向スコアが \(\kappa_t\) 以上である。</li>
+      <li>候補の集合 \(\mathcal{G} = \mathcal{G}_1 \times \dots \times \mathcal{G}_T\) の各段階の VC 次元 \(v_t\) が有限である。</li>
+    </ul>
+    <p>候補の例として、論文は線形のルールと決定木のルールを挙げる。段階の間の関係を制約に書けば、いつ処置を始めるか（一度始めたらやめない）、いつやめるか、一度だけの処置をいつ行うか、といった問題も同じ枠組みで扱える（例 2.1、2.2）。</p>
+  </section>
+
+  <section id="backward">
+    <div class="kicker">手法 1：後ろ向き DEWM</div>
+    <h2><span class="A">後ろ向き DEWM</span> は最後の段階から順に解くので速いが、候補に最善のルールがないと最適なルールを外すことがある</h2>
+    <p>後ろ向き DEWM は動的計画法の後ろ向き帰納法にならい、まず最後の段階 \(T\) のルールを、逆確率重みで書いた標本の厚生が最大になるように選ぶ。次に段階 \(T-1\) のルールを、段階 \(T\) では選んだルールに従うとして選び、これを最初の段階まで繰り返す（式 (6)）。1 段階ずつ解くので計算は軽い。</p>
+    <p>ただし、この方法が最適な DTR に近づくには、2 段階目以降の候補 \(\mathcal{G}_t\) に、どの履歴に対しても最善の処置を選ぶルール（first-best のルール）が入っている必要がある（仮定 3.1）。ある段階のルールを選ぶとき、それより前の段階の処置はデータでの割当てのままになっている。候補に最善のルールがないと、このデータでの割当てに合わせたルールが選ばれ、前の段階で最適なルールを使ったときに合うルールとはずれる。論文はこれを次の例で示す（Remark 3.1）。</p>
+    <ul class="def">
+      <li>2 段階で、最後の結果の平均は \(\mathbb{E}[Y_2(1,1)] = 1.0\)、\(\mathbb{E}[Y_2(1,0)] = 0.5\)、\(\mathbb{E}[Y_2(0,1)] = 0.0\)、\(\mathbb{E}[Y_2(0,0)] = 0.6\)。データでは \(D_1, D_2\) を独立に確率 1/2 で割り当てている。</li>
+      <li>候補は各段階とも「全員に処置する」か「誰にも処置しない」かの 2 つだけ。2 段階目の最善のルールは \(g_2 = D_1\)（1 段階目と同じ処置）で、候補に入っていない。</li>
+      <li>候補の中で最適なのは両段階とも処置する \((1,1)\) で、厚生は 1.0。後ろ向きに解くと \((0,0)\) が選ばれ、厚生は 0.6 にとどまる。</li>
+    </ul>
+    <p>下の図で \(\mathbb{E}[Y_2(0,1)]\) の値を変えると、後ろ向きの解が変わる様子を確かめられる。論文はこの値を 0.4 にすると後ろ向きの解も \((1,1)\) になることを述べ、最善のルールが候補にないからといって、必ず最適なルールを外すわけではないとしている。</p>
+    <div class="lab" id="lab">
+      <div class="ctrl">
+        <label>
+          <span class="row"><span>\(\mathbb{E}[Y_2(0,1)]\)</span><output id="labv">0.00</output></span>
+          <input type="range" id="labx" min="0" max="0.8" step="0.05" value="0">
+        </label>
+        <p class="note" style="grid-column:auto">ほかの 3 つの値と、\(D_1, D_2\) が独立に確率 1/2 という設定は論文の例のまま。各段階の比較の値は、例の設定から解説者が計算したもの。</p>
+      </div>
+      <div id="labout" style="display:flex;flex-direction:column;gap:0.55rem;font-size:0.95rem"></div>
+    </div>
+  </section>
+
+  <section id="simultaneous">
+    <div class="kicker">手法 2：同時 DEWM</div>
+    <h2><span class="B">同時 DEWM</span> は全段階のルールをまとめて選ぶので、候補に最善のルールがなくても最適なルールに近づく</h2>
+    <p>同時 DEWM は上の厚生の式の期待値を標本平均に置き換え、全段階のルールの組 \(g \in \mathcal{G}\) の上で一度に最大化する。</p>
+    <div class="eq">\[ \hat g^{S} \in \arg\max_{g \in \mathcal{G}} \; \sum_{t=1}^{T} \frac{1}{n} \sum_{i=1}^{n} \frac{\prod_{s=1}^{t} \mathbf{1}\{D_{is} = g_s(H_{is})\}}{\prod_{s=1}^{t} e_s(D_{is}, H_{is})}\, \gamma_t Y_{it} \]</div>
+    <p>仮定 3.1 がなくても、候補の中で最適な DTR に近づく（定理 3.6）。そのかわり、全段階を同時に探すので計算は重い。どちらの方法も、候補が線形のルールなら混合整数線形計画（MILP）として解ける（Remark 3.2、補足資料 H）。標本では結果に定数を足すと選ばれるルールが変わりうるので、EWM と同じく、結果から標本平均を引いてから最大化することを勧めている（Remark 3.8）。</p>
+    <p>Q-learning も後ろ向き帰納法にもとづくが、各段階の結果の条件付き期待値（Q 関数）を回帰で推定するので、そのモデルが正しくないと、実験データでも最適な DTR に近づかない（Remark 3.3）。DEWM は Q 関数のモデルを使わず、傾向スコアを使う。ほかに、ジニ係数にもとづく社会厚生のような非線形の厚生（補足資料 C）や、各段階の処置が 3 つ以上ある場合（補足資料 D）への拡張も示されている。</p>
+  </section>
+
+  <section id="theory">
+    <div class="kicker">理論</div>
+    <h2>傾向スコアが既知なら、どちらの方法でも厚生の損失は \(n^{-1/2}\) の速さで縮み、どの方法もこれより速くはできない</h2>
+    <p>推定した DTR の良さは候補の中で達成できる最大の厚生 \(W^*_{\mathcal{G}}\) からの損失（regret）で測る。同時 DEWM の損失の最悪値には、次の上界が成り立つ（定理 3.6 (i)、\(C\) は普遍定数）。</p>
+    <div class="eq">\[ \sup_{P}\, \mathbb{E}\big[W^*_{\mathcal{G}} - W(\hat g^{S})\big] \le C \sum_{t=1}^{T} \frac{\gamma_t M_t}{\prod_{s=1}^{t} \kappa_s} \sqrt{\frac{\sum_{s=1}^{t} v_s}{n}} \]</div>
+    <p>後ろ向き DEWM の上界は、仮定 3.1 のもとで、これに 1 段階ずつ推定することによる項が加わった形になり、同時 DEWM の上界より大きい（定理 3.6 (ii)）。論文はどちらの上界も厳密な値とは限らないと注意している。一方、どの推定方法についても、\(n \ge 16\, v_{1:T}\) のとき損失の最悪値は \(\tfrac{1}{2} e^{-4} \max_t \gamma_t M_t \sqrt{v_{1:t}/n}\) 以上になる（定理 3.7）。上界と下界の速さが \(n\) について一致するので、2 つの方法はミニマックスの意味で収束率が最適である。論文の脚注は、DTR の推定でこの最適性を示したのは著者の知る限りこの論文が初めてだとしている。</p>
+    <p>上界は各段階の VC 次元の和とともに増え、候補を複雑にするほど過適合しやすくなることを表している。また、重なりの下限 \(\kappa_s\) が段階の数だけ掛け合わされて分母に入るので、段階が多いほど、データの処置の履歴がルールと一致する人が減り、上界は大きくなる（解説者の注）。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算・定員の制約</div>
+    <h2>段階をまたぐ予算・定員の制約は、標本の上で少しゆるめて課し、厚生の損失と予算の超過を同時に抑える</h2>
+    <p>段階ごとの処置に費用がかかり、予算が複数の段階にまたがるとき、どの段階に資源を回すかも決める必要がある。論文は処置を受ける人の割合に対する \(B\) 本の制約を次の形で書く（式 (10)）。</p>
+    <div class="eq">\[ \sum_{t=1}^{T} K_{tb}\, \mathbb{E}\big[g_t(\tilde H_t)\big] \le C_b, \qquad b = 1,\dots,B,\qquad \sum_{t=1}^{T} K_{tb} = 1 \]</div>
+    <p>\(\tilde H_t\) はそれより前の段階をルール \(g\) に従って決めたときの履歴、\(K_{tb}\) は段階ごとの処置の相対的な費用、\(C_b\) は予算または定員の総量である。2 つ以上の段階で \(K_{tb}\) が 0 でなければ、段階をまたぐ制約になる。2 段階の職業訓練なら、\(K_{11}\) と \(K_{21}\) が各段階の訓練の費用、\(C_1\) が制度全体の予算に当たる。</p>
+    <p>同時 DEWM ではこの制約の期待値を標本平均に置き換え、右辺を \(C_b + \alpha_n\) にして課す（式 (13)）。\(\alpha_n\) は正でも負でもよく、標本が大きくなると 0 に近づく調整パラメータである。\(\alpha_n = 0\) にすると、標本が大きくても、母集団で最適な DTR が標本の制約から外れることが無視できない確率で起こる。後ろ向き DEWM は、制約があると最善のルールが候補に入りにくいので扱わない（脚注 24）。</p>
+    <p>定理 4.1 は確率 \(1-\delta\) 以上で成り立つ、厚生の損失と予算の超過分の有限標本の上界を示す。\(\alpha_n = O(1/\sqrt{n})\) かつ \(\alpha_n \le \sqrt{\log(6B/\delta)/(2n)}\) と選べば、どちらも \(1/\sqrt{n}\) の速さで小さくなる。\(\alpha_n\) を小さくすると予算は厳しく守られるが厚生は下がり、大きくするとその逆になる。論文は予算の超過を確率 \(1-\delta\) で \(\varepsilon\) 以下にする \(\alpha_n\) を定理 4.1 から決める方法と、交差検証で選ぶ方法を挙げている。</p>
+  </section>
+
+  <section id="observational">
+    <div class="kicker">観察データ</div>
+    <h2>傾向スコアを推定するときは、損失の縮む速さが傾向スコアの推定の精度で決まる</h2>
+    <p>観察データでは傾向スコアが分からないので、推定した値を重みに使う（Kitagawa and Tetenov 2018 の e-hybrid にならう）。損失の上界には傾向スコアの推定誤差の項が加わり（定理 5.1）、傾向スコアのモデルが正しくパラメトリックに推定できれば、\(n^{-1/2}\) の速さが保たれる。</p>
+    <p>傾向スコアのモデルが誤っていると、逆確率重みの方法は最適な DTR に近づかない。そこで論文は静的な場合の Athey and Wager（2021）や Zhou ら（2023）の二重頑健な方法を同時 DEWM に広げる方法を補足資料 E で示している（Remark 5.2）。傾向スコアと Q 関数を組み合わせ、交差適合（cross-fitting）を使い、どちらかが正しく推定できれば最適な DTR に近づく。ただし Q 関数は将来の段階のルールによって変わるので、候補のルールの組ごとに推定し直す必要があり、候補が十分小さくないと計算が難しい。</p>
+  </section>
+
+  <section id="simulation">
+    <div class="kicker">シミュレーション</div>
+    <h2>結果のモデルが正しければ Q-learning がよく、誤っていれば DEWM が上回り、最善のルールが候補にないときは同時 DEWM が後ろ向き DEWM を上回った</h2>
+    <p>2 段階で、特徴量 \(X_1\) が 1 つ、処置 \(D_1, D_2\) を独立に確率 1/2 で割り当てるデータを、3 通りの設定（DGP 1〜3）で作る。最大にする厚生は最後の結果の平均 \(\mathbb{E}[Y_2]\) である。DEWM の候補は、1 段階目が \((1, X_1)\) の線形のルール、2 段階目が \((1, D_1, Y_1)\) の線形のルールで、MILP で解く。</p>
+    <ul class="def">
+      <li>DGP 1 と 2 では、2 段階目の候補に最善のルールが入っており、Q-learning の回帰式も正しい。</li>
+      <li>DGP 3 では、2 段階目の効果が \(Y_1\) の 3 次式で変わり、2 段階目の候補に最善のルールが入っておらず、Q-learning の回帰式も誤っている。</li>
+    </ul>
+    <p>500 回の試行で、推定した DTR の厚生を同じ設定から取った 3,000 件で測った（Table 1）。DGP 1 と 2 では Q-learning の平均厚生が最も高く、2 つの DEWM はほぼ同じだった。DGP 3 では 2 つの DEWM が Q-learning を上回り、同時 DEWM が後ろ向き DEWM を上回った。計算時間は同時 DEWM が最も長く、DGP 1 の \(n = 800\) では 1 回あたり平均 97.34 秒（後ろ向き DEWM は 14.49 秒、Q-learning は 0.01 秒）だったが、論文はこの規模なら実行できるとしている。</p>
+    <figure>
+      <svg class="fig" id="fig-sim" viewBox="0 0 640 330" role="img" aria-label="論文 Table 1 の平均厚生を、DGP 1 から 3 ごとに標本の大きさ 200、500、800 に対して描いた折れ線。DGP 1 と 2 では Q-learning が最も高く、DGP 3 では同時 DEWM が最も高い。"></svg>
+      <figcaption>図1　推定した DTR の平均厚生（論文 Table 1 の Mean の値から解説者が作図。縦軸の範囲は DGP ごとに違う）。<span class="A">■</span> 後ろ向き DEWM、<span class="B">■</span> 同時 DEWM、灰色は Q-learning。DGP 3 では DEWM の平均厚生が \(n\) とともに下がっているが、論文本文はこの点に触れていない（解説者の注）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="star">
+    <div class="kicker">実データ</div>
+    <h2>Project STAR では、2 つの DEWM のルールが、全員に同じ処置をするどのルールよりも高い厚生を示した</h2>
+    <p>Project STAR は児童をクラスの種類に無作為に割り当てた実験である。論文は Krueger（1999）の再現用データを使い、少人数クラスでない幼稚園児 1,346 人を対象にする（うち 672 人が常勤の教員補助のいる通常クラスに割り当てられた）。1 年生に上がるときにも、教員補助のいるクラスといないクラスに無作為に振り分け直されている。段階 1 を幼稚園、段階 2 を 1 年生とし、教員補助のいるクラスに入ることを処置、各学年の終わりの算数のテストの点数を結果とする。最大にするのは 1 年生の終わりの点数の平均である。</p>
+    <p>教員補助には費用がかかるので、論文は Krueger（1999）の議論にならって 1 人あたりの費用を点数に換算し（幼稚園 0.782 点、1 年生 0.806 点）、結果から差し引く。ルールに使う特徴量は給食費の免除・減額の対象かどうかと、学校が農村部にあるかどうかである。性別や人種は差別にあたるので使わない。候補は線形のルールで、給食の項の係数を 0 以上に制約し、ほかの条件が同じなら免除・減額の対象の児童が教員補助のいるクラスに入りにくくならないようにしている。2 段階目のルールには幼稚園の点数を、幼稚園で教員補助がいたかどうかで分けた 2 つの項として入れる。標本の 3 分の 1 でルールを推定し、残りで厚生の増分と処置率を推定した。</p>
+    <ul class="def">
+      <li><span class="A">後ろ向き DEWM</span>：幼稚園では全員を教員補助のいるクラスに入れ、1 年生では農村部かどうかと幼稚園の点数で決める。</li>
+      <li><span class="B">同時 DEWM</span>：幼稚園では農村部の児童だけを入れ、1 年生では幼稚園の点数で決める。</li>
+    </ul>
+    <p>どちらのルールでも、幼稚園で教員補助のいるクラスにいて点数の高かった児童ほど、1 年生でも教員補助のいるクラスに入りやすい。厚生の増分（全員を教員補助のないクラスに入れた場合との差）は 8.86 と 8.80 で、全員に同じ処置をする 3 つのルールのどれよりも高かった（Table 2。標本での \(Y_2(0,0)\) の標準偏差は 39.65）。2 つの方法の差が小さいのは、2 段階目の候補に最善のルールが入っているためかもしれないと論文は述べる。</p>
+    <p>次に、いつから教員補助のいるクラスに入れるか（一度入れたら外さない）という問題を解いた（Table 3）。この制約のもとでは、同時 DEWM の厚生の増分は 5.56 で、全員一律のルールを上回った。後ろ向き DEWM は 1.79 にとどまり、論文は、制約のために 2 段階目の候補に最善のルールが入らなくなったためかもしれないとしている。</p>
+    <figure>
+      <svg class="fig" id="fig-star" viewBox="0 0 640 400" role="img" aria-label="論文 Table 2 と Table 3 の厚生の増分の横棒グラフ。制約なしでは後ろ向き DEWM 8.86、同時 DEWM 8.80、一律のルールは 3.94、2.59、0.80。開始時期の問題では同時 DEWM 5.56、後ろ向き DEWM 1.79、一律のルールは 3.94 と 0.80。"></svg>
+      <figcaption>図2　厚生の増分の推定値と、段階ごとの処置率（論文 Table 2、Table 3 の数値から解説者が作図）。\((g_1, g_2) = (1, 0)\) は、幼稚園では全員を、1 年生では誰も教員補助のいるクラスに入れない一律のルール。</figcaption>
+    </figure>
+    <p class="src">このページの数値は Quantitative Economics 掲載版（16 巻、981–1022 ページ、CC BY-NC 4.0）の本文と Table 1〜3 による。証明の一部と拡張、追加のシミュレーション、費用の換算の詳細がある補足資料（Supplemental Appendix）は読んでいない。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>予算を段階にどう配るかまで含めて、処置ルールを候補の中での厚生最大化で決める</h2>
+    <p>この論文が推定するのは効果の大きさではなく、段階ごとの処置ルールの組である。処置は各段階で二値で、費用は二通りの形で入る。Project STAR の分析のように 1 人あたりの費用を結果から差し引く形と、段階ごとの相対的な費用 \(K_{tb}\) をつけた処置の割合に予算・定員の上限を課す形（第 4 節）である。実データの分析では、予算の上限は課していない。</p>
+    <p>同じ方策学習の系統の EWM（Kitagawa and Tetenov 2018）は、段階が 1 つ（\(T = 1\)）の場合に当たり、処置割合の上限も同じく割合の形で扱っていた（解説者の注）。この論文の新しさは同じ人に何段階も処置することと、予算が段階をまたぐことにある。どの段階で誰に処置するかは ROI の順位で決まるのではなく、候補のルールの中で、制約を満たしつつ厚生が最大のものとして決まる。人ごとに費用が違う場合の総額の上限は扱っていない。</p>
+    <p>時間を追って配る点はオンライン・逐次の系統の研究と似ているが、論文は自分の枠組みがバンディット問題と違うことを強調している。バンディットでは別々の人が別々の時点で処置を受け、配りながら効果を探るのに対し、この論文では同じ人が段階を進み、効果は割り当てる前に手元のデータから推定する。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{sakaguchi2025estimation,
+  title   = {Estimation of optimal dynamic treatment assignment rules under policy constraints},
+  author  = {Sakaguchi, Shosei},
+  journal = {Quantitative Economics},
+  volume  = {16},
+  number  = {3},
+  pages   = {981--1022},
+  year    = {2025},
+  doi     = {10.3982/QE2288}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+function renderMath(el) {
+  renderMathInElement(el, {
+    delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+    throwOnError: false
+  });
+}
+renderMath(document.body);
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(parent, tag, a, txt) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; parent.appendChild(e); return e; }
+
+// ---------- lab: Remark 3.1, backward induction vs the best constant DTR ----------
+(function () {
+  var inp = document.getElementById('labx'), out = document.getElementById('labout'), v = document.getElementById('labv');
+  if (!inp) return;
+  var Y11 = 1.0, Y10 = 0.5, Y00 = 0.6;
+  function f(x) { return x.toFixed(2); }
+  function upd() {
+    var x = +inp.value; v.textContent = f(x);
+    // step 1: choose g2 with D1 as in the data (Ber 1/2)
+    var a1 = (Y11 + x) / 2, a0 = (Y10 + Y00) / 2, g2 = a1 > a0 + 1e-9 ? 1 : 0;
+    // step 2: choose g1 given g2
+    var b1 = g2 ? Y11 : Y10, b0 = g2 ? x : Y00, g1 = b1 > b0 + 1e-9 ? 1 : 0;
+    var wB = [[Y00, x], [Y10, Y11]][g1][g2];
+    var cand = [[1, 1, Y11], [1, 0, Y10], [0, 1, x], [0, 0, Y00]], best = cand[0];
+    cand.forEach(function (c) { if (c[2] > best[2] + 1e-9) best = c; });
+    var tie = Math.abs(a1 - a0) < 1e-9 ? '（同点。ここでは処置しないほうを選んだ）' : '';
+    out.innerHTML =
+      '<div><b>① 2 段階目を先に決める</b>（1 段階目はデータのとおり半々）<br>全員処置：(1.0 + ' + f(x) + ') / 2 = ' + f(a1) + '、誰も処置しない：(0.5 + 0.6) / 2 = ' + f(a0) + ' → <b class="A">' + (g2 ? '全員処置' : '誰も処置しない') + '</b>' + tie + '</div>' +
+      '<div><b>② 1 段階目を決める</b>（2 段階目は ① のルール）<br>全員処置：' + f(b1) + '、誰も処置しない：' + f(b0) + ' → <b class="A">' + (g1 ? '全員処置' : '誰も処置しない') + '</b></div>' +
+      '<div>後ろ向きの解 <b class="A">(' + g1 + ', ' + g2 + ')</b>、厚生 ' + f(wB) + '　／　同時に解いた解 <b class="B">(' + best[0] + ', ' + best[1] + ')</b>、厚生 ' + f(best[2]) + '</div>' +
+      '<div style="color:var(--muted)">' + (g1 === best[0] && g2 === best[1] ? '後ろ向きの解が最適な解と一致した。' : '後ろ向きの解は、候補の中の最適な解を外している。') + '</div>';
+  }
+  inp.addEventListener('input', upd); upd();
+})();
+
+// ---------- figure 1: Table 1 of the paper (mean welfare) ----------
+(function () {
+  var svg = document.getElementById('fig-sim'); if (!svg) return;
+  var N = [200, 500, 800];
+  var D = [
+    { name: 'DGP 1', lo: 1.9, hi: 2.35, q: [2.27, 2.28, 2.28], b: [2.05, 2.18, 2.21], s: [1.99, 2.15, 2.21] },
+    { name: 'DGP 2', lo: 3.4, hi: 4.05, q: [3.97, 3.98, 3.98], b: [3.52, 3.72, 3.80], s: [3.50, 3.72, 3.78] },
+    { name: 'DGP 3', lo: 1.55, hi: 1.95, q: [1.64, 1.62, 1.62], b: [1.77, 1.74, 1.63], s: [1.86, 1.85, 1.73] }
+  ];
+  var W = 170, GAP = 36, X0 = 54, T = 46, Hh = 210;
+  D.forEach(function (d, j) {
+    var x0 = X0 + j * (W + GAP);
+    function px(k) { return x0 + 14 + k * (W - 28) / 2; }
+    function py(v) { return T + Hh - (v - d.lo) / (d.hi - d.lo) * Hh; }
+    mk(svg, 'text', { x: x0 + W / 2, y: 26, 'font-size': 15, 'font-weight': 600, fill: '#16202E', 'text-anchor': 'middle' }, d.name);
+    mk(svg, 'line', { x1: x0, x2: x0 + W, y1: T + Hh, y2: T + Hh, stroke: '#16202E' });
+    mk(svg, 'line', { x1: x0, x2: x0, y1: T, y2: T + Hh, stroke: '#16202E' });
+    [d.lo, d.hi].forEach(function (v) { mk(svg, 'text', { x: x0 - 6, y: py(v) + 5, 'font-size': 12, fill: '#5B6676', 'text-anchor': 'end' }, v.toFixed(2)); });
+    N.forEach(function (n, k) { mk(svg, 'text', { x: px(k), y: T + Hh + 20, 'font-size': 12, fill: '#5B6676', 'text-anchor': 'middle' }, n); });
+    [['q', '#9AA4B2'], ['b', '#C2410C'], ['s', '#1D4ED8']].forEach(function (s) {
+      var pts = d[s[0]].map(function (v, k) { return px(k).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ');
+      mk(svg, 'polyline', { points: pts, fill: 'none', stroke: s[1], 'stroke-width': 2.5 });
+      d[s[0]].forEach(function (v, k) { mk(svg, 'circle', { cx: px(k), cy: py(v), r: 4, fill: s[1] }); });
+    });
+  });
+  mk(svg, 'text', { x: 320, y: 312, 'font-size': 14, fill: '#16202E', 'text-anchor': 'middle' }, '標本の大きさ n（縦軸は平均厚生）');
+})();
+
+// ---------- figure 2: Tables 2 and 3 of the paper ----------
+(function () {
+  var svg = document.getElementById('fig-star'); if (!svg) return;
+  var groups = [
+    ['制約なし（Table 2）', [
+      ['一律 (1, 1)', 'g', '1 / 1', 0.80], ['一律 (1, 0)', 'g', '1 / 0', 2.59], ['一律 (0, 1)', 'g', '0 / 1', 3.94],
+      ['後ろ向き DEWM', 'a', '1.0 / 0.51', 8.86], ['同時 DEWM', 'b', '0.63 / 0.76', 8.80]]],
+    ['開始時期の問題（Table 3）', [
+      ['一律 (1, 1)', 'g', '1 / 1', 0.80], ['一律 (0, 1)', 'g', '0 / 1', 3.94],
+      ['後ろ向き DEWM', 'a', '0.0 / 0.51', 1.79], ['同時 DEWM', 'b', '0.63 / 1.0', 5.56]]]
+  ];
+  var col = { g: '#CBD2DC', a: '#C2410C', b: '#1D4ED8' };
+  var L = 150, SC = 300 / 10, y = 30;
+  groups.forEach(function (gr) {
+    mk(svg, 'text', { x: 16, y: y, 'font-size': 14, 'font-weight': 600, fill: '#16202E' }, gr[0]);
+    y += 22;
+    gr[1].forEach(function (r) {
+      mk(svg, 'text', { x: L - 10, y: y + 5, 'font-size': 13, fill: '#16202E', 'text-anchor': 'end' }, r[0]);
+      mk(svg, 'rect', { x: L, y: y - 9, width: r[3] * SC, height: 18, rx: 3, fill: col[r[1]] });
+      mk(svg, 'text', { x: L + r[3] * SC + 6, y: y + 5, 'font-size': 13, fill: '#16202E' }, r[3].toFixed(2) + '（処置率 ' + r[2] + '）');
+      y += 30;
+    });
+    y += 18;
+  });
+  mk(svg, 'line', { x1: L, x2: L, y1: 40, y2: y - 30, stroke: '#16202E' });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
