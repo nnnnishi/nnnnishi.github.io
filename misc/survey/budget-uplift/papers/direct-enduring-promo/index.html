@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直接効果と持続効果の予測にもとづく個別化プロモーションの意思決定（論文解説）</title>
+<meta name="description" content="Personalized Promotion Decision Making Based on Direct and Enduring Effect Predictions（KDD 2022 Workshop / arXiv:2207.14798）の非公式の解説。期間中の購入確率と期間後の購入金額を 1 つのニューラルネットで同時に予測し、予算内でクーポンを割り当てる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — Japanese-only template
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = direct-only focus (purchase propensity during the promotion only),
+                         post-promotion dip, and comparison baselines (Two-Model, Two-Stage, ZILN, Direct model)
+            --b  (blue)   = proposed CDEE model, enduring purchase amount prediction, layered hybrid loss,
+                         and CDEE results
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-ja); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.3rem/1.15 var(--font-ja); }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-ja); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 24em; }
+h2, .lead, .subtitle, .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 48rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; font-family: var(--font-ja); }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予算制約つきアップリフトモデリング 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD 2022 Workshop · arXiv:2207.14798</div>
+  <h1>Personalized Promotion Decision Making Based on Direct and Enduring Effect Predictions</h1>
+  <p class="subtitle">直接効果と持続効果の予測にもとづく個別化プロモーションの意思決定</p>
+
+  <ul class="authors">
+    <li><b>Jie Yang</b><span>Mercari, Inc., Tokyo, Japan</span></li>
+    <li><b>Yilin Li</b><span>Mercari, Inc., Tokyo, Japan</span></li>
+    <li><b>Deddy Jobson</b><span>Mercari, Inc., Tokyo, Japan</span></li>
+  </ul>
+
+  <p class="lead">EC マーケットプレイスで複数のクーポンから顧客ごとに 1 つを選んで配るとき、多くの既存手法は<span class="A">期間中の購入確率（直接効果）</span>だけを予測して最適化している。しかし購入額の個人差や施策後の反動減を見落とすと、持続的な効果や顧客の定着につながりにくい。この論文は期間中の購入確率と<span class="B">期間中・期間後の購入金額（持続効果）</span>を 1 つのニューラルネットで同時に予測する CDEE モデルと、予算制約つきの割当ておよび RCT による評価の枠組みを提案する。メルカリの 2 つのクーポン施策では、予測指標と 4 週間の増分購入金額の両面で比較手法を上回った。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2207.14798">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。期間中の購入確率だけを見る従来手法、施策後の反動減と購入金額の歪み、直接効果と持続効果を階層的に学ぶ CDEE モデル、メルカリの春・冬 RCT での正規化ジニ係数の比較、タイトルの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">COEFF 0.4822 / 0.4924</span><span class="d">メルカリの春（約 65 万人）・冬（約 60 万人）の RCT で、4 週間購入金額の正規化ジニ係数（COEFF）が比較手法の中で最も高かった（Table 2）。</span></li>
+    <li><span class="k">3 課題の階層型 DNN</span><span class="d">1 つのネットワークで直接購入確率、持続購入有無、持続購入金額を順に予測する。金額の回帰には Tweedie 損失を使い、ゼロ過剰と歪みに対処する。</span></li>
+    <li><span class="k">直接効果のみでは持続効果が低い</span><span class="d">5 日間の直接効果だけで学習した Direct model に比べ、4 週間の持続効果を学ぶ CDEE は同じ費用でより高い増分購入金額を得た（Sec. 5.3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>期間中の購入確率だけを見ると購入額の差と施策後の反動減を見落とす</h2>
+    <p>メルカリのような C2C マーケットプレイスでは、割引やポイント還元など複数種類のクーポンを用意して、顧客ごとに適したインセンティブを配る施策が広く使われている。既存の個別化プロモーション研究（Shen ら 2021、Li ら 2020、Albert ら 2021）は、期間中の購入確率やその条件付き平均処置効果（CATE）を予測し、それを最大化する枠組みが中心だった。</p>
+    <p>しかし、この<span class="A">期間中の購入確率だけを見る方針</span>には 2 つの限界があると論文は指摘する。1 つ目は購入に至った顧客のあいだでも売上への貢献が大きく異なる点である。論文はパレートの法則に触れ、売上最大化を狙う施策では購入確率だけでなく購入金額も意思決定に含めるべきだと述べている。2 つ目はクーポンによる購入が一回限りにとどまったり、購入の前倒しや買いだめを招いたりして、施策後に購入が落ち込む<span class="A">反動減（post-promotion dip）</span>が起きやすい点である。</p>
+    <p>そこで論文はクーポン有効期間中の反応を<strong>直接効果（direct response）</strong>、有効期間中から終了後までを含めた一定期間の反応を<span class="B">持続効果（enduring response）</span>と定義し、両者を組み込んだ意思決定の枠組みを提案する。持続期間の長さは施策の設計に応じて 4 週間、8 週間、あるいは 1 四半期とする。1 年のような極端に長い期間をとらないのは、単一の施策だけではそこまでの長期効果が見込めず、後続の施策の影響も重なるためである。</p>
+  </section>
+
+  <section id="framework">
+    <div class="kicker">定式化</div>
+    <h2>期間中の購入確率で費用を見積もり予算内で持続期間の購入金額の合計を最大にする</h2>
+    <p>提案する枠組みは（1）顧客の直接効果と持続効果の予測、（2）予測値を使ったクーポン割当ての最適化、（3）RCT データにもとづく事業指標の評価の 3 段階からなる。</p>
+    <p>クーポンなし（対照）を含むインセンティブの種類を集合 \(M\)、対象顧客を集合 \(N\) とする。顧客 \(i\) とインセンティブ \(j\) の特徴量ベクトルを \(\boldsymbol{x}_{ij}\) とし、予測モデルから期間中の購入確率 \(f^\dagger(\boldsymbol{x}_{ij})\) と持続期間の購入金額 \(f^\ddagger(\boldsymbol{x}_{ij})\) を得る。インセンティブ \(j\) が購入時に発生させる費用を \(c_j\) とすると、顧客 1 人あたりの期待費用は \(c_j f^\dagger(\boldsymbol{x}_{ij})\) と見積もれる。総予算 \(B\) の範囲で持続期間の購入金額の合計を最大にする割当ては、決定変数 \(z_{ij} \in \{0,1\}\) を用いて次のように定式化される（論文 Eq. 1）。</p>
+    <div class="eq">\[ \begin{aligned} \text{maximize} \quad & \sum_{(i,j)\in N\times M} \color{#1D4ED8}{f^\ddagger(\boldsymbol{x}_{ij})}\,z_{ij} \\ \text{subject to} \quad & \sum_{(i,j)\in N\times M} c_j\,\color{#C2410C}{f^\dagger(\boldsymbol{x}_{ij})}\,z_{ij} \le B, \\ & \sum_{j\in M} z_{ij} = 1 \quad (i\in N), \qquad z_{ij}\in\{0,1\} \quad ((i,j)\in N\times M) \end{aligned} \]</div>
+    <p>各顧客には必ず 1 種類のインセンティブ（配布なしを含む）が選ばれる。期間中の購入確率 \(f^\dagger\) は予算制約の側に、持続期間の購入金額 \(f^\ddagger\) は目的関数の側にそれぞれ入る構造になっている。論文はこの最適化問題を実際にどのソルバーや緩和法で解いたかは明記していない。</p>
+    <figure>
+      <svg class="fig" id="fig-arch" viewBox="0 0 740 360" role="img" aria-label="提案枠組みと CDEE モデルの模式図。左は予測・最適化・RCT 評価の3段階の流れ。右は下層で直接購入確率（CE 損失）、中層で持続購入有無（CE 損失）、上層で持続購入金額（Tweedie 損失）を学び、下層の予測を上層へ連結する CDEE の構造。"></svg>
+      <figcaption>図1　プロモーション意思決定の枠組みと CDEE モデルの構造（論文 Fig. 1 の記述をもとに解説者が描いた模式図）。下層の予測を上層の表現に連結しながら 3 つの課題を同時に学ぶ。</figcaption>
+    </figure>
+  </section>
+
+  <section id="model">
+    <div class="kicker">提案モデル</div>
+    <h2>Tweedie 損失と 2 つの交差エントロピー損失を階層的に組み合わせて購入確率と購入金額を 1 つのモデルで学ぶ</h2>
+    <p>購入金額の回帰は購入確率の予測より難しい。購入しない顧客が大半を占めるため 0 に大きな確率が集中するうえ、購入した顧客の金額は 0 から少し離れた値から始まり、顧客ごとの差が数桁に及ぶ多峰で歪みの大きい分布になる。通常の L1 損失や L2 損失は高額の予測に対して過度に大きな罰則を与え、外れ値の影響を受けやすい。</p>
+    <p>この分布に合わせるため、提案する <span class="B">CDEE（Customer Direct and Enduring Effect）</span>モデルでは、0 での点質量と正の連続分布を同時に表せる複合ポアソン・ガンマ分布（Tweedie 分布の部分族、指数パラメータ \(\rho \in (1,2)\)）の負の対数尤度から導いた Tweedie 損失を回帰に用いる（論文 Eq. 6）。</p>
+    <div class="eq">\[ L_{\mathrm{Tweedie}}(y, \hat{y}, \rho) = -y\frac{\hat{y}^{1-\rho}}{1-\rho} + \frac{\hat{y}^{2-\rho}}{2-\rho} \]</div>
+    <p>さらに、Tweedie 損失だけを使うと予測分布が単峰になり、すべての顧客に非ゼロの購入金額を予測してしまうことを著者らは確認している。購入しない顧客をよりよく見分けるため、中間の層に持続期間の購入有無 \(\mathbb{1}_{\{y>0\}}\) に対する交差エントロピー損失を加えた。これに加えて下層で期間中の購入有無 \(s\) を交差エントロピー損失で学び、3 つの損失を重みつきで合わせた階層型のハイブリッド損失を最小化する（論文 Eq. 7）。</p>
+    <div class="eq">\[ L = w_1 L_{\mathrm{Tweedie}}\bigl(y;\, \color{#1D4ED8}{f^\ddagger(\boldsymbol{x})}, \rho\bigr) + w_2 L_{\mathrm{CrossEntropy}}\bigl(\mathbb{1}_{\{y>0\}};\, f^\S(\boldsymbol{x})\bigr) + w_3 L_{\mathrm{CrossEntropy}}\bigl(s;\, f^\dagger(\boldsymbol{x})\bigr) \]</div>
+    <p>ネットワークには顧客特徴量とインセンティブ種別の埋め込み（次元数 \(\lfloor |M|^{0.25}\rfloor + 1\)）を連結して入力し、隠れ層は 1024・1024・512・16 ユニット、ドロップアウト率は 0.2 とする。実験では \(w_1 = 10,\ w_2 = 1,\ w_3 = 2\)、\(\rho = 1.5\) に設定した。下層で予測した直接購入確率は中層へ、中層で予測した持続購入確率は上層へと連結され、購入確率と購入金額、直接効果と持続効果の共通構造を 1 つの DNN で共有する。</p>
+  </section>
+
+  <section id="evaluation">
+    <div class="kicker">評価方法</div>
+    <h2>最適化の過大評価を避けるため RCT の実測値と交差検証で総購入金額を推定する</h2>
+    <p>予測モデルの出力をそのまま最適化問題に入れて目的関数値を計算すると、予測の分散によって結果が過大評価されることが知られている（Ito ら 2018）。そこで論文はモデルの予測値ではなく RCT で観測された実際の購入金額を使い、さらに 5 分割交差検証で汎化性能を測る評価手順をとる。</p>
+    <p>RCT では各顧客に 1 種類のインセンティブしか割り当てられていないため、提案手法が選んだインセンティブ（\(z_{ij}=1\)）と RCT で実際に配られたインセンティブ（\(t_{ij}=1\)）が一致した顧客だけを抽出し、次の 3 段階で総購入金額 \(Y\) を推定する（論文 Eq. 2〜4）。</p>
+    <ul class="def">
+      <li><strong>Step 1（一致した顧客の合計）。</strong>各インセンティブ \(j \in M\) について、割当てが一致した顧客の観測購入金額の合計 \(\tilde{Y}_j = \sum_i y_{ij} z_{ij} t_{ij}\) を求める。</li>
+      <li><strong>Step 2（インセンティブ別の推定）。</strong>RCT の無作為割付けにもとづき、提案手法でインセンティブ \(j\) を割り当てた人数で拡大して \(E(Y_j) = \tilde{Y}_j \sum_i z_{ij} \big/ \sum_i z_{ij} t_{ij}\) と推定する。</li>
+      <li><strong>Step 3（全体の期待値）。</strong>グループ \(j\) の顧客割合 \(p_j\) を用いて全体の期待値 \(E(Y) = \sum_{j \in M} p_j E(Y_j)\) を算出する。</li>
+    </ul>
+    <p>事業指標には、処置群と対照群の 4 週間購入金額の差である<strong>増分購入金額（LPA、Lift Purchase Amount）</strong>と、それをインセンティブ費用で割った lift ROI を用いる。同じクーポン費用のもとで各手法の LPA を比較する設計である。なお論文 Eq. 3 の \(E(Y_j)\) はすでに \(\sum_i z_{ij}\) を掛けた合計の形をとる一方、Eq. 4 でさらに \(p_j\) を掛けている。本文は Table 1 で \(p_j\) をグループ \(j\) の顧客割合と定義し、全期待値の法則により不偏だと述べるにとどめており、細部の導出は省略されている。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験</div>
+    <h2>メルカリの 2 つのクーポン RCT で予測精度と 4 週間の増分購入金額が比較手法を上回った</h2>
+    <p>評価には季節の影響を避けるため、時期の異なるメルカリの 2 つのクーポン RCT データを用いた。対象はいずれも一定期間購入がない離反予備群である。<strong>Spring Promotion</strong> は約 65 万人（クーポン 6 種類＋対照群）、<strong>Winter Promotion</strong> は約 60 万人（クーポン 5 種類＋対照群）で、割引やポイント還元など額面と種類の異なるクーポンを含む。クーポンの有効期間は 5 日間、持続効果の評価期間は配布後 4 週間である。特徴量には取引や閲覧・コメント・いいね等の行動から作った直近性・頻度・購入金額（短期・長期の集計）と、インセンティブ種別の埋め込みを使った。</p>
+    <p>予測モデルの比較相手は、アップリフトの 2 モデル法（<span class="A">Two-Model</span>、Lo ら 2015）、勾配ブースティング木で購買有無と金額を別々に学ぶ 2 段階法（<span class="A">Two-Stage</span>、Chamberlain ら 2017）、ゼロ過剰対数正規損失を使う DNN（<span class="A">ZILN</span>、Wang ら 2019）の 3 手法と、CDEE から持続購入確率の CE 損失を除いた版（w/o CE Loss）、Tweedie 損失を L2 損失に置き換えた版（replace by L2 Loss）の 2 つのアブレーションである。5 分割交差検証の結果（論文 Table 2）を図 2 に示す。</p>
+    <figure>
+      <svg class="fig" id="fig-table2" viewBox="0 0 740 465" role="img" aria-label="論文 Table 2 の予測性能の比較。Spring Promotion と Winter Promotion の 2 つの RCT について、COEFF、CORR、NRMSE、NMAE、AUC の 5 指標を 6 手法で比較。CDEE は COEFF が春 0.4822・冬 0.4924 でどちらも最高。ZILN は誤差指標 NRMSE が春 10.7335・冬 4.9672 と悪化。"></svg>
+      <figcaption>図2　持続期間の購入金額（COEFF・CORR は高いほど、NRMSE・NMAE は低いほど良い）と直接購入確率（AUC、高いほど良い）の 5 分割交差検証の結果（論文 Table 2 の数値から解説者が作図）。各指標の太字は最良値、下線は 2 番目。数値の下の細い棒は COEFF と AUC の大きさを示す。</figcaption>
+    </figure>
+    <p><span class="B">CDEE</span> は識別指標と誤差指標の両面で高い予測性能を示した。正規化ジニ係数（COEFF）は春 0.4822、冬 0.4924 でともに最高だった。冬ではスピアマン相関（CORR 0.3555）、NMAE（1.0040）、直接購入確率の AUC（0.7131）でも首位をとり、春でも NRMSE（3.9588）が最小だった。一方、<span class="A">ZILN</span> は春の CORR（0.3288）で首位をとったものの、誤差指標が春 NRMSE 10.7335・NMAE 2.4891 と大きく悪化した。論文は対数正規分布に当てはめようとして低額データへの適合が不十分になるためだろうと考察している。直接購入確率の AUC では、CDEE は同じ DNN の ZILN を両施策で上回り（春 0.6934 対 0.6873、冬 0.7131 対 0.6839）、表形式で強い勾配ブースティング系の Two-Stage（春 0.6958、冬 0.7076）と同水準に達した。アブレーションでも、持続 CE 損失の削除や L2 損失への置換で COEFF・CORR が下がり、両要素の寄与が裏づけられている。ただし春の NMAE は L2 置換（1.0161）が、冬の NRMSE は CE 削除（3.4927）がそれぞれ CDEE を下回った。</p>
+    <p>次に事業指標の評価として、CDEE、予測評価で次点だった ZILN と Two-Stage、ランダム予測、さらに CDEE の全ラベルを 5 日間の直接効果だけに置き換えて学習した <span class="A">Direct model</span> の 5 種類について、同じ最適化手順で予算を変えながら 4 週間の LPA を比べた（論文 Sec. 5.3・Fig. 2。論文中に LPA と費用の具体的な数値表はない）。両施策とも、同じクーポン費用のもとで CDEE が他の予測モデルを上回る LPA を示した。とりわけ Direct model は CDEE より LPA が大きく低く、直接効果と持続効果は比例しないこと、顧客の定着やロイヤルティを狙うなら持続効果のモデリングが欠かせないことを裏づけている。またランダム予測は予測誤差が大きいため、最適化器が誤差を増幅する（error maximizer、Ito ら 2018）結果として LPA が激しく上下し、費用と LPA の上限も他手法より大きく低い水準にとどまった。</p>
+    <p class="src">このページの数値は arXiv v1（2022 年 7 月 23 日）の本文と Table 2 による。</p>
+  </section>
+
+  <section id="budget">
+    <div class="kicker">予算制約つきアップリフトの中での位置づけ</div>
+    <h2>多値クーポンの反応モデルを持続期間の購入金額へ広げ、期間中の費用制約と多肢選択ナップザックで結ぶ</h2>
+    <p>この論文は複数のクーポン種別（春 6 種類、冬 5 種類＋対照群）から顧客ごとに 1 つを選ぶ多値処置の割当てを扱う。予測モデル（CDEE）が推定するのは、顧客 \(i\) にクーポン \(j\) を配ったときの期間中購入確率 \(f^\dagger(\boldsymbol{x}_{ij})\) と、配布後 4 週間の購入金額 \(f^\ddagger(\boldsymbol{x}_{ij})\) である。コストは有効期間 5 日間のうちに購入が起きたときだけ発生する定額のクーポン原価 \(c_j\) で、期待費用 \(c_j f^\dagger(\boldsymbol{x}_{ij})\) の合計を総予算 \(B\) 以下に抑える。</p>
+    <p>最適化の定式化（Eq. 1）は多肢選択ナップザック問題（MCKP）の形をとる。目的関数には対照群との差（CATE）ではなく購入金額の予測値 \(f^\ddagger(\boldsymbol{x}_{ij})\) そのものを書いているが、各顧客に必ず 1 つの選択肢を割り当てる制約 \(\sum_j z_{ij}=1\) があるため、顧客ごとの対照予測 \(f^\ddagger(\boldsymbol{x}_{i0})\) を差し引いた増分最大化と最適解は一致する（解説者の注）。</p>
+    <p>特徴的なのは、費用が発生する期間（有効期間の 5 日間）と価値を測る期間（配布後 4 週間）を分け、両方の予測を 1 つの階層型マルチタスク DNN に統合した点にある。一方で、Eq. 1 の解法アルゴリズムの詳細は書かれておらず、評価も RCT ログを用いたオフライン推定であり、オンライン A/B テストの結果は報告されていない。</p>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{yang2022personalized,
+  title         = {Personalized Promotion Decision Making Based on Direct and Enduring Effect Predictions},
+  author        = {Yang, Jie and Li, Yilin and Jobson, Deddy},
+  year          = {2022},
+  eprint        = {2207.14798},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.IR},
+  note          = {1st Workshop on End-to-End Customer Journey Optimization at KDD 2022}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false
+});
+
+var NS = 'http://www.w3.org/2000/svg';
+function mk(svg, tag, a, txt) {
+  var e = document.createElementNS(NS, tag);
+  for (var k in a) e.setAttribute(k, a[k]);
+  if (txt != null) e.textContent = txt;
+  svg.appendChild(e);
+  return e;
+}
+
+// ---------- figure 1: framework + CDEE layered architecture (schematic) ----------
+(function () {
+  var svg = document.getElementById('fig-arch'); if (!svg) return;
+  var defs = mk(svg, 'defs', {});
+  var mG = mk(defs, 'marker', { id: 'arG', viewBox: '0 0 10 10', refX: '8.5', refY: '5', markerWidth: '6', markerHeight: '6', orient: 'auto' });
+  mk(mG, 'path', { d: 'M0,1 L9,5 L0,9 z', fill: '#5B6676' });
+  var mB = mk(defs, 'marker', { id: 'arB', viewBox: '0 0 10 10', refX: '8.5', refY: '5', markerWidth: '6', markerHeight: '6', orient: 'auto' });
+  mk(mB, 'path', { d: 'M0,1 L9,5 L0,9 z', fill: '#1D4ED8' });
+
+  // Left panel: 3-phase framework
+  mk(svg, 'text', { x: 20, y: 28, 'font-size': 15, 'font-weight': 650, fill: '#16202E' }, '(a) 意思決定の 3 段階');
+  var steps = [
+    { y: 46, h: 72, title: '1. 反応予測（CDEE）', sub: '直接購入確率 f† と 4 週間購入金額 f‡ を予測', bg: '#E7EEFC', bd: '#1D4ED8', tc: '#1D4ED8' },
+    { y: 146, h: 78, title: '2. 割当て最適化（MCKP）', sub: '予算 B 内で持続購入金額の合計を最大化', bg: '#FFFFFF', bd: '#16202E', tc: '#16202E' },
+    { y: 252, h: 74, title: '3. RCT による不偏評価', sub: '一致顧客の実測値と 5 分割 CV で LPA を算出', bg: '#F2F4F7', bd: '#D9DEE6', tc: '#16202E' }
+  ];
+  steps.forEach(function (s, idx) {
+    mk(svg, 'rect', { x: 20, y: s.y, width: 320, height: s.h, rx: 10, fill: s.bg, stroke: s.bd, 'stroke-width': 1.5 });
+    mk(svg, 'text', { x: 36, y: s.y + 28, 'font-size': 15, 'font-weight': 650, fill: s.tc }, s.title);
+    mk(svg, 'text', { x: 36, y: s.y + 52, 'font-size': 13, fill: '#5B6676' }, s.sub);
+    if (idx < 2) {
+      var y1 = s.y + s.h, y2 = steps[idx + 1].y - 3;
+      mk(svg, 'line', { x1: 180, x2: 180, y1: y1, y2: y2, stroke: '#5B6676', 'stroke-width': 1.8, 'marker-end': 'url(#arG)' });
+    }
+  });
+
+  // Divider
+  mk(svg, 'line', { x1: 365, x2: 365, y1: 18, y2: 334, stroke: '#D9DEE6', 'stroke-dasharray': '4 4' });
+
+  // Right panel: CDEE layered multi-task structure
+  mk(svg, 'text', { x: 388, y: 28, 'font-size': 15, 'font-weight': 650, fill: '#1D4ED8' }, '(b) CDEE の階層型マルチタスク構造');
+
+  // Enduring region box
+  mk(svg, 'rect', { x: 388, y: 42, width: 332, height: 146, rx: 10, fill: '#F7FAFF', stroke: '#1D4ED8', 'stroke-dasharray': '5 4', 'stroke-width': 1.2 });
+  mk(svg, 'text', { x: 710, y: 60, 'font-size': 12, 'font-weight': 600, fill: '#1D4ED8', 'text-anchor': 'end' }, '持続効果（4 週間）');
+
+  // Top layer: Tweedie
+  mk(svg, 'rect', { x: 404, y: 66, width: 170, height: 42, rx: 7, fill: '#E7EEFC', stroke: '#1D4ED8', 'stroke-width': 1.5 });
+  mk(svg, 'text', { x: 489, y: 84, 'font-size': 13, 'font-weight': 650, fill: '#1D4ED8', 'text-anchor': 'middle' }, '持続購入金額 f‡');
+  mk(svg, 'text', { x: 489, y: 100, 'font-size': 12, fill: '#16202E', 'text-anchor': 'middle' }, 'Tweedie 損失（w₁=10）');
+  mk(svg, 'text', { x: 586, y: 92, 'font-size': 12, fill: '#1D4ED8', 'font-weight': 600 }, '→ 目的関数へ');
+
+  // Middle layer: Enduring CE
+  mk(svg, 'rect', { x: 404, y: 132, width: 170, height: 42, rx: 7, fill: '#FFFFFF', stroke: '#1D4ED8', 'stroke-width': 1.3 });
+  mk(svg, 'text', { x: 489, y: 150, 'font-size': 13, 'font-weight': 650, fill: '#16202E', 'text-anchor': 'middle' }, '持続購入有無 f§');
+  mk(svg, 'text', { x: 489, y: 166, 'font-size': 12, fill: '#5B6676', 'text-anchor': 'middle' }, 'CE 損失（w₂=1）');
+  mk(svg, 'text', { x: 586, y: 156, 'font-size': 12, fill: '#5B6676' }, '非購入者を識別');
+
+  // Direct region box
+  mk(svg, 'rect', { x: 388, y: 202, width: 332, height: 68, rx: 10, fill: '#FFF7F2', stroke: '#C2410C', 'stroke-dasharray': '5 4', 'stroke-width': 1.2 });
+  mk(svg, 'text', { x: 710, y: 219, 'font-size': 12, 'font-weight': 600, fill: '#C2410C', 'text-anchor': 'end' }, '直接効果（5 日間）');
+
+  // Lower layer: Direct CE
+  mk(svg, 'rect', { x: 404, y: 218, width: 170, height: 42, rx: 7, fill: '#FCEBDF', stroke: '#C2410C', 'stroke-width': 1.4 });
+  mk(svg, 'text', { x: 489, y: 236, 'font-size': 13, 'font-weight': 650, fill: '#C2410C', 'text-anchor': 'middle' }, '直接購入確率 f†');
+  mk(svg, 'text', { x: 489, y: 252, 'font-size': 12, fill: '#16202E', 'text-anchor': 'middle' }, 'CE 損失（w₃=2）');
+  mk(svg, 'text', { x: 586, y: 244, 'font-size': 12, fill: '#C2410C', 'font-weight': 600 }, '→ 予算制約へ');
+
+  // Input box
+  mk(svg, 'rect', { x: 404, y: 288, width: 300, height: 38, rx: 7, fill: '#F2F4F7', stroke: '#D9DEE6' });
+  mk(svg, 'text', { x: 554, y: 312, 'font-size': 13, fill: '#16202E', 'text-anchor': 'middle' }, '入力：顧客特徴量 ＋ インセンティブ種別の埋め込み');
+
+  // Upward arrows (prediction + hidden state concatenation)
+  mk(svg, 'line', { x1: 489, x2: 489, y1: 288, y2: 263, stroke: '#5B6676', 'stroke-width': 1.8, 'marker-end': 'url(#arG)' });
+  mk(svg, 'line', { x1: 489, x2: 489, y1: 218, y2: 177, stroke: '#1D4ED8', 'stroke-width': 1.8, 'marker-end': 'url(#arB)' });
+  mk(svg, 'line', { x1: 489, x2: 489, y1: 132, y2: 111, stroke: '#1D4ED8', 'stroke-width': 1.8, 'marker-end': 'url(#arB)' });
+
+  // Concat labels
+  mk(svg, 'text', { x: 498, y: 198, 'font-size': 11.5, fill: '#1D4ED8' }, '予測と表現を連結');
+  mk(svg, 'text', { x: 498, y: 124, 'font-size': 11.5, fill: '#1D4ED8' }, '予測と表現を連結');
+  mk(svg, 'text', { x: 724, y: 350, 'font-size': 12.5, fill: '#5B6676', 'text-anchor': 'end' }, '模式図');
+})();
+
+// ---------- figure 2: Table 2 exact numbers (Spring & Winter Promotions) ----------
+(function () {
+  var svg = document.getElementById('fig-table2'); if (!svg) return;
+  var datasets = [
+    {
+      name: 'Spring Promotion（約 65 万人・クーポン 6 種）',
+      y0: 26,
+      rows: [
+        { m: 'Two-Model', v: [0.3277, 0.2427, 5.3117, 1.4039, 0.6498], b: [0,0,0,0,0], kind: 'a' },
+        { m: 'Two-Stage', v: [0.4139, 0.3179, 5.1290, 1.3229, 0.6958], b: [0,0,0,0,2], kind: 'a' },
+        { m: 'ZILN', v: [0.4131, 0.3288, 10.7335, 2.4891, 0.6873], b: [0,2,0,0,0], kind: 'a' },
+        { m: 'CDEE w/o CE Loss', v: [0.4435, 0.3036, 4.1070, 1.3483, 0.6832], b: [1,0,1,0,0], kind: 'm' },
+        { m: 'CDEE (L2 Loss)', v: [0.3560, 0.2239, 4.1100, 1.0161, 0.6905], b: [0,0,0,2,0], kind: 'm' },
+        { m: 'CDEE (Ours)', v: [0.4822, 0.3230, 3.9588, 1.2800, 0.6934], b: [2,1,2,1,1], kind: 'b' }
+      ]
+    },
+    {
+      name: 'Winter Promotion（約 60 万人・クーポン 5 種）',
+      y0: 252,
+      rows: [
+        { m: 'Two-Model', v: [0.3328, 0.2330, 3.9026, 1.3090, 0.6865], b: [0,0,0,0,0], kind: 'a' },
+        { m: 'Two-Stage', v: [0.4379, 0.3111, 3.9152, 1.1966, 0.7076], b: [0,0,0,1,0], kind: 'a' },
+        { m: 'ZILN', v: [0.4646, 0.3163, 4.9672, 1.2564, 0.6839], b: [0,0,0,0,0], kind: 'a' },
+        { m: 'CDEE w/o CE Loss', v: [0.4778, 0.3335, 3.4927, 1.2259, 0.7112], b: [1,1,2,0,1], kind: 'm' },
+        { m: 'CDEE (L2 Loss)', v: [0.4177, 0.3039, 4.4867, 1.2860, 0.7025], b: [0,0,0,0,0], kind: 'm' },
+        { m: 'CDEE (Ours)', v: [0.4924, 0.3555, 3.5011, 1.0040, 0.7131], b: [2,2,1,2,2], kind: 'b' }
+      ]
+    }
+  ];
+  var cols = [
+    { name: 'COEFF ↑', x: 266, bar: true, lo: 0.25, hi: 0.52 },
+    { name: 'CORR ↑',  x: 378, bar: false },
+    { name: 'NRMSE ↓', x: 486, bar: false },
+    { name: 'NMAE ↓',  x: 590, bar: false },
+    { name: 'AUC ↑',   x: 706, bar: true, lo: 0.62, hi: 0.73 }
+  ];
+
+  datasets.forEach(function (ds) {
+    mk(svg, 'text', { x: 18, y: ds.y0, 'font-size': 15, 'font-weight': 650, fill: '#16202E' }, ds.name);
+    var yh = ds.y0 + 24;
+    mk(svg, 'text', { x: 18, y: yh, 'font-size': 13, 'font-weight': 600, fill: '#5B6676' }, '手法');
+    cols.forEach(function (c) {
+      mk(svg, 'text', { x: c.x, y: yh, 'font-size': 13, 'font-weight': 600, fill: '#5B6676', 'text-anchor': 'end' }, c.name);
+    });
+    mk(svg, 'line', { x1: 16, x2: 724, y1: yh + 7, y2: yh + 7, stroke: '#5B6676', 'stroke-width': 1 });
+
+    ds.rows.forEach(function (row, i) {
+      var yr = yh + 28 + i * 28;
+      if (row.kind === 'b') {
+        mk(svg, 'rect', { x: 14, y: yr - 18, width: 712, height: 26, rx: 5, fill: '#E7EEFC' });
+      }
+      var mc = row.kind === 'b' ? '#1D4ED8' : (row.kind === 'a' ? '#16202E' : '#5B6676');
+      mk(svg, 'text', { x: 18, y: yr, 'font-size': 13.5, 'font-weight': row.kind === 'b' ? 700 : 500, fill: mc }, row.m);
+
+      row.v.forEach(function (val, ci) {
+        var col = cols[ci], flag = row.b[ci];
+        if (col.bar) {
+          var bw = Math.max(4, ((val - col.lo) / (col.hi - col.lo)) * 68);
+          var bc = row.kind === 'b' ? '#1D4ED8' : (row.kind === 'a' ? '#C2410C' : '#9AA4B2');
+          mk(svg, 'rect', { x: col.x - 68, y: yr + 4, width: bw, height: 3.5, rx: 1.5, fill: bc, opacity: row.kind === 'b' ? 0.85 : 0.45 });
+        }
+        var tc = (flag === 2 && row.kind === 'b') ? '#1D4ED8' : (flag === 2 ? '#16202E' : (row.kind === 'b' ? '#1D4ED8' : '#16202E'));
+        var t = mk(svg, 'text', {
+          x: col.x, y: yr, 'font-size': 13.5,
+          'font-weight': flag === 2 ? 700 : 400,
+          'text-decoration': flag === 1 ? 'underline' : 'none',
+          fill: tc, 'text-anchor': 'end'
+        }, val.toFixed(4));
+      });
+      if (i === 2 || i === 4) {
+        mk(svg, 'line', { x1: 16, x2: 724, y1: yr + 9, y2: yr + 9, stroke: '#D9DEE6', 'stroke-dasharray': '3 3' });
+      }
+    });
+  });
+})();
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
