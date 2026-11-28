@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JT-OCT：ジャンクション木にもとづく最適な分類木の厳密 LP 定式化（論文解説）</title>
+<meta name="description" content="An Exact Junction-Tree Extended Formulation for Optimal Classification Trees（arXiv:2609.24741）の非公式の解説。二値特徴量の最適な分類木をジャンクション木上の厳密な線形計画（JT-LP）として表し、署名圧縮・部分木縮約・端点消去で規模を縮小したうえで、列生成法（JT-CG）とメッセージパッシング（JT-MP）で解く。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE — Japanese-only unofficial explainer (optimal decision tree survey)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a  (orange) = earlier exact formulations and baselines (MIP whose size grows with n,
+                         unreduced configuration LP, existing exact-search solvers like STreeD)
+            --b  (blue)   = JT-OCT: junction-tree clusters and separators, exact reductions (SC,
+                         subtree contraction, EE), JT-LP / JT-CG / JT-MP, and their results
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-ja); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.3rem/1.15 var(--font-ja); }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-ja); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 24em; }
+h2, .lead, .subtitle, .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 52rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+
+/* ---------- results table ---------- */
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+table.tbl { border-collapse: collapse; font-size: 0.92rem; width: 100%; max-width: var(--wide); }
+table.tbl th, table.tbl td { padding: 0.4rem 0.65rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl tr.sub td { background: var(--panel); font-weight: 600; text-align: left; color: var(--muted); font-size: 0.85rem; }
+table.tbl td.A, table.tbl th.A { color: var(--a); font-weight: 600; }
+table.tbl td.B, table.tbl th.B { color: var(--b); font-weight: 600; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; font-family: var(--font-ja); }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 最適決定木 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv:2609.24741 · 2026</div>
+  <h1>An Exact Junction-Tree Extended Formulation for Optimal Classification Trees</h1>
+  <p class="subtitle">最適な分類木に対するジャンクション木にもとづく厳密な拡張定式化</p>
+
+  <ul class="authors">
+    <li><b>Jiancheng Tu</b><span>Department of Computing, The Hong Kong Polytechnic University</span></li>
+    <li><b>Wenqi Fan</b><span>Department of Computing / Department of Management and Marketing, The Hong Kong Polytechnic University</span></li>
+  </ul>
+
+  <p class="lead"><span class="A">従来の混合整数最適化</span>はデータ数に応じて変数や制約が増えるため大規模データで最適性の証明が難しく、動的計画法や厳密探索でも木が深くなると探索空間が急増する。本論文は二値特徴量の最適な分類木を<span class="B">ジャンクション木にもとづく厳密な線形計画（JT-LP）</span>として表し、最適値と最適木の復元を保ったまま厳密縮約で規模を大きく減らした。縮約モデルから列生成法（<span class="B">JT-CG</span>）とメッセージパッシング（<span class="B">JT-MP</span>）を導き、88 設定のうち 85 設定で最適性を証明し、STreeD と共通して証明できた 77 設定で幾何平均 21.79 倍速く解いた。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2609.24741">arXiv</a>
+    <a class="btn" href="https://github.com/Tommytutu/JT-OCT">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。従来の混合整数最適化や未縮約LPの規模の問題、深さ3の木をジャンクション木にまとめる構造、署名圧縮と端点消去で1億超の列が32万列まで減る様子、88設定での最適性証明数とSTreeD比21.79倍の高速化、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">85 / 88 設定で最適性を証明</span><span class="d">11 データ × 深さ 2〜5 × 罰則 2 通りの 88 設定（制限時間 600 秒）で、JT-CG と JT-MP は 85 設定、JT-LP は 84 設定で最適性を証明した。STreeD は 77 設定、BendersOCT は 2 設定だった。</span></li>
+    <li><span class="k">STreeD 比で幾何平均 21.79 倍</span><span class="d">JT-CG と STreeD の双方が最適性を証明した 77 設定で、JT-CG は 76 設定で速く、実行時間比の幾何平均は 21.79 倍だった（深さ 2〜3 は 38.20 倍、深さ 4〜5 は 10.31 倍）。</span></li>
+    <li><span class="k">列数を 160.7 分の 1 に縮約</span><span class="d">深さ 3 の完全木実験（11 データ合計）で、署名圧縮により列数が 114,898,476 から 714,854 に減り、端点消去を加えると 328,079 列・1,226 本の等式制約まで縮んだ。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>既存の厳密解法はデータ数の増加か探索空間の急拡大のどちらかで計算時間が膨らむ</h2>
+    <p>CART のような貪欲法は分岐を 1 つずつ決めるため、木全体の目的関数を最小にする保証がない。最適な分類木を求める問題は NP 困難であり（<a href="../hyafil-rivest/">Hyafil &amp; Rivest 1976</a>）、厳密解法は数理最適化による定式化と、専用の動的計画法・厳密探索の 2 つの流れで発展してきた。</p>
+    <p><a href="../oct/">OCT</a>、<a href="../binoct/">BinOCT</a>、<a href="../strong-oct/">FlowOCT / BendersOCT</a> などの<span class="A">混合整数最適化（MIO）</span>は制約を書き足しやすいが、データ数 \(n\) や深さに応じて変数や制約が増え、数万〜数十万行のデータでは制限時間内に最適性を証明しにくい。経路を変数にして列生成法を適用する先行研究（Firat ら 2020、Patel ら 2024 など）も、列生成で解くのは整数計画の LP 緩和にとどまり、収束だけでは元の木の最適性を保証しない。一方、<a href="../dl85/">DL8.5</a>、<a href="../murtree/">MurTree</a>、<a href="../streed/">STreeD</a>、<a href="../gosdt/">GOSDT</a> などの<span class="A">動的計画法・厳密探索</span>は二値特徴量で高速だが、深さや特徴量数が増えると状態空間が指数的に広がる。</p>
+    <p>深さ 2 の分類木については、Organ ら（2026）が LP 緩和だけで実行可能木の凸包を表す定式化（RolloTree）を示している。本論文はグラフィカルモデルのジャンクション木理論を手がかりに、任意の最大深さ \(D\) で厳密な凸包を与える LP 定式化に、部分木を再帰的に最適化して組み合わせる仕組みを結びつける。</p>
+  </section>
+
+  <section id="formulation">
+    <div class="kicker">手法 1　ジャンクション木による定式化</div>
+    <h2>葉のペアとその祖先経路をクラスタにまとめ、隣接クラスタの共通部分を一致させると LP 緩和が厳密な凸包になる</h2>
+    <p>特徴量は二値 \(z_i \in \{0,1\}^F\)（\(i=1,\dots,n\)）、クラス集合は \(\mathcal{K}\)（\(K = |\mathcal{K}|\)）とする。最大深さ \(D \ge 1\) の完全二分木のテンプレートでは、内部位置 \(\mathcal{B} = \bigcup_{h=0}^{D-1}\{0,1\}^h\) と末端位置 \(\mathcal{L} = \{0,1\}^D\) を二進文字列で表す（根は \(\epsilon\)、左の子に 0、右の子に 1 を足す）。各内部位置では特徴量での分岐 \(\operatorname{split}(f)\)、クラス予測 \(\operatorname{predict}(k)\)、非活性 \(\bot\) のいずれかを選び、途中位置で予測すればその子孫を \(\bot\) にして早期停止を表す。目的関数は学習データの誤分類率と分岐罰則の和である。</p>
+    <div class="eq">\[ J(T) = \frac{1}{n}\sum_{i \in I}\mathbf{1}\{T(z_i) \neq y_i\} + \sum_{v \in B(T)} \lambda_{v,f_v}, \qquad \lambda_{v,f} \ge 0 \]</div>
+    <p>実行可能性の条件は、親子間の構造規則と、各位置 \(v\) とその祖先 \(A_v\) の決定および学習データだけで決まる条件（経路上の特徴量重複の禁止や葉の最小サンプル数など）を想定する。</p>
+    <p><span class="B">ジャンクション木</span>の構成では、末端位置の親 \(q \in \mathcal{Q} = \{0,1\}^{D-1}\) ごとに、兄弟の末端位置 \(q0, q1\) とその祖先経路全体を 1 つのクラスタ \(C_q\) にまとめる（図1）。クラスタを辞書順に並べて隣どうしを結んだ鎖 \(\mathcal{J}\) は、同じテンプレート位置を含むクラスタが必ず連結になる性質（running-intersection 性質）を満たす（命題 1）。各位置 \(v\) のコスト \(\ell_v(\omega)\) を、それを含む \(m_v = 2^{D-1-|v|}\) 個のクラスタに等分するため、木全体の目的 \(J(T)\) は各クラスタの局所コスト \(c_q(\omega)\) の和と一致する（命題 2）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 800 410" role="img" aria-label="深さ3の分類木テンプレートとジャンクション木表現の図。上段は根εから末端000〜111までの二分木で、クラスタC00とC01が共有する祖先経路εと0を青く強調。下段はC00、C01、C10、C11の4クラスタが一列につながり、辺の上に分離集合S={ε,0}、S={ε}、S={ε,1}が示されている。">
+        <!-- Panel (a): Depth-3 template -->
+        <text x="20" y="26" font-size="15" font-weight="650" fill="#16202E">(a) 深さ 3 の分類木テンプレート（D = 3）</text>
+        <!-- Edges -->
+        <g stroke="#5B6676" stroke-width="1.6" fill="none">
+          <line x1="400" y1="62" x2="600" y2="112"/>
+          <line x1="600" y1="112" x2="500" y2="162"/><line x1="600" y1="112" x2="700" y2="162"/>
+          <line x1="100" y1="162" x2="58" y2="212"/><line x1="100" y1="162" x2="142" y2="212"/>
+          <line x1="300" y1="162" x2="258" y2="212"/><line x1="300" y1="162" x2="342" y2="212"/>
+          <line x1="500" y1="162" x2="458" y2="212"/><line x1="500" y1="162" x2="542" y2="212"/>
+          <line x1="700" y1="162" x2="658" y2="212"/><line x1="700" y1="162" x2="742" y2="212"/>
+        </g>
+        <!-- Highlighted edges for C00 and C01 -->
+        <line x1="400" y1="62" x2="200" y2="112" stroke="#1D4ED8" stroke-width="2.6"/>
+        <line x1="200" y1="112" x2="100" y2="162" stroke="#1D4ED8" stroke-width="2.6"/>
+        <line x1="200" y1="112" x2="300" y2="162" stroke="#1D4ED8" stroke-width="2.6" stroke-dasharray="6 4"/>
+        <!-- Edge labels 0 / 1 -->
+        <g font-size="12" fill="#5B6676" text-anchor="middle">
+          <text x="292" y="80" fill="#1D4ED8" font-weight="600">0</text><text x="508" y="80">1</text>
+          <text x="142" y="132" fill="#1D4ED8" font-weight="600">0</text><text x="258" y="132" fill="#1D4ED8" font-weight="600">1</text>
+          <text x="542" y="132">0</text><text x="658" y="132">1</text>
+        </g>
+        <!-- Internal nodes -->
+        <g stroke="#16202E" stroke-width="1.6" fill="#fff">
+          <circle cx="400" cy="62" r="16" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2.2"/>
+          <circle cx="200" cy="112" r="16" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2.2"/>
+          <circle cx="600" cy="112" r="16"/>
+          <circle cx="100" cy="162" r="16"/><circle cx="300" cy="162" r="16"/>
+          <circle cx="500" cy="162" r="16"/><circle cx="700" cy="162" r="16"/>
+        </g>
+        <g font-size="13" fill="#16202E" text-anchor="middle">
+          <text x="400" y="67" fill="#1D4ED8" font-weight="700">ε</text>
+          <text x="200" y="117" fill="#1D4ED8" font-weight="700">0</text>
+          <text x="600" y="117">1</text>
+          <text x="100" y="167">00</text><text x="300" y="167">01</text>
+          <text x="500" y="167">10</text><text x="700" y="167">11</text>
+        </g>
+        <!-- Terminal leaves -->
+        <g stroke="#16202E" stroke-width="1.4" fill="#fff">
+          <rect x="35" y="200" width="46" height="24" rx="4"/><rect x="119" y="200" width="46" height="24" rx="4"/>
+          <rect x="235" y="200" width="46" height="24" rx="4"/><rect x="319" y="200" width="46" height="24" rx="4"/>
+          <rect x="435" y="200" width="46" height="24" rx="4"/><rect x="519" y="200" width="46" height="24" rx="4"/>
+          <rect x="635" y="200" width="46" height="24" rx="4"/><rect x="719" y="200" width="46" height="24" rx="4"/>
+        </g>
+        <g font-size="12" fill="#16202E" text-anchor="middle">
+          <text x="58" y="216">000</text><text x="142" y="216">001</text>
+          <text x="258" y="216">010</text><text x="342" y="216">011</text>
+          <text x="458" y="216">100</text><text x="542" y="216">101</text>
+          <text x="658" y="216">110</text><text x="742" y="216">111</text>
+        </g>
+        <text x="400" y="248" font-size="13" fill="#5B6676" text-anchor="middle">青い経路はクラスタ C₀₀ と C₀₁ に対応（共通の祖先 {ε, 0} が分離集合になる）</text>
+
+        <!-- Divider -->
+        <line x1="20" y1="266" x2="780" y2="266" stroke="#D9DEE6" stroke-width="1"/>
+
+        <!-- Panel (b): Junction tree chain -->
+        <text x="20" y="294" font-size="15" font-weight="650" fill="#16202E">(b) ジャンクション木の鎖と分離集合（separator）</text>
+        <!-- Chain edges -->
+        <line x1="175" y1="355" x2="235" y2="355" stroke="#1D4ED8" stroke-width="2.4"/>
+        <line x1="375" y1="355" x2="425" y2="355" stroke="#16202E" stroke-width="2"/>
+        <line x1="565" y1="355" x2="625" y2="355" stroke="#16202E" stroke-width="2"/>
+        <!-- Separator labels -->
+        <text x="205" y="330" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="middle">S = {ε, 0}</text>
+        <text x="400" y="330" font-size="13" font-weight="600" fill="#16202E" text-anchor="middle">S = {ε}</text>
+        <text x="595" y="330" font-size="13" font-weight="600" fill="#16202E" text-anchor="middle">S = {ε, 1}</text>
+        <!-- Cluster boxes -->
+        <g stroke-width="1.8">
+          <rect x="30" y="325" width="145" height="60" rx="8" fill="#E7EEFC" stroke="#1D4ED8"/>
+          <rect x="235" y="325" width="140" height="60" rx="8" fill="#E7EEFC" stroke="#1D4ED8"/>
+          <rect x="425" y="325" width="140" height="60" rx="8" fill="#F2F4F7" stroke="#16202E"/>
+          <rect x="625" y="325" width="145" height="60" rx="8" fill="#F2F4F7" stroke="#16202E"/>
+        </g>
+        <g font-size="13" text-anchor="middle">
+          <text x="102" y="349" font-weight="700" fill="#1D4ED8">C₀₀</text>
+          <text x="102" y="370" fill="#16202E">{ε, 0, 00, 000, 001}</text>
+          <text x="305" y="349" font-weight="700" fill="#1D4ED8">C₀₁</text>
+          <text x="305" y="370" fill="#16202E">{ε, 0, 01, 010, 011}</text>
+          <text x="495" y="349" font-weight="700" fill="#16202E">C₁₀</text>
+          <text x="495" y="370" fill="#16202E">{ε, 1, 10, 100, 101}</text>
+          <text x="697" y="349" font-weight="700" fill="#16202E">C₁₁</text>
+          <text x="697" y="370" fill="#16202E">{ε, 1, 11, 110, 111}</text>
+        </g>
+      </svg>
+      <figcaption>図1　深さ 3 の分類木テンプレートとジャンクション木表現（論文 Figure 1 をもとに解説者が作図）。各クラスタは兄弟の末端ペアとその祖先経路全体を含み、隣接するクラスタ間の共通部分が分離集合 \(S\) になる。</figcaption>
+    </figure>
+    <p>各クラスタ \(q\) の実行可能な局所構成 \(\omega \in \Omega_q\) を選ぶ変数 \(x_{q\omega} \ge 0\) を導入し、正規化制約と、隣接クラスタ間で分離集合 \(S_e = C_q \cap C_r\) 上の割当て \(\sigma\) を一致させる制約だけを置いた線形計画が <span class="B">JT-LP</span> である。</p>
+    <div class="eq">\[ \begin{aligned} \min_{x \ge 0}\ \ & \sum_{q \in \mathcal{Q}} \sum_{\omega \in \Omega_q} c_q(\omega)\, x_{q\omega} \\ \text{s.t.}\ \ & \sum_{\omega \in \Omega_q} x_{q\omega} = 1 \quad (q \in \mathcal{Q}), \qquad \sum_{\omega \in \Omega_q:\,\omega|_{S_e}=\sigma} x_{q\omega} - \sum_{\omega \in \Omega_r:\,\omega|_{S_e}=\sigma} x_{r\omega} = 0 \quad (e=\{q,r\}\in E,\ \sigma \in \Sigma_e) \end{aligned} \]</div>
+    <p>主定理（定理 1）は、JT-LP の実行可能領域 \(P\) が実行可能な分類木の指示ベクトルの凸包 \(\operatorname{conv}\{x^T : T \in \mathcal{T}\}\) と一致することを証明する。端点はすべて整数であり、LP ソルバーが最適面上の分数解を返した場合でも、正の重みをもつ構成を鎖に沿って選べば最適木を復元できる。変数にも制約にも観測データ \(i\) の添字は現れず、データは各構成のコストと実行可能性の判定にだけ使われる。さらに構成の集合を任意の部分集合 \(\widehat\Omega_q \subseteq \Omega_q\) に絞った制限主問題（RMP）も凸包の面を定めるため、空でない限り整数性を保つ（系 1）。</p>
+  </section>
+
+  <section id="reductions">
+    <div class="kicker">手法 2　厳密縮約</div>
+    <h2>分離集合の外に見えない決定を先に最小化してクラスタをまとめると、最適値を変えずに変数と制約を大きく減らせる</h2>
+    <p>JT-LP の大きさはデータ数 \(n\) によらない一方、深さ \(D\) と特徴量数 \(F\) に対しては指数的に増える。末端の予測ラベルを局所最適化した完全分岐モデルでも、未縮約のままでは \(2^{D-1} F^D\) 本の列が生じる。論文は最適値・整数性・最適木の復元可能性をすべて保ったままモデルの規模を小さくする 3 つの<span class="B">厳密縮約</span>を導いた。</p>
+    <ul class="def">
+      <li><span class="B">署名圧縮（Signature Compression, SC）</span>：あるクラスタ \(q\) 内で、隣接するすべての分離集合への射影（分離集合署名 \(\gamma_q(\omega)\)）が同じ構成どうしは、主問題の制約で同じ係数をもつ。したがって署名ごとにコスト最小の代表構成 1 つだけを残せばよい（命題 3）。完全分岐モデルでは、クラスタ内に閉じた最深部の分岐が消えて列数が \(2^{D-1}F^D\) から \(2^{D-1}F^{D-1}\) へ \(F\) 分の 1 に減る。</li>
+      <li><span class="B">部分木縮約（Subtree Contraction）</span>：隣接するクラスタの塊を、クラスタ内に閉じる深さ \(h\)（private depth）の部分木として 1 ブロックにまとめる。ブロック外の分離集合の割当て \(\sigma\) を固定すれば、内部の深さ \(h\) の部分木は動的計画法で独立に最小化でき、最小コスト \(V_h(t, \sigma)\) と祖先コストの配分を合わせた 1 状態に置き換えられる（命題 4・5）。\(h=1\) の場合が署名圧縮に一致する。</li>
+      <li><span class="B">端点消去（Endpoint Elimination, EE）</span>：鎖の端にある葉クラスタ \(q\) は 1 つの分離集合だけで隣 \(r\) とつながるため、その最小条件付きコスト \(\bar c_q(\eta_e)\) を隣 \(r\) の状態コストに足し込み、クラスタ \(q\) の変数と制約を削除できる（命題 6）。</li>
+    </ul>
+    <p>深さ 3 の完全分岐モデル（\(F=100\)）では、署名圧縮で変数が \(4F^3 = 400\text{万}\) から \(4F^2 = 4\text{万}\) に減り、両端のクラスタを端点消去すると \(2F^2 = 2\text{万}\) 変数と \(F+1 = 101\) 本の線形独立な等式制約だけが残る。深さ 3 の 11 データ実験（論文 Table 3）では、合計列数が <span class="A">114,898,476</span> から署名圧縮で <span class="B">714,854</span>（160.7 分の 1）、端点消去を加えて <span class="B">328,079</span> まで減り、等式制約は 388,023 本から 1,226 本に縮んだ（図2）。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 820 390" role="img" aria-label="深さ3の完全木実験（11データ）での列数削減を対数スケールで比べた横棒グラフ。未縮約のLP-base（オレンジ）は最大7,156万列（diabetic）に達し、署名圧縮と端点消去を加えたLP+SC+EE（青）では14.3万列以下まで縮む。11データ合計では114,898,476列から328,079列へ減少。">
+        <text x="16" y="24" font-size="14" font-weight="650" fill="#16202E">深さ 3 完全木実験での LP 列数の比較（対数軸・論文 Table 3 の数値から作図）</text>
+        <!-- Legend -->
+        <rect x="520" y="12" width="12" height="12" rx="2" fill="#C2410C"/>
+        <text x="537" y="23" font-size="12.5" fill="#16202E">LP-base（未縮約）</text>
+        <rect x="662" y="12" width="12" height="12" rx="2" fill="#1D4ED8"/>
+        <text x="679" y="23" font-size="12.5" fill="#16202E">LP+SC+EE</text>
+        <!-- Grid lines: log10 from 3 (10^3) to 8 (10^8), x from 140 to 570 (86px per decade) -->
+        <g stroke="#E5E9F0" stroke-width="1">
+          <line x1="140" y1="38" x2="140" y2="354"/>
+          <line x1="226" y1="38" x2="226" y2="354"/>
+          <line x1="312" y1="38" x2="312" y2="354"/>
+          <line x1="398" y1="38" x2="398" y2="354"/>
+          <line x1="484" y1="38" x2="484" y2="354"/>
+          <line x1="570" y1="38" x2="570" y2="354"/>
+        </g>
+        <g font-size="11.5" fill="#5B6676" text-anchor="middle">
+          <text x="140" y="372">10³</text><text x="226" y="372">10⁴</text>
+          <text x="312" y="372">10⁵</text><text x="398" y="372">10⁶</text>
+          <text x="484" y="372">10⁷</text><text x="570" y="372">10⁸</text>
+          <text x="688" y="372">列数（実行時間の変化）</text>
+        </g>
+        <!-- Bars: w = (log10(v) - 3) * 86 -->
+        <!-- 1. diabetic: 71,564,408 (4.855*86=417.5) vs 143,013 (2.155*86=185.3) -->
+        <text x="130" y="57" font-size="12.5" fill="#16202E" text-anchor="end">diabetic (F=315)</text>
+        <rect x="140" y="42" width="417.5" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="53" width="185.3" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="57" font-size="11.5" fill="#5B6676">71.6M → 143K（M→6.04s）</text>
+        <!-- 2. fico: 14,230,964 (4.153*86=357.2) vs 47,882 (1.680*86=144.5) -->
+        <text x="130" y="85" font-size="12.5" fill="#16202E" text-anchor="end">fico (F=159)</text>
+        <rect x="140" y="70" width="357.2" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="81" width="144.5" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="85" font-size="11.5" fill="#5B6676">14.2M → 47.9K（T→0.55s）</text>
+        <!-- 3. spambase: 12,833,790 (4.108*86=353.3) vs 44,928 (1.653*86=142.2) -->
+        <text x="130" y="113" font-size="12.5" fill="#16202E" text-anchor="end">spambase (F=152)</text>
+        <rect x="140" y="98" width="353.3" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="109" width="142.2" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="113" font-size="11.5" fill="#5B6676">12.8M → 44.9K（334s→0.48s）</text>
+        <!-- 4. transactions: 7,870,986 (3.896*86=335.1) vs 32,614 (1.513*86=130.1) -->
+        <text x="130" y="141" font-size="12.5" fill="#16202E" text-anchor="end">transactions (F=131)</text>
+        <rect x="140" y="126" width="335.1" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="137" width="130.1" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="141" font-size="11.5" fill="#5B6676">7.87M → 32.6K（T→5.22s）</text>
+        <!-- 5. letter: 3,389,466 (3.530*86=303.6) vs 18,690 (1.272*86=109.4) -->
+        <text x="130" y="169" font-size="12.5" fill="#16202E" text-anchor="end">letter (F=99)</text>
+        <rect x="140" y="154" width="303.6" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="165" width="109.4" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="169" font-size="11.5" fill="#5B6676">3.39M → 18.7K（61.9s→0.75s）</text>
+        <!-- 6. avila: 2,101,044 (3.322*86=285.7) vs 13,618 (1.134*86=97.5) -->
+        <text x="130" y="197" font-size="12.5" fill="#16202E" text-anchor="end">avila (F=85)</text>
+        <rect x="140" y="182" width="285.7" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="193" width="97.5" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="197" font-size="11.5" fill="#5B6676">2.10M → 13.6K（36.1s→0.44s）</text>
+        <!-- 7. compas: 1,138,266 (3.056*86=262.8) vs 9,232 (0.965*86=83.0) -->
+        <text x="130" y="225" font-size="12.5" fill="#16202E" text-anchor="end">compas (F=71)</text>
+        <rect x="140" y="210" width="262.8" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="221" width="83.0" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="225" font-size="11.5" fill="#5B6676">1.14M → 9.2K（13.1s→0.04s）</text>
+        <!-- 8. htru2: 1,023,958 (3.010*86=258.9) vs 8,874 (0.948*86=81.5) -->
+        <text x="130" y="253" font-size="12.5" fill="#16202E" text-anchor="end">htru2 (F=72)</text>
+        <rect x="140" y="238" width="258.9" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="249" width="81.5" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="253" font-size="11.5" fill="#5B6676">1.02M → 8.9K（10.8s→0.05s）</text>
+        <!-- 9. give: 592,276 (2.773*86=238.5) vs 5,966 (0.776*86=66.7) -->
+        <text x="130" y="281" font-size="12.5" fill="#16202E" text-anchor="end">give (F=57)</text>
+        <rect x="140" y="266" width="238.5" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="277" width="66.7" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="281" font-size="11.5" fill="#5B6676">592K → 6.0K（5.82s→0.18s）</text>
+        <!-- 10. banknote: 107,436 (2.031*86=174.7) vs 2,074 (0.317*86=27.3) -->
+        <text x="130" y="309" font-size="12.5" fill="#16202E" text-anchor="end">banknote (F=36)</text>
+        <rect x="140" y="294" width="174.7" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="305" width="27.3" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="309" font-size="11.5" fill="#5B6676">107K → 2.1K（0.19s→0.01s）</text>
+        <!-- 11. skin: 45,882 (1.662*86=142.9) vs 1,188 (0.075*86=6.5) -->
+        <text x="130" y="337" font-size="12.5" fill="#16202E" text-anchor="end">skin (F=27)</text>
+        <rect x="140" y="322" width="142.9" height="9" rx="2" fill="#C2410C"/>
+        <rect x="140" y="333" width="6.5" height="9" rx="2" fill="#1D4ED8"/>
+        <text x="582" y="337" font-size="11.5" fill="#5B6676">45.9K → 1.2K（0.27s→0.05s）</text>
+      </svg>
+      <figcaption>図2　深さ 3・\(\lambda=0\) の完全木実験における LP 列数と実行時間の変化（論文 Table 3 の数値から解説者が作図）。括弧内の M はメモリ上限、T は時間上限（600 秒）到達を示す。未縮約の LP-base は 3 データで解ききれなかったが、LP+SC+EE は最大 6.038 秒で全 11 データを解いた。</figcaption>
+    </figure>
+  </section>
+
+  <section id="methods">
+    <div class="kicker">手法 3　厳密解法と並列評価</div>
+    <h2>同じ条件付き部分木評価器を使い、列生成法（JT-CG）とメッセージパッシング（JT-MP）の 2 つの厳密解法を組み立てる</h2>
+    <p>部分木縮約で切り出した深さ \(h\) の部分木問題（基準設定では深さ 2〜3 で \(h=1\)、深さ 4〜5 で \(h=3\)）は、外部の分離集合の割当て \(\sigma\) を固定すれば互いに独立になる。各部分木は葉から根へボトムアップにコストを結合する動的計画法（アルゴリズム 1）で評価でき、複数の分離集合状態を CPU ワーカーや GPU バッチで並列に評価できる。</p>
+    <p>この評価器の結果を木全体へ統合する方法として、論文は 2 つの厳密解法を示す。</p>
+    <ul class="def">
+      <li><span class="B">JT-MP（メッセージパッシング）</span>：端点消去を根クラスタ \(q_0\) まで繰り返すと、ジャンクション木上の min-sum 再帰になる。命題 7 は、有限値に調整したメッセージがそのまま JT-LP の双対最適解を与えることを示しており、たどり直しによる最適木の復元と LP 最適性の証明を同時に得られる。</li>
+      <li><span class="B">JT-CG（列生成法）</span>：一部の構成だけを残した制限主問題（RMP）を解き、新たな構成とその構成が誘導する分離集合制約を同時に足す。系 1 より RMP はつねに整数最適解をもつため、その目的値 \(z_R\) が実行可能木の上界になる。一方、現在の双対変数 \((\alpha, \pi)\) のもとで全実行可能領域に対する被約コストの下界 \(\underline r_q \le r_q\) を各クラスタで計算すれば、部分木探索が途中であっても全領域に有効な下界が得られる（命題 8）。</li>
+    </ul>
+    <div class="eq">\[ \mathrm{LB}_{\mathrm{CG}} = z_R + \sum_{q \in \mathcal{Q}} \min\{0, \underline r_q\} \le \mathrm{OPT}_D \]</div>
+    <p>深さ 4〜5 の実装では、未完了の部分木探索から得られる下界と実行可能部分木の上界（区間コスト）を保持し、有望な状態から順に評価を深めて上下界の差を縮める。すべての部分木の厳密コストを計算し切る前に最適性を証明できる場合もある。</p>
+  </section>
+
+  <section id="experiments">
+    <div class="kicker">実験の結果</div>
+    <h2>11 データ・88 設定の実験で、JT-CG と JT-MP は 85 設定の最適性を証明し、証明数・速度とも STreeD を上回った</h2>
+    <p>実験は 11 個の公開分類データ（サンプル数 1,372〜786,363、二値特徴量 27〜315、クラス数 2〜26）に対し、最大深さ \(D \in \{2,3,4,5\}\) と分岐罰則 \(\lambda \in \{0, 0.01\}\) を組み合わせた 88 設定で行った。計算環境は Intel Core i9-14900KF、メモリ 64 GiB、NVIDIA RTX 4080 SUPER で、制限時間は 600 秒、LP・MIP ソルバーには Gurobi 13.0.3 を用いた。JT 系手法は絶対ギャップ許容幅 \(10^{-7}\) で最適性を判定し、得られた木をすべて独立に再評価して目的値と実行可能性を検証している。なお、JT 系は自動実行ポリシーで CPU と GPU を切り替える（深さ 4〜5 の JT-CG では banknote の 4 設定が CPU、残り 40 設定が GPU）一方、外部ソルバーは同じ計算機上で各実装の公開インターフェースのまま実行した。</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>手法</th>
+            <th colspan="4">平均実行時間（秒） D=2 / 3 / 4 / 5</th>
+            <th colspan="4">最適性証明数（各 11 データ）</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="sub"><td colspan="9">Panel A：\(\lambda = 0\)（罰則なし）</td></tr>
+          <tr><td class="A">RolloTree</td><td>40.40</td><td>—</td><td>—</td><td>—</td><td>11</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td class="A">BOCT</td><td>558.30</td><td>600.93</td><td>601.52</td><td>602.07</td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td class="A">DL8.5</td><td>2.03</td><td>126.82</td><td>412.71</td><td>503.39</td><td>11</td><td>9</td><td>4</td><td>2</td></tr>
+          <tr><td class="A">GOSDT</td><td>3.33</td><td>45.61</td><td>132.89</td><td>73.38</td><td>11</td><td>9</td><td>4</td><td>2</td></tr>
+          <tr><td class="A">MurTree</td><td>2.20</td><td>12.49</td><td>160.95</td><td>437.76</td><td>11</td><td>11</td><td>9</td><td>4</td></tr>
+          <tr><td class="A">STreeD</td><td>2.20</td><td>4.80</td><td>133.83</td><td>381.09</td><td>11</td><td>11</td><td>10</td><td>5</td></tr>
+          <tr><td class="A">Branches</td><td>8.55</td><td>42.78</td><td>80.14</td><td>79.10</td><td>11</td><td>8</td><td>2</td><td>1</td></tr>
+          <tr><td class="B">JT-LP</td><td>0.09</td><td>1.52</td><td>27.63</td><td>201.90</td><td>11</td><td>11</td><td>11</td><td>9</td></tr>
+          <tr><td class="B">JT-CG</td><td><strong>0.07</strong></td><td><strong>0.40</strong></td><td><strong>20.59</strong></td><td><strong>160.96</strong></td><td>11</td><td>11</td><td>11</td><td>9</td></tr>
+          <tr><td class="B">JT-MP</td><td>0.23</td><td>0.55</td><td>23.52</td><td>174.92</td><td>11</td><td>11</td><td>11</td><td>9</td></tr>
+          <tr class="sub"><td colspan="9">Panel B：\(\lambda = 0.01\)（分岐罰則あり）</td></tr>
+          <tr><td class="A">BOCT</td><td>548.67</td><td>601.19</td><td>601.29</td><td>601.48</td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td class="A">GOSDT</td><td>2.19</td><td>79.36</td><td>220.71</td><td>72.56</td><td>11</td><td>10</td><td>6</td><td>5</td></tr>
+          <tr><td class="A">MurTree</td><td>3.51</td><td>4.21</td><td>107.82</td><td>355.55</td><td>11</td><td>11</td><td>10</td><td>6</td></tr>
+          <tr><td class="A">STreeD</td><td>1.95</td><td>3.13</td><td>87.20</td><td>283.38</td><td>11</td><td>11</td><td>11</td><td>7</td></tr>
+          <tr><td class="A">Branches</td><td>10.58</td><td>67.27</td><td>137.89</td><td>146.69</td><td>11</td><td>9</td><td>4</td><td>3</td></tr>
+          <tr><td class="B">JT-LP</td><td>0.09</td><td>1.46</td><td>27.23</td><td>201.05</td><td>11</td><td>11</td><td>11</td><td>9</td></tr>
+          <tr><td class="B">JT-CG</td><td><strong>0.07</strong></td><td><strong>0.30</strong></td><td><strong>10.00</strong></td><td><strong>88.09</strong></td><td>11</td><td>11</td><td>11</td><td>10</td></tr>
+          <tr><td class="B">JT-MP</td><td>0.23</td><td>0.48</td><td>10.98</td><td>92.69</td><td>11</td><td>11</td><td>11</td><td>10</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">表1　深さ別・罰則別の平均実行時間（算術平均、資源上限で打ち切った実行を含む）と最適性証明数（論文 Table 2 から抜粋）。GOSDT や Branches の平均時間が短く見える深さがあるのは、メモリ上限で早期終了した設定を含むため（論文付録 Table EC.1）。</p>
+    <p>88 設定全体で、既存の厳密手法のうち最適性証明数が最も多かったのは <span class="A">STreeD</span> の 77 設定で、<span class="A">BendersOCT（BOCT）</span>は 2 設定にとどまった。これに対し <span class="B">JT-LP</span> は 84 設定、<span class="B">JT-CG</span> と <span class="B">JT-MP</span> はそれぞれ 85 設定で最適性を証明した。JT-CG と STreeD の双方が証明できた 77 設定では、JT-CG が 76 設定で速く、実行時間比 \(t_{\mathrm{STreeD}}/t_{\mathrm{JT\text{-}CG}}\) の幾何平均は 21.79 倍だった（深さ 2〜3 の 44 設定で 38.20 倍、深さ 4〜5 の 33 設定で 10.31 倍）。深さ 2・\(\lambda=0\) で同じ凸包構造をもつ RolloTree との比較では、どちらも全 11 データを証明し、平均時間は RolloTree 40.40 秒に対して JT-LP 0.09 秒だった。</p>
+    <figure>
+      <svg class="fig" viewBox="0 0 820 310" role="img" aria-label="88設定全体での最適性証明数と深さ5での証明数を比較する棒グラフ。左は全88設定での証明数でBOCTが2、STreeDが77、JT-LPが84、JT-CGとJT-MPが85。右は深さ5（22設定）での平均実行時間比較で、λ=0ではSTreeD 381.09秒に対しJT-CG 160.96秒、λ=0.01ではSTreeD 283.38秒に対しJT-CG 88.09秒。">
+        <!-- Left panel: Certified settings / 88 -->
+        <text x="20" y="26" font-size="14" font-weight="650" fill="#16202E">全 88 設定の最適性証明数</text>
+        <g font-size="13" fill="#16202E" text-anchor="end">
+          <text x="92" y="72">BOCT</text>
+          <text x="92" y="114">STreeD</text>
+          <text x="92" y="156">JT-LP</text>
+          <text x="92" y="198">JT-CG</text>
+          <text x="92" y="240">JT-MP</text>
+        </g>
+        <!-- Scale: 88 -> 230px -->
+        <line x1="102" y1="44" x2="102" y2="256" stroke="#16202E" stroke-width="1.2"/>
+        <line x1="332" y1="44" x2="332" y2="256" stroke="#D9DEE6" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <text x="332" y="274" font-size="11.5" fill="#5B6676" text-anchor="middle">88 設定</text>
+        <rect x="102" y="56" width="5.2" height="22" rx="3" fill="#C2410C"/>
+        <text x="115" y="72" font-size="13" font-weight="650" fill="#C2410C">2</text>
+        <rect x="102" y="98" width="201.3" height="22" rx="3" fill="#C2410C"/>
+        <text x="311" y="114" font-size="13" font-weight="650" fill="#C2410C">77</text>
+        <rect x="102" y="140" width="219.5" height="22" rx="3" fill="#1D4ED8"/>
+        <text x="329" y="156" font-size="13" font-weight="650" fill="#1D4ED8">84</text>
+        <rect x="102" y="182" width="222.2" height="22" rx="3" fill="#1D4ED8"/>
+        <text x="331" y="198" font-size="13" font-weight="650" fill="#1D4ED8">85</text>
+        <rect x="102" y="224" width="222.2" height="22" rx="3" fill="#1D4ED8"/>
+        <text x="331" y="240" font-size="13" font-weight="650" fill="#1D4ED8">85</text>
+
+        <!-- Divider -->
+        <line x1="395" y1="16" x2="395" y2="290" stroke="#D9DEE6" stroke-width="1"/>
+
+        <!-- Right panel: Depth 5 mean runtime & certification -->
+        <text x="418" y="26" font-size="14" font-weight="650" fill="#16202E">深さ 5 の平均実行時間（秒）と証明数</text>
+        <text x="418" y="56" font-size="12.5" font-weight="600" fill="#5B6676">λ = 0（罰則なし）</text>
+        <!-- Scale: 400s -> 190px -->
+        <text x="488" y="84" font-size="13" fill="#16202E" text-anchor="end">STreeD</text>
+        <rect x="496" y="69" width="181.0" height="20" rx="3" fill="#C2410C"/>
+        <text x="684" y="84" font-size="12.5" font-weight="650" fill="#C2410C">381.1s (5/11)</text>
+        <text x="488" y="114" font-size="13" fill="#16202E" text-anchor="end">JT-CG</text>
+        <rect x="496" y="99" width="76.5" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="580" y="114" font-size="12.5" font-weight="650" fill="#1D4ED8">161.0s (9/11)</text>
+        <text x="488" y="144" font-size="13" fill="#16202E" text-anchor="end">JT-MP</text>
+        <rect x="496" y="129" width="83.1" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="587" y="144" font-size="12.5" font-weight="650" fill="#1D4ED8">174.9s (9/11)</text>
+
+        <text x="418" y="182" font-size="12.5" font-weight="600" fill="#5B6676">λ = 0.01（分岐罰則あり）</text>
+        <text x="488" y="210" font-size="13" fill="#16202E" text-anchor="end">STreeD</text>
+        <rect x="496" y="195" width="134.6" height="20" rx="3" fill="#C2410C"/>
+        <text x="638" y="210" font-size="12.5" font-weight="650" fill="#C2410C">283.4s (7/11)</text>
+        <text x="488" y="240" font-size="13" fill="#16202E" text-anchor="end">JT-CG</text>
+        <rect x="496" y="225" width="41.8" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="545" y="240" font-size="12.5" font-weight="650" fill="#1D4ED8">88.1s (10/11)</text>
+        <text x="488" y="270" font-size="13" fill="#16202E" text-anchor="end">JT-MP</text>
+        <rect x="496" y="255" width="44.0" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="548" y="270" font-size="12.5" font-weight="650" fill="#1D4ED8">92.7s (10/11)</text>
+      </svg>
+      <figcaption>図3　全 88 設定の最適性証明数（左）と、最も難しい深さ 5 での平均実行時間・証明数の比較（右）。論文 Table 2 および 5.2 節の数値から解説者が作図。</figcaption>
+    </figure>
+    <p>部分木縮約の効果を CPU 8 コア固定・深さ 4〜5 の 44 設定で調べたところ、縮約（\(h=3\)）の導入により MP の証明数は 26 から 29 に増え、共通 26 設定の平均実行時間は 133.56 秒から 23.64 秒へ短縮した（幾何平均 4.30 倍）。プライベート深さを \(h=2\) から \(h=3\) に上げると、証明数は 20/44 から 30/44 に増え、保持状態数は 983,728 から 9,304、オラクル呼出し回数は 295,636 から 4,337 に減って幾何平均 3.28 倍速くなった（論文 Table 4）。</p>
+    <p>同一の条件付き部分木タスクリストでの並列化効果は、共通 38 設定で CPU 1 コア比 4.41 倍（CPU 8 コア）、9.81 倍（GPU）だった。完全ソルバー同士で条件をそろえた CG と MP の比較では証明数が同数（CPU8 で 31/44、Auto で 41/44）となり、CG は厳密オラクル呼出しを 4.8%（CPU8）・7.8%（Auto）減らす一方、RMP 求解時間が加わるため、共通設定での総時間の幾何平均比 \(t_{\mathrm{MP}}/t_{\mathrm{CG}}\) は 0.921（CPU8）と 0.957（Auto）で両者の総時間は近い（論文 Table 5）。なお、JT-CG でも 600 秒以内に最適性を証明できなかった 3 設定（深さ 5 の diabetic の 2 設定と transactions の \(\lambda=0\)）では、最終的な実行可能解自体は 3.5 秒以内に得られており、下界を上げて最適性を証明する過程に時間がかかっていた（付録 EC.3.2）。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">最適決定木の研究の中での位置づけ</div>
+    <h2>数理最適化の凸包定式化と動的計画法の部分木分解を、ジャンクション木で 1 つの枠組みに結びつけた</h2>
+    <ul class="def">
+      <li><strong>解く問題</strong>：最大深さ \(D\) の分類木で、学習データの誤分類率と分岐罰則の和を最小にする。早期停止や葉の最小サンプル数、経路上の特徴量重複禁止を扱える。クラス均衡誤分類などの加法的な損失や多分岐木にも拡張できると述べている。</li>
+      <li><strong>分岐と前提</strong>：単変量、二値特徴量（実験では数値特徴量を経験十分位で二値化し、カテゴリ特徴量を等号指示子に変換）。実行可能性は祖先経路とデータで局所的に決まる条件を仮定し、異なる枝にまたがる制約には分離集合状態の拡張が要る。</li>
+      <li><strong>位置づけと限界</strong>：データ数 \(n\) によらない厳密な LP 凸包を与えた点で <a href="../strong-oct/">FlowOCT</a> や RolloTree の流れを任意の深さへ広げ、縮約とメッセージパッシングによって <a href="../streed/">STreeD</a> などの動的計画法とつながる。一方で、良い木が見つかったあとでも深さ 5 で上下界の差を縮めて最適性を証明する難しさは残っており、より強い条件付き下界と探索配分が今後の課題に挙げられている。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{tu2026exact,
+  title         = {An Exact Junction-Tree Extended Formulation for Optimal Classification Trees},
+  author        = {Tu, Jiancheng and Fan, Wenqi},
+  year          = {2026},
+  eprint        = {2609.24741},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2609.24741}
+}</pre>
+    </div>
+    <p class="src">ページの数値と数式は arXiv:2609.24741 の原稿（main.tex）にもとづく。査読付き会議・論文誌での出版情報は確認できていない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

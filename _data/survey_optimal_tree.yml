@@ -4,7 +4,7 @@
 # explainer を書くと papers/<explainer>/ の解説ページへリンクする。
 # preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
 
-updated: "2026-11-24"
+updated: "2026-11-28"
 
 intro: "決定木を貪欲法ではなく目的関数を最適にするように学習する研究（最適決定木）の文献をまとめたページです。CART などの貪欲法は分岐を1つずつ決めるので、深さや葉の数を決めたときの最良の木が得られるとは限りません。最適決定木の研究は木全体を混合整数最適化、動的計画法と分枝限定法、SAT・制約プログラミング、連続最適化などで一度に決めます。解き方の系統ごとに、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -290,6 +290,37 @@ papers:
     method: MIO（CPLEX）、対称性を除く工夫
     data: 二値分類の 10 データ（UCI 7、LIBSVM 2、FICO）
     note: カテゴリ変数の値の部分集合で分岐する、形を固定した最適な二分木を整数計画で求める
+  - id: jt-oct
+    title: "An exact junction-tree extended formulation for optimal classification trees"
+    authors: "J. Tu, W. Fan"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2609.24741"
+    explainer: jt-oct
+    short: "JT-OCT"
+    code: "https://github.com/Tommytutu/JT-OCT"
+    category: mio
+    split: 単変量（二値の特徴量）
+    objective: 誤分類率 ＋ 分岐の罰則（早期停止・葉の最小データ数制約も可）
+    method: ジャンクション木にもとづく厳密 LP（Gurobi）、厳密縮約、列生成法・メッセージパッシング
+    data: 二値化した公開データ 11 個（avila, diabetic, fico, letter, transactions など、1,372〜786,363 行）
+    note: 二値特徴量の最適な分類木をジャンクション木上の厳密な LP（凸包表現）として定式化し、署名圧縮・部分木縮約・端点消去で規模を縮小したうえで列生成法（JT-CG）とメッセージパッシング（JT-MP）で解く
+  - id: rolling-lookahead
+    title: "Rolling lookahead learning for optimal classification trees"
+    authors: "Z. B. Organ, E. Kayış, T. Khaniyev"
+    year: 2026
+    venue: "IISE Transactions"
+    url: "https://doi.org/10.1080/24725854.2026.2613786"
+    explainer: rolling-lookahead
+    preprint_year: 2023
+    short: "RST"
+    code: "https://github.com/koftezz/rolling-lookahead-dt"
+    category: mio
+    split: 単変量（二値の特徴量）
+    objective: 誤分類、ジニ不純度（深さ 5 以下は誤分類、6 以上はジニ不純度の HybridRST）
+    method: 深さ 2 の完全単模な MIO（LP 緩和で厳密解、Gurobi）＋ ローリング部分木探索
+    data: 二値化した UCI の 19 データ
+    note: 深さ 2 の最適な木を完全単模な制約行列で定式化して LP 緩和で厳密に解き、誤分類の残る親ノードから深さ 2 の最適化を順に繰り返して深い木を作る。任意の損失関数を事前計算で扱える
 
   # ---- 動的計画法・分枝限定 ----
   - id: dl8
@@ -971,6 +1002,22 @@ papers:
     method: フローにもとづく MIO
     data: Adult, COMPAS, German など
     note: 統計的パリティや機会均等など複数の公平性の定義を MIO の制約として入れ、解釈しやすさ・公平性・精度のトレードオフを調べる
+  - id: octsvm
+    title: "Robust optimal classification trees under noisy labels"
+    authors: "V. Blanco, A. Japón, J. Puerto"
+    year: 2022
+    venue: "Advances in Data Analysis and Classification"
+    url: "https://doi.org/10.1007/s11634-021-00467-2"
+    explainer: octsvm
+    preprint_year: 2020
+    short: "OCTSVM"
+    code: ""
+    category: robust-fair
+    split: 多変量（SVM の超平面）
+    objective: 最小マージンの最大化 ＋ 距離誤差 ＋ ラベル反転の罰則 ＋ 分岐数の罰則
+    method: 混合整数二次錐最適化（Gurobi）
+    data: UCI の 8 データ（Australian, BreastCancer, Heart, Ionosphere, MONK's, Parkinson, Sonar, Wholesale）
+    note: 各ノードで SVM のマージン最大化超平面によって分岐し、学習中に訓練データのラベル反転も同時に許すことで、ラベルノイズに頑健な最適分類木を求める
 
   # ---- ラショモン集合・評価 ----
   - id: treefarms
@@ -1110,6 +1157,11 @@ resources:
     year: 2023
     url: "https://doi.org/10.1007/s10462-022-10275-5"
     note: Costa & Pedreira（Artificial Intelligence Review）。最適決定木を含む決定木の研究の最近の動向を整理する
+  - name: "Optimal classification trees: a survey"
+    kind: サーベイ
+    year: 2026
+    url: "https://doi.org/10.1007/s10898-026-01655-0"
+    note: Li, Qin, Tao, Wu（Journal of Global Optimization）。最適分類木の定式化と解法の研究を整理する
   - name: "ODTlearn"
     kind: ライブラリ
     year: 2023
