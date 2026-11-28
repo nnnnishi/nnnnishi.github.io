@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Battiti ら（2020）：部屋番号をチェックイン日まで決めない RoomTetris は最適な部屋割りになる（論文解説）</title>
+<meta name="description" content="RoomTetris: an optimal procedure for committing rooms to reservations in hotels（JHTT 2020）の非公式の解説。予約時に部屋番号を決めると避けられる拒否が生じることを指摘し、割当をチェックイン日まで遅らせる RoomTetris と、その最適性を紹介する。要旨と書誌情報、同じ著者の2021年の論文の説明にもとづく。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = early (at-booking) room assignment and the avoidable rejections it causes
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Journal of Hospitality and Tourism Technology · 2020</div>
+  <h1>RoomTetris: an optimal procedure for committing rooms to reservations in hotels</h1>
+  <p class="subtitle">RoomTetris：ホテルの予約に部屋を割り当てる最適な手順</p>
+
+  <ul class="authors">
+    <li><b>Roberto Battiti</b><span>University of Trento</span></li>
+    <li><b>Mauro Brunato</b><span>University of Trento</span></li>
+    <li><b>Filippo Battiti</b><span>Ciaomanager Srl</span></li>
+  </ul>
+
+  <p class="lead">多くのホテルは予約を受けた時点で部屋番号を決める。論文はこの<span class="A">早い割当は最適でなく</span>、稼働率が高いときに避けられるはずの拒否を生むと指摘する。Battiti らは部屋番号を<span class="B">チェックイン日まで決めない RoomTetris</span> を提案し、最適であることを証明して、ホテルのシミュレータで拒否率を大きく下げられることを示した。</p>
+  <p class="src">このページは出版社のページの要旨と書誌情報、同じ著者の続編 <a href="../roomtetris-2021/">Battiti ら（2021）</a>による RoomTetris の説明にもとづく。2020年の論文の本文は未読で、表や数値は載せていない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1108/JHTT-08-2019-0108">論文（Emerald）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予約時に部屋を決めると隙間ができて長い滞在が入らなくなること、避けられない拒否と避けられる拒否の区別、チェックイン日に長い順に部屋を決める RoomTetris、どの日も部屋数以内なら全予約が入るという性質、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">早い割当は最適でない</span><span class="d">予約時に部屋番号を決めると、稼働率が高いときに、日ごとの空きは足りているのに断る予約（避けられる拒否）が出る。</span></li>
+    <li><span class="k">割当をチェックイン日まで遅らせる</span><span class="d">RoomTetris は受けた予約を部屋番号なしで持ち、チェックイン日にその日に始まる予約を長い順に空き部屋へ入れる（2021年の論文の説明）。</span></li>
+    <li><span class="k">最適性を証明した初めての手順</span><span class="d">論文は、この問題で最適性の証明がついた初めてのアルゴリズムだとする。効果は繁忙期・予約の多い時期に大きい。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予約を受けた時点で部屋を決めると、稼働率が高いときに避けられるはずの拒否が出る</h2>
+    <p>ホテルの部屋の割当（room committing）は、受けた予約に部屋番号を決める作業である。多くのホテルは予約が入るとすぐに部屋を決める。要旨によれば、この早い割当は最適でなく、稼働率が高いときに避けられる拒否を生む。続編の <a href="../roomtetris-2021/">2021年の論文</a>は拒否を2種類に分ける。要求した日のどれかがすでに全室売れている<strong>避けられない拒否</strong>と、日ごとには空きがあるのに割当のせいで入らない<strong>避けられる拒否</strong>である。チェックイン後に客を移さないのがふつうなので、割当がまずいと滞在の間に隙間が残り、長い滞在が入らなくなる。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>RoomTetris は部屋番号をチェックイン日まで決めず、その日に始まる予約を長い順に入れる</h2>
+    <p>2021年の論文による RoomTetris の説明は次のとおりである。</p>
+    <ul class="def">
+      <li>要求を受けたときは、部屋番号を決めずに予約を保存する。受けるかどうかは要求した日のどれも全室売れていないか（避けられない拒否にならないか）で決める。</li>
+      <li>チェックイン日に、その日に始まる予約を長いものから順に、最初の空き部屋へ入れる。</li>
+      <li>将来の予約を知らなくても動く（オンラインの手順である）。</li>
+    </ul>
+    <p>2021年の論文は、どの日も部屋数を超えて売っていなければ、RoomTetris は客を移さずにすべての予約を入れられると述べ、「避けられない拒否がないこと」がそのための必要十分条件だとする。この意味で、受けられる予約の集合は日ごとの部屋数の制約だけで決まり、割当の仕方で減ることがない。2020年の論文はこの最適性を定理として示したと要旨で述べている（証明は本文を未読のため紹介できない）。</p>
+    <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="Schematic. Left: stays committed at booking leave one-day gaps in each of three rooms, so a three-night request finds no room although each night has one free room. Right: the same six stays assigned on their check-in days, longest first, leave four consecutive free nights in room 3.">
+      <g font-size="13" fill="#5B6676">
+        <text x="20" y="24">予約時に割当（模式図）</text>
+        <text x="340" y="24">チェックイン日に割当（模式図）</text>
+        <text x="20" y="62">室1</text><text x="20" y="112">室2</text><text x="20" y="162">室3</text><text x="60" y="194">日1〜5</text>
+        <text x="340" y="62">室1</text><text x="340" y="112">室2</text><text x="340" y="162">室3</text>
+      </g>
+      <g fill="#CBD2DC"><rect x="60" y="44" width="78" height="28" rx="4"/><rect x="180" y="44" width="78" height="28" rx="4"/><rect x="100" y="94" width="78" height="28" rx="4"/><rect x="220" y="94" width="38" height="28" rx="4"/><rect x="60" y="144" width="38" height="28" rx="4"/><rect x="140" y="144" width="78" height="28" rx="4"/></g>
+      <g fill="none" stroke="#C2410C" stroke-width="2" stroke-dasharray="5 4"><rect x="140" y="44" width="38" height="28" rx="4"/><rect x="60" y="94" width="38" height="28" rx="4"/><rect x="180" y="94" width="38" height="28" rx="4"/><rect x="100" y="144" width="38" height="28" rx="4"/><rect x="220" y="144" width="38" height="28" rx="4"/></g>
+      <text x="60" y="210" font-size="13" fill="#C2410C" font-weight="600">3泊の要求：入る部屋がない</text>
+      <g fill="#1D4ED8" fill-opacity="0.85"><rect x="380" y="44" width="78" height="28" rx="4"/><rect x="460" y="44" width="78" height="28" rx="4"/><rect x="380" y="94" width="38" height="28" rx="4"/><rect x="420" y="94" width="78" height="28" rx="4"/><rect x="500" y="94" width="78" height="28" rx="4"/><rect x="540" y="144" width="38" height="28" rx="4"/></g>
+      <rect x="380" y="144" width="158" height="28" rx="4" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="380" y="210" font-size="13" fill="#1D4ED8" font-weight="600">同じ予約で、室3に4泊の連続した空き</text>
+      <g font-size="12" fill="#5B6676">
+        <text x="60" y="240">どちらも同じ6件の予約で、どの日も空きは1室。違いは空きが連続しているか</text>
+      </g>
+    </svg>
+    <p class="src">図1　割当のタイミングの違い（解説者による模式図。論文の図ではない）。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>ホテルのシミュレータで、賢い割当は拒否率を大きく下げ、稼働率を上げた（要旨）</h2>
+    <p>要旨によれば、論文は理論の結果と実験を組み合わせ、ホテルのシミュレータで、現実的なものを含むいくつかの状況について、最適な方法とヒューリスティックを、ランダムまたは最適でない割当と比べた。結果として、賢い割当は拒否率を大きく下げ、稼働率（各期に売れた部屋やベッドの割合）を上げられるとする。効果は繁忙期・予約の多い時期に最も大きく、価格の方針によっては RevPAR（販売可能な客室1室あたりの売上）の改善につながると見込む。具体的な数値は本文を未読のため載せない。続編の <a href="../roomtetris-2021/">2021年の論文</a>には、50室・1年のシミュレーションで RoomTetris の拒否率が 0% になった表がある。</p>
+    <p>トレント大学の広報は、50室の平均的なイタリアのホテルで年間の売上が5〜10%増えると見積もっている。これは広報の見積もりで、論文の表の値ではない。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>断片化を指標で抑えるのではなく、割当を遅らせて断片化そのものを避ける研究である</h2>
+    <ul class="def">
+      <li><strong>考え方</strong>：受けるかどうかは日ごとの部屋数だけで判断し、どの部屋に入れるかは情報がそろうチェックイン日に決める。区間（滞在）の割当を開始時刻の順に行う貪欲法である。</li>
+      <li><strong>限界（要旨より）</strong>：キャンセルと超過予約（オーバーブッキング）を含む拡張、複数の部屋タイプでのアップグレード、収益管理との統合は今後の課題とされる。同じタイプのどの部屋でもよいこと、チェックイン後に部屋を移さないことが前提である。</li>
+      <li><strong>美容室の予約への使い方</strong>：指名のない予約なら、担当の施術者を当日（または施術の開始時）まで決めずに、時間帯ごとの人数だけで受けるかを判断すれば、施術者の割当による断片化は起きない。違いは、美容室では予約ごとに開始時刻が違い、指名やメニューごとの技能の制約があることで、ホテルのように「どの部屋でもよい」とは限らない。</li>
+      <li><strong>関連</strong>：<a href="../roomtetris-2021/">2021年の続編</a>は、ランダムな割当で長い滞在がどれだけ断られるかを計算し、最短滞在日数の制限の見直しを論じる。<a href="../zhang-li-huh/">Zhang ら（2026）</a>は割当を購入時に決める設定で選択を考慮した品揃えを扱う。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{battiti2020roomtetris,
+  title   = {RoomTetris: an optimal procedure for committing rooms to reservations in hotels},
+  author  = {Battiti, Roberto and Brunato, Mauro and Battiti, Filippo},
+  journal = {Journal of Hospitality and Tourism Technology},
+  volume  = {11},
+  number  = {4},
+  pages   = {589--602},
+  year    = {2020},
+  doi     = {10.1108/JHTT-08-2019-0108}
+}</pre>
+    </div>
+    <p class="src">要旨と書誌情報にもとづく。本文は未読。書誌情報は Emerald の論文ページとトレント大学の機関リポジトリ（IRIS）の記録から取った。RoomTetris の手順と性質の説明は、同じ著者の2021年の論文（IJCHM、本文を確認）による。広報の数値はトレント大学のプレスリリースから。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campbell・Savelsbergh（2005）：ネットスーパーの配達時間枠つき注文を、配送ルートを見ながら受けるか決める（論文解説）</title>
+<meta name="description" content="Decision Support for Consumer Direct Grocery Initiatives（Transportation Science 2005）の非公式の解説。ネットスーパーの配達で、時間枠ごとの件数の上限ではなく、配送ルートに入るか・利益が出るかを挿入法で調べて注文の受付と時間枠を決める方法を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = the baseline / the problem being illustrated
+            --b (blue)   = the method proposed in the paper and its results
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Transportation Science · 2005</div>
+  <h1>Decision Support for Consumer Direct Grocery Initiatives</h1>
+  <p class="subtitle">消費者直販の食料品宅配のための意思決定支援</p>
+
+  <ul class="authors">
+    <li><b>Ann Melissa Campbell</b><span>University of Iowa</span></li>
+    <li><b>Martin W. P. Savelsbergh</b><span>Georgia Institute of Technology</span></li>
+  </ul>
+
+  <p class="lead">ネットスーパーの配達では、客が 1 時間の時間枠を選んで注文し、店は受けた注文を必ずその枠で届ける。実務では<span class="A">枠ごとに受ける件数の上限を決めるだけ</span>で、配送ルートに入るかは見ていなかった。Campbell と Savelsbergh は、注文が来るたびに、受けた注文と将来来そうな注文を<span class="B">挿入法でルートに入れてみて</span>、受けるか・どの枠にするかを決める方法を作った。客がまばらな地域では、件数の上限で受けた場合の利益 223 に対し、提案法の 1 つ（REG）は 376 だった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/trsc.1040.0105">DOI</a>
+    <a class="btn" href="https://ideas.repec.org/a/inm/ortrsc/v39y2005i3p313-327.html">RePEc</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。時間枠ごとの件数の上限で注文を受ける実務、上限を守っても遠い客を受けると配送ルートに入らないこと、受けた注文と将来の注文を挿入法でルートに入れて判断する提案法、客がまばらな地域と密な地域での利益の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">利益 223 → 376</span><span class="d">60×60 分の客がまばらな地域で、枠ごとの件数の上限（SLOT）と、地域の将来の注文も見る REG の利益（論文 Table 2）。後から全注文を知った場合（BEST）は 416。</span></li>
+    <li><span class="k">受けるたびに VRPTW を解く</span><span class="d">受付の可否は、時間枠つき配送計画問題（VRPTW）が解けるかで決まる。NP 完全な問題なので、GRASP 風の乱択を入れた挿入法で近似する。</span></li>
+    <li><span class="k">需要が多いほど利益で選ぶ効果が大きい</span><span class="d">入るかだけを見る方法でも上限より良いが、需要が容量を超えるときや客がまばらなときは、利益を見て選ぶ方法の差が開く。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>ネットスーパーの配達は需要が読めず、時間枠が狭く、利幅が小さいので、受ける注文の選び方が利益を左右する</h2>
+    <p>食料品を家まで届ける消費者直販（consumer direct）では、客が在宅している時間に届ける必要がある（attended home delivery）。客は注文時に 1 時間の時間枠を選ぶ。需要は前もって分からず、時間枠は狭く、商品の利幅は小さい。</p>
+    <p>実務の方法（論文では SLOT）は、時間枠ごとに受ける件数の上限を決めておくだけである。上限の中なら、配送ルートに入るか、利益が出るかに関係なく受ける。論文は注文が来た時点で受けるか断るか、受けるならどの枠にするかを決める問題を「宅配問題（HDP）」と名づけて扱う。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>締め切りまでに順に届く注文を、その場で受けるか断るか決め、受けたら約束した枠で必ず届ける</h2>
+    <ul class="def">
+      <li><strong>客と注文</strong>：客の集合は分かっている。客ごとに受け入れられる時間枠の集合があり、締め切りまでのある時刻に注文する確率が与えられる（締め切りに向けて線形に下がる）。</li>
+      <li><strong>車両</strong>：容量のある同じ車両 \(m\) 台。受けた注文は全部、約束した時間枠の中で届ける必要がある。</li>
+      <li><strong>利益</strong>：受けた注文の収入から、走行距離に比例する費用を引いたもの。</li>
+      <li><strong>難しさ</strong>：受けられるかを確かめるには、受けた注文を全部回る時間枠つき配送計画問題（VRPTW）を解く必要がある。航空券の収益管理と違い、1 件を受けるとほかの注文の配送費用も変わる。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>受けた注文と将来の注文を確率で重みづけしてルートに挿入し、新しい注文が入るか・得になるかで判断する</h2>
+    <p>注文が来るたびに 2 段階で調べる。第 1 段階で、受けた注文を全部ルートに入れる。第 2 段階で、新しい注文（と、まだ来ていない注文）を入れてみる。挿入では上位の候補から乱択で選ぶ GRASP 風の手順を使い、実験では上位 2 つから選ぶルート作りを 4 回くり返して、最も利益の高いものを使った。</p>
+    <ul class="def">
+      <li><strong>DYN</strong>：新しい注文がどれかの枠に入るなら受ける（利益は見ない）。</li>
+      <li><strong>DSR</strong>：将来の注文の収入を、来る確率で重みづけして挿入の基準に入れる。</li>
+      <li><strong>PATH</strong>：受けた注文の間の経路の期待の長さを、新しい注文がある場合とない場合で比べる。計算が最も重い。</li>
+      <li><strong>DIFF</strong>：PATH の費用を、楽観的な近似と悲観的な近似の差で安く見積もる。</li>
+      <li><strong>REG</strong>：新しい注文の周りの地域で、まだ来ていない注文の期待収入を足す。客が固まる効果を入れる。</li>
+    </ul>
+    <p>比べる相手として、件数の上限で受ける SLOT（1 枠 2 件まで）と、すべての注文を後から知って最適に選んだ BEST を置く。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>入るかを確かめるだけで件数の上限より利益が増え、客がまばらな地域では利益で選ぶ方法の差がさらに開いた</h2>
+    <p>客 100 人を 30×30 分（密）または 60×60 分（まばら）の範囲に置き、各 10 例で比べた。基本の設定は容量 24 の車両 1 台、1 件の収入 40 ドル、距離 1 あたり 1 ドル、注文の確率 0.24（期待の注文数が容量に等しい）、客ごとに選べる枠 2 つである。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>方法</th><th>密（30×30）</th><th>まばら（60×60）</th></tr></thead>
+      <tbody>
+        <tr><td class="A">SLOT（件数の上限）</td><td class="A">510.24</td><td class="A">223.14</td></tr>
+        <tr><td>DYN</td><td>659.27</td><td>335.36</td></tr>
+        <tr><td>DSR</td><td>670.93</td><td>343.23</td></tr>
+        <tr><td>PATH</td><td>666.67</td><td>324.80</td></tr>
+        <tr><td class="B">REG</td><td class="B">668.92</td><td class="B">376.35</td></tr>
+        <tr><td>DIFF</td><td>642.26</td><td>290.96</td></tr>
+        <tr><td>BEST（全注文を知った場合）</td><td>682.99</td><td>416.08</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　基本の設定での利益（論文 Table 1、Table 2）。</p>
+    <ul class="def">
+      <li>注文の確率を 0.48 に上げた（需要が容量の 2 倍）まばらな地域では、SLOT 272.54、DYN 325.06 に対し、PATH 517.45、DSR 493.68 だった（Table 4）。需要が多いほど利益で選ぶ方法の差が開く。</li>
+      <li>客が選べる枠が多いほど、また時間枠の幅が広いほど、SLOT 以外の方法の利益は上がった（Table 5、11）。</li>
+      <li>PATH は計算が最も重く、枠の幅と数が増えると計算時間が大きく伸びた（密な地域で枠の幅を変えると 3.26 秒から 50.70 秒）。DSR と DIFF は安い計算で健闘した。</li>
+    </ul>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>宅配の時間枠管理で「受けた後の資源の組み合わせを見て受付を決める」流れの出発点になった</h2>
+    <ul class="def">
+      <li><strong>その後</strong>：同じ著者らは <a href="../campbell-2006/">Campbell と Savelsbergh（2006）</a>で、割引で客を配送しやすい枠に誘導する方法に進めた。<a href="../agatz-2011/">Agatz ら（2011）</a>は地域ごとに出す枠を事前に計画し、<a href="../yang-2016/">Yang ら（2016）</a>は客の選択モデルと枠の価格を組み合わせた。</li>
+      <li><strong>限界</strong>：客の選ぶ枠は受け入れられる枠の集合として与えられ、提示や価格で選択が変わることは扱わない（論文は今後の課題に割引を挙げる）。</li>
+      <li><strong>美容室の問題への示唆</strong>：「枠ごとの件数の上限」では、上限の中でも資源の組み合わせとして入らない予約を受けてしまう。この点は、空き時間の合計だけで受けると連続した空きが足りなくなる断片化と同じ構造である。将来来そうな予約を確率で重みづけしてスケジュールに入れてみる PATH や REG の考え方は、受付の判断に将来の予約の入りやすさを入れる指標の参考になる。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{campbell2005decision,
+  title   = {Decision Support for Consumer Direct Grocery Initiatives},
+  author  = {Campbell, Ann Melissa and Savelsbergh, Martin W. P.},
+  journal = {Transportation Science},
+  volume  = {39},
+  number  = {3},
+  pages   = {313--327},
+  year    = {2005},
+  doi     = {10.1287/trsc.1040.0105}
+}</pre>
+    </div>
+    <p class="src">ページの数値は出版版の本文（SciSpace に置かれた PDF の写し）による。書誌はその PDF と RePEc（IDEAS）のページで確認した。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

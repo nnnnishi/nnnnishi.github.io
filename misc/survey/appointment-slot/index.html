@@ -194,7 +194,7 @@ description: "予約ごとに必要な時間が違い、連続した空きが必
           </defs>
         </svg>
       </div>
-      <p class="note" id="lineage-readout" aria-live="polite">論文にカーソルを合わせると、その論文と矢印でつながる論文だけが残ります。</p>
+      <p class="note" id="lineage-readout" aria-live="polite">論文にカーソルを合わせると、その論文と矢印でつながる論文だけが残ります。クリックすると解説ページへ移動します。</p>
       <details class="lin-why">
         <summary>矢印の根拠を一覧で見る</summary>
         <div class="table-wrap">
@@ -238,7 +238,7 @@ description: "予約ごとに必要な時間が違い、連続した空きが必
       </div>
       <div class="table-wrap">
         <table id="paper-table">
-          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>領域</th><th>予約の長さ</th><th>決めること</th><th>評価</th></tr></thead>
+          <thead><tr><th>年</th><th>会議・誌</th><th>タイトル・概要</th><th>系統</th><th>領域</th><th>予約の長さ</th><th>決めること</th><th>評価</th><th>解説</th></tr></thead>
           <tbody>
           {%- assign papers = d.papers | sort: "year" | reverse %}
           {%- for p in papers %}
@@ -252,6 +252,7 @@ description: "予約ごとに必要な時間が違い、連続した空きが必
               <td class="dom">{{ p.duration }}</td>
               <td class="mid">{{ p.decision }}</td>
               <td class="dom">{{ p.eval }}</td>
+              <td class="nowrap">{% if p.explainer %}<a href="papers/{{ p.explainer }}/">解説</a>{% endif %}</td>
             </tr>
           {%- endfor %}
           </tbody>

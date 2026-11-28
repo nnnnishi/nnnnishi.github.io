@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campbell・Savelsbergh（2006）：割引で客を配送しやすい時間枠に誘導する（論文解説）</title>
+<meta name="description" content="Incentive Schemes for Attended Home Delivery Services（Transportation Science 2006）の非公式の解説。在宅受け取りの宅配で、時間枠ごとの割引（インセンティブ）を最適化して配送費用を下げる考え方を、要旨と、同じ著者らによる解説の章にもとづいて紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = the baseline / the problem being illustrated
+            --b (blue)   = the method proposed in the paper and its results
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Transportation Science · 2006</div>
+  <h1>Incentive Schemes for Attended Home Delivery Services</h1>
+  <p class="subtitle">在宅受け取りの宅配サービスのためのインセンティブの仕組み</p>
+
+  <ul class="authors">
+    <li><b>Ann Melissa Campbell</b><span>University of Iowa</span></li>
+    <li><b>Martin Savelsbergh</b><span>Georgia Institute of Technology</span></li>
+  </ul>
+
+  <p class="lead">ネットスーパーのような宅配では、需要が読めず、配達の時間枠は厳しく、商品の利幅は小さい。<span class="A">客が好きな枠を選ぶままにすると</span>、配送費用のかかる枠に注文が入る。Campbell と Savelsbergh は、注文が来たときに<span class="B">一部の枠に割引を付けて客の選択を誘導する</span>ことを考え、2 種類のインセンティブの最適化モデルを作り、シミュレーションで効果を示した。</p>
+
+  <p class="src">このページは要旨と書誌情報、および同じ著者らを含む解説の章（Agatz・Campbell・Fleischmann・Savelsbergh「Challenges and Opportunities in Attended Home Delivery」）の記述にもとづく。本文は未読のため、数値の結果は載せていない。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/trsc.1050.0136">DOI</a>
+    <a class="btn" href="https://ideas.repec.org/a/inm/ortrsc/v40y2006i3p327-341.html">RePEc</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。客が選ぶ時間枠の確率と枠ごとの配送費用の違い、割引で安い枠を選ぶ確率が上がりほかの枠が下がる仕組み、割引額を線形計画で決めること、2種類のインセンティブと定性的な結果、まとめの5場面。数値の結果は含まない。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図。要旨と著者らの解説の章にもとづく）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">2 種類のインセンティブ</span><span class="d">特定の 1 時間の枠を選んでもらうための割引と、より広い時間枠を受け入れてもらうための割引（解説の章による）。</span></li>
+    <li><span class="k">割引で選ぶ確率が動く</span><span class="d">1 ドルの割引で、その枠を選ぶ確率が一定の率 \(x\) だけ上がり、ほかの枠の確率が同じだけ下がるとモデル化する（解説の章による）。</span></li>
+    <li><span class="k">少数の枠への割引で十分</span><span class="d">割引を付ける枠は 3 つ以下で十分で、広い枠を受け入れてもらうほうが特定の枠に誘導するより易しい（解説の章が伝える結果）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>宅配の配送費用は客が選ぶ時間枠で大きく変わるので、客の選び方そのものに働きかける余地がある</h2>
+    <p>要旨によると、ネットスーパーのような消費者直販の宅配では、需要の読みにくさ、厳しい配達の時間枠、利幅の小さい商品が重なり、配達が大きな負担になっている。論文はインセンティブで客の行動に働きかけて配送費用を下げることを調べる。</p>
+    <p>同じ著者らの前の論文 <a href="../campbell-2005/">Campbell と Savelsbergh（2005）</a>は、来た注文を受けるか、どの枠にするかを配送ルートを見て決めた。そこでは客が受け入れる枠の集合は与えられたもので、店は選べる枠を絞ることしかできない。この論文は割引で客の選ぶ枠そのものを動かす。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>注文が来たとき、どの枠にいくら割引を付けるかを決め、配送費用を引いた期待利益を最大にする</h2>
+    <p>以下は、同じ著者らを含む解説の章がこの論文を紹介した内容による。</p>
+    <ul class="def">
+      <li><strong>客の選択</strong>：客が各枠を選ぶ確率は推定されている。枠 \(t\) に \(I_t\) ドルの割引を付けると、その枠を選ぶ確率が \(x I_t\) だけ上がり、ほかの枠の確率は合計が 1 になるよう同じ量ずつ下がる。1 つの枠の割引は \(B\) ドルまで。</li>
+      <li><strong>配送費用の見積もり</strong>：その時点のルートに注文を入れる費用（挿入費用）\(C_t\) を、枠ごとの将来の配送費用の見積もりに使う。</li>
+      <li><strong>入らない枠</strong>：ルートに入らない枠の確率は、入る枠に均等に配り直すか、その確率で客が注文をやめる（walk away）とする。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>期待利益は割引について 2 次式になり、区分線形で近似した線形計画を解いて割引額を決める</h2>
+    <p>解説の章によると、枠を割引の対象 \(U\) とそれ以外 \(V\) に分け、割引額 \(I_t\) とほかの枠の確率の減らし幅 \(z\) を変数にして期待利益を最大化する。確率と割引の積が入るので目的関数は 2 次式になる。制約は、確率が負にならないこと、合計が 1 であること、割引が \(B\) 以下であることである。2 次の項を区分線形で近似すると線形計画になり、割引は数秒で計算できる。</p>
+    <p>広い時間枠を受け入れてもらうための割引も同じ形で書ける。このときは、確率を減らす側の集合 \(V\) を、確率が正の 1 時間の枠すべてとする。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>シミュレーションで、割引が配送費用を下げ、注文をやめる客を減らすことが示された</h2>
+    <p>要旨はシミュレーションでインセンティブの価値と影響を示したと述べる。解説の章は結果を次のようにまとめている（数値は示されていない）。</p>
+    <ul class="def">
+      <li>インセンティブは配送費用を大きく下げ、利益を上げうる。</li>
+      <li>注文をやめる客（walk away）を大きく減らしうる。</li>
+      <li>割引を付ける枠は少数（3 つ以下）で十分である。</li>
+      <li>特定の枠を選ばせるより、広い枠を受け入れてもらうほうが易しい。</li>
+      <li>配送計画を作り始めた早い段階でも、インセンティブは効果を持ちうる。</li>
+    </ul>
+    <p class="src">本文の表の数値は確認できていないため、このページには載せない。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>受付の可否だけでなく、割引で客の選ぶ枠を動かして資源の使い方を整える方向を開いた</h2>
+    <ul class="def">
+      <li><strong>系統</strong>：<a href="../campbell-2005/">Campbell と Savelsbergh（2005）</a>の受付の判断に、客の選択への働きかけを足した。<a href="../yang-2016/">Yang ら（2016）</a>は客の選択を多項ロジットで表し、枠ごとの価格を動的に決める方向に進めた。<a href="../agatz-2011/">Agatz ら（2011）</a>は、日々の割引ではなく、地域ごとにどの枠を出すかを事前に計画する。</li>
+      <li><strong>美容室の問題への示唆</strong>：連続した空きを残したいとき、空き時間に隙間を作らない枠（既存の予約にぴったり隣接する枠）に小さな割引を付けて誘導する、という使い方が考えられる（解説者の考え）。ただしこの論文の費用は配送ルートへの挿入費用で、空き時間の断片化を直接測るものではない。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{campbell2006incentive,
+  title   = {Incentive Schemes for Attended Home Delivery Services},
+  author  = {Campbell, Ann Melissa and Savelsbergh, Martin},
+  journal = {Transportation Science},
+  volume  = {40},
+  number  = {3},
+  pages   = {327--341},
+  year    = {2006},
+  doi     = {10.1287/trsc.1050.0136}
+}</pre>
+    </div>
+    <p class="src">要旨と書誌情報にもとづく。本文は未読。書誌と著者の所属は RePEc（IDEAS）のページから取った。モデルと結果の記述は、同じ著者らを含む解説の章（Agatz, Campbell, Fleischmann, Savelsbergh「Challenges and Opportunities in Attended Home Delivery」、Ann Campbell の大学のサイトに置かれた PDF）による。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

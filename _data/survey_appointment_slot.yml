@@ -1,7 +1,7 @@
 # /misc/survey/appointment-slot/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
 # category は categories の id のどれか。確認できなかった項目は "" のままにする。
 # id は系譜の図と矢印で使う識別子、short は図での呼び名（論文を足すときは必ず付ける）。
-# explainer を書くと papers/<explainer>/ の解説ページへリンクする（2026-11-28 時点で解説ページはまだない）。groups は lineage_groups の id。
+# explainer を書くと papers/<explainer>/ の解説ページへリンクする。groups は lineage_groups の id。
 
 updated: "2026-11-28"
 
@@ -11,7 +11,7 @@ categories_note: "論文の表の「系統」は主な貢献で1つに決めて�
 
 papers_note: "「予約の長さ」は1件の予約が占める時間が1枠に固定か、可変で連続した区間を占めるか、「決めること」は受付の可否・提示する枠・枠や部屋の割当のどれを決めるか、「評価」は理論・シミュレーション・実データのどれで検証したかです。会議名とリンクは出版社・RePEc・arXiv のページで確認できたものだけを載せています。"
 
-explainer_note: ""
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。本文を読めず要旨だけで書いたページは、ページ内にそう書いています。"
 
 datasets_note: "予約の長さと予約の時刻がそろった公開データは少なく、この分野の論文の多くは需要分布を仮定したシミュレーションで評価しています。到着や予約の長さの分布を作るのに使える公開データを挙げます。"
 
@@ -79,7 +79,7 @@ lineage_groups:
   - { id: savelsbergh, label: "Iowa・Georgia Tech（Campbell・Savelsbergh）" }
   - { id: reusable-group, label: "Columbia・MIT（Goyal・Iyengar・Simchi-Levi）" }
 
-lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は同じグループの続編や手法の直接の拡張、破線は比較相手や出発点に挙げた関係です。これは初版です。RoomTetris の2本と、Lian (2010) を引用する研究への矢印は、本文や引用データベース（Google Scholar・OpenAlex・Semantic Scholar）で引用を確認しています。それ以外の矢印は、著者の重なりと研究の流れからの推測（点線）で、本文ではまだ確認していません。2007 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めています。破線の枠は解説ページのない論文です（現在はすべて）。"
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は同じグループの続編や手法の直接の拡張、破線は比較相手や出発点に挙げた関係です。これは初版です。RoomTetris の2本と、Lian (2010) を引用する研究への矢印は、本文や引用データベース（Google Scholar・OpenAlex・Semantic Scholar）で引用を確認しています。それ以外の矢印は、著者の重なりと研究の流れからの推測（点線）で、本文ではまだ確認していません。2007 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めています。論文をクリックすると解説ページへ移動します。"
 
 lineage:
   - { from: roomtetris-2020, to: roomtetris-2021, kind: ext, why: "同じ著者ら。2020 年の RoomTetris（部屋番号の確定を遅らせ、長い滞在から詰める）を使い、最短滞在日数の制限を見直すべきだと論じる" }
@@ -111,6 +111,7 @@ papers:
     venue: "IEEE Eng. Med. Biol. Mag."
     url: "https://doi.org/10.1109/MEMB.2009.935718"
     short: "Lian+ 2010"
+    explainer: "lian-2010"
     category: "fragmentation"
     domain: "外来診療"
     duration: "可変（連続する枠）"
@@ -124,6 +125,7 @@ papers:
     venue: "J. Hosp. Tour. Technol."
     url: "https://doi.org/10.1108/JHTT-08-2019-0108"
     short: "RoomTetris 2020"
+    explainer: "roomtetris-2020"
     groups: [trento]
     category: "fragmentation"
     domain: "ホテル"
@@ -138,6 +140,7 @@ papers:
     venue: "IJCHM"
     url: "https://doi.org/10.1108/IJCHM-11-2020-1364"
     short: "RoomTetris 2021"
+    explainer: "roomtetris-2021"
     groups: [trento]
     category: "fragmentation"
     domain: "ホテル"
@@ -152,6 +155,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2610.27661"
     short: "Zhang+ 2026"
+    explainer: "zhang-li-huh"
     category: "fragmentation"
     domain: "ホテル、レンタル"
     duration: "可変（連続する枠）"
@@ -166,6 +170,7 @@ papers:
     venue: "VEHICULAR 2015"
     url: "https://scholar.google.com/scholar?q=%22Schedule+rating+method+based+on+a+fragmentation+criterion%22"
     short: "Koetter+ 2015"
+    explainer: "koetter-2015"
     category: "fragmentation"
     domain: "EV カーシェア（社用車）"
     duration: "可変（連続する時間）"
@@ -180,6 +185,7 @@ papers:
     venue: "EURO J. Comput. Optim."
     url: "https://doi.org/10.1016/j.ejco.2021.100010"
     short: "Knopp+ 2021"
+    explainer: "knopp-2021"
     category: "lian-citing"
     domain: "社用車・移動手段"
     duration: "可変（利用時間）"
@@ -193,19 +199,21 @@ papers:
     venue: "修士論文（AFIT）"
     url: ""
     short: "Escamilla 2022"
+    explainer: "escamilla-2022"
     category: "lian-citing"
     domain: "入隊検査所"
     duration: ""
     decision: "予約制の設計"
     eval: "シミュレーション"
-    note: "米軍の入隊検査所の受付を一括到着から予約制に変える案をシミュレーションで比べる。Lian の schedule defragmentation の効果を紹介し、自分の対象にも効くかを検討する"
+    note: "米軍の入隊検査所の受付を一括到着から予約制に変える案をシミュレーションで比べる。Lian の schedule defragmentation に触れている（被引用データベースの引用文脈による。本文では未確認）"
   - id: creemers-2021
     title: "Evaluation of appointment scheduling rules: A multi-performance measurement approach"
-    authors: "S. Creemers, M. Lambrecht, J. Beliën, P. Colen"
+    authors: "S. Creemers, M. Lambrecht, J. Beliën, M. Van den Broeke"
     year: 2021
     venue: "Omega"
     url: "https://doi.org/10.1016/j.omega.2020.102231"
     short: "Creemers+ 2021"
+    explainer: "creemers-2021"
     category: "lian-citing"
     domain: "外来診療"
     duration: "1枠"
@@ -214,11 +222,12 @@ papers:
     note: "患者をいつ呼ぶかの予約ルールを、待ち時間・医師の遊休・残業など複数の指標で評価する。評価指標の作り方の参考になる"
   - id: mazaheri-2024
     title: "Overview and classification of evaluation metrics of appointment scheduling systems"
-    authors: "M. R. Mazaheri Habibi, F. Mohammad Abadi, H. Tabesh"
+    authors: "M. R. Mazaheri Habibi, et al.（6名）"
     year: 2024
     venue: "Front. Health Inform."
     url: "https://doi.org/10.30699/fhi.v13i0.573"
     short: "Mazaheri+ 2024"
+    explainer: "mazaheri-2024"
     category: "lian-citing"
     domain: "医療予約"
     duration: ""
@@ -232,6 +241,7 @@ papers:
     venue: "Appl. Clin. Inform."
     url: "https://doi.org/10.4338/ACI-2015-08-RA-0097"
     short: "Huang 2016"
+    explainer: "huang-2016"
     category: "lian-citing"
     domain: "外来診療"
     duration: "患者タイプ別"
@@ -245,6 +255,7 @@ papers:
     venue: "IJHCQA"
     url: "https://doi.org/10.1108/IJHCQA-02-2012-0019"
     short: "Huang 2013"
+    explainer: "huang-2013"
     category: "lian-citing"
     domain: "外来診療"
     duration: "可変（付帯サービス込み）"
@@ -258,19 +269,21 @@ papers:
     venue: "IEEE SIEDS 2011"
     url: "https://doi.org/10.1109/SIEDS.2011.5876860"
     short: "Nelson+ 2011"
+    explainer: "nelson-2011"
     category: "lian-citing"
     domain: "小児専門外来"
     duration: ""
     decision: "予約表の見せ方"
     eval: "実運用"
-    note: "全医師の予約表を色分けして一覧表示し、予約担当者が混み具合を見て枠を選べるようにする。担当者が断片化を目で見て避けるという運用面の工夫"
+    note: "全医師の予約表を一覧で見えるようにし、予約担当者が混み具合を見て枠を選べるようにする（要旨にもとづく）。担当者が空きの分かれ方を目で見て避けるという運用面の工夫"
   - id: larsson-2019
     title: "Smartbokning: Koncept för ett automatiserat bokningssystem"
     authors: "J. Larsson"
     year: 2019
-    venue: "修士論文（Luleå工科大）"
+    venue: "学位論文（Luleå工科大）"
     url: ""
     short: "Larsson 2019"
+    explainer: "larsson-2019"
     category: "lian-citing"
     domain: "医療予約"
     duration: ""
@@ -284,6 +297,7 @@ papers:
     venue: "HICL 2019"
     url: ""
     short: "Lange+ 2019"
+    explainer: "lange-2019"
     category: "lian-citing"
     domain: "港湾のトラック予約"
     duration: "時間枠"
@@ -297,6 +311,7 @@ papers:
     venue: "博士論文（Fraunhofer）"
     url: "https://doi.org/10.24406/publica-5784"
     short: "Lange 2025"
+    explainer: "lange-2025"
     category: "lian-citing"
     domain: "港湾のトラック予約"
     duration: "時間枠"
@@ -310,6 +325,7 @@ papers:
     venue: "IEEE Access"
     url: "https://doi.org/10.1109/ACCESS.2019.2958388"
     short: "Yu+ 2019"
+    explainer: "yu-2019"
     category: "lian-citing"
     domain: "医療予約"
     duration: ""
@@ -323,6 +339,7 @@ papers:
     venue: "J. Serv. Sci. Manag."
     url: "https://doi.org/10.4236/jssm.2019.125040"
     short: "Guo+ 2019"
+    explainer: "guo-yao-2019"
     category: "lian-citing"
     domain: "医療予約"
     duration: ""
@@ -336,6 +353,7 @@ papers:
     venue: "Comput. Ind. Eng."
     url: "https://doi.org/10.1016/j.cie.2019.02.033"
     short: "Chen+ 2019"
+    explainer: "chen-2019"
     category: "lian-citing"
     domain: "外来診療"
     duration: ""
@@ -343,12 +361,13 @@ papers:
     eval: ""
     note: "受付番号制の予約システムでの予約方策を扱う。Lian は先行研究として挙げるのみ"
   - id: lam-2021
-    title: "Enhancing data-driven elderly appointment services"
+    title: "Enhancing data-driven elderly appointment services in domestic care communities under COVID-19"
     authors: "H. Y. Lam, G. T. S. Ho, D. Y. Mo, V. Tang"
     year: 2021
     venue: "IMDS"
     url: "https://doi.org/10.1108/IMDS-07-2020-0392"
     short: "Lam+ 2021"
+    explainer: "lam-2021"
     category: "lian-citing"
     domain: "高齢者向けサービス"
     duration: ""
@@ -363,6 +382,7 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.43.3.427"
     short: "Bitran+ 1995"
+    explainer: "bitran-1995"
     category: "consecutive-rm"
     domain: "ホテル"
     duration: "可変（連泊）"
@@ -376,6 +396,7 @@ papers:
     venue: "Oper. Res."
     url: "https://www.mit.edu/~dbertsim/papers/Revenue%20Management/Restaurant%20Revenue%20Management.pdf"
     short: "Bertsimas+ 2003"
+    explainer: "bertsimas-shioda-2003"
     category: "consecutive-rm"
     domain: "レストラン"
     duration: "可変（滞在時間）"
@@ -389,12 +410,13 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.2025.1994"
     short: "Hu+ 2025"
+    explainer: "hu-wu-2025"
     category: "consecutive-rm"
     domain: "ホテル、鉄道"
     duration: "可変（連続する区間）"
     decision: "受付の可否、提示する枠"
     eval: "理論"
-    note: "連続した区間を必要とする予約に対し、受付・拒否型と品揃え提示型（BAM 選択モデル）の両方で、最適なオンライン方策に対する定数の近似比を示す（arXiv:2506.00909）"
+    note: "連続した区間を必要とする予約に対し、受付・拒否型と品揃え提示型（BAM 選択モデル）の両方で、最適なオンライン方策に対する定数の近似比を示す（arXiv:2506.00909。近似比の値は arXiv の版によって異なる）。資源の価値が極大な空き区間ごとの価値の和に分かれることを示しており、断片化の指標と結びつけやすい"
   # ---- 再利用資源のオンライン配分 ----
   - id: levi-2010
     title: "Provably Near-Optimal LP-Based Policies for Revenue Management in Systems with Reusable Resources"
@@ -403,6 +425,7 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.1090.0714"
     short: "Levi+ 2010"
+    explainer: "levi-2010"
     category: "reusable"
     domain: "レンタル、計算資源"
     duration: "ランダムな利用時間"
@@ -416,6 +439,7 @@ papers:
     venue: "Manag. Sci."
     url: "https://doi.org/10.1287/mnsc.2019.3346"
     short: "Rusmevichientong+ 2020"
+    explainer: "rusmevichientong-2020"
     category: "reusable"
     domain: "レンタル"
     duration: "ランダムな利用時間"
@@ -429,6 +453,7 @@ papers:
     venue: "Manag. Sci."
     url: "https://doi.org/10.1287/mnsc.2021.4134"
     short: "Gong+ 2022"
+    explainer: "gong-2022"
     groups: [reusable-group]
     category: "reusable"
     domain: "レンタル"
@@ -444,6 +469,7 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.2021.0695"
     short: "Goyal+ 2025"
+    explainer: "goyal-2025"
     groups: [reusable-group]
     category: "reusable"
     domain: "レンタル"
@@ -458,6 +484,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2212.02855"
     short: "Zhang+ 2022"
+    explainer: "zhang-cheung"
     category: "reusable"
     domain: "レンタル"
     duration: "連続する D 期間"
@@ -471,6 +498,7 @@ papers:
     venue: "arXiv"
     url: "https://arxiv.org/abs/2410.15245"
     short: "Ao+ 2024"
+    explainer: "ao-2024"
     groups: [reusable-group]
     category: "reusable"
     domain: "ホテル"
@@ -486,6 +514,7 @@ papers:
     venue: "Oper. Res."
     url: "https://ideas.repec.org/a/inm/oropre/v56y2008i3p576-592.html"
     short: "Gupta+ 2008"
+    explainer: "gupta-wang-2008"
     category: "choice"
     domain: "診療所"
     duration: "1枠"
@@ -499,13 +528,14 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.2014.1286"
     short: "Feldman+ 2014"
+    explainer: "feldman-2014"
     groups: [liu-ziya]
     category: "choice"
     domain: "外来診療"
     duration: "1枠"
     decision: "提示する日"
     eval: "理論、シミュレーション"
-    note: "患者が提示された日から選び、キャンセルや無断キャンセルもある予約受付を扱う。最適性の差に上界のある静的モデルと、LP と列生成で解く動的な方策を示す"
+    note: "患者が提示された日から選び、キャンセルや無断キャンセルもある予約受付を扱う。最適性の差に上界のある静的モデルと、その解から方策改善を1回行う動的な方策を示す"
   - id: wang-fung-2015
     title: "Dynamic appointment scheduling with patient preferences and choices"
     authors: "J. Wang, R. Y. K. Fung"
@@ -513,6 +543,7 @@ papers:
     venue: "IMDS"
     url: "https://doi.org/10.1108/IMDS-12-2014-0372"
     short: "Wang+ 2015"
+    explainer: "wang-fung-2015"
     category: "choice"
     domain: "外来診療"
     duration: "1枠"
@@ -527,6 +558,7 @@ papers:
     venue: "Manag. Sci."
     url: "https://doi.org/10.1287/mnsc.2018.3150"
     short: "Liu+ 2019"
+    explainer: "liu-2019"
     groups: [liu-ziya]
     category: "choice"
     domain: "予約全般"
@@ -542,6 +574,7 @@ papers:
     venue: "Oper. Res."
     url: "https://doi.org/10.1287/opre.1080.0590"
     short: "Patrick+ 2008"
+    explainer: "patrick-2008"
     groups: [ubc]
     category: "dynamic-appt"
     domain: "画像診断"
@@ -556,6 +589,7 @@ papers:
     venue: "MSOM"
     url: "https://doi.org/10.1287/msom.1090.0272"
     short: "Liu+ 2010"
+    explainer: "liu-ziya-2010"
     groups: [liu-ziya]
     category: "dynamic-appt"
     domain: "外来診療"
@@ -570,6 +604,7 @@ papers:
     venue: "EJOR"
     url: "https://doi.org/10.1016/j.ejor.2012.06.046"
     short: "Sauré+ 2012"
+    explainer: "saure-2012"
     groups: [ubc]
     category: "dynamic-appt"
     domain: "放射線治療"
@@ -585,6 +620,7 @@ papers:
     venue: "Transp. Sci."
     url: "https://ideas.repec.org/a/inm/ortrsc/v39y2005i3p313-327.html"
     short: "Campbell+ 2005"
+    explainer: "campbell-2005"
     groups: [savelsbergh]
     category: "timeslot"
     domain: "ネットスーパー"
@@ -599,6 +635,7 @@ papers:
     venue: "Transp. Sci."
     url: "https://ideas.repec.org/a/inm/ortrsc/v40y2006i3p327-341.html"
     short: "Campbell+ 2006"
+    explainer: "campbell-2006"
     groups: [savelsbergh]
     category: "timeslot"
     domain: "宅配"
@@ -613,6 +650,7 @@ papers:
     venue: "Transp. Sci."
     url: "https://ideas.repec.org/a/inm/ortrsc/v45y2011i3p435-449.html"
     short: "Agatz+ 2011"
+    explainer: "agatz-2011"
     groups: [savelsbergh]
     category: "timeslot"
     domain: "宅配"
@@ -627,6 +665,7 @@ papers:
     venue: "Transp. Sci."
     url: "https://doi.org/10.1287/trsc.2014.0549"
     short: "Yang+ 2016"
+    explainer: "yang-2016"
     category: "timeslot"
     domain: "ネットスーパー"
     duration: "時間枠"
@@ -641,6 +680,7 @@ papers:
     venue: "SODA 1994"
     url: ""
     short: "Lipton+ 1994"
+    explainer: "lipton-tomkins-1994"
     category: "systems"
     domain: "理論"
     duration: "可変（区間）"
@@ -654,12 +694,13 @@ papers:
     venue: "IPDPS 2008"
     url: "https://doi.org/10.1109/IPDPS.2008.4536228"
     short: "Castillo+ 2008"
+    explainer: "castillo-2008"
     category: "systems"
     domain: "グリッド計算"
     duration: "可変（区間）"
     decision: "サーバーと開始時刻の割当"
     eval: "シミュレーション"
-    note: "事前予約の間に残る各サーバーの空き期間を区間として管理し、資源の断片化を抑えるように仕事を割り当てる"
+    note: "事前予約の間に残る各サーバーの空き期間を区間として管理し、仕事を入れられる空き期間を速く探すデータ構造を提案する。断片化を指標として扱うが、提案法の一つ（FF-HA+）はかえって断片化を増やすと著者自身が述べており、主な貢献は探索の速さにある"
   - id: weng-2023
     title: "Beware of Fragmentation: Scheduling GPU-Sharing Workloads with Fragmentation Gradient Descent"
     authors: "Q. Weng, L. Yang, Y. Yu, W. Wang, X. Tang, G. Yang, L. Zhang"
@@ -667,6 +708,7 @@ papers:
     venue: "USENIX ATC 2023"
     url: "https://www.usenix.org/conference/atc23/presentation/weng"
     short: "Weng+ 2023"
+    explainer: "weng-2023"
     category: "systems"
     domain: "GPU クラスタ"
     duration: "GPU の一部（時間ではなく容量）"

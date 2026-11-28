@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wang と Fung（2015）：患者の選好と選択を入れて、提示する予約枠を決める（論文解説）</title>
+<meta name="description" content="Dynamic appointment scheduling with patient preferences and choices（Industrial Management &amp; Data Systems 2015）の非公式の解説。外来の予約で患者の選好と選択を考えて提示する枠を決め、期待収益を最大にする動的計画法を線形計画に直し、分解と列生成で解いた研究を、要旨と書誌情報にもとづいて紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = naive policies that ignore patient preference information
+            --b (blue)   = the proposed policy that uses patient preferences and choices (DP → LP, decomposition, column generation)
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Industrial Management &amp; Data Systems · 2015</div>
+  <h1>Dynamic appointment scheduling with patient preferences and choices</h1>
+  <p class="subtitle">患者の選好と選択を考えた動的な予約スケジューリング</p>
+
+  <ul class="authors">
+    <li><b>Jin Wang</b></li>
+    <li><b>R. Y. K. Fung</b></li>
+  </ul>
+
+  <p class="lead">外来の予約で、患者に<span class="A">選好を考えずに枠を割り当てる</span>と、患者が望まない枠を断って去り、収益を逃す。Wang と Fung は患者の選好と選択を入れて<span class="B">どの枠を選択肢として提示するか</span>を決める動的計画法をつくった。そのままでは計算できないので、等価な線形計画に直し、分解で変数を減らして列生成で解いた。要旨によれば、選好の情報を使う方策は単純な方策より良く、複数の選択肢を提示することが外来に有利だった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1108/IMDS-12-2014-0372">DOI</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。患者が提示された枠から選ぶか去る様子、動的計画法の状態が膨大なこと、線形計画への書き換えと分解と列生成、要旨の結論、まとめの5場面。数値はすべて解説者が置いた例。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（すべて解説者による模式図）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <p class="src" style="margin-top:1.5rem">このページは論文の要旨と書誌情報にもとづく。本文は未読で、式の形や数値の結果は書いていない。</p>
+
+  <ul class="points">
+    <li><span class="k">提示する枠を選んで期待収益を最大にする</span><span class="d">患者の選好と選択を入れ、外来の期待収益が最大になるように、提示する予約の選択肢を決める。</span></li>
+    <li><span class="k">動的計画法 → 線形計画 → 列生成</span><span class="d">動的計画法を等価な線形計画に直し、分解で変数を減らし、残る計算の難しさを列生成で扱う。</span></li>
+    <li><span class="k">複数の選択肢を見せると有利</span><span class="d">選好の情報を使う方策は単純な方策より良く、選好と選択を考えるとより多くの収益が見込めると要旨は述べる。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>外来の予約では、患者の選好と選択を無視すると、見込める収益を逃す</h2>
+    <p>外来の予約では、患者には都合のよい日や時間帯がある。診療所が選好を考えずに枠を決めると、患者が受け入れずに去ったり、望まない枠に入って満足度が下がったりする。要旨はこの論文の目的を、患者の選好と選択を考えて外来の期待収益を最大にすることだとする。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>予約の依頼が来るたびに、どの枠を選択肢として提示するかを決める動的な問題として書く</h2>
+    <ul class="def">
+      <li><strong>決めること</strong>：予約の依頼に対して、どの予約の選択肢（枠）を提示するか。患者は提示された中から選ぶ。</li>
+      <li><strong>目的</strong>：外来の期待収益の最大化。</li>
+      <li><strong>モデル</strong>：動的計画法のモデル。状態、選択モデル、収益の具体的な形は本文を読めておらず、ここには書かない。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>動的計画法を等価な線形計画に直し、分解で変数を減らし、列生成で解く</h2>
+    <ul class="def">
+      <li><strong>線形計画への書き換え</strong>：動的計画法のモデルを、等価な線形計画のモデルに直す。</li>
+      <li><strong>分解</strong>：分解の方法で変数の数を減らす。</li>
+      <li><strong>列生成</strong>：それでも残る線形計画の計算の難しさに、列生成のアルゴリズムを使う。</li>
+    </ul>
+    <p>動的計画法を線形計画として書き、列生成で解く流れは、<a href="../patrick-2008/">Patrick ら（2008）</a>の近似線形計画と同じ系統の道具である。ただし、この論文で価値関数を近似しているかどうかは、要旨からは分からない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>選好の情報を使う方策は単純な方策より良く、複数の選択肢を提示すると外来に有利だったと要旨は述べる</h2>
+    <ul class="def">
+      <li><strong>複数の選択肢</strong>：複数の選択肢を提示することが外来に有利だった。</li>
+      <li><strong>アルゴリズム</strong>：提案したアルゴリズムは効率がよく、正確だった。</li>
+      <li><strong>条件の影響</strong>：予約を受け付ける期間の長さと患者の到着率の影響を調べた。</li>
+      <li><strong>方策の比較</strong>：患者の選好の情報を使う方策は単純な方策より良く、選好と選択を考えるとより多くの収益が見込める。</li>
+    </ul>
+    <p>具体的な数値と比較した方策の定義は本文を読めておらず、ここには載せない。要旨は実務への含意として、選好の情報を受け取ったあとすぐに予約を決められることを挙げている。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>患者の選択を入れた予約の提示を、線形計画と列生成で解いた研究である</h2>
+    <ul class="def">
+      <li><strong>扱うもの</strong>：患者の選好と選択、提示する枠の組、期待収益。リストでは 1 件の予約が 1 枠の問題に分類している。</li>
+      <li><strong>美容室の問題への使い方</strong>：客にどの開始時刻を見せるかを、客の選好と予約表の状態から決めるという枠組みは同じである。違いは、美容室では施術時間分の連続した空きが要るので、ある開始時刻を見せることが前後の時刻の空きにも影響する点である（解説者の考え）。</li>
+      <li><strong>関連</strong>：<a href="../feldman-2014/">Feldman ら（2014）</a>は多項ロジットの選択と無断キャンセルのもとで見せる日を決め、<a href="../liu-2019/">Liu ら（2019）</a>は見せる順序まで扱った。<a href="../gupta-wang-2008/">Gupta と Wang（2008）</a>は患者の選択を入れた受付の問題を収益管理として定式化した。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{wang2015dynamic,
+  title   = {Dynamic appointment scheduling with patient preferences and choices},
+  author  = {Wang, Jin and Fung, R. Y. K.},
+  journal = {Industrial Management \&amp; Data Systems},
+  volume  = {115},
+  number  = {4},
+  pages   = {700--717},
+  year    = {2015},
+  doi     = {10.1108/IMDS-12-2014-0372}
+}</pre>
+    </div>
+    <p class="src">要旨と書誌情報にもとづく。本文は未読。要旨、巻・号・ページは出版社（Emerald）の論文ページ、第一著者の名前 Jin は EconBiz の書誌から取った。所属は確認できていない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

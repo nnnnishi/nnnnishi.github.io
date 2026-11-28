@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lange ら（2019）：港湾のトラック予約に他業界の時間枠予約を移せるか（論文解説）</title>
+<meta name="description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。要旨と書誌情報にもとづく。港湾のトラック予約システム（TAS）に他業界の時間枠予約の方法を移せるかを体系的な文献調査で調べ、医療が最も有望として比較を行い、固定の時間枠での重複予約の評価が最も高かったとする。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Lange ら（2019）：港湾のトラック予約に他業界の時間枠予約を移せるか（論文解説）">
+<meta property="og:description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。要旨と書誌情報にもとづく。港湾のトラック予約システム（TAS）に他業界の時間枠予約の方法を移せるかを体系的な文献調査で調べ、医療が最も有望として比較を行い、固定の時間枠での重複予約の評価が最も高かったとする。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = peaks in truck arrivals at container terminals and the port-only view of TAS research
+            --b (blue)   = time-slot booking methods transferred from health care, and the approach rated best (overbooking in fixed time windows)
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Hamburg International Conference of Logistics (HICL) · 2019</div>
+  <h1>Potential of non-port slot booking systems for TAS</h1>
+  <p class="subtitle">港湾以外の時間枠予約システムをトラック予約システム（TAS）に活かす可能性</p>
+
+  <ul class="authors">
+    <li><b>Ann-Kathrin Lange</b><span>所属は未確認</span></li>
+    <li><b>Stephan Krüger</b><span>所属は未確認</span></li>
+    <li><b>Anne Kathrina Schwientek</b><span>所属は未確認</span></li>
+    <li><b>Carlos Jahn</b><span>所属は未確認</span></li>
+  </ul>
+
+  <p class="lead">港湾のコンテナターミナルでは、<span class="A">トラックの到着が特定の時間に集中する</span>。トラック予約システム（TAS）はこの集中を抑える方法だが、TAS の研究は港湾の中だけで考えられることが多かった。Lange らは<span class="B">他業界の時間枠予約の方法</span>を体系的な文献調査で探し、医療が最も有望とみて比較した。その結果、医療の時間枠予約は TAS へ特に移しやすく、固定の時間枠での重複予約（overbooking）の評価が最も高かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.15480/882.2495">Paper（DOI）</a>
+    <a class="btn" href="https://ideas.repec.org/h/zbw/hiclch/209391.html">RePEc</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ターミナルでトラックの到着が集中する様子、他業界の時間枠予約を文献調査で絞り込む流れ、医療の方法を TAS への移しやすさと効果で比べる様子、要旨の結論、まとめの5場面。すべて要旨をもとにした模式図。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図。要旨にもとづく）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <p class="src">このページは要旨と書誌情報（TUHH の機関リポジトリ、RePEc）にもとづく。本文は未読である。文献調査で残った 3 業界のうち医療以外の名前、比較の基準と点数、医療の各手法の評価の表は確認できていないので書いていない。</p>
+
+  <ul class="points">
+    <li><span class="k">移しやすい業界を 3 つに絞る</span><span class="d">体系的な文献調査で、時間枠予約の方法を港湾へ移しやすい業界を 3 つ見つけた。</span></li>
+    <li><span class="k">最も有望な医療を比較の相手にする</span><span class="d">3 つのうち医療が最も有望と判断し、医療の時間枠予約の方法を TAS と比べた（ベンチマーク）。</span></li>
+    <li><span class="k">固定の時間枠での重複予約の評価が最も高い</span><span class="d">調べた方法の中で、効果の評価が最もよかったのは、固定の時間枠に予約を重複して入れる方法だった。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>トラック予約システムはターミナルへの到着の集中を抑えるが、他業界の方法はほとんど参照されてこなかった</h2>
+    <p>TAS は港湾のコンテナターミナルでトラックの到着のピークを抑える方法である。ピークが下がると、ターミナルの運営費と運送会社の待ち時間が減る。</p>
+    <p>要旨によれば、港湾の TAS は新しい分野として扱われることが多く、他の業界の予約方法を参照した研究は少ない。他業界の方法がどれだけ港湾に移せるかを体系的に調べた研究はまだなかった。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>港湾以外の時間枠予約の仕組みから、TAS に移せる要素を探す</h2>
+    <p>論文の目的は港湾以外で使われている時間枠予約の仕組みの要素を調べ、TAS に合わせて取り入れることで TAS を改善することである。トラックはターミナルの時間枠を予約し、その時間に来る。患者が診療の予約枠を取る医療の予約と同じく、限られた処理能力を時間枠に分けて配る仕組みである。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>体系的な文献調査で業界を 3 つに絞り、最も有望な医療の方法を TAS と比べる</h2>
+    <ul class="def">
+      <li><strong>文献調査</strong>：体系的な文献分析で、予約の仕組みが港湾のトラック予約へよく移せる業界を 3 つ見つける。</li>
+      <li><strong>ベンチマーク</strong>：3 つのうち医療が最も有望と判断し、医療の時間枠予約の方法を TAS へ移したときの効果を評価する。</li>
+    </ul>
+    <p>本文を読めていないので、評価の基準や採点の方法はここでは書かない。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>医療の時間枠予約は TAS へ特に移しやすく、固定の時間枠での重複予約の評価が最も高かった</h2>
+    <p>要旨の結論は 2 点である。医療の時間枠予約の仕組みは TAS へ特に移しやすい。調べた方法の中で、効果の評価が最もよかったのは、固定の時間枠に予約を重複して入れる方法（overbooking of appointments in fixed time windows）だった。</p>
+    <p>重複予約は一般には来ない予約を見込んで時間枠の容量より多く予約を受ける方法を指す（論文での定義は未確認）。どれだけの効果が見込めるかの数値は要旨に書かれていない。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>医療の予約方法を港湾へ移す可能性を調べた研究で、Lian らは医療の予約方法の例として登場する</h2>
+    <ul class="def">
+      <li><strong>Lian との関係</strong>：文献リストを作る段階の確認では、この論文は医療の予約方法の例として <a href="../lian-2010/">Lian ら（2010）</a>を取り上げ、予約時に空いている候補をすべて提示する手順に触れている。このページの作成では本文を読めておらず、引用の文面は確かめていない。</li>
+      <li><strong>その後</strong>：同じ著者の博士論文 <a href="../lange-2025/">Lange（2025）</a>は、他業界から移せる解決策の調査を含め、TAS の改善策を 2 段階のシミュレーションで評価した。</li>
+      <li><strong>美容室の予約への示唆</strong>：医療の予約方法が他業界へ移せるかを評価する枠組みは、医療の予約研究（Lian ら など）の知見を美容室へ移すときの考え方として参考になる。ただし要旨の範囲では、施術時間分の連続した空きを確保する問題や空きの断片化は扱っていない。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@incollection{lange2019potential,
+  title     = {Potential of non-port slot booking systems for {TAS}},
+  author    = {Lange, Ann-Kathrin and Kr{\"u}ger, Stephan and Schwientek, Anne Kathrina and Jahn, Carlos},
+  booktitle = {Digital Transformation in Maritime and City Logistics: Smart Solutions for Logistics. Proceedings of the Hamburg International Conference of Logistics (HICL), Vol. 28},
+  editor    = {Jahn, Carlos and Kersten, Wolfgang and Ringle, Christian M.},
+  pages     = {138--162},
+  year      = {2019},
+  doi       = {10.15480/882.2495}
+}</pre>
+    </div>
+    <p class="src">書誌情報は RePEc（IDEAS）の登録情報、要旨は TUHH の機関リポジトリ（TORE）の論文ページによる。本文の PDF は EconStor と TORE で公開されているが、どちらも自動取得を受け付けなかったため読めていない。出版者は RePEc では TUHH の Institute of Business Logistics and General Management と記されているが、BibTeX には書いていない。著者の所属は確認できなかった。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

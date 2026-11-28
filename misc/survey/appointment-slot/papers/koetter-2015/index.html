@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Koetter ら（2015）：EV カーシェアの予約表を断片化の度合いで採点し、将来の予約の入る余地を残す（論文解説）</title>
+<meta name="description" content="Schedule Rating Method based on a Fragmentation Criterion（VEHICULAR 2015）の非公式の解説。社用の電気自動車のカーシェアで、予約の間の空き時間（断片）の長さと時間帯に重みを付けて予約表を採点し、最適化した予約表を採用するかの判断に使う方法と、実証試験での稼働率の改善を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = schedules optimised only for cost / emissions, and the short fragments they leave
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">VEHICULAR 2015 (IARIA) · 2015</div>
+  <h1>Schedule Rating Method based on a Fragmentation Criterion</h1>
+  <p class="subtitle">断片化の基準にもとづく予約表の採点法：社用の電気自動車のカーシェアにおける予約表の最適化</p>
+
+  <ul class="authors">
+    <li><b>Falko Koetter</b><span>Fraunhofer IAO</span></li>
+    <li><b>Julien Ostermann</b><span>Fraunhofer IAO</span></li>
+    <li><b>Daniel Valerian Jecan</b><span>Fraunhofer IAO</span></li>
+  </ul>
+
+  <p class="lead">電気自動車（EV）のカーシェアでは、充電時間と航続距離のために予約表が細切れになりやすい。排出量やコストだけを見る最適化は、<span class="A">予約を車に均等に散らして短い空きばかり</span>を残し、空き時間の合計は足りているのに新しい予約が入らなくなる。Koetter らは空き時間の断片を<span class="B">長さと時間帯で重み付けして予約表を採点</span>し、点の高い予約表だけを採用する仕組みを作った。実証試験では、採点を入れたあと平均の稼働率が 21.6% 上がったと報告する。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://www.thinkmind.org/articles/vehicular_2015_2_10_30016.pdf">論文（ThinkMind, PDF）</a>
+    <a class="btn" href="https://www.thinkmind.org/library/VEHICULAR/VEHICULAR_2015/vehicular_2015_2_10_30016.html">ThinkMind</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予約を車に散らすと短い空きばかりが残ること、空き時間の断片を長さと時間帯で重み付けして採点すること、最適化した予約表を採点で比べて採用する仕組み、論文の例と実証試験の数値、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">断片 6 個・約 794 点 → 4 個・約 1051 点</span><span class="d">3台・1日の例で、3件の予約を1台にまとめ、2台を丸1日空けた予約表のほうが点が高い（点が高いほど断片化が小さい）。</span></li>
+    <li><span class="k">平均の稼働率 21.6% 増</span><span class="d">ドイツの3つの産業団地で約1年続けた実証試験のうちの1つで、8月末に採点を入れたあとの平均の稼働率の増加。ほかの変更の効果とは切り分けていない。</span></li>
+    <li><span class="k">メモリの外部断片化を予約表に移す</span><span class="d">OS のメモリ割当で大きな領域が取れなくなる外部断片化の考え方を、車ごとに並行する時間軸に当てはめた。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>排出量やコストだけを最適化すると、将来の予約が入る長い空きが残らない</h2>
+    <p>Shared E-Fleet プロジェクトは、単独では社用車を持てない中小企業どうしで EV を共有する仕組みを作った。EV は充電に時間がかかり、航続距離も短い。遅れや電池残量の不足のような小さな乱れが、その後の予約に次々と響く。そこで予約表を定期的に最適化し直すが、既存の最適化（排出量の最小化など）は将来の予約を考えない。移動を車に均等に散らすと、空き時間の合計は足りていても、新しい予約が入る長さの空きがどの車にも残らない。</p>
+    <p>論文は医療の予約表の断片化を減らして追加の予約を入れる大きな空きを残す <a href="../lian-2010/">Lian ら（2010）</a>を引き、目的は同じだが、EV では航続距離などの制約が加わると述べる。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">断片化の定義</div>
+    <h2>車ごとの予約の間の空き時間を「断片」と呼び、外部断片化だけを考える</h2>
+    <p>予約表を、時間の塊を割り当てる問題とみなす。メモリと違い、車ごとに並行した時間軸があり、予約がなくても時間が進むと予約表は変わる。移動には必要な長さちょうどの区間を割り当てられるので、割り当てた区間の中の無駄（内部断片化）はなく、外部断片化だけを考える。</p>
+    <ul class="def">
+      <li><strong>窓</strong>：評価する将来の区間。標準は1日（午前7時から翌朝6時59分、0〜1440分）。</li>
+      <li><strong>断片</strong>：2つの予約の間の、使われていない時間の塊。</li>
+      <li><strong>最大の点</strong>：窓の中で、すべての車が満充電で予約がないときの点。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>断片ごとに長さと時間帯の重みを掛けて足し、点の高い予約表だけを採用する</h2>
+    <p>断片化の点（論文では fragmentation ratio）は、各断片の長さに2つの重みを掛けて足し、断片の数 \(n\) で割ったものである（論文 式 1）。</p>
+    <div class="eq">\[ \mathrm{FR} = \frac{1}{n} \sum_{i=1}^{n} \mathrm{duration}(\mathit{frag}_i)\; w_1(\mathit{frag}_i)\; w_2(\mathit{frag}_i) \]</div>
+    <ul class="def">
+      <li><strong>長さの重み \(w_1\)</strong>：長い断片ほど大きい。とても短い断片（20分ほど未満）は使いにくいので小さい。窓全体を覆う断片に、論文が「任意に決めた最大の重み」0.79 を与える（論文 式 2）。</li>
+      <li><strong>時間帯の重み \(w_2\)</strong>：断片の始まりと終わりの時刻から決め、業務時間（午前7時〜午後5時）の断片ほど大きい。対象が企業の利用だからである（論文 式 3〜5）。</li>
+    </ul>
+    <p>点が高いほど断片化が小さい。予約表の更新は閉ループで行う。最適化（貪欲法とバックトラック。排出量を最小にし、乱れを吸収する）が新しい予約表を作り、採点がそれを評価し、比較器が今の予約表と新しい予約表のうち点の高いほうを残す。最適化そのものは断片化を考えず、採点は採用するかどうかの判断にだけ使う。断片化は費用や稼働率の目的に加えた柔らかい目的（ソフトゴール）という位置づけである。</p>
+    <p class="src">重みの式（論文 式 2〜5）は、解説者が読んだ PDF のテキストで分数の形が崩れていたため、ここでは性質だけを書いた。正確な式は論文 PDF を参照してほしい。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">評価</div>
+    <h2>3台の例では予約を1台にまとめた予約表の点が高く、実証試験では採点を入れたあと稼働率が上がった</h2>
+    <p><strong>合成の例</strong>：3台・1日で、元の予約表は ev1 に11時から30分、ev2 に14時から1時間30分、ev3 に12時から1時間の予約がある。午前10時38分に最適化した予約表は、3件を1台にまとめ、2台を丸1日空けた。予約の後には利用者の遅れに備えた余裕の時間を置く。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>予約表</th><th>断片の数</th><th>点（大きいほど断片化が小さい）</th></tr></thead>
+      <tbody>
+        <tr><td class="A">元の予約表（1台に1件ずつ）</td><td>6</td><td>約 794</td></tr>
+        <tr><td class="B">最適化後（3件を1台に）</td><td>4（うち2つは1440分）</td><td class="B">約 1051</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　合成の例の採点（論文の本文から）。</p>
+    <p><strong>実証試験</strong>：ドイツの産業団地3か所で、中小企業を対象に約1年運用した。車の航続距離は100km超、予約は平均で50km未満・約3時間で、業務時間に集中した。初めは、車が空いているように見えても断片化のために予約が断られることがあった。採点による比較を8月末に入れたところ、平均の稼働率が21.6%上がり、予約の成功率も上がったと報告する。12月は天候と休暇で稼働率が下がった。ほかの試験は最初から採点を入れて始めたので、比べる基準がない。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>予約表の状態だけから断片化を採点する、予約枠の評価指標の早い例である</h2>
+    <ul class="def">
+      <li><strong>指標の性質</strong>：将来の需要の分布を使わず、今の予約表の断片の長さと時間帯だけで決まる。重みの形は経験的に置いたもので、論文も実際の利用統計で調整し直すことを今後の課題としている。</li>
+      <li><strong>限界</strong>：示された例は小さな合成の例1つで、21.6% の改善はほかの変更の効果と切り分けていない。採点は最適化の後に使うだけで、最適化そのものは断片化を考えない（今後の課題）。</li>
+      <li><strong>美容室の予約への使い方</strong>：車を施術者、移動の予約を施術と読めば、そのまま「施術者ごとの空き時間の断片を、長さと時間帯（混む時間帯）で重み付けして足す」指標になる。長さの重みは来そうな施術時間の分布から決めると根拠のある形にできる。違いは、カーシェアでは予約を後から別の車に移せる（最適化し直せる）のに対し、美容室では客に伝えた時刻を動かしにくいことである。</li>
+      <li><strong>関連</strong>：<a href="../lian-2010/">Lian ら（2010）</a>の断片化の考え方を引用する。<a href="../knopp-2021/">Knopp ら（2021）</a>がこの論文を引用し、社用車や公共交通を従業員の移動要求に割り当てる問題を扱う。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{koetter2015schedule,
+  title     = {Schedule Rating Method based on a Fragmentation Criterion: Schedule Optimization in Corporate Carsharing of Electric Vehicles},
+  author    = {Koetter, Falko and Ostermann, Julien and Jecan, Daniel Valerian},
+  booktitle = {VEHICULAR 2015: The Fourth International Conference on Advances in Vehicular Systems, Technologies and Applications},
+  pages     = {20--25},
+  publisher = {IARIA},
+  isbn      = {978-1-61208-434-3},
+  year      = {2015}
+}</pre>
+    </div>
+    <p class="src">ページの記述と数値は ThinkMind で公開されている論文 PDF の本文による。ページ番号と ISBN は ThinkMind の論文ページ、会議名と副題は会議録の目次（proceedings.com）から取った。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

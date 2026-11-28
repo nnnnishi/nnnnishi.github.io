@@ -14,7 +14,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/misc/survey/optimal-tree/` | `misc/survey/optimal-tree/index.html` | 最適決定木の文献リスト。中身は `_data/survey_optimal_tree.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/pricing/` | `misc/survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml`。解説ページは `papers/<slug>/` |
-| `/misc/survey/appointment-slot/` | `misc/survey/appointment-slot/index.html` | 予約枠の断片化と予約受付の文献リスト。中身は `_data/survey_appointment_slot.yml`。解説ページはまだない |
+| `/misc/survey/appointment-slot/` | `misc/survey/appointment-slot/index.html` | 予約枠の断片化と予約受付の文献リスト。中身は `_data/survey_appointment_slot.yml`。解説ページは `papers/<slug>/` |
 | `/en/`, `/en/publications/`, `/en/talks/`, `/en/cv/`, `/en/misc/` | `en/**/index.html` | 英語版。中身は日本語版と同じ include と `_data` を使う（文献リストは日本語のみ） |
 | （404） | `404.html` | 旧 URL `/survey/...` を `/misc/survey/...` に転送する |
 

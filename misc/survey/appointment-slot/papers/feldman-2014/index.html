@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feldman ら（2014）：患者が選ぶ日と無断キャンセルを考えて、提示する予約日を決める（論文解説）</title>
+<meta name="description" content="Appointment Scheduling Under Patient Preference and No-Show Behavior（Operations Research 2014）の非公式の解説。患者が提示された日から多項ロジットで選び、キャンセルや無断キャンセルが待ち日数とともに増える予約受付で、予約表を見ない静的なモデルと、予約表を見て1回の方策改善をする動的な方策を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = benchmark policies (All or Nothing, Controlled Open Access, static policy), cancellations and no-shows
+            --b (blue)   = the dynamic policy (one policy-improvement step from the static policy)
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Operations Research · 2014</div>
+  <h1>Appointment Scheduling Under Patient Preference and No-Show Behavior</h1>
+  <p class="subtitle">患者の選好と無断キャンセルのもとでの予約スケジューリング</p>
+
+  <ul class="authors">
+    <li><b>Jacob Feldman</b></li>
+    <li><b>Nan Liu</b></li>
+    <li><b>Huseyin Topaloglu</b></li>
+    <li><b>Serhan Ziya</b></li>
+  </ul>
+
+  <p class="lead">ウェブ予約では、診療所はどの日を選択肢として見せるかを決め、患者はその中から選ぶか、どれも選ばずに去る。遠い日に入った予約ほど、キャンセルや無断キャンセルになりやすい。Feldman らは患者の選択を多項ロジットで書き、<span class="A">予約表を見ずに毎日同じ確率で日を見せる静的なモデル</span>と、<span class="B">その日の予約表を見て見せる日を変える動的な方策</span>をつくった。ニューヨークの診療所での選択実験から推定した選好で試すと、動的な方策は単純な方策より最大で約 34% 利益が高かった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1287/opre.2014.1286">DOI</a>
+    <a class="btn" href="https://ideas.repec.org/a/inm/oropre/v62y2014i4p794-811.html">RePEc</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。提示された日から患者が選ぶ様子、遠い日ほど予約が残る確率が下がること、静的なモデルの変数を減らす置き換え、動的な方策と比較方策との利益の差、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">見せる日の組を、日ごとの予約確率に置き換える</span><span class="d">日の組合せは \(2^{|T|}\) 通りあるが、「日 \(j\) に予約が入る確率 \(x_j\)」と「どこにも入らない確率 \(u\)」の \(|T|+1\) 個の変数に直せる（命題 1）。</span></li>
+    <li><span class="k">予約表を見る動的な方策</span><span class="d">静的な方策から 1 回だけ方策改善をする。翌日以降は静的な方策を使うと考えると、価値関数が閉じた式で書ける。</span></li>
+    <li><span class="k">単純な方策との差は最大で約 34%</span><span class="d">今日だけ予約を受けるか、全部受けるかの単純な方策との差。静的なモデルとの差は最大で約 6%（論文 Table 2・3、プレプリント版の値）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>遠い日の予約ほど無断キャンセルが増えるので、患者が選ぶ日を診療所が見せ方で導く必要がある</h2>
+    <p>外来診療では、予約から受診までの日数が長いほど、キャンセルや無断キャンセルが増えることが知られている。当日の予約だけを受ける open access という方式もあるが、需要が多いと受けきれない。一方、患者には好きな曜日や時間帯があり、選べる日がないと別の医療機関に行く。</p>
+    <p>ウェブ予約が広がり、診療所は「どの日を選択肢に出すか」を患者ごとに変えられるようになった。この論文は患者の選択と、予約後のキャンセル・無断キャンセルを同時に入れて、提示する日の組を決める問題を扱う。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>患者は提示された日から多項ロジットで選び、予約が残る確率は待ち日数とともに下がる</h2>
+    <ul class="def">
+      <li><strong>日と到着</strong>：今日を 0 として、\(T = \{0, 1, \dots, \tau\}\) 日先までを提示できる。予約の依頼は毎日ポアソン分布（平均 \(\lambda\)）で来る。</li>
+      <li><strong>選択</strong>：日 \(j\) に重み \(v_j\)、どれも選ばないことに重み 1 を置く多項ロジットで選ぶ。提示する日の組を \(S\) とすると、日 \(j\) を選ぶ確率は次のとおり。</li>
+    </ul>
+    <div class="eq">\[ P_j(S) = \frac{v_j}{1 + \sum_{k \in S} v_k}, \qquad j \in S \]</div>
+    <ul class="def">
+      <li><strong>キャンセルと無断キャンセル</strong>：\(j\) 日先に入った予約が残る確率 \(r_{ij}\) は、待ち日数 \(j\) が大きいほど下がるとする。残った予約が実際に来る確率は \(s_i\)。</li>
+      <li><strong>目的</strong>：来院した患者 1 人あたりの収益を 1 とし、1 日の通常の容量 \(C\) を超えた分に 1 人あたり \(\theta\) の残業費用をかける。1 日あたりの期待純利益を最大にする。</li>
+      <li><strong>状態</strong>：「何日前に入った、何日先の予約が何件あるか」で、\(\tau(\tau+1)/2\) 次元になる。通常の動的計画法では扱えない。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>静的なモデルは変数を \(|T|+1\) 個に減らして解き、動的な方策はそこから 1 回だけ方策改善をする</h2>
+    <ul class="def">
+      <li><strong>静的なモデル</strong>：予約表を見ず、毎日、日の組 \(S\) を確率 \(h(S)\) で提示する。変数は \(2^{|T|}\) 個あるが、日 \(j\) に予約が入る確率 \(x_j\) とどこにも入らない確率 \(u\) に置き換えると、多項ロジットの重みは \(x_j / v_j \le u\) という一次の制約にだけ現れる（命題 1）。逆に \(x, u\) から \(h(S)\) を作り直す方法も示す。非線形の項を区分線形で近似すると線形計画になる。</li>
+      <li><strong>構造</strong>：来院の確率が待ち日数によらないとき、最適な提示は「今日から連続した何日か」で、確率で混ぜるのも 1 日だけ違う 2 つの組に限られる（命題 2、系 3）。</li>
+      <li><strong>静的なモデルの保証</strong>：最適な方策に対する静的な方策の利益の比に下界を示す。下界は \(1/\sqrt{\lambda}\) の速さで改善し、需要が多いほど静的な方策で十分になる。たとえば \(C = 12, \lambda = 16\) で約 62%、\(C = 36, \lambda = 48\) で約 78% である（命題 5）。</li>
+      <li><strong>動的な方策</strong>：長期平均利益のマルコフ決定過程は解けないので、静的な方策から 1 回だけ方策改善をする。今日の決定のあとは静的な方策を使うとすれば、将来の価値が閉じた式で書ける。二項分布をポアソン分布で近似すると、毎日の問題は静的なモデルと同じ形になり、その日の予約表から提示確率を計算し直せる。1 回の計算は 0.01 秒未満だった。</li>
+    </ul>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>動的な方策とほかの方策の差は需要に対して容量が少ないときに大きく、単純な方策との差は最大で約 34% だった</h2>
+    <p>選好の重みはニューヨーク市の Farrell Community Health Center で 161 人の患者に行った選択実験から推定した。症状が曖昧な場合（\(v^A\)）と急ぐ場合（\(v^U\)）の 2 通りで、急ぐ患者ほど早い日を強く好み、ほかの医療機関に行きやすい。ほかに、どの日も同じ重みの \(v^I\) と、日とともに重みが下がる \(v^D\) を使った。\(\lambda = 16\)、容量は \(\lambda\) の 0.9・1.2・1.5 倍、残業費用 \(\theta\) は 1.25・1.5・1.75 で、計 36 通りの設定である。予約が残る確率は \(1 - 0.04j\) とした。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>選好の重み</th><th class="A">静的（SP）</th><th class="A">全部か無か（AN）</th><th class="A">当日のみ（CO）</th><th class="A">Next-n*</th></tr></thead>
+      <tbody>
+        <tr><td>曖昧な症状 \(v^A\)</td><td>1.87</td><td>7.13</td><td>3.44</td><td>0.71</td></tr>
+        <tr><td>急ぐ症状 \(v^U\)</td><td>1.02</td><td>14.91</td><td>1.09</td><td>0.50</td></tr>
+        <tr><td>同じ重み \(v^I\)</td><td>0.87</td><td>33.84</td><td>12.99</td><td>−0.09</td></tr>
+        <tr><td>下がる重み \(v^D\)</td><td>1.73</td><td>2.67</td><td>13.33</td><td>0.58</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　動的な方策の利益が各方策より何 % 高いかの平均（論文 Table 2・3 の平均の行、プレプリント版）。</p>
+    <ul class="def">
+      <li><strong>静的なモデルとの差</strong>：どの設定でも約 6% 以下で、36 通りのうち 18 通りで統計的に有意に動的な方策が良かった。差は容量が少ないときに大きい。</li>
+      <li><strong>Next-n*</strong>：空きのある最初の \(n\) 日を開ける方策で、\(n\) を設定ごとに最適に選んでいる（比較相手に有利な設定）。それでも 9 通りで動的な方策が有意に良く、残りは差がなかった。最適な \(n\) は設定によって 2〜7 と変わり、1 つの値では足りない。</li>
+    </ul>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>「どの枠を受けるか」ではなく「どの枠を見せるか」で予約表を導く、選択つき予約受付の基本形の 1 つである</h2>
+    <ul class="def">
+      <li><strong>扱うもの</strong>：日単位の容量、多項ロジットの選択、待ち日数に応じたキャンセル・無断キャンセル。1 件の予約は 1 枠で、日の中の時刻や連続した空きは扱わない。</li>
+      <li><strong>限界</strong>：選択モデルは患者全体で 1 つで、患者の種類ごとの違いは選好の重みの組を変えて試すだけである。動的な方策は 1 回の方策改善で、最適性の保証はない。</li>
+      <li><strong>美容室の問題への使い方</strong>：客が提示された開始時刻から選ぶ状況は同じである。\(x_j / v_j \le u\) という置き換えは、提示の組合せを直接列挙せずに「どの時刻にどれだけ予約を入れたいか」を決める道具になる。違いは、美容室では施術時間分の連続した空きが要り、ある開始時刻に入れると前後の時刻も埋まる点で、論文の日ごとに独立な容量より制約が強い。</li>
+      <li><strong>関連</strong>：同じ著者グループの <a href="../liu-2019/">Liu ら（2019）</a>は提示の順序まで決める逐次の提示を扱った。<a href="../wang-fung-2015/">Wang と Fung（2015）</a>は選好と選択を入れた予約受付を線形計画と列生成で解いた。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{feldman2014appointment,
+  title   = {Appointment Scheduling Under Patient Preference and No-Show Behavior},
+  author  = {Feldman, Jacob and Liu, Nan and Topaloglu, Huseyin and Ziya, Serhan},
+  journal = {Operations Research},
+  volume  = {62},
+  number  = {4},
+  pages   = {794--811},
+  year    = {2014},
+  doi     = {10.1287/opre.2014.1286}
+}</pre>
+    </div>
+    <p class="src">ページの数式と数値は、2014 年 4 月 9 日付のプレプリント版の本文（オンライン付録は未読）による。出版版と数値が違う可能性がある。巻・号・ページは RePEc の書誌から取った。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

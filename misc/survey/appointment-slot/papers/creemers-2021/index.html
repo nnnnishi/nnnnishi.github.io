@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creemers ら（2021）：314 の予約ルールを待ち時間・遊休・残業の 3 つで評価する（論文解説）</title>
+<meta name="description" content="Evaluation of appointment scheduling rules: A multi-performance measurement approach（Omega, 2021）の非公式の解説。1 人の担当者が予約の客を順に受ける場面で、客の待ち時間、担当者の遊休時間と残業を解析的に計算するモデルを作り、314 の予約ルールを包絡分析法（DEA）でまとめて比べる。">
+<meta property="og:title" content="Creemers ら（2021）：314 の予約ルールを待ち時間・遊休・残業の 3 つで評価する（論文解説）">
+<meta property="og:description" content="Evaluation of appointment scheduling rules: A multi-performance measurement approach（Omega, 2021）の非公式の解説。1 人の担当者が予約の客を順に受ける場面で、客の待ち時間、担当者の遊休時間と残業を解析的に計算するモデルを作り、314 の予約ルールを包絡分析法（DEA）でまとめて比べる。">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* PAPER PROJECT PAGE (unofficial explainer, Japanese only). CSS copied from the reciprocal-rec template.
+   --a (orange) = baseline / problem ; --b (blue) = the paper's method or result. */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Omega · 2021</div>
+  <h1>Evaluation of appointment scheduling rules: A multi-performance measurement approach</h1>
+  <p class="subtitle">予約ルールの評価：複数の評価指標による方法</p>
+
+  <ul class="authors">
+    <li><b>Stefan Creemers</b><span>IESEG School of Management（作業論文の時点）</span></li>
+    <li><b>Marc R. Lambrecht</b><span>KU Leuven（作業論文の時点）</span></li>
+    <li><b>Jeroen Beliën</b><span>（所属は未確認）</span></li>
+    <li><b>Maud Van den Broeke</b><span>（所属は未確認）</span></li>
+  </ul>
+
+  <p class="lead">外来診療や法律相談のような予約制のサービスでは、客を何時に呼ぶかの<span class="A">予約ルール</span>が数多く使われているが、どれが最もよいかは決着していない。Creemers らは客の待ち時間、担当者の遊休時間と残業を、無断キャンセル・遅刻や早着・中断・開始の遅れまで含めて解析的に計算するモデルを作った。そのうえで <span class="B">314 のルールを包絡分析法（DEA）で 1 つの指標にまとめ</span>、いろいろな条件でよく、条件に左右されにくいルールを探した。</p>
+
+  <p class="src">このページの詳しい内容（モデル、実験の条件、順位）は、同じ研究の 2013 年の作業論文（著者：Creemers, Colen, Lambrecht）の本文にもとづく。Omega の出版版は要旨と書誌情報だけを読んだ。本文は未読。出版版では著者が変わっており、数値や順位が作業論文と違う可能性がある。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1016/j.omega.2020.102231">DOI</a>
+    <a class="btn" href="https://www.ieseg.fr/wp-content/uploads/2013-MAN-01_Creemers.pdf">作業論文（2013）</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予約の客が無断キャンセルや遅刻をする中で担当者が順に受ける様子、待ち時間と遊休と残業の3つの指標、予約ルールの3つの型、作業論文での順位、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">314 のルールを解析的に評価</span><span class="d">客ごとの来院の確率、早着・遅刻、中断、開始の遅れを入れた離散時間のマルコフ連鎖で、3 つの指標の期待値を計算する。シミュレーションではなく、計算で厳密に求める。</span></li>
+    <li><span class="k">3 つの指標を DEA で 1 つに</span><span class="d">待ち時間、遊休時間、残業の重みを、ルールごとに最も有利になるように DEA で決めて合成する。重みに左右されやすいかも別に測る。</span></li>
+    <li><span class="k">ブロック型は避けるべき</span><span class="d">作業論文では数人ずつまとめて呼ぶルールの最良でも 72 位だった。著者は、よりよい代わりがあるので使うべきではないと結論する。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>予約ルールは客を並べ替えず、何人目を何時に呼ぶかだけを決める単純な決まりで、どれがよいかは未解決である</h2>
+    <p>予約ルール（appointment scheduling rule）は、受付の順に来る客に予約時刻を割り当てる単純な決まりである。客ごとの並べ替えはしない。たとえば Bailey–Welch のルールは、最初に 2 人を呼び、そのあとは平均の施術時間の間隔で 1 人ずつ呼ぶ。医療や法律相談で多くのルールが使われているが、どれが最もよいかは「まだ決着していない問い」だと論文は書く。論文のルールの集まりは、Ho と Lau（1992、1999）が比べた 50 のルールを広げたものである。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>1 人の担当者が 1 つのセッションで客を順に受け、客の待ち時間、担当者の遊休時間と残業を測る</h2>
+    <p>1 人の担当者が 1 回に 1 人ずつ客を受ける。施術時間は互いに独立で同じ分布に従い、来た客はすべて受ける。客ごとに次のことを決められる。</p>
+    <ul class="def">
+      <li><strong>来るかどうか</strong>：来院の確率（無断キャンセルの確率）。</li>
+      <li><strong>来る時刻</strong>：早く来る確率、遅れる確率と、それぞれのずれの分布。早く来た客は担当者が空いていれば先に受けるので、順番の入れ替わりも起こる。</li>
+      <li><strong>担当者の側</strong>：セッションの開始の遅れ（担当者の遅刻や準備）と、施術の中断。</li>
+    </ul>
+    <p>指標は客の待ち時間の期待値 \(W\)、担当者の遊休時間の期待値 \(I\)、残業の期待値 \(O\) の 3 つである。作業論文の実験では、客の数 \(N \in \{10, 20, 30\}\)、施術時間の平均 300、変動係数の 2 乗 \(\{0.2, 0.5, 1.0\}\)、無断キャンセルの確率 \(\{0, 0.1, 0.2\}\) などを組み合わせた 243 の環境を用意した。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>マルコフ連鎖で 3 つの指標を厳密に計算し、DEA で各ルールに最も有利な重みを与えて合成する</h2>
+    <p>モデルは時間を 5 単位ずつに区切った離散時間のマルコフ連鎖で、前の状態の確率を使い終わったら捨てることで記憶を節約する。結果はシミュレーションと照らし合わせて確かめた。ルールの型は 3 つある。</p>
+    <ul class="def">
+      <li><strong>個別型</strong>：1 人ずつ呼ぶ。最初に呼ぶ人数や、最初の客の時刻、施術時間のばらつきに応じた間隔の調整を変えた 91 通り。Bailey–Welch はこの型の 1 つである。</li>
+      <li><strong>ブロック型</strong>：\(b \in \{2,3,4,5\}\) 人ずつまとめて呼ぶ 28 通り。</li>
+      <li><strong>早着・遅刻の補正型（EL）</strong>：最初の予定を何人目かごとに補正の係数で直すルール。</li>
+    </ul>
+    <p>3 つの指標はルール \(r\) ごとの重みで合成する。</p>
+    <div class="eq">\[ CI_r = v_{o,r}\, O_r + v_{i,r}\, I_r + v_{w,r}\, W_r \]</div>
+    <p>重みは DEA で、どのルールの値も 1 を超えないという条件のもとで、そのルールに最も有利になるように選ぶ。重みが 0 になる指標は認めない。最後に、大きいほどよく、最良のルールが 1 になるように向きを変える。重みを変えると評価が大きく動くルールは「マーベリック指数」で見分ける。経営者の好みを重みの制約として入れた場合も調べた。</p>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>作業論文では個別型と補正型が上位を占め、ブロック型は最良でも 72 位で、無断キャンセルが最も大きく指標を動かした</h2>
+    <p>作業論文では客の数 10、20、30 についてそれぞれ 158、236、314 のルール、合わせて 57,348 の場合を計算した。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>ルール</th><th>順位</th><th>合成指標</th></tr></thead>
+      <tbody>
+        <tr><td class="B">個別型の上位（ASR 15、22、30、23、29 など）</td><td class="B">上位</td><td class="B">99.9980%</td></tr>
+        <tr><td>Bailey–Welch（ASR 8）</td><td>23 位</td><td>99.8136%</td></tr>
+        <tr><td class="A">ブロック型の最良（ASR 93）</td><td class="A">72 位</td><td class="A">—</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　3 つの指標を同じ重みで見たときの順位（2013 年の作業論文の Table 3 と本文）。出版版の値は未確認。ブロック型の合成指標はここでは確認できなかった。</p>
+    <ul class="def">
+      <li><strong>ブロック型</strong>：最良の 3 つでも 72 位、84 位、89 位で、著者は「成績はひどく、よりよい代わりがあるので使うべきではない」と書く。</li>
+      <li><strong>待ち時間を重く見る場合</strong>：補正型が上位 4 つを占めた。遊休時間を重く見ると個別型が上位に戻る。</li>
+      <li><strong>条件に左右されにくいルール</strong>：補正型のいくつか（ASR 273、162、256、298、321、209）は、3 つの重みの付け方のどれでも上位 15 に入った。</li>
+      <li><strong>環境の影響</strong>：無断キャンセルの影響が最も大きい。無断キャンセルはおおむねその確率に比例して遊休時間を増やし、残業を減らす。客の数が増えると待ち時間が増え、施術時間のばらつきはすべての指標を悪くする。遅刻や早着の影響は小さかった。</li>
+    </ul>
+    <p>Omega の出版版の要旨によると、評価したのは 314 のルールで、DEA でさまざまな設定でよく、頑健なルールを見つけたとしている。要旨の範囲では、作業論文と同じ枠組みである。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>予約の受け方を、互いにトレードオフの関係にある複数の指標でどう比べるかの手本になる</h2>
+    <ul class="def">
+      <li><strong>美容室の予約への使い方</strong>：断片化の指標を研究するとき、受入率だけでなく、客の待ち時間、スタイリストの遊休時間、営業時間を超える残業も一緒に見る必要がある。そのときに DEA で各方式に最も有利な重みを与えて比べ、重みに左右されやすさも測るという評価の組み立ては、そのまま借りられる。</li>
+      <li><strong>違い</strong>：担当者は 1 人で、客の施術時間はすべて同じ分布に従う。客ごとに長さの違う連続した枠をどこに置くか、予約を受けるか断るかという判断は扱わない。予約表の空きの断片化そのものも対象外である。</li>
+      <li><strong>関連</strong>：予約システムの評価指標を整理したレビューに <a href="../mazaheri-2024/">Mazaheri ら（2024）</a>がある。このリストでは <a href="../lian-2010/">Lian ら（2010）</a>を引用する研究の 1 つとして挙げている。出版版の本文を読めていないので、引用の文脈は確認していない。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{creemers2021evaluation,
+  title   = {Evaluation of appointment scheduling rules: A multi-performance measurement approach},
+  author  = {Creemers, Stefan and Lambrecht, Marc R. and Beli{\"e}n, Jeroen and Van den Broeke, Maud},
+  journal = {Omega},
+  volume  = {100},
+  pages   = {102231},
+  year    = {2021},
+  doi     = {10.1016/j.omega.2020.102231}
+}</pre>
+    </div>
+    <p class="src">書誌情報は Crossref の DOI の情報から取った。出版版は要旨（RePEc/IDEAS）だけを読み、本文は未読。モデル、実験の条件、順位と数値は、2013 年の作業論文「Evaluation of appointment scheduling rules: a multi-performance measures approach」（S. Creemers, P. Colen, M. Lambrecht、IESEG Working Paper 2013-MAN-01）の本文から取った。出版版の著者の所属は確認していない。作業論文の時点の所属を参考に書いた。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zhang・Li・Huh（2026）：複数コピーの連続区間予約で、選択を考慮した品揃えを容量によらない近似比で決める（論文解説）</title>
+<meta name="description" content="Multi-Capacity Online Assortment Optimization with Consecutive Stays under Markov Chain Choice（arXiv 2026）の非公式の解説。同じ商品に複数の物理的なコピーがあり、予約が1つのコピーの連続した区間を占める問題で、空きを極大な空き区間として持つ LP 緩和と、コピーごとの提案にもとづく方策で、容量によらない近似比 (1−1/e)/2 と 1/2 を示す。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = residual gaps that a sale leaves on a copy, and the prior guarantee (Hu & Wu, 0.271)
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">arXiv · 2026</div>
+  <h1>Multi-Capacity Online Assortment Optimization with Consecutive Stays under Markov Chain Choice</h1>
+  <p class="subtitle">連続した滞在と複数の容量があるオンライン品揃え最適化（Markov chain 選択モデル）</p>
+
+  <ul class="authors">
+    <li><b>Hongbin Zhang</b></li>
+    <li><b>Yanzhi Li</b></li>
+    <li><b>Woonghee Tim Huh</b></li>
+  </ul>
+
+  <p class="lead">ホテルの同じ部屋タイプに部屋が何室もあるように、1つの商品に複数の物理的な<strong>コピー</strong>がある。予約は1つのコピーの連続した区間を占め、売れると空きの区間は<span class="A">最大2つの残りの区間</span>に分かれる。Zhang らは各コピーの空きを<span class="B">極大な空き区間の確率</span>で持つ LP 緩和を作り、コピーごとの提案から品揃え（顧客に見せる商品の組）を決める方策で、容量によらない近似比 <span class="B">(1−1/e)/2</span>（一般の Markov chain 選択）と <span class="B">1/2</span>（MNL）を示した。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://arxiv.org/abs/2610.27661">arXiv</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。1つの商品に複数のコピーがあり予約が連続した区間を占めること、売れると空き区間が最大2つに分かれること、極大な空き区間の確率で書いた LP 緩和とコピーごとの提案、近似比の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">近似比 (1−1/e)/2 と 1/2</span><span class="d">最適なオンライン方策（将来を知らない方策）の期待収益に対する保証。一般の Markov chain 選択で (1−1/e)/2 ≈ 0.316（解説者の計算）、MNL で 1/2。どちらもコピーの数によらない（定理 1）。</span></li>
+    <li><span class="k">空きを極大な空き区間で持つ</span><span class="d">各コピーの空きはこれ以上広げられない空き区間の集まりで一意に書ける。区間 \([a,b]\) から予約を売ると、左右に最大2つの残り区間ができる。この流れを LP の変数にする。</span></li>
+    <li><span class="k">単一コピーの MNL で 0.271 → 1/2</span><span class="d">Hu と Wu の連続滞在の収益管理の保証 0.271 を、同じ到着の仮定のもとで 1/2 に改善したと論文は述べる。数値実験はなく、理論の論文である。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>連続した区間を占める予約では、どのコピーに入れたかで後に残る空き区間の形が変わる</h2>
+    <p>品揃え最適化は、顧客が来るたびにどの商品の組を見せるかを決め、顧客はその中から選ぶ（または何も買わない）問題である。在庫が単純な個数なら、売るたびに在庫が1つ減るだけで済む。しかしホテルの連泊やレンタルのように、予約が時間の連続した区間を占めると事情が変わる。同じ部屋タイプの空き室数が足りていても、どの部屋にどの区間を入れたかで、後に残る空き区間の長さが変わる。</p>
+    <p>論文はこの問題を、商品ごとに複数の交換可能なコピー（部屋タイプの中の各部屋）があり、各予約は1つのコピーの連続した枠を占めるモデルとして扱う。先行研究の <a href="../hu-wu-2025/">Hu と Wu</a> は連続滞在の収益管理で定数倍の保証を示したが、論文によれば単一コピーの MNL で 0.271 だった。再利用資源（使い終わると戻る資源）の品揃え（<a href="../gong-2022/">Gong ら</a>、<a href="../rusmevichientong-2020/">Rusmevichientong ら</a>）とは、予約の区間が決まっていて後から空きが分かれる点が違う。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>各期に品揃えを見せ、買われたら実現可能なコピーに割り当て、そのコピーの空きから区間を取り除く</h2>
+    <p>商品は \(M\) 種類で、商品 \(i\) には \(C_i\) 個のコピーがある。サービスの枠は順に並んだ \(N\) 個、予約を受ける期は \(T\) 期ある。期 \(t\) の要求は区間 \(I_t = [\ell_t, r_t]\) で、その区間がコピー \((i,c)\) の空き枠の集合 \(\mathcal{F}_{tic}\) に含まれていれば、そのコピーで受けられる。要求の区間は事前に分かっている（期ごとに型が決まっている）と仮定する。</p>
+    <ul class="def">
+      <li><strong>各期の流れ</strong>：(1) 到着を見る前に品揃え \(S_t\) を決める。(2) 確率 \(p_t\) で顧客が来る（期ごとに独立）。(3) 顧客が商品を選ぶか、何も買わない。(4) 買われたら実現可能なコピーに割り当て、空き枠を更新する。一度予約された枠は戻らない。</li>
+      <li><strong>極大な空き区間</strong>：空き枠の集合は極大な空き区間に一意に分けられる。\([a,b]\) から \(I_t\) を売ると \([a, \ell_t - 1]\) と \([r_t + 1, b]\) の最大2つが残る。</li>
+      <li><strong>選択モデル</strong>：Markov chain 選択モデルを使う。顧客は初期分布に従ってある商品を思い浮かべ、それが品揃えになければ遷移行列に従って次の商品へ移り、品揃えの商品か「買わない」に着いたところで止まる。MNL はその特別な場合である。正則性（品揃えを小さくすると残った商品の選ばれる確率は下がらない）から、\(\phi_{ti}(S) \le a_{ti} := \phi_{ti}(\{i\})\) が成り立つ。</li>
+    </ul>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>極大な空き区間の確率で書いた LP 緩和を解き、コピーごとの独立な提案で品揃えを作る</h2>
+    <p><strong>LP 緩和（SBLP）</strong>：\(x_{tic}([a,b])\) を「期 \(t\) にコピー \((i,c)\) で \([a,b]\) が極大な空き区間である確率」、\(y_{tic}([a,b])\) を「それに加えて、商品 \(i\) がその区間から売れる確率」とする。目的は期待収益で、主な制約は次のとおりである。</p>
+    <div class="eq">\[ \max \sum_{t,i,c,[a,b]} r_{ti}\, y_{tic}([a,b]) \quad \text{s.t.}\quad \sum_{c}\sum_{[a,b]} y_{tic}([a,b]) = p_t z_{ti}, \qquad y_{tic}([a,b]) \le p_t\, a_{ti}\, x_{tic}([a,b])\, \mathbf{1}\{I_t \subseteq [a,b]\} \]</div>
+    <p>\(z_{ti}\) は品揃えの混合 \(\theta_{tS}\) のもとでの商品 \(i\) の購入確率である。さらに、\(x_{t+1}\) を \(x_t\) から出ていく流れ \(y_t\) と、残り区間への2つの流れ込みで書く釣り合いの式と、初期条件 \(x_{1ic}([1,N]) = 1\) がある。この LP の値は最適なオンライン方策の期待収益の上界になる（命題 1）。コピーについて足し合わせると、変数の数は \(O(TMN^2)\) になり \(C_i\) によらない（命題 2）。</p>
+    <ul class="def">
+      <li><strong>コピーの提案</strong>：仮想の空き枠に \(I_t\) を含む極大区間 \([a,b]\) を持つコピーは、確率 \(\pi_{tic}([a,b]) = y_{tic}([a,b]) / (p_t a_{ti} x_{tic}([a,b]))\) で「提案」する。提案はコピーごとに独立である。</li>
+      <li><strong>品揃え</strong>：1つでもコピーが提案した商品を「見せられる」商品とし、その中で収益を最大にする品揃えを選ぶ。一般の Markov chain 選択では、それを確率 \(\gamma = 1-1/e\) で見せ、残りの確率では何も見せない（論文の言葉ではゲート）。MNL では \(\gamma = 1\) でよい。</li>
+      <li><strong>購入と更新の結合</strong>：提案したコピーは確率 \(p_t a_{ti}\) で仮想的に更新される。どの購入にも、更新された提案コピーが少なくとも1つあるように、Hall 型の条件と優先規則の分解で更新を結合する。購入は更新されたコピーの1つに実際に割り当て、ほかの更新されたコピーは仮想の空き枠からだけ区間を消す。こうすると仮想の空きは実際の空きに含まれ、コピーごとの区間の周辺確率が LP の値と一致する（定理 3）。</li>
+    </ul>
+  </section>
+
+  <section id="results">
+    <div class="kicker">主な結果</div>
+    <h2>近似比はコピーの数によらず、1/2 の取り出しの係数と 1−1/e のゲートの係数はそれぞれ改善できない</h2>
+    <p>論文は数値実験を載せていない。結果は定理と、係数が鋭いことを示す例である。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>設定</th><th class="B">本論文の近似比</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>一般の Markov chain 選択</td><td class="B">(1−1/e)/2</td><td>ゲートの係数 1−1/e は全 Markov モデルで最良（命題 9）。組み合わせた比が最良かは示していない</td></tr>
+        <tr><td>MNL（買わない選択肢あり）</td><td class="B">1/2</td><td>この方策について比は鋭い（命題 11）</td></tr>
+        <tr><td>MNL（買わない選択肢なし）</td><td class="B">1−1/e</td><td>注 3</td></tr>
+        <tr><td>単一コピーの MNL</td><td class="B">1/2</td><td>Hu と Wu の <span class="A">0.271</span> を改善</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　近似比は最適なオンライン方策に対する比（論文の定理 1 と命題・注から。表は解説者がまとめた）。</p>
+    <p>鍵になるのは静的な取り出しの補題（定理 2）である。候補が独立に含まれるとき、含まれる確率が \(\rho_i/(1+\rho_i)\) 以上なら、見せられる商品から作った品揃えで LP の収益の 1/2 が取れる。この 1/2 は改善できない（命題 5）。計算量は、LP の解き方は楕円体法と品揃えのオラクルで多項式時間、方策の実行はコピーの総数 \(C_{\mathrm{tot}} \le MT\) に依存するが多項式である。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>断片化を「極大な空き区間が売れて2つに分かれる流れ」としてモデルに入れ、選択を考慮した予約受付に性能保証をつけた</h2>
+    <ul class="def">
+      <li><strong>目的</strong>：期待収益。断片化そのものは指標にしないが、どのコピーに入れるかで残り区間の分布が変わることを LP の状態として持つ。</li>
+      <li><strong>解き方</strong>：区間の流れの LP 緩和と、コピーごとの独立な提案、購入と更新の結合による方策。最適なオンライン方策に対する近似比を示す。</li>
+      <li><strong>限界</strong>：要求の区間（型）は期ごとに事前に分かっているとし、到着は期ごとに独立なベルヌーイである。予約後に別のコピーへ移すこと（部屋の付け替え）は考えない。実データやシミュレーションでの評価はない。</li>
+      <li><strong>美容室の予約への使い方</strong>：施術者をコピー、営業時間の枠を \(N\) 個の枠、施術時間分の連続枠を区間と読めば、モデルはほぼそのまま当てはまる。違いは、美容室では客が開始時刻を選ぶ（要求の区間が事前に決まっていない）ことと、施術者ごとにできるメニューが違うことである。極大な空き区間とその分かれ方を状態として持つ考え方は、断片化の指標を設計するときの参考になる。</li>
+      <li><strong>関連</strong>：<a href="../roomtetris-2020/">RoomTetris</a> は部屋の割当をチェックイン時まで遅らせて残り区間の問題を避ける。この論文は割当を購入時に決めるかわりに、仮想の更新で区間の確率を管理する。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@misc{zhang2026multicapacity,
+  title         = {Multi-Capacity Online Assortment Optimization with Consecutive Stays under Markov Chain Choice},
+  author        = {Zhang, Hongbin and Li, Yanzhi and Huh, Woonghee Tim},
+  year          = {2026},
+  eprint        = {2610.27661},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.DM}
+}</pre>
+    </div>
+    <p class="src">ページの数式と結果は arXiv 版（2610.27661v2、2026年10月26日）の本文による。著者の所属は arXiv のページに書かれていないため載せていない。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

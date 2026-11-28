@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Huang（2016）：患者タイプをまとめて予約グループを作り、診療の流れと予約の柔軟性を両立させる（論文解説）</title>
+<meta name="description" content="The Development of Patient Scheduling Groups for an Effective Appointment System（Applied Clinical Informatics 2016）の非公式の解説。外来の6つの患者タイプを予約グループにまとめ、待ち時間・医師の空き時間・残業のコストと、希望の枠が足りないコストの合計をシミュレーション最適化で最小にする方法を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Colour : --a (orange) = one slot type per patient type, or a single group, and the costs each causes; --b (blue) = the grouping chosen by simulation optimisation and its results
+   Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="en"] body { font-family: var(--font-en); line-height: 1.62; }
+
+/* ---------- i18n switch ---------- */
+html[data-lang="ja"] [data-l="en"], html[data-lang="en"] [data-l="ja"] { display: none !important; }
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+html[data-lang="en"] .lead { line-height: 1.45; letter-spacing: -0.005em; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; }
+html[data-lang="ja"] .tcap { word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-en); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+html[data-lang="ja"] .tb { font-family: var(--font-ja); }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.5rem/1.15 var(--font-en); letter-spacing: -0.02em; }
+html[data-lang="ja"] .points .k { font-family: var(--font-ja); font-size: 1.3rem; letter-spacing: 0; }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+html[data-lang="ja"] .kicker { letter-spacing: 0.08em; }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 30ch; }
+html[data-lang="en"] h2 { line-height: 1.2; letter-spacing: -0.018em; }
+html[data-lang="ja"] h2 { max-width: 24em; }
+html[data-lang="ja"] h2, html[data-lang="ja"] .lead, html[data-lang="ja"] .subtitle, html[data-lang="ja"] .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.75rem; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.pair figure { margin: 0; }
+
+/* ---------- interactive figure (optional; markup in the example page) ---------- */
+.lab { max-width: var(--wide); border: 1px solid var(--hair); border-radius: 14px; padding: 1.4rem; display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1.6rem; background: var(--paper); }
+.ctrl { display: flex; flex-direction: column; gap: 1.1rem; }
+.ctrl label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; font-weight: 600; }
+.ctrl output { font: 600 0.95rem var(--font-mono); }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--b); }
+.ctrl .mix { height: 10px; border-radius: 999px; overflow: hidden; display: flex; background: var(--a); }
+.ctrl .mix i { display: block; background: var(--b); height: 100%; }
+.ctrl .legend { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem 0.75rem; align-items: stretch; font-size: 0.92rem; }
+.grid .h { font-weight: 600; color: var(--muted); font-size: 0.82rem; align-self: end; }
+.cell { border: 1px solid var(--hair); border-radius: 10px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cell .bar { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; display: flex; }
+.cell .bar i { display: block; height: 100%; }
+.cell .bar i.fa { background: var(--a); } .cell .bar i.fb { background: var(--b); }
+.cell .nums { display: flex; justify-content: space-between; font: 500 0.85rem var(--font-mono); gap: 0.5rem; }
+.cell.bad { border-color: var(--a); background: var(--a-soft); }
+.rowlab { display: flex; flex-direction: column; justify-content: center; font-weight: 600; font-size: 0.88rem; line-height: 1.35; }
+.rowlab small { font-weight: 400; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: 40rem; height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .lab { grid-template-columns: 1fr; padding: 1rem; }
+  .cell .nums { flex-direction: column; gap: 0; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.95rem; max-width: var(--prose); width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.7rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td.B { color: var(--b); }
+.tblwrap { max-width: var(--prose); overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 予約枠の断片化と予約受付 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">Applied Clinical Informatics · 2016</div>
+  <h1>The Development of Patient Scheduling Groups for an Effective Appointment System</h1>
+  <p class="subtitle">効果的な予約システムのための患者の予約グループの設計</p>
+
+  <ul class="authors">
+    <li><b>Yu-Li Huang</b><span>Mayo Clinic</span></li>
+  </ul>
+
+  <p class="lead">外来の予約表では、患者タイプ（初診、再診、健診など）ごとに専用の枠を作ることが多い。<span class="A">タイプごとに枠を分ける</span>と枠の長さは実際の診療時間に合うが、希望のタイプの枠が足りなくなりやすい。<span class="A">枠を 1 種類にまとめる</span>と誰でも入れるが、長さが合わず待ち時間や医師の空き時間が増える。Huang は既存の 6 タイプを<span class="B">診療時間の近いものどうしで予約グループにまとめ</span>、両方のコストの合計をシミュレーションで最小にした。プライマリケアの医師 1 人のデータでは、2 グループのときに合計コストが最小になった。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.4338/ACI-2015-08-RA-0097">DOI</a>
+    <a class="btn" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4817334">PMC</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。患者タイプごとに枠を分けると希望の枠が足りなくなること、枠を1種類にまとめると長さが合わず待ちや空きが出ること、診療時間の順に隣り合うタイプだけをまとめる32通りの候補をシミュレーションで比べること、グループ数ごとのコストの結果、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">合計コストは 2 グループで最小</span><span class="d">健診の子ども（WCC）だけを分け、残り 5 タイプを 1 つにまとめた {a, bcdef} で、合計コストが 1 グループの 96.8 から 95.5 に下がった（1.3% 減）。</span></li>
+    <li><span class="k">流れだけなら 4 グループ、柔軟性だけなら 1 グループ</span><span class="d">待ち・空き・残業のコストは {a, b, cd, ef} の 4 グループで最小（96.8 → 88.8、8.3% 減）。希望の枠が足りないコストは、枠が 1 種類のときがいつも最小。</span></li>
+    <li><span class="k">隣り合うタイプだけをまとめる</span><span class="d">6 タイプを平均診療時間の順に並べ、隣どうしだけをまとめる 32 通りを全部シミュレーションで比べる。枠の長さはグループ内の診療時間の加重平均にする。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>枠の種類を増やすと長さは合うが、患者が入れる枠が減るという板挟みがある</h2>
+    <p>外来診療では、待ち時間の長さと予約の取りにくさが大きな問題とされる。論文の背景の節はこの問題を指摘した文献の 1 つとして <a href="../lian-2010/">Lian ら（2010）</a>を引用する（引用はこの 1 か所で、内容には立ち入らない）。</p>
+    <p>先行研究の多くは、予約の時刻の決め方（予約ルール）、無断キャンセルへの対応、患者タイプの並べ方を扱ってきた。論文は、医師ごとの診療時間のばらつきが大きいと、こうした方法の効果が限られると指摘する。かといって患者を新しい分類で分け直すと、予約担当者に分かりにくく、教育も必要になる。そこで論文はすでに使われている患者タイプをそのまま使い、それを「予約グループ」にまとめるだけで改善できないかを問う。</p>
+  </section>
+
+  <section id="model">
+    <div class="kicker">問題設定</div>
+    <h2>予約グループの分け方を決め、診療の流れのコストと予約の柔軟性のコストの合計を最小にする</h2>
+    <p>対象はプライマリケアの医師 1 人の外来である。1 か月の 307 人の診療を医師が手で記録したデータから、6 つの患者タイプの診療時間を推定した。論文はタイプを平均診療時間の順に a〜f と呼ぶ。予約に使う時間は記録した診療時間の平均に 4 分を足したものである。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>記号・タイプ</th><th>診療時間の平均（標準偏差）</th><th>予約に使う時間</th><th>割合</th></tr></thead>
+      <tbody>
+        <tr><td>a　WCC（子どもの健診）</td><td>13.8（6.0）分</td><td>17.8 分</td><td>6.8%</td></tr>
+        <tr><td>b　OV（一般の受診）</td><td>16.2（7.2）分</td><td>20.2 分</td><td>55.7%</td></tr>
+        <tr><td>c　FU（経過観察）</td><td>18.0（12.4）分</td><td>22.0 分</td><td>15.6%</td></tr>
+        <tr><td>d　ER/UC（急患）</td><td>18.7（5.2）分</td><td>22.7 分</td><td>5.2%</td></tr>
+        <tr><td>e　PE（身体検査）</td><td>20.5（5.4）分</td><td>24.5 分</td><td>7.2%</td></tr>
+        <tr><td>f　NP（初診）</td><td>25.0（8.3）分</td><td>29.0 分</td><td>9.4%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　6 つの患者タイプ（論文の表から。日本語の呼び名は解説者による）。無断キャンセルの率は 10.4%。</p>
+    <p>1 日の予約表は午前と午後に 11 枠ずつの計 22 枠で、その内訳は a 2、b 12、c 3、d 1、e 2、f 2 枠である。グループにまとめると、そのグループの枠の数は元の枠の数の和になり、枠の長さはグループ内の予約時間の加重平均になる。評価するコストは 2 つある。</p>
+    <ul class="def">
+      <li><strong>診療の流れのコスト</strong>：患者の待ち時間 \(W\)、医師の空き時間 \(P\)、残業時間 \(O\) の重み付きの和。時間あたりの重みは \(c_w = 10\)、\(c_p = 50\)、\(c_o = 75\)（ドル）で、残業は空き時間の 1.5 倍とする。</li>
+      <li><strong>予約の柔軟性のコスト</strong>：予約の希望がそのグループの空き枠の数を超えた分（論文の言葉で underage）の枠の長さの合計 \(U\) に重み \(c_u\) を掛ける。足りない枠は、患者が診てもらえる機会を逃したものとみなし、\(c_u = c_w\) とする。</li>
+    </ul>
+    <div class="eq">\[ T_{\text{flow}} = c_w W + c_p P + c_o O, \qquad T_{\text{flex}} = c_u U \]</div>
+    <p>グループの数を増やすほど枠の長さが診療時間に合って \(T_{\text{flow}}\) は下がりやすいが、グループごとの枠が少なくなって \(T_{\text{flex}}\) は上がる。論文は両者を合わせた合計コストを最小にするグループ分けを探す（合計の式そのものは本文に書かれていない）。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">手法</div>
+    <h2>診療時間の順に隣り合うタイプだけをまとめる 32 通りを、すべてシミュレーションで比べる</h2>
+    <svg class="fig" viewBox="0 0 640 230" role="img" aria-label="6つのタイプを診療時間の順に並べ、隣どうしをまとめたグループ分けの例。1グループ、2グループ {a, bcdef}、4グループ {a, b, cd, ef}、6グループ。">
+      <g font-size="13">
+        <text x="20" y="30" fill="#5B6676">グループ数</text>
+        <text x="20" y="66" fill="#16202E">1</text>
+        <rect x="70" y="48" width="540" height="26" rx="5" fill="#FCEBDF" stroke="#C2410C"/>
+        <text x="340" y="66" text-anchor="middle" fill="#C2410C">abcdef（枠の長さは全体の加重平均）</text>
+        <text x="20" y="110" fill="#16202E">2</text>
+        <rect x="70" y="92" width="86" height="26" rx="5" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <text x="113" y="110" text-anchor="middle" fill="#1D4ED8">a</text>
+        <rect x="162" y="92" width="448" height="26" rx="5" fill="#E7EEFC" stroke="#1D4ED8"/>
+        <text x="386" y="110" text-anchor="middle" fill="#1D4ED8">bcdef（合計コスト最小）</text>
+        <text x="20" y="154" fill="#16202E">4</text>
+        <rect x="70" y="136" width="86" height="26" rx="5" fill="#fff" stroke="#1D4ED8"/>
+        <text x="113" y="154" text-anchor="middle" fill="#1D4ED8">a</text>
+        <rect x="162" y="136" width="86" height="26" rx="5" fill="#fff" stroke="#1D4ED8"/>
+        <text x="205" y="154" text-anchor="middle" fill="#1D4ED8">b</text>
+        <rect x="254" y="136" width="178" height="26" rx="5" fill="#fff" stroke="#1D4ED8"/>
+        <text x="343" y="154" text-anchor="middle" fill="#1D4ED8">cd</text>
+        <rect x="438" y="136" width="172" height="26" rx="5" fill="#fff" stroke="#1D4ED8"/>
+        <text x="524" y="154" text-anchor="middle" fill="#1D4ED8">ef（流れのコスト最小）</text>
+        <text x="20" y="198" fill="#16202E">6</text>
+        <rect x="70" y="180" width="86" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="113" y="198" text-anchor="middle" fill="#C2410C">a</text>
+        <rect x="162" y="180" width="86" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="205" y="198" text-anchor="middle" fill="#C2410C">b</text>
+        <rect x="254" y="180" width="86" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="297" y="198" text-anchor="middle" fill="#C2410C">c</text>
+        <rect x="346" y="180" width="86" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="389" y="198" text-anchor="middle" fill="#C2410C">d</text>
+        <rect x="438" y="180" width="80" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="478" y="198" text-anchor="middle" fill="#C2410C">e</text>
+        <rect x="524" y="180" width="86" height="26" rx="5" fill="#fff" stroke="#C2410C"/><text x="567" y="198" text-anchor="middle" fill="#C2410C">f</text>
+      </g>
+    </svg>
+    <p class="src">図1　グループ分けの例（解説者による模式図。箱の幅は意味を持たない）。</p>
+    <ul class="def">
+      <li><strong>候補の作り方</strong>：6 タイプを予約時間の順に並べ、隣り合うものだけをまとめる。6 グループ 1 通り、5 グループ 5 通り、4 グループ 10 通り、3 グループ 10 通り、2 グループ 5 通り、1 グループ 1 通りの、計 32 通りになる（6 タイプの間の 5 か所それぞれで切るか切らないかを選ぶので \(2^5 = 32\)）。</li>
+      <li><strong>シミュレーション</strong>：Excel のマクロで外来の 1 日を再現する。予約の希望はタイプの割合に従って発生させ、診療時間はガンマ分布で発生させる。患者は時刻どおりに来て、医師も時刻どおりに始めると仮定する。各候補を 100 日分繰り返し、乱数の種をそろえて比べる。</li>
+      <li><strong>枠の長さ</strong>：グループ内の予約時間の加重平均とする。たとえば 4 グループの {a, bcd, e, f} では、枠の長さは 17.8、20.7、24.5、29.0 分になる。2 グループの {a, bcdef} では、bcdef の枠は約 21.8 分になる（解説者の計算。表1 の割合で加重平均）。</li>
+    </ul>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>流れのコストは 4 グループで 8.3% 下がったが、柔軟性まで含めた合計では 2 グループが最良だった</h2>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>評価</th><th class="A">1 グループ</th><th class="B">最良のグループ分け</th><th>変化</th></tr></thead>
+      <tbody>
+        <tr><td>診療の流れのコスト</td><td>96.8</td><td class="B">88.8（4 グループ {a, b, cd, ef}）</td><td>−8.3%</td></tr>
+        <tr><td>合計コスト</td><td>96.8</td><td class="B">95.5（2 グループ {a, bcdef}）</td><td>−1.3%</td></tr>
+        <tr><td>柔軟性のコスト</td><td colspan="3" style="text-align:left">いつも 1 グループが最小（2 グループ以上の中では、希望の枠が足りない数は論文で 2_5 と呼ぶ分け方が最小）</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表2　本文に書かれた値（論文 Figure 2〜4 の説明）。グループ数ごとの全候補の値は図だけにあり、本文には数値がない。</p>
+    <p>流れのコストだけを見ると、枠の種類を増やして長さを合わせるほうが有利である。しかし枠を分けると、ある日にあるタイプの希望が多いと枠が足りなくなる。合計コストでは両者の釣り合いが 2 グループのところで取れた。合計コストで最良の 4 グループは {a, bcd, e, f} だった。</p>
+    <p>感度分析では、医師の空き時間の重み（待ち時間の重みの 5、10、15 倍）、無断キャンセルの率（5.4%、10.4%、15.4%）、患者タイプの割合（3 通り）を組み合わせた 27 通りを調べた。空き時間の重みが大きいほどグループを多くするほうが有利になり、無断キャンセルが多いほどグループを少なくするほうが有利になった。患者タイプの割合が変わると、診療時間の差をとらえるように最良のグループ分けも変わった。</p>
+    <p>論文が挙げる限界は、医師 1 人の限られたデータにもとづくシミュレーションであること、時刻どおりの来院・予約の間の時間なし・時刻どおりの開始という仮定、決められたグループ以外の枠に患者を入れる運用を扱っていないことである。</p>
+  </section>
+
+  <section id="position">
+    <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
+    <h2>予約枠の「長さの種類」をいくつ用意するかという、予約表の設計の段階の研究である</h2>
+    <ul class="def">
+      <li><strong>何を決めるか</strong>：1 件ずつの予約をどこに入れるかではなく、予約表に何種類の長さの枠を何個置くかを決める。<a href="../lian-2010/">Lian ら（2010）</a>のように予約のたびに空きの分かれ方を見る方法とは段階が違う。</li>
+      <li><strong>評価の仕方</strong>：待ち・空き・残業という診療の流れのコストと、希望の枠が足りないコストを、同じ時間の単位で重み付けして足す。受けられなかった予約を「機会を逃した時間」として数える点は、予約受入率を目的にする研究と同じ方向である。</li>
+      <li><strong>美容室の問題への使い方</strong>：施術メニューを所要時間の順に並べ、隣どうしをまとめて枠の長さの種類を決める発想は、そのまま使える。違いは、この論文の枠は長さが固定で 1 日の枠の並びもあらかじめ決まっていることで、施術時間分の連続した空きをその場で切り出す美容室の予約では、断片化の扱いを別に足す必要がある。</li>
+      <li><strong>関連</strong>：同じ著者の <a href="../huang-2013/">Huang（2013）</a>は、X 線などの付帯サービスの時間を見込んで予約の間隔を決める。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@article{huang2016scheduling,
+  title   = {The Development of Patient Scheduling Groups for an Effective Appointment System},
+  author  = {Huang, Yu-Li},
+  journal = {Applied Clinical Informatics},
+  volume  = {7},
+  number  = {1},
+  pages   = {43--58},
+  year    = {2016},
+  doi     = {10.4338/ACI-2015-08-RA-0097}
+}</pre>
+    </div>
+    <p class="src">ページの数値と式は PubMed Central の本文（PMC4817334）による。書誌情報は Crossref の記録による。所属は本文の著者情報による。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="../../../assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>
