@@ -221,10 +221,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <h2>予約を受けた時点で部屋番号を決めると、空いた日が部屋ごとに散らばり、長い滞在が入らなくなる</h2>
     <p>ホテルは部屋そのものではなく部屋タイプを売ることが多く、どの部屋番号に入れるか（room committing）には自由がある。それでも、部屋を個別に売っていたり、受付係が手で割り当てたり、チャネルマネージャー（予約サイトとの接続ソフト）が受けた直後に部屋番号を決めたりして、予約の直後に部屋が決まることが多い。稼働率が高くなると、空きはまだあるのに部屋ごとに散らばり、2日以上の依頼に必要な連続した空きが見つからなくなる。そこで予約サイトでの販売を早めに止めたり、シーズン初めに3泊以上などの最短滞在日数を課したりする。経験豊富な従業員がときどき部屋割りを組み直す作業を、論文は「RoomTetris」や「room candy crush」のようなゲームにたとえる。</p>
     <p>論文は超過予約（オーバーブッキング）を受けず、到着後に客を別の部屋へ移さないと仮定する。そのうえで、ある日の予約数が部屋数を超える<strong>避けられない超過予約</strong>と、どの日も部屋数以内なのに割当のせいで入らない<strong>避けられる超過予約</strong>を区別する。前者はどんな割当でも解消できない。</p>
-    <figure>
-      <img src="assets/fig7_avoidable.png" alt="Two-room example over dates 1 to 7: reservation 1 in room 1 and reservation 2 in room 2 are already fixed, leaving no single room free for reservation 3, although at most two reservations overlap on any date." loading="lazy">
-      <figcaption>図1　避けられる超過予約の例。2室のホテルで予約1と2を別々の部屋に入れてしまうと、どの日も同時に泊まるのは2件以下なのに予約3が入らない。RoomTetris なら予約3を予約2より先に割り当てる（論文の Figure 7 より）。</figcaption>
-    </figure>
   </section>
 
   <section id="method">
@@ -238,10 +234,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
       <li><span class="B">RoomTetris（LazyJustInTime）</span>：依頼が来ても部屋は決めず、日ごとの予約数が部屋数以内に収まるかだけで受けるかを決める。チェックイン日に、その日に始まる予約を長いものから順に最初の空き部屋へ入れる。将来の予約を知る必要はない。チェックイン日は、その日の予約と取り消しがすべて分かる最後の時点でもある。</li>
     </ul>
     <p>即時割当の方法では、「どの日も部屋数以内」という受付の条件は、後で連続した空きが残ることを保証しない。RoomTetris ではこの条件が必要十分になる、というのが論文の主張である。証明は日付についての帰納法である。1日目はホテルが空なので、その日に始まる予約はすべて入る（部屋数以内であることは条件から分かる）。\(d-1\) 日目までに始まる予約がすべて入っているとする。条件から、\(d\) 日目に始まる予約の数は、続いている予約が使っていない部屋の数を超えない。しかも開始日の順に割り当てているので、\(d\) 日目に空いている部屋は、後の予約がまだ割り当てられていないため、それ以降もずっと空いている。よって \(d\) 日目に始まる予約はすべて入る。</p>
-    <figure>
-      <img src="assets/fig8_slices.png" alt="Seven-day slices of a 10-room plan. Left: on day 1 all rooms are empty, so all reservations checking in that day are placed. Right: on date d, reservations checked in earlier (thick-bordered) are already placed, and enough rooms are free from date d onward for those checking in on d." loading="lazy">
-      <figcaption>図2　最適性の証明の考え方。左：1日目は全室空いているので、その日に始まる予約はすべて入る。右：\(d\) 日目には、それまでに始まった予約（太枠）がすべて入っており、\(d\) 日目に始まる予約が入る部屋が残っている（論文の Figure 8 より）。</figcaption>
-    </figure>
   </section>
 
   <section id="results">
@@ -263,10 +255,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     </div>
     <p class="src">表1　10室・365日、1泊と7泊が混ざる需要での比較（論文 3節の本文の値）。</p>
     <p>即時割当の3つの工夫（FirstFit、MaxSlack、MinSlack）はほぼ同じで、ランダムより約9.5ポイント少ないだけである。RoomTetris は FirstFit より断った日数を41.76%減らした。長い予約ほど繁忙期（価格の高い時期）に断られやすいので、収益の改善は 24.83 − 14.46 = 10.37 ポイントを上回ると論文は見込む。下限は日ごとに部屋数を超えた需要を足したもので、どの方法でもこれ以上は減らせない。残りの差は、7泊の予約は1日でも満室の日を含めば全体が断られるために生じる。</p>
-    <figure>
-      <img src="assets/fig4_room_plans.png" alt="Three room plans of a 10-room hotel over about 45 days, coloured squares for occupied nights: Random (top) leaves many scattered white gaps, FirstFit (middle) fewer, and RoomTetris (bottom) packs reservations into nearly continuous rows." loading="lazy">
-      <figcaption>図3　割当の方法ごとの部屋割り。上から Random、FirstFit、RoomTetris（論文では JIT）。色付きの四角が予約の入った夜、白が空き（論文の Figure 4 より）。</figcaption>
-    </figure>
     <p>ほかの比較も行っている。依頼がすべて1泊を先、7泊を後の順に来る不運な場合、ランダムな割当で断る日数は48.3%に達する。FirstFit では、1タイプの部屋数を25室に増やしても断る確率は16.87%残る。1泊の依頼をすべて断る厳しい最短滞在日数の制限を課すと（FirstFit）、断る割合は31.6%になり、RoomTetris よりずっと悪い。客が特定の部屋番号を指定する予約が混ざる場合、指定がランダムに置かれ残りを RoomTetris で割り当てると、指定が10%で断る割合は16.92%、20%で20.3%、50%で30.15%と、すべてランダムに置く場合に近づいていく（論文 Figure 5）。</p>
   </section>
 
@@ -296,7 +284,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1108/JHTT-08-2019-0108}
 }</pre>
     </div>
-    <p class="src">ページの記述・数値・図は出版版の PDF（Emerald）による。巻・号・ページは Emerald の論文ページとトレント大学の機関リポジトリ（IRIS）の記録から取った。論文は下限と RoomTetris の差を 2.46% と書いているが、14.46 − 12.10 は 2.36 になる（解説者の計算）ため、ページでは差の値を載せていない。</p>
+    <p class="src">ページの記述と数値は出版版の PDF（Emerald）による。巻・号・ページは Emerald の論文ページとトレント大学の機関リポジトリ（IRIS）の記録から取った。論文は下限と RoomTetris の差を 2.46% と書いているが、14.46 − 12.10 は 2.36 になる（解説者の計算）ため、ページでは差の値を載せていない。</p>
   </section>
 </main>
 

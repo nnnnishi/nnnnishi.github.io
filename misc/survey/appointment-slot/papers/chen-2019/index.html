@@ -226,10 +226,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <div class="kicker">背景</div>
     <h2>時間枠制の予約では、希望の枠の割当と取消で予約表が断片化し、遅刻した患者の枠が空く</h2>
     <p>時間枠制の予約では、医師の診療時間を有限個の時間枠に分け、依頼に応じて割り当てる。論文はここで <a href="../lian-2010/">Lian ら（2010）</a>を引き、患者の希望の枠を割り当てたり以前の予約を取り消したりすると予約表が断片化し、効率に限界が出ると述べる。</p>
-    <figure>
-      <img src="assets/fig1_timeslot_fragmentation.png" alt="Figure 1 of the paper: four 20-minute time slots from 9:00 to 10:20. Outpatient 2 misses the 9:20 slot, outpatient 3 arrives at 9:35, and outpatient 2 arrives at 9:38 but cannot be served ahead of outpatient 3 and must be rescheduled, leaving the physician idle during slot 2.">
-      <figcaption>図1　時間枠制の例。20 分の枠が 4 つある。2 番の患者は 9:20 の枠に間に合わず、9:38 に来ても 3 番より先には診てもらえず、別の日時に予約し直すことになる。2 番の枠のあいだ医師は空いている（論文の Figure 1 より）。</figcaption>
-    </figure>
     <p>台湾の病院や診療所は番号制（sequence-number based）の予約を使う。予約を申し込んだ順に、番号と目安の来院時刻を渡す。医師は目安の時刻ではなく番号の順に診て、呼んだ患者が来ていなければ次の患者を呼ぶ。そのため予約表の断片化は起きず、遅刻や無断キャンセルで医師が空くこともない。代わりに、番号を飛ばされた患者をいつ診るか（遅刻への対応）が必要になる。たとえば「番号どおりの患者を 2 人診たら、飛ばされた患者を 1 人診る」という対応がよく使われる。</p>
     <p>患者は過去の経験から目安の時刻をどう受け取るかを変える。番号を飛ばされないように早く来る患者が増えると、診療の始めに患者が集まる。飛ばされた経験のある患者は、診療の終わりに遅く来るかもしれない。著者らの知る限り、番号制と飛ばされた患者の扱いを論じた文献はない。</p>
   </section>
@@ -238,10 +234,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <div class="kicker">問題設定</div>
     <h2>目安の来院時刻の決め方 2 つと、番号を飛ばされた患者の扱い 3 つを組み合わせて比べる</h2>
     <p>目安の来院時刻の決め方（appointment scheduling pattern）は次の 2 つである。</p>
-    <figure>
-      <img src="assets/fig3_scheduling_patterns.png" alt="Figure 3 of the paper: suggested arrival times for 15 outpatients in a three-hour session. (a) Uniform pattern: a constant 12-minute interval from 9:00 to 11:48. (b) Plateau-dome pattern: intervals rise from 4 and 8 minutes to a plateau of about 14 to 15 minutes, then fall to 8 and 4 minutes at the end.">
-      <figcaption>図2　3 時間の診療に 15 人の目安の時刻を置いた例。(a) 均等（A1）は 12 分おき。(b) plateau-dome（A2）は最初と最後の間隔が短く、中ほどが長い（論文の Figure 3 より）。</figcaption>
-    </figure>
     <ul class="def">
       <li><strong>A1 均等</strong>：どの予約の間も同じ間隔にする。多くの診療所で使われている。</li>
       <li><strong>A2 plateau-dome</strong>：Klassen と Yoogalingam（2009）が示した形で、間隔が急に伸びて最大値でしばらく保ち、最後に短くなる。予約数・予約の長さ・費用・無断キャンセルの水準・診療の長さが変わっても頑健だとされる。</li>
@@ -311,7 +303,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1016/j.cie.2019.02.033}
 }</pre>
     </div>
-    <p class="src">ページの数値・式・記述は出版版の PDF（Elsevier）による。図1・図2 は論文の図を切り出したものである。書誌情報も同じ PDF から確認した。</p>
+    <p class="src">ページの数値・式・記述は出版版の PDF（Elsevier）による。書誌情報も同じ PDF から確認した。</p>
   </section>
 </main>
 

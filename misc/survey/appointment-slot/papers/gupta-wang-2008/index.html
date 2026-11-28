@@ -251,10 +251,6 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
       <li><strong>ヒューリスティック</strong>：H1 は 2 つのしきい値 \(\hat b_i'(s) \le \hat b_i(s)\) を使い、医師 \(i\) の予約数がその間にあるときはその医師の担当患者（パネル）の依頼だけを受ける。H2 は全体の予約数によらない 2 つの上限を使う。H3 は多次元の新聞売り子問題の解、H4 は当日の需要の平均だけ枠を残す。FCFS は空いていれば来た順に受ける。上界 UB は主治医以外にかかる損をなくした問題の最適値である。</li>
       <li><strong>当日の詰め込み枠（命題 2）</strong>：1 つの枠に 2 人を入れられる枠を最大 \(y\) 個許すと、最適な予約上限 \(\tilde b^*\) は \(b^* \le \tilde b^* \le b^* + y\) を満たす。上限は増えるが、増える数は追加した枠の数より少ない。</li>
     </ul>
-    <figure>
-      <img src="assets/fig1_h1_policy.png" alt="Policy H1 for physician 1 in a two-doctor clinic, plotted over the total number of booked clinic slots s (horizontal, 0 to 30) and physician 1's booked slots s1 (vertical, 0 to 20). Open circles (accept all requests) fill the lower-left region; grey circles (accept only physician 1's own patients) form a narrow band between the dashed curve b-hat-prime and the solid curve b-hat; black dots (reject all) fill the upper right. Both thresholds fall as s grows." loading="lazy">
-      <figcaption>図1　医師 2 人の診療所での、医師 1 の H1 の受付の領域。横軸は診療所全体の予約数 \(s\)、縦軸は医師 1 の予約数 \(s_1\)。白は全員受ける、灰色は医師 1 の担当患者だけ受ける、黒は全員断る（論文の Figure 1 より）。</figcaption>
-    </figure>
   </section>
 
   <section id="results">
@@ -275,11 +271,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     </table>
     </div>
     <p class="src">表1　40 通りの例での最適値との差（論文 5.2.1 節の本文の値）。</p>
-    <p>医師の負荷が偏っている例では、医師どうしの受付を連動させる H1 が H2 よりかなり良かった。医師の負荷を 0.6 から 1.7 に上げると、負荷が低いうちはどの方策も最適に近いが、負荷が高いと FCFS の差は約 30% まで広がったが、H1 と H2 の差は約 4% にとどまった（図2）。</p>
-    <figure>
-      <img src="assets/fig2_workload_accuracy.png" alt="Percentage distance from the optimum versus nominal physician workload rho from 0.6 to 1.7 for heuristics H1 to H4, FCFS (circles) and the upper bound (crosses). H1 and H2 stay near zero until about 1.2 and reach about 4 percent at 1.7; H3 and H4 rise to about 14 percent; FCFS is near zero below 0.9 but climbs steeply to about 31 percent at 1.7; the upper bound stays between about 3 and 7 percent." loading="lazy">
-      <figcaption>図2　医師の負荷 \(\rho_1 = \rho_2\) と、各方策の最適値からの差（%）。\(\%\Delta_1\)〜\(\%\Delta_4\) が H1〜H4、\(\%\Delta_5\) が FCFS、\(\%\Delta_6\) が上界（論文の Figure 2 より）。</figcaption>
-    </figure>
+    <p>医師の負荷が偏っている例では、医師どうしの受付を連動させる H1 が H2 よりかなり良かった。医師の負荷を 0.6 から 1.7 に上げると、負荷が低いうちはどの方策も最適に近いが、負荷が高いと FCFS の差は約 30% まで広がったが、H1 と H2 の差は約 4% にとどまった（論文の Figure 2）。</p>
     <p>次に、ミネアポリス・セントポール地域の中規模の診療所（医師 10 人、15 分枠）のデータを使い、患者が別の日に 3 回まで予約を試みるシミュレーションを行った。1 回の反復は 10 年分の運用で、1,000 回くり返した。</p>
     <div class="tblwrap">
     <table class="tbl">
