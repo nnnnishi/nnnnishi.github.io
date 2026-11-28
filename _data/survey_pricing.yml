@@ -933,6 +933,23 @@ papers:
     setting: "需要曲線が非Lipschitz、購買の有無だけを観測する"
     data: ""
     note: "需要曲線がジャンプや原子を含む非Lipschitzでもよい弱い仮定のもとで、多項式時間のアルゴリズムで Õ(T^{2/3}) の regret を達成する。Kleinberg & Leighton (2003) の下界に対数因子を除いて一致し、同じ著者の Õ(T^{3/4}) の上界を改善する"
+  - id: transfer-faster
+    preprint_year: 2025
+    explainer: transfer-faster
+    title: "Transfer Faster, Price Smarter: Minimax Dynamic Pricing under Cross-Market Preference Shift"
+    short: "Zhang+ 転移"
+    groups: []
+    authors: "Y. Zhang, E. Chen, Y. Yan"
+    year: 2025
+    venue: "NeurIPS 2025"
+    url: "https://arxiv.org/abs/2505.17203"
+    code: "https://github.com/CS-SAIL/transfer_pricing_neurips2025"
+    category: contextual
+    demand: 特徴量で決まる評価額（線形または RKHS）＋分布が既知の雑音
+    method: バイアス補正つき集約による市場間転移（CM-TDP）
+    setting: 複数の補助市場（オフライン／同時稼働）、市場間で選好が異なる、購買の有無だけを観測する
+    data: 合成データ
+    note: 選好が構造的に異なる複数の補助市場から集約とバイアス補正で転移する動的価格 CM-TDP を提案し、線形モデルと RKHS モデルの両方で情報理論的下界に対数因子を除いて一致する regret を示す
   # ---- 収益管理・在庫 ----
   - id: gallego-van-ryzin-1994
     title: "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons"
