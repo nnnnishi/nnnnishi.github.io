@@ -4,7 +4,7 @@
 # explainer を書くと papers/<explainer>/ の解説ページへリンクする。
 # preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
 
-updated: "2026-11-24"
+updated: "2026-11-28"
 
 intro: "決定木を貪欲法ではなく目的関数を最適にするように学習する研究（最適決定木）の文献をまとめたページです。CART などの貪欲法は分岐を1つずつ決めるので、深さや葉の数を決めたときの最良の木が得られるとは限りません。最適決定木の研究は木全体を混合整数最適化、動的計画法と分枝限定法、SAT・制約プログラミング、連続最適化などで一度に決めます。解き方の系統ごとに、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -482,6 +482,22 @@ papers:
     method: 動的計画法
     data: UCI のデータなど
     note: 特徴空間のどこでもランダムフォレストと同じ予測をする最小の決定木を、動的計画法で求める
+  - id: ca-contree
+    title: "Anytime Optimal Decision Tree Learning with Continuous Features"
+    authors: "H. S. Kiossou, P. Schaus, S. Nijssen"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2601.14765"
+    explainer: ca-contree
+    short: "CA-ConTree"
+    groups: [louvain]
+    code: ""
+    category: dp-bnb
+    split: 単変量（連続の特徴量）
+    objective: 誤分類（深さの制約つき）
+    method: 動的計画法 ＋ 分枝限定 ＋ 限定逸脱探索（対角スイープ）
+    data: UCI の 16 データ（ConTree と同じベンチマーク）
+    note: ConTree に特徴量としきい値の 2 種類の逸脱予算による限定逸脱探索と対角スイープを組み込み、連続の特徴量のまま途中で打ち切っても質の高い木を返せるようにする
 
   # ---- SAT・制約プログラミング ----
   - id: bessiere-2009
