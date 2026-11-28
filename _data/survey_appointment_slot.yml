@@ -25,7 +25,7 @@ categories:
     color: "#cf222e"
     idea: "予約後の空き時間がどれだけ細かく分かれるかを指標にし、断片化が小さくなる枠に予約を入れる。部屋や担当者の割当を後回しにして連続した空きを残す方法もある"
     setting: "予約の長さがばらつき、長い予約が入らないことが問題になるとき"
-    examples: "Lian et al. (2010), Battiti et al. (2020, 2021), Zhang, Li & Huh (2026)"
+    examples: "Lian et al. (2010), Koetter et al. (2015), Battiti et al. (2020, 2021), Zhang, Li & Huh (2026)"
   - id: consecutive-rm
     label: "連続区間の収益管理"
     color: "#8250df"
@@ -56,6 +56,12 @@ categories:
     idea: "宅配で顧客に提示する配達時間帯を、配送ルートのコストと将来の受注を考えて決める。受け入れたときの機会費用を近似して提示や価格を決める"
     setting: "時間帯ごとの容量が他の予約との組み合わせで変わるとき"
     examples: "Campbell & Savelsbergh (2005), Agatz et al. (2011), Yang et al. (2016)"
+  - id: lian-citing
+    label: "Lian (2010) を引用する研究"
+    color: "#9a6700"
+    idea: "Lian et al. (2010) を引用している研究のうち、上の系統に入らないもの。予約ルールの評価指標、予約グループの設計、予約表の見せ方、他業界（港湾のトラック予約、社用車）への応用など"
+    setting: "医療予約の実務研究や他業界への応用例を探すとき"
+    examples: "Creemers et al. (2021), Huang (2016), Lange et al. (2019)"
   - id: systems
     label: "区間スケジューリング・計算機資源"
     color: "#57606a"
@@ -64,7 +70,7 @@ categories:
     examples: "Lipton & Tomkins (1994), Castillo et al. (2008), Weng et al. (2023)"
 
 lineage_first_year: 2008
-lineage_lanes: [fragmentation, consecutive-rm, reusable, choice, dynamic-appt, timeslot, systems]
+lineage_lanes: [fragmentation, lian-citing, consecutive-rm, reusable, choice, dynamic-appt, timeslot, systems]
 
 lineage_groups:
   - { id: trento, label: "Trento（Battiti・Brunato）" }
@@ -73,7 +79,7 @@ lineage_groups:
   - { id: savelsbergh, label: "Iowa・Georgia Tech（Campbell・Savelsbergh）" }
   - { id: reusable-group, label: "Columbia・MIT（Goyal・Iyengar・Simchi-Levi）" }
 
-lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は同じグループの続編や手法の直接の拡張、破線は比較相手や出発点に挙げた関係です。これは初版で、論文の本文で関係を確認できたのは RoomTetris の2本だけです。それ以外の矢印は、著者の重なりと研究の流れからの推測（点線）で、本文ではまだ確認していません。2007 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めています。破線の枠は解説ページのない論文です（現在はすべて）。"
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は同じグループの続編や手法の直接の拡張、破線は比較相手や出発点に挙げた関係です。これは初版です。RoomTetris の2本と、Lian (2010) を引用する研究への矢印は、本文や引用データベース（Google Scholar・OpenAlex・Semantic Scholar）で引用を確認しています。それ以外の矢印は、著者の重なりと研究の流れからの推測（点線）で、本文ではまだ確認していません。2007 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めています。破線の枠は解説ページのない論文です（現在はすべて）。"
 
 lineage:
   - { from: roomtetris-2020, to: roomtetris-2021, kind: ext, why: "同じ著者ら。2020 年の RoomTetris（部屋番号の確定を遅らせ、長い滞在から詰める）を使い、最短滞在日数の制限を見直すべきだと論じる" }
@@ -91,6 +97,11 @@ lineage:
   - { from: campbell-2005, to: agatz-2011, kind: ext, why: "著者が重なる。受注時の判断から、どの地域にどの時間枠を提示するかの計画へ広げる", guess: true }
   - { from: agatz-2011, to: yang-2016, kind: base, why: "時間枠管理の先行研究として、顧客の選択モデルと機会費用の近似にもとづく動的な提示へ進める", guess: true }
 
+  - { from: lian-2010, to: koetter-2015, kind: base, why: "Lian の断片化の考え方を引用し、電気自動車のカーシェアの予約表を断片化の度合いで採点する方法へ広げる" }
+  - { from: koetter-2015, to: knopp-2021, kind: base, why: "Koetter らを引用し、社用車・公共交通・タクシーを従業員の移動要求に割り当てる問題を扱う（Lian は直接引用しない）" }
+  - { from: lian-2010, to: lange-2019, kind: base, why: "医療の予約手法の例として、予約時に空いている候補をすべて提示する Lian の手順を取り上げ、港湾のトラック予約への移植を検討する" }
+  - { from: lange-2019, to: lange-2025, kind: ext, why: "同じ著者。港湾のトラック予約システムの研究を博士論文で発展させる", guess: true }
+  - { from: lian-2010, to: huang-2013, kind: base, why: "医師の希望と所要時間の分布を予約に組み込むと効率が上がる、という Lian の結果を引用し、付帯サービスの時間を見込んだ予約間隔を最適化する" }
 papers:
   # ---- 断片化の評価と抑制 ----
   - id: lian-2010
@@ -147,6 +158,203 @@ papers:
     decision: "提示する枠、コピーの割当"
     eval: "理論"
     note: "同じ商品に複数の物理的なコピーがあり、予約は1つのコピーの連続した区間を占める。各コピーの空きを極大な空き区間で持ち、区間が売れると最大2つの残り区間に分かれる様子をモデルに入れる。Markov chain 選択モデルのもとで、容量によらない近似比を示す"
+  # ---- 断片化（Lian の被引用） ----
+  - id: koetter-2015
+    title: "Schedule rating method based on a fragmentation criterion"
+    authors: "F. Koetter, J. Ostermann, D. V. Jecan"
+    year: 2015
+    venue: "VEHICULAR 2015"
+    url: "https://scholar.google.com/scholar?q=%22Schedule+rating+method+based+on+a+fragmentation+criterion%22"
+    short: "Koetter+ 2015"
+    category: "fragmentation"
+    domain: "EV カーシェア（社用車）"
+    duration: "可変（連続する時間）"
+    decision: "スケジュールの評価"
+    eval: ""
+    note: "充電時間と航続距離のために細切れになりやすい EV カーシェアの予約表を、断片化の度合いで採点する方法を提案する。稼働率とコストだけを見る既存の最適化は将来の予約を考えないとし、断片化していると将来の予約が入らない点を問題にする。予約枠評価指標の先行例（要旨にもとづく。リンクは Google Scholar の検索結果）"
+  # ---- Lian (2010) を引用する研究 ----
+  - id: knopp-2021
+    title: "Mobility offer allocations in corporate settings"
+    authors: "S. Knopp, B. Biesinger, M. Prandtstetter"
+    year: 2021
+    venue: "EURO J. Comput. Optim."
+    url: "https://doi.org/10.1016/j.ejco.2021.100010"
+    short: "Knopp+ 2021"
+    category: "lian-citing"
+    domain: "社用車・移動手段"
+    duration: "可変（利用時間）"
+    decision: "移動手段の割当"
+    eval: ""
+    note: "社用車・公共交通・タクシーを従業員の移動要求に割り当てる資源割当問題。Lian は直接引用せず、Koetter et al. (2015) を引用する。断片化をどこまで扱うかは未確認"
+  - id: escamilla-2022
+    title: "A Decision Support Simulation to Analyze Scheduling Alternatives for Applicant Processing at Military Entrance Processing Stations (MEPS)"
+    authors: "J. M. Escamilla"
+    year: 2022
+    venue: "修士論文（AFIT）"
+    url: ""
+    short: "Escamilla 2022"
+    category: "lian-citing"
+    domain: "入隊検査所"
+    duration: ""
+    decision: "予約制の設計"
+    eval: "シミュレーション"
+    note: "米軍の入隊検査所の受付を一括到着から予約制に変える案をシミュレーションで比べる。Lian の schedule defragmentation の効果を紹介し、自分の対象にも効くかを検討する"
+  - id: creemers-2021
+    title: "Evaluation of appointment scheduling rules: A multi-performance measurement approach"
+    authors: "S. Creemers, M. Lambrecht, J. Beliën, P. Colen"
+    year: 2021
+    venue: "Omega"
+    url: "https://doi.org/10.1016/j.omega.2020.102231"
+    short: "Creemers+ 2021"
+    category: "lian-citing"
+    domain: "外来診療"
+    duration: "1枠"
+    decision: "予約ルール"
+    eval: "シミュレーション"
+    note: "患者をいつ呼ぶかの予約ルールを、待ち時間・医師の遊休・残業など複数の指標で評価する。評価指標の作り方の参考になる"
+  - id: mazaheri-2024
+    title: "Overview and classification of evaluation metrics of appointment scheduling systems"
+    authors: "M. R. Mazaheri Habibi, F. Mohammad Abadi, H. Tabesh"
+    year: 2024
+    venue: "Front. Health Inform."
+    url: "https://doi.org/10.30699/fhi.v13i0.573"
+    short: "Mazaheri+ 2024"
+    category: "lian-citing"
+    domain: "医療予約"
+    duration: ""
+    decision: ""
+    eval: "文献レビュー"
+    note: "予約システムの評価指標24種を待ち行列の観点で分類したレビュー。評価指標を論じるときの整理に使える"
+  - id: huang-2016
+    title: "The development of patient scheduling groups for an effective appointment system"
+    authors: "Y.-L. Huang"
+    year: 2016
+    venue: "Appl. Clin. Inform."
+    url: "https://doi.org/10.4338/ACI-2015-08-RA-0097"
+    short: "Huang 2016"
+    category: "lian-citing"
+    domain: "外来診療"
+    duration: "患者タイプ別"
+    decision: "予約グループの設計"
+    eval: "実データ"
+    note: "患者タイプ（初診・再診など）をまとめて予約グループを作り、診療の流れと予約の柔軟性のコストを最小にする。施術メニューを時間の長さでグループ化する発想に近い"
+  - id: huang-2013
+    title: "Ancillary service impact on outpatient scheduling"
+    authors: "Y.-L. Huang"
+    year: 2013
+    venue: "IJHCQA"
+    url: "https://doi.org/10.1108/IJHCQA-02-2012-0019"
+    short: "Huang 2013"
+    category: "lian-citing"
+    domain: "外来診療"
+    duration: "可変（付帯サービス込み）"
+    decision: "予約間隔"
+    eval: "シミュレーション"
+    note: "X線など付帯サービスの時間を見込んで予約間隔を最適化する"
+  - id: nelson-2011
+    title: "Visual scheduling to improve workflow and throughput in the University of Virginia Health System Pediatric Specialty Clinic"
+    authors: "C. E. Nelson, T. R. Nobbee, M. F. Wellman, et al."
+    year: 2011
+    venue: "IEEE SIEDS 2011"
+    url: "https://doi.org/10.1109/SIEDS.2011.5876860"
+    short: "Nelson+ 2011"
+    category: "lian-citing"
+    domain: "小児専門外来"
+    duration: ""
+    decision: "予約表の見せ方"
+    eval: "実運用"
+    note: "全医師の予約表を色分けして一覧表示し、予約担当者が混み具合を見て枠を選べるようにする。担当者が断片化を目で見て避けるという運用面の工夫"
+  - id: larsson-2019
+    title: "Smartbokning: Koncept för ett automatiserat bokningssystem"
+    authors: "J. Larsson"
+    year: 2019
+    venue: "修士論文（Luleå工科大）"
+    url: ""
+    short: "Larsson 2019"
+    category: "lian-citing"
+    domain: "医療予約"
+    duration: ""
+    decision: "提案する時刻"
+    eval: ""
+    note: "複数の担当者の予約表から、患者と担当者の希望を重み付きスコアで評価して最良の時刻を提案する予約ツール。候補をスコアで選ぶ構造は、予約後の状態を評価して1枠を推薦する方法と同じ"
+  - id: lange-2019
+    title: "Potential of non-port slot booking systems for TAS"
+    authors: "A.-K. Lange, S. Krüger, A. K. Schwientek, C. Jahn"
+    year: 2019
+    venue: "HICL 2019"
+    url: ""
+    short: "Lange+ 2019"
+    category: "lian-citing"
+    domain: "港湾のトラック予約"
+    duration: "時間枠"
+    decision: "予約方式の移植"
+    eval: ""
+    note: "港湾のトラック予約システム（TAS）に他業界の時間枠予約の手法を移植できるかを調べ、医療が最も移植しやすいとする。Lian の「予約時に空いている候補をすべて提示する」手順を取り上げる"
+  - id: lange-2025
+    title: "Truck Appointment Systeme bei hafeninternen Containertransporten"
+    authors: "A.-K. Lange"
+    year: 2025
+    venue: "博士論文（Fraunhofer）"
+    url: "https://doi.org/10.24406/publica-5784"
+    short: "Lange 2025"
+    category: "lian-citing"
+    domain: "港湾のトラック予約"
+    duration: "時間枠"
+    decision: ""
+    eval: ""
+    note: "港湾内のコンテナ輸送のトラック予約システムを扱う博士論文。Lange et al. (2019) の延長"
+  - id: yu-2019
+    title: "Doctor-patient combined matching problem and its solving algorithms"
+    authors: "J. Yu, L. Xing, X. Tan, et al."
+    year: 2019
+    venue: "IEEE Access"
+    url: "https://doi.org/10.1109/ACCESS.2019.2958388"
+    short: "Yu+ 2019"
+    category: "lian-citing"
+    domain: "医療予約"
+    duration: ""
+    decision: "医師と患者のマッチング"
+    eval: ""
+    note: "医師と患者の組み合わせを決めるマッチング問題とその解法。Lian は医療予約の先行研究として挙げるのみ"
+  - id: guo-yao-2019
+    title: "On performance of prioritized appointment scheduling for healthcare"
+    authors: "Y. Guo, Y. Yao"
+    year: 2019
+    venue: "J. Serv. Sci. Manag."
+    url: "https://doi.org/10.4236/jssm.2019.125040"
+    short: "Guo+ 2019"
+    category: "lian-citing"
+    domain: "医療予約"
+    duration: ""
+    decision: "優先度つきの予約"
+    eval: ""
+    note: "優先度つきの医療予約の性能を調べる。Lian は先行研究として挙げるのみ"
+  - id: chen-2019
+    title: "Healthcare scheduling policies in a sequence-number based appointment system"
+    authors: "P.-S. Chen, I.-H. Hong, Y. Hou, Y.-C. Shao"
+    year: 2019
+    venue: "Comput. Ind. Eng."
+    url: "https://doi.org/10.1016/j.cie.2019.02.033"
+    short: "Chen+ 2019"
+    category: "lian-citing"
+    domain: "外来診療"
+    duration: ""
+    decision: "受付番号の方策"
+    eval: ""
+    note: "受付番号制の予約システムでの予約方策を扱う。Lian は先行研究として挙げるのみ"
+  - id: lam-2021
+    title: "Enhancing data-driven elderly appointment services"
+    authors: "H. Y. Lam, G. T. S. Ho, D. Y. Mo, V. Tang"
+    year: 2021
+    venue: "IMDS"
+    url: "https://doi.org/10.1108/IMDS-07-2020-0392"
+    short: "Lam+ 2021"
+    category: "lian-citing"
+    domain: "高齢者向けサービス"
+    duration: ""
+    decision: ""
+    eval: ""
+    note: "データにもとづく高齢者向け予約サービスの改善。Lian は先行研究として挙げるのみ"
   # ---- 連続区間の収益管理 ----
   - id: bitran-1995
     title: "An Application of Yield Management to the Hotel Industry Considering Multiple Day Stays"
