@@ -11,7 +11,7 @@ categories_note: "論文の表の「系統」は主な貢献で1つに決めて�
 
 papers_note: "「予約の長さ」は1件の予約が占める時間が1枠に固定か、可変で連続した区間を占めるか、「決めること」は受付の可否・提示する枠・枠や部屋の割当のどれを決めるか、「評価」は理論・シミュレーション・実データのどれで検証したかです。会議名とリンクは出版社・RePEc・arXiv のページで確認できたものだけを載せています。"
 
-explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。本文を読めず要旨だけで書いたページは、ページ内にそう書いています。"
+explainer_note: "「解説」列のリンク先は、西村直樹が論文を読んでまとめた非公式の解説ページです（著者の公式ページではありません）。本文を読めず要旨だけで書いたページは、ページ内にそう書いています。図は各論文から引用し、出典を添えています。"
 
 datasets_note: "予約の長さと予約の時刻がそろった公開データは少なく、この分野の論文の多くは需要分布を仮定したシミュレーションで評価しています。到着や予約の長さの分布を作るのに使える公開データを挙げます。"
 
@@ -99,7 +99,8 @@ lineage:
 
   - { from: lian-2010, to: koetter-2015, kind: base, why: "Lian の断片化の考え方を引用し、電気自動車のカーシェアの予約表を断片化の度合いで採点する方法へ広げる" }
   - { from: koetter-2015, to: knopp-2021, kind: base, why: "Koetter らを引用し、社用車・公共交通・タクシーを従業員の移動要求に割り当てる問題を扱う（Lian は直接引用しない）" }
-  - { from: lian-2010, to: lange-2019, kind: base, why: "医療の予約手法の例として、予約時に空いている候補をすべて提示する Lian の手順を取り上げ、港湾のトラック予約への移植を検討する" }
+  - { from: lian-2010, to: lange-2019, kind: base, why: "医療の予約手法の例として、断片化を減らす順に空き枠を並べる Lian の手順を取り上げ、港湾のトラック予約への移植を点数評価する" }
+  - { from: lian-2010, to: chen-2019, kind: base, why: "時間枠制の予約は希望枠の割当やキャンセルで断片化するという Lian の指摘を、受付番号制を採る動機に使う" }
   - { from: lange-2019, to: lange-2025, kind: ext, why: "同じ著者。港湾のトラック予約システムの研究を博士論文で発展させる", guess: true }
   - { from: lian-2010, to: huang-2013, kind: base, why: "医師の希望と所要時間の分布を予約に組み込むと効率が上がる、という Lian の結果を引用し、付帯サービスの時間を見込んだ予約間隔を最適化する" }
 papers:
@@ -132,7 +133,7 @@ papers:
     duration: "可変（連泊）"
     decision: "部屋の割当"
     eval: "シミュレーション"
-    note: "予約に部屋番号を割り当てる room committing 問題で、割当をチェックイン時まで遅らせ、連続した空きが残る順に部屋を決める RoomTetris を提案し、最適であることを示す"
+    note: "予約に部屋番号を割り当てる room committing 問題で、予約時は日ごとの数が部屋数を超えないかだけを見て、部屋はチェックイン日に長い滞在から順に決める RoomTetris を提案し、最適であることを示す。10室のシミュレーションで断る日数を FirstFit より約4割減らす"
   - id: roomtetris-2021
     title: "RoomTetris in room committing: why the role of minimum-length-of-stay requirements should be revisited"
     authors: "R. Battiti, M. Brunato, F. Battiti"
@@ -202,10 +203,10 @@ papers:
     explainer: "escamilla-2022"
     category: "lian-citing"
     domain: "入隊検査所"
-    duration: ""
+    duration: "可変"
     decision: "予約制の設計"
     eval: "シミュレーション"
-    note: "米軍の入隊検査所の受付を一括到着から予約制に変える案をシミュレーションで比べる。Lian の schedule defragmentation に触れている（被引用データベースの引用文脈による。本文では未確認）"
+    note: "米軍の入隊検査所の受付を一括到着から予約制に変える案をシミュレーションで比べる。結論は現行方式の維持で、優先レーンは志願者の多い日に有効、分割シフトや予約枠は勧めない。Lian の断片化の議論を手引きとして紹介するが、実験では使わない"
   - id: creemers-2021
     title: "Evaluation of appointment scheduling rules: A multi-performance measurement approach"
     authors: "S. Creemers, M. Lambrecht, J. Beliën, M. Van den Broeke"
@@ -295,15 +296,15 @@ papers:
     authors: "A.-K. Lange, S. Krüger, A. K. Schwientek, C. Jahn"
     year: 2019
     venue: "HICL 2019"
-    url: ""
+    url: "https://doi.org/10.15480/882.2495"
     short: "Lange+ 2019"
     explainer: "lange-2019"
     category: "lian-citing"
     domain: "港湾のトラック予約"
     duration: "時間枠"
     decision: "予約方式の移植"
-    eval: ""
-    note: "港湾のトラック予約システム（TAS）に他業界の時間枠予約の手法を移植できるかを調べ、医療が最も移植しやすいとする。Lian の「予約時に空いている候補をすべて提示する」手順を取り上げる"
+    eval: "文献調査、点数評価"
+    note: "港湾のトラック予約システム（TAS）に他業界の時間枠予約の手法を移植できるかを調べ、医療が最も移植しやすいとする。Lian の断片化を減らす順に候補を並べる手順を、移植候補の4案の1つとして点数評価する"
   - id: lange-2025
     title: "Truck Appointment Systeme bei hafeninternen Containertransporten"
     authors: "A.-K. Lange"
@@ -347,7 +348,7 @@ papers:
     eval: ""
     note: "優先度つきの医療予約の性能を調べる。Lian は先行研究として挙げるのみ"
   - id: chen-2019
-    title: "Healthcare scheduling policies in a sequence-number based appointment system"
+    title: "Healthcare scheduling policies in a sequence-number based appointment system for outpatients' arrivals: Early, on time, or late?"
     authors: "P.-S. Chen, I.-H. Hong, Y. Hou, Y.-C. Shao"
     year: 2019
     venue: "Comput. Ind. Eng."
@@ -358,8 +359,8 @@ papers:
     domain: "外来診療"
     duration: ""
     decision: "受付番号の方策"
-    eval: ""
-    note: "受付番号制の予約システムでの予約方策を扱う。Lian は先行研究として挙げるのみ"
+    eval: "シミュレーション"
+    note: "受付番号制の予約システムで、到着時刻の目安の出し方と遅刻者の扱いをシミュレーションで比べる。時間枠制は断片化を生むという Lian の指摘を、受付番号制を採る動機に使う"
   - id: lam-2021
     title: "Enhancing data-driven elderly appointment services in domestic care communities under COVID-19"
     authors: "H. Y. Lam, G. T. S. Ho, D. Y. Mo, V. Tang"
@@ -441,10 +442,10 @@ papers:
     short: "Rusmevichientong+ 2020"
     explainer: "rusmevichientong-2020"
     category: "reusable"
-    domain: "レンタル"
+    domain: "レンタル、駐車場"
     duration: "ランダムな利用時間"
     decision: "提示する商品"
-    eval: "理論、シミュレーション"
+    eval: "理論、シミュレーション、実データ（シアトルの路上駐車）"
     note: "ランダムな時間だけ使われる商品について、顧客の選択を考慮した動的な品揃えの方策と性能保証を示す"
   - id: gong-2022
     title: "Online Assortment Optimization with Reusable Resources"
@@ -512,13 +513,13 @@ papers:
     authors: "D. Gupta, L. Wang"
     year: 2008
     venue: "Oper. Res."
-    url: "https://ideas.repec.org/a/inm/oropre/v56y2008i3p576-592.html"
+    url: "https://doi.org/10.1287/opre.1080.0542"
     short: "Gupta+ 2008"
     explainer: "gupta-wang-2008"
     category: "choice"
     domain: "診療所"
     duration: "1枠"
-    decision: "受付の可否、提示する枠"
+    decision: "受付の可否"
     eval: "理論、シミュレーション"
     note: "患者が医師と時間帯を選ぶ診療所の予約受付を、収益管理の問題として定式化した初期の代表作"
   - id: feldman-2014
@@ -633,7 +634,7 @@ papers:
     authors: "A. M. Campbell, M. Savelsbergh"
     year: 2006
     venue: "Transp. Sci."
-    url: "https://ideas.repec.org/a/inm/ortrsc/v40y2006i3p327-341.html"
+    url: "https://doi.org/10.1287/trsc.1050.0136"
     short: "Campbell+ 2006"
     explainer: "campbell-2006"
     groups: [savelsbergh]
@@ -642,7 +643,7 @@ papers:
     duration: "時間枠"
     decision: "時間枠ごとのインセンティブ"
     eval: "シミュレーション"
-    note: "顧客を配送効率のよい時間枠に誘導するためのインセンティブ（割引など）を設計する"
+    note: "顧客を配送効率のよい時間枠に誘導するためのインセンティブ（割引など）を設計する。幅の広い2時間枠を選んでもらうインセンティブも扱う"
   - id: agatz-2011
     title: "Time Slot Management in Attended Home Delivery"
     authors: "N. Agatz, A. Campbell, M. Fleischmann, M. Savelsbergh"
@@ -742,7 +743,7 @@ metrics:
     what: "営業時間のうち予約で埋まった時間の割合。受入率が同じでも、長い予約を多く受けたほうが高くなる"
     refs: "Lian et al. (2010)"
   - name: "断片化指数"
-    what: "長さ k の連続した空きブロックの数を足し合わせたもの。重み付きの版もある。将来需要を考えない、状態だけの指標"
+    what: "候補の枠に仮に予約を入れたあとに残る、空き時間のかたまりの数。将来需要を考えない、状態だけの指標"
     refs: "Lian et al. (2010)"
   - name: "長さ別の拒否率"
     what: "予約の長さ（泊数、施術時間）ごとに断られた割合を見る。断片化は長い予約ほど断られる形で現れる"

@@ -100,10 +100,10 @@ window.TZ = (function () {
 // =====================================================================
 // teaser-scenes.js — Chen, Hong, Hou, Shao, Healthcare scheduling policies in a sequence-number based
 // appointment system for outpatients' arrivals: Early, on time, or late? (Comput. Ind. Eng., 2019).
-// Unofficial explainer. Based only on the abstract and bibliographic records (full text not read).
-// Every scene is a schematic drawn by the explainer (labelled 模式図). The shape of the plateau-dome pattern
-// and the waiting-time values are not known, so neither is drawn.
-// Colours: orange = uniform pattern / common late-arrival policies; blue = plateau-dome / three-queue.
+// Unofficial explainer, from the published PDF.
+// Scene 1 redraws the examples of Figs. 1-2, scene 3 the interval shapes of Fig. 3 and the serving ratios of
+// the late arrival policies (Sec. 2), scene 4 the bottom row of Table 1. Scene 2 is a schematic (模式図).
+// Colours: orange = time-slot gaps / the uniform pattern with L1; blue = plateau-dome with L3.
 // =====================================================================
 (function () {
   var H = Teaser.helpers, C = H.C, el = H.el, seg = H.seg;
@@ -128,111 +128,106 @@ window.TZ = (function () {
   }
 
   var CAPTIONS = [
-    { ja: '番号制の外来予約では、患者は順番の番号を受け取り、番号の順に診察を受ける。来る時刻は患者が決める。', en: '' },
-    { ja: '患者は前回の待ち時間などの経験から期待を更新し、次に来る時刻を変える（適応的期待）。', en: '' },
-    { ja: '比べたのは、予約の割り振り方 2 つ（<span class="A">均等</span>と <span class="B">plateau-dome</span>）と、遅刻への対応 3 つ。', en: '' },
-    { ja: '要旨によれば、<span class="B">plateau-dome と 3 つの列を使う対応</span>が、ほかより待ち時間を減らした。', en: '' },
-    { ja: '患者の到着行動まで含めて、番号制の予約の割り振り方を比べた研究。', en: '' }
+    { ja: '時間枠制では遅れた患者の<span class="A">枠が空く</span>。番号制では医師は番号の順に診て、来ていない患者は飛ばす。', en: '' },
+    { ja: '患者は前回呼ばれた時刻と目安の時刻のずれを見て、次に来る時刻を更新する（適応的期待）。', en: '' },
+    { ja: '比べたのは、目安の時刻の決め方 2 つ（均等と <span class="B">plateau-dome</span>）と、番号を飛ばされた患者の扱い 3 つ。', en: '' },
+    { ja: '平均の待ち時間は均等と L1 の 15.3 分に対し、<span class="B">plateau-dome と L3</span> では 11.8 分だった。', en: '' },
+    { ja: '断片化の起きない番号制で、待ち時間を減らす予約の方策を比べた研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 32, 40];
   var PX = 660;
-
-  function ticket(g, x, y, n, color) {
-    var gg = el('g', {}, g);
-    box(gg, x, y, 52, 40, '#fff', color || C.ink, 6);
-    T(gg, x + 26, y + 27, String(n), { 'font-size': 17, 'font-weight': 650, fill: color || C.ink, 'text-anchor': 'middle' });
-    return gg;
-  }
 
   function build(svg) {
     var S = {};
     S.g = [0, 1, 2, 3, 4].map(function () { return el('g', {}, svg); });
 
-    // ===== scene 1: numbered patients arrive early / on time / late =====
-    var g1 = S.g[0];
-    T(g1, 70, 92, '診察の順番（番号）と、実際に来た時刻', { 'font-size': 15, fill: C.muted });
-    var X0 = 120, X1 = 580;
-    el('line', { x1: X0, x2: X1, y1: 420, y2: 420, stroke: C.ink, 'stroke-width': 1.5 }, g1);
-    T(g1, X1, 446, '時刻 →', { 'font-size': 14, fill: C.muted, 'text-anchor': 'end' });
-    var pts = [[1, -0.6, '早い'], [2, 0.0, '時間どおり'], [3, 0.9, '遅れ'], [4, -0.3, '早い'], [5, 0.1, '時間どおり']];
-    pts.forEach(function (p, i) {
-      var y = 120 + i * 58, xe = X0 + 80 + i * 80;
-      ticket(g1, 64, y, p[0]);
-      el('line', { x1: xe, x2: xe, y1: y + 20, y2: 420, stroke: C.hair, 'stroke-dasharray': '4 4' }, g1);
-      var xa = xe + p[1] * 60;
-      var c = el('circle', { cx: xa, cy: y + 20, r: 9, fill: p[1] > 0.5 ? C.a : C.ink }, g1);
-      fin(c, 1.0 + i * 0.45, 0.4);
-      fin(T(g1, xa + 14, y + 26, p[2], { 'font-size': 14, fill: p[1] > 0.5 ? C.a : C.muted }), 1.2 + i * 0.45, 0.4);
+    // ===== scene 1: time-slot (Fig. 1) vs sequence-number (Fig. 2) =====
+    var g1 = S.g[0], X0 = 80, W = 500, M0 = 0, M1 = 80;   // 9:00 to 10:20
+    function sx(min) { return X0 + (min - M0) / (M1 - M0) * W; }
+    T(g1, X0, 92, '時間枠制（20 分の枠）', { 'font-size': 15, 'font-weight': 600, fill: C.ink });
+    [[0, 20, '1 番', C.gray], [20, 40, '2 番（来ない）', C.a], [40, 60, '3 番', C.gray], [60, 80, '4 番', C.gray]].forEach(function (b, i) {
+      var gg = el('g', {}, g1);
+      box(gg, sx(b[0]) + 2, 110, sx(b[1]) - sx(b[0]) - 4, 44, b[3] === C.a ? '#FCEBDF' : C.panel, b[3] === C.a ? C.a : null, 6);
+      T(gg, (sx(b[0]) + sx(b[1])) / 2, 138, b[2], { 'font-size': 14, fill: b[3] === C.a ? C.a : C.ink, 'text-anchor': 'middle' });
+      fin(gg, 0.6 + i * 0.2, 0.3);
     });
-    fin(T(g1, X0 + 40, 410, '点線：番号から見た目安の時刻（解説者の例）', { 'font-size': 14, fill: C.muted }), 3.6);
-    fin(TZ.panel(g1, PX, 150, '番号制の予約', C.ink, [['予約に順番の番号を', 16], ['割り当てる', 16], null, ['患者は早く来ることも、', 15, C.muted], ['遅れて来ることもある', 15, C.muted]]), 4.2, 0.8);
-    TZ.note(g1, '模式図（解説者が置いた例）');
+    fin(T(g1, sx(30), 182, '医師が空く', { 'font-size': 14, fill: C.a, 'text-anchor': 'middle', 'font-weight': 600 }), 2.0);
+    T(g1, X0, 250, '番号制（目安の時刻 9:00, 9:10, 9:20, 9:30）', { 'font-size': 15, 'font-weight': 600, fill: C.ink });
+    [[0, 15, '1 番'], [15, 15, ''], [15, 45, '3 番'], [45, 65, '4 番'], [65, 80, '2 番']].forEach(function (b, i) {
+      if (!b[2]) return;
+      var gg = el('g', {}, g1);
+      box(gg, sx(b[0]) + 2, 268, sx(b[1]) - sx(b[0]) - 4, 44, b[2] === '2 番' ? C.bsoft : C.panel, b[2] === '2 番' ? C.b : null, 6);
+      T(gg, (sx(b[0]) + sx(b[1])) / 2, 296, b[2], { 'font-size': 14, fill: b[2] === '2 番' ? C.b : C.ink, 'text-anchor': 'middle' });
+      fin(gg, 3.0 + i * 0.3, 0.3);
+    });
+    fin(T(g1, sx(15), 340, '9:15 に 2 番がいない → 3 番を呼ぶ', { 'font-size': 14, fill: C.ink }), 4.4);
+    fin(T(g1, sx(15), 364, '9:32 に来た 2 番は、決まった順番の規則で後に回る', { 'font-size': 14, fill: C.ink }), 4.9);
+    el('line', { x1: X0, x2: X0 + W, y1: 400, y2: 400, stroke: C.ink, 'stroke-width': 1.2 }, g1);
+    [[0, '9:00'], [20, '9:20'], [40, '9:40'], [60, '10:00'], [80, '10:20']].forEach(function (k) { T(g1, sx(k[0]), 422, k[1], { 'font-size': 13, fill: C.muted, 'text-anchor': 'middle' }); });
+    fin(TZ.panel(g1, PX, 150, '番号制', C.b, [['予約表が断片化せず、', 16], ['医師も空かない', 16], null, ['番号を飛ばされた患者を', 15, C.muted], ['いつ診るかが問題になる', 15, C.muted]]), 5.6, 0.8);
+    TZ.note(g1, '論文の Figure 1・2 の例を簡略化して作図');
 
-    // ===== scene 2: adaptive expectations =====
+    // ===== scene 2: adaptive expectations (schematic) =====
     var g2 = S.g[1];
-    var steps = [['前回', '長く待った'], ['期待を更新', '次は待つだろう'], ['今回', '遅めに来る']];
+    var steps = [['前回', '呼ばれたのは目安の', '8 分後だった'], ['期待を更新', 'p = ηp + (1 − η)θ', ''], ['今回', '来たい時刻を', 'ずらす']];
     steps.forEach(function (s, i) {
       var x = 70 + i * 180, gg = el('g', {}, g2);
-      box(gg, x, 200, 150, 100, i === 1 ? C.bsoft : '#fff', i === 1 ? C.b : C.ink, 10);
-      T(gg, x + 75, 238, s[0], { 'font-size': 16, 'font-weight': 650, fill: i === 1 ? C.b : C.ink, 'text-anchor': 'middle' });
-      T(gg, x + 75, 268, s[1], { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
+      box(gg, x, 190, 150, 110, i === 1 ? C.bsoft : '#fff', i === 1 ? C.b : C.ink, 10);
+      T(gg, x + 75, 226, s[0], { 'font-size': 16, 'font-weight': 650, fill: i === 1 ? C.b : C.ink, 'text-anchor': 'middle' });
+      T(gg, x + 75, 256, s[1], { 'font-size': 14, fill: C.ink, 'text-anchor': 'middle' });
+      if (s[2]) T(gg, x + 75, 278, s[2], { 'font-size': 14, fill: C.ink, 'text-anchor': 'middle' });
       fin(gg, 8.6 + i * 1.0);
-      if (i < 2) fin(arrow(g2, x + 154, 250, x + 176, 250, C.muted), 9.1 + i * 1.0);
+      if (i < 2) fin(arrow(g2, x + 154, 245, x + 176, 245, C.muted), 9.1 + i * 1.0);
     });
-    fin(arrow(g2, 505, 310, 145, 310, C.muted), 12.0);
-    fin(T(g2, 325, 340, '次の来院でも繰り返す', { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' }), 12.0);
-    fin(TZ.panel(g2, PX, 150, '患者の行動のモデル', C.b, [['限定合理性：', 15, C.ink, 600], ['限られた情報で判断する', 15], null, ['適応的期待：', 15, C.ink, 600], ['過去の経験から予想を', 15], ['更新する', 15]]), 12.6, 0.8);
-    TZ.note(g2, '模式図（箱の中身は解説者の例）');
+    fin(arrow(g2, 505, 312, 145, 312, C.muted), 12.0);
+    fin(T(g2, 325, 340, '来院のたびに繰り返す。実際の到着は ±20 分（標準偏差）ぶれる', { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' }), 12.0);
+    fin(TZ.panel(g2, PX, 150, '患者の行動のモデル', C.b, [['η：前回までの行動を', 15], ['保つ重み（0.8 と 0.2）', 15], null, ['θ：呼ばれた時刻と', 15], ['目安の時刻のずれ', 15]]), 12.6, 0.8);
+    TZ.note(g2, '模式図（「8 分後」は論文 Fig. 7 の例の値）');
 
     // ===== scene 3: what is compared =====
     var g3 = S.g[2];
-    T(g3, 70, 92, '予約の割り振り方（時間帯ごとの予約数）', { 'font-size': 15, fill: C.muted });
-    var ga = el('g', {}, g3);
-    T(ga, 70, 126, '均等（uniform）', { 'font-size': 16, 'font-weight': 650, fill: C.a });
-    for (var k = 0; k < 6; k++) box(ga, 70 + k * 36, 150, 28, 60, C.a, null, 3);
-    fin(ga, 16.6);
-    var gb = el('g', {}, g3);
-    T(gb, 340, 126, 'plateau-dome', { 'font-size': 16, 'font-weight': 650, fill: C.b });
-    box(gb, 340, 140, 220, 70, C.bsoft, C.b, 8);
-    T(gb, 450, 172, '形は本文未読のため', { 'font-size': 14, fill: C.b, 'text-anchor': 'middle' });
-    T(gb, 450, 194, '描かない', { 'font-size': 14, fill: C.b, 'text-anchor': 'middle' });
-    fin(gb, 17.4);
-    T(g3, 70, 270, '遅刻への対応（late arrival policy）', { 'font-size': 15, fill: C.muted });
-    var pa = el('g', {}, g3);
-    box(pa, 70, 290, 230, 110, '#FCEBDF', C.a, 10);
-    T(pa, 185, 335, 'よく使われる', { 'font-size': 16, 'font-weight': 650, fill: C.a, 'text-anchor': 'middle' });
-    T(pa, 185, 362, '2 つの方策', { 'font-size': 16, 'font-weight': 650, fill: C.a, 'text-anchor': 'middle' });
-    fin(pa, 18.8);
-    var pb = el('g', {}, g3);
-    box(pb, 340, 290, 220, 110, C.bsoft, C.b, 10);
-    T(pb, 450, 322, 'three-queue', { 'font-size': 16, 'font-weight': 650, fill: C.b, 'text-anchor': 'middle' });
-    for (var q = 0; q < 3; q++) {
-      for (var r = 0; r < 4; r++) el('circle', { cx: 380 + r * 22, cy: 344 + q * 18, r: 6, fill: C.b }, pb);
-      T(pb, 480, 349 + q * 18, '列 ' + (q + 1), { 'font-size': 14, fill: C.b });
+    T(g3, 70, 88, '目安の時刻の間隔（15 人、3 時間。論文 Figure 3 の形）', { 'font-size': 14, fill: C.muted });
+    function intervals(g, x0, ys, color, label) {
+      var gg = el('g', {}, g), w = 230, h = 90, y0 = 210;
+      el('line', { x1: x0, x2: x0 + w, y1: y0, y2: y0, stroke: C.ink, 'stroke-width': 1.2 }, gg);
+      var pts = ys.map(function (v, i) { return (x0 + i / (ys.length - 1) * w) + ',' + (y0 - v / 16 * h); }).join(' ');
+      el('polyline', { points: pts, fill: 'none', stroke: color, 'stroke-width': 3 }, gg);
+      T(gg, x0, y0 - h - 12, label, { 'font-size': 15, 'font-weight': 650, fill: color });
+      return gg;
     }
-    fin(pb, 19.6);
-    fin(TZ.panel(g3, PX, 150, '2 × 3 の組み合わせ', C.ink, [['割り振り方 2 つと', 16], ['遅刻への対応 3 つを', 16], ['組み合わせて比べる', 16], null, ['評価は待ち時間', 15, C.muted]]), 20.4, 0.8);
-    TZ.note(g3, '模式図（3 つの列の中身は本文未読）');
-
-    // ===== scene 4: qualitative result =====
-    var g4 = S.g[3];
-    T(g4, 70, 92, '待ち時間を減らしたのは（要旨の結論）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
-    [['割り振り方', '均等', 'plateau-dome'], ['遅刻への対応', 'よく使われる 2 つ', 'three-queue']].forEach(function (r, i) {
-      var y = 140 + i * 140, gg = el('g', {}, g4);
-      T(gg, 70, y + 20, r[0], { 'font-size': 15, fill: C.muted });
-      box(gg, 70, y + 36, 210, 60, '#FCEBDF', null, 10);
-      T(gg, 175, y + 72, r[1], { 'font-size': 16, fill: C.a, 'text-anchor': 'middle', 'font-weight': 600 });
-      T(gg, 312, y + 74, '→', { 'font-size': 26, fill: C.ink, 'text-anchor': 'middle' });
-      box(gg, 345, y + 36, 210, 60, C.b, null, 10);
-      T(gg, 450, y + 72, r[2], { 'font-size': 16, fill: '#fff', 'text-anchor': 'middle', 'font-weight': 650 });
-      fin(gg, 24.6 + i * 1.2);
+    fin(intervals(g3, 70, [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12], C.a, 'A1 均等（12 分おき）'), 16.6);
+    fin(intervals(g3, 350, [0, 4, 8, 14.4, 14.4, 14.4, 14.4, 14.4, 14.4, 14.4, 14.4, 14.4, 14.4, 8, 4], C.b, 'A2 plateau-dome'), 17.2);
+    T(g3, 70, 270, '番号を飛ばされた患者の扱い（1 巡で診る人数）', { 'font-size': 14, fill: C.muted });
+    [['L1', 'C1 を 2 人 → C2/C3 を 1 人'], ['L2', 'C1/C2 を 3 人 → C3 を 1 人'], ['L3', 'C1 を 1 人 → C2 を 2 人 → C3 を 1 人']].forEach(function (r, i) {
+      var y = 290 + i * 54, gg = el('g', {}, g3), c = i === 2 ? C.b : C.ink;
+      box(gg, 70, y, 510, 44, i === 2 ? C.bsoft : '#fff', i === 2 ? C.b : C.hair, 8);
+      T(gg, 92, y + 28, r[0], { 'font-size': 16, 'font-weight': 700, fill: c });
+      T(gg, 140, y + 28, r[1], { 'font-size': 15, fill: C.ink });
+      fin(gg, 18.6 + i * 0.6);
     });
-    fin(T(g4, 70, 450, '右（青）のほうが待ち時間が短い。差の大きさは要旨に書かれていない', { 'font-size': 14, fill: C.muted }), 27.2);
-    TZ.note(g4, '要旨の記述のみ（数値なし）');
+    fin(TZ.panel(g3, PX, 150, '患者の 3 つの組', C.ink, [['C1：番号をまだ', 15], ['飛ばされていない', 15], ['C2：時間どおりに来たが', 15], ['番号を飛ばされた', 15], ['C3：遅れて来て', 15], ['番号を飛ばされた', 15]]), 20.4, 0.8);
+    TZ.note(g3, '論文の Figure 3 と 2 節をもとに作図');
+
+    // ===== scene 4: Table 1 bottom row =====
+    var g4 = S.g[3];
+    T(g4, 70, 80, '平均の待ち時間（分、16 の場面の平均。論文 Table 1）', { 'font-size': 15, fill: C.muted });
+    var XB = 260, SC = 22;
+    el('line', { x1: XB, x2: XB, y1: 100, y2: 470, stroke: C.ink, 'stroke-width': 1.5 }, g4);
+    [0, 5, 10, 15].forEach(function (v) {
+      el('line', { x1: XB + v * SC, x2: XB + v * SC, y1: 100, y2: 470, stroke: C.hair }, g4);
+      T(g4, XB + v * SC, 492, String(v), { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
+    });
+    [['A1 均等・L1', 15.3], ['A1 均等・L2', 13.9], ['A1 均等・L3', 13.3], ['A2 plateau-dome・L1', 13.0], ['A2 plateau-dome・L2', 12.3], ['A2 plateau-dome・L3', 11.8]].forEach(function (r, i) {
+      var y = 110 + i * 58, col = i === 0 ? C.a : i === 5 ? C.b : C.gray;
+      T(g4, XB - 12, y + 30, r[0], { 'font-size': 14, fill: C.ink, 'text-anchor': 'end' });
+      grow(box(g4, XB, y + 10, 0, 32, col, null, 4), 'width', r[1] * SC, 24.6 + i * 0.4);
+      fin(T(g4, XB + r[1] * SC + 10, y + 32, r[1].toFixed(1), { 'font-size': 15, 'font-weight': 650, fill: col === C.gray ? C.ink : col }), 25.1 + i * 0.4);
+    });
+    TZ.note(g4, '論文 Table 1 の数値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['予約の割り振り方', 'plateau-dome'], ['遅刻への対応', 'three-queue']],
+      cards: [['平均の待ち時間（分）', '15.3 → 11.8'], ['最もよい組み合わせ', 'plateau-dome と L3']],
       venue: 'COMPUTERS & INDUSTRIAL ENGINEERING · 2019', title: ['Healthcare scheduling policies in a', 'sequence-number based appointment system', "for outpatients' arrivals"], tsize: 28,
       sub: '番号制の外来予約での予約方策（副題：Early, on time, or late?）', authors: ['Pei-Sheng Chen, I-Hsuan Hong, Yi Hou, Yu-Chao Shao'], url: 'doi.org/10.1016/j.cie.2019.02.033'
     });

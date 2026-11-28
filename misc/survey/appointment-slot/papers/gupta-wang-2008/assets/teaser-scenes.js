@@ -99,9 +99,9 @@ window.TZ = (function () {
 })();
 // =====================================================================
 // teaser-scenes.js — Gupta, Wang, Revenue Management for a Primary-Care Clinic in the Presence of Patient
-// Choice (Operations Research 2008). Unofficial explainer based on the abstract only.
-// Every scene is a schematic with explainer-chosen toy numbers (labelled 模式図); the paper's numbers are not used.
-// Colours: orange = over-booking advance requests and what it costs; blue = threshold-type acceptance.
+// Choice (Operations Research 2008). Unofficial explainer.
+// Scenes 1-3 are schematics with explainer-chosen toy numbers (labelled 模式図). Scene 4 uses Table 3 of the paper.
+// Colours: orange = FCFS and heuristics that ignore the structure; blue = booking limits from the structural results (H1, H2).
 // =====================================================================
 (function () {
   var H = Teaser.helpers, C = H.C, el = H.el, seg = H.seg;
@@ -110,8 +110,8 @@ window.TZ = (function () {
   var CAPTIONS = [
     { ja: '診療所には、先の日の予約の依頼と当日受診の依頼が来て、同じ医師の枠を取り合う。', en: '' },
     { ja: '<span class="A">先の予約を受けすぎる</span>と当日の枠が足りず、受けなさすぎると枠が空いたまま終わる。', en: '' },
-    { ja: '医師が 1 人なら、空き枠がしきい値に達するまで先の予約を受ける<span class="B">しきい値型の方策</span>が最適になる。', en: '' },
-    { ja: '医師が複数なら、患者が主治医や時間帯を選ぶ。構造の一部にもとづくヒューリスティックと上界を示した。', en: '' },
+    { ja: '医師が 1 人なら、予約数が<span class="B">予約上限 b*</span> に達するまで受け、残りを当日の患者に残す方策が最適になる。', en: '' },
+    { ja: '実際の診療所のデータを使ったシミュレーションでは、<span class="B">H1</span> の週の収益が<span class="A">来た順に受ける方策</span>より高かった。', en: '' },
     { ja: '患者の選択を入れた診療所の予約受付を、収益管理として定式化した初期の代表作。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
@@ -151,33 +151,38 @@ window.TZ = (function () {
 
     // ===== scene 3: threshold =====
     var g3 = S.g[2];
-    S.s3 = slots(g3, 70, 200, '先の予約は空き枠がしきい値に達するまで');
+    S.s3 = slots(g3, 70, 200, '先の予約は予約上限 b* まで');
     el('line', { x1: 70 + 5 * 58 - 4, x2: 70 + 5 * 58 - 4, y1: 170, y2: 270, stroke: C.a, 'stroke-width': 2, 'stroke-dasharray': '5 4' }, g3);
-    T(g3, 70 + 5 * 58, 166, 'しきい値', { 'font-size': 14, fill: C.a });
+    T(g3, 70 + 5 * 58, 166, 'b*', { 'font-size': 15, fill: C.a });
     S.no3 = T(g3, 70, 320, '6 件目の先の予約の依頼 → 断る（残りは当日の患者へ）', { 'font-size': 16, 'font-weight': 650, fill: C.b });
-    S.p3 = TZ.panel(g3, PX, 140, 'しきい値型', C.b, [['医師が 1 人なら', 16], ['選択の確率の弱い', 16], ['条件のもとで最適', 16], null, ['要旨による', 15, C.muted]]);
-    TZ.note(g3, '模式図（しきい値の位置は解説者が置いた例）');
+    S.p3 = TZ.panel(g3, PX, 140, '予約上限（定理 1）', C.b, [['b* = [κ − F⁻¹(η)]⁺', 16], ['F：当日の需要の分布', 15], null, ['選択が「正規形」なら', 15, C.muted], ['医師 1 人で最適', 15, C.muted]]);
+    TZ.note(g3, '模式図（b* の位置は解説者が置いた例）');
 
-    // ===== scene 4: multiple physicians =====
+    // ===== scene 4: Table 3 weekly revenue =====
     var g4 = S.g[3];
-    var docs = ['医師 A', '医師 B'];
-    docs.forEach(function (d, i) {
-      var y = 130 + i * 170;
-      el('rect', { x: 330, y: y, width: 140, height: 70, rx: 10, fill: '#fff', stroke: C.ink, 'stroke-width': 1.6 }, g4);
-      T(g4, 400, y + 42, d, { 'font-size': 17, 'text-anchor': 'middle', fill: C.ink });
+    T(g4, 70, 64, '週の平均収益（3 回まで予約を試みるシミュレーション、論文 Table 3）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    var X0 = 170, X1 = 600, V0 = 17000, V1 = 20000;
+    function sx(v) { return X0 + (v - V0) / (V1 - V0) * (X1 - X0); }
+    [17000, 18000, 19000, 20000].forEach(function (v) {
+      el('line', { x1: sx(v), x2: sx(v), y1: 92, y2: 440, stroke: C.hair }, g4);
+      T(g4, sx(v), 462, v.toLocaleString('en-US'), { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
     });
-    el('circle', { cx: 130, cy: 250, r: 26, fill: C.gray }, g4);
-    T(g4, 130, 300, '患者（主治医は A）', { 'font-size': 14, 'text-anchor': 'middle', fill: C.ink });
-    S.l4a = el('line', { x1: 158, y1: 240, x2: 326, y2: 168, stroke: C.b, 'stroke-width': 3 }, g4);
-    S.l4b = el('line', { x1: 158, y1: 262, x2: 326, y2: 332, stroke: C.gray, 'stroke-width': 3, 'stroke-dasharray': '6 5' }, g4);
-    T(g4, 230, 190, '好む', { 'font-size': 14, fill: C.b });
-    T(g4, 222, 330, '空きがなければ', { 'font-size': 14, fill: C.muted });
-    S.p4 = TZ.panel(g4, PX - 40, 140, '医師が複数のとき', C.b, [['最適方策の構造を', 15], ['一部明らかにした', 15], null, ['構造にもとづく 2 つの', 15], ['ヒューリスティックが', 15], ['かなり正確（要旨）', 15], null, ['上界も提案', 15, C.muted]]);
-    TZ.note(g4, '模式図（論文の数値は使っていない）');
+    var R = [['H1', 19481.5, C.b], ['H2', 19111.8, C.b], ['H3', 18591.1, C.a], ['H4', 18403.8, C.a], ['FCFS', 17839.6, C.a]];
+    S.bars4 = R.map(function (r, i) {
+      var y = 100 + i * 66;
+      T(g4, X0 - 12, y + 30, r[0], { 'font-size': 16, fill: r[2], 'text-anchor': 'end', 'font-weight': 600 });
+      var rect = el('rect', { x: X0, y: y + 8, width: 0, height: 34, fill: r[2], 'fill-opacity': i === 1 ? 0.7 : 1 }, g4);
+      var lab = el('text', { x: sx(r[1]) + 8, y: y + 31, 'font-size': 15, 'font-weight': 600, fill: r[2] }, g4);
+      lab.textContent = r[1].toLocaleString('en-US', { minimumFractionDigits: 1 });
+      return { rect: rect, lab: lab, w: sx(r[1]) - X0, t0: 24.6 + i * 0.5 };
+    });
+    T(g4, 70, 500, '横軸は 17,000 から', { 'font-size': 14, fill: C.muted });
+    S.p4 = TZ.panel(g4, PX + 40, 140, '医師 10 人の診療所', C.b, [['H1：医師ごとの予約数と', 15], ['全体の予約数で受付', 15], null, ['使われなかった枠', 15, C.muted], ['H1 3.11%、FCFS 4.42%', 15, C.muted]]);
+    TZ.note(g4, '論文 Table 3 の数値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['医師が 1 人', 'しきい値型が最適'], ['医師が複数', 'ヒューリスティックと上界']],
+      cards: [['H1 と最適の差（40 通りの平均）', '0.30%'], ['週の収益（FCFS → H1）', '17,839.6 → 19,481.5']],
       venue: 'OPERATIONS RESEARCH 2008', title: ['Revenue Management for a Primary-Care', 'Clinic in the Presence of Patient Choice'], tsize: 29,
       sub: '患者の選択があるときの、プライマリケア診療所の収益管理', authors: ['Diwakar Gupta, Lei Wang'], url: 'doi.org/10.1287/opre.1080.0542'
     });
@@ -204,9 +209,8 @@ window.TZ = (function () {
     S.s3.forEach(function (r, k) { r.setAttribute('fill', k < 5 && seg(t, 16.8 + k * 0.4, 17.0 + k * 0.4) > 0.5 ? C.gray : '#fff'); });
     S.no3.setAttribute('opacity', seg(t, 19.4, 20.0));
     S.p3.setAttribute('opacity', seg(t, 20.4, 21.2));
-    S.l4a.setAttribute('opacity', seg(t, 25.0, 25.6));
-    S.l4b.setAttribute('opacity', seg(t, 26.0, 26.6));
-    S.p4.setAttribute('opacity', seg(t, 27.0, 27.8));
+    S.bars4.forEach(function (b) { b.rect.setAttribute('width', b.w * H.ease(seg(t, b.t0, b.t0 + 0.7))); b.lab.setAttribute('opacity', seg(t, b.t0 + 0.5, b.t0 + 0.9)); });
+    S.p4.setAttribute('opacity', seg(t, 27.6, 28.4));
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

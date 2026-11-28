@@ -99,10 +99,10 @@ window.TZ = (function () {
 })();
 // =====================================================================
 // teaser-scenes.js — Lange, Krüger, Schwientek, Jahn, Potential of non-port slot booking systems for TAS
-// (HICL 2019). Unofficial explainer. Based only on the abstract and bibliographic records (full text not read).
-// Every scene is a schematic drawn by the explainer (labelled 模式図). Only health care is named among the
-// three industries in the abstract, and no ratings are known, so none are drawn.
-// Colours: orange = arrival peaks / port-only view; blue = methods transferred from health care.
+// (HICL 2019). Unofficial explainer, from the published PDF (EconStor).
+// Scene 1 is a schematic (labelled 模式図). Scene 2 uses the literature counts of Figure 2, scene 4 the
+// total scores of Table 1 of the paper.
+// Colours: orange = arrival peaks; blue = methods transferred from health care / the best-rated measure.
 // =====================================================================
 (function () {
   var H = Teaser.helpers, C = H.C, el = H.el, seg = H.seg;
@@ -127,11 +127,11 @@ window.TZ = (function () {
   }
 
   var CAPTIONS = [
-    { ja: 'コンテナターミナルでは<span class="A">トラックの到着が特定の時間に集中</span>する。TAS は時間枠の予約でこれを抑える。', en: '' },
-    { ja: '時間枠の予約は他の業界にもある。体系的な文献調査で、港湾へ移しやすい業界を 3 つに絞った。', en: '' },
-    { ja: '3 つのうち<span class="B">医療</span>を最も有望とみて、医療の時間枠予約の方法を TAS と比べた。', en: '' },
-    { ja: '医療の方法は TAS へ特に移しやすく、<span class="B">固定の時間枠での重複予約</span>の評価が最も高かった。', en: '' },
-    { ja: '港湾の外の予約方法を体系的に調べ、TAS へ移す可能性を評価した研究。', en: '' }
+    { ja: 'コンテナターミナルでは<span class="A">トラックの到着が時間によって大きく変わる</span>。TAS は時間枠の予約でこれをならす。', en: '' },
+    { ja: '時間枠予約の文献 9,566 件を 202 件まで絞ると、<span class="B">医療</span>が 143 件で最も多かった。', en: '' },
+    { ja: '医療のオープンアクセス・重複予約・断片化の解消を、TAS 向けの 4 つの方策に作り直した。', en: '' },
+    { ja: '5 つの基準で採点すると、<span class="B">固定の時間枠での重複予約</span>が 8 点で 1 位、断片化の解消は 6 点だった。', en: '' },
+    { ja: '他業界の予約の知見を TAS へ移す可能性を、文献とベンチマークで評価した研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 32, 40];
   var PX = 660;
@@ -154,61 +154,73 @@ window.TZ = (function () {
     fin(TZ.panel(g1, PX, 150, 'TAS', C.ink, [['運送会社が時間枠を', 16], ['予約して到着する', 16], null, ['ピークが下がると、運営費と', 15, C.muted], ['待ち時間が減る', 15, C.muted]]), 3.4, 0.8);
     TZ.note(g1, '模式図（数値は解説者が置いた例）');
 
-    // ===== scene 2: literature funnel =====
+    // ===== scene 2: literature funnel (Figure 2) =====
     var g2 = S.g[1];
-    var stages = [['時間枠予約を使う', '他の業界の文献', 440], ['港湾へ', '移しやすい業界', 330], ['3 つの業界', '', 220]];
-    stages.forEach(function (s, i) {
-      var y = 110 + i * 110, w = s[2], x = 330 - w / 2, gg = el('g', {}, g2);
-      box(gg, x, y, w, 80, i === 2 ? C.bsoft : '#fff', i === 2 ? C.b : C.ink, 10);
-      T(gg, 330, y + (s[1] ? 34 : 48), s[0], { 'font-size': 16, 'font-weight': 650, fill: i === 2 ? C.b : C.ink, 'text-anchor': 'middle' });
-      if (s[1]) T(gg, 330, y + 60, s[1], { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-      fin(gg, 8.6 + i * 1.1);
-      if (i < 2) fin(arrow(g2, 330, y + 82, 330, y + 106, C.muted), 9.2 + i * 1.1);
+    T(g2, 70, 88, '文献の絞り込み（論文 Figure 2）', { 'font-size': 15, fill: C.muted });
+    var stages = [['検索の結果（Scopus + Web of Science）', '9,566', 520], ['要旨まで絞り込んだあと', '2,496', 400], ['最後に残った文献', '202', 280]];
+    stages.forEach(function (st, i) {
+      var y = 108 + i * 84, w = st[2], x = 330 - w / 2, gg = el('g', {}, g2);
+      box(gg, x, y, w, 64, i === 2 ? C.bsoft : '#fff', i === 2 ? C.b : C.ink, 10);
+      T(gg, 330, y + 26, st[0], { 'font-size': 14, fill: C.ink, 'text-anchor': 'middle' });
+      T(gg, 330, y + 52, st[1] + ' 件', { 'font-size': 18, 'font-weight': 700, fill: i === 2 ? C.b : C.ink, 'text-anchor': 'middle' });
+      fin(gg, 8.6 + i * 0.9);
+      if (i < 2) fin(arrow(g2, 330, y + 66, 330, y + 82, C.muted), 9.0 + i * 0.9);
     });
-    fin(TZ.panel(g2, PX, 150, '体系的な文献調査', C.b, [['港湾の TAS の研究は', 15], ['他業界をほとんど', 15], ['参照してこなかった', 15], null, ['医療以外の 2 業界の名前は', 14, C.muted], ['要旨にない', 14, C.muted]]), 12.0, 0.8);
-    TZ.note(g2, '模式図');
+    [['交通・物流', 44, C.gray], ['医療', 143, C.b], ['IT', 15, C.gray]].forEach(function (c, i) {
+      var x = 90 + i * 170, gg = el('g', {}, g2), h = c[1] * 0.5;
+      box(gg, x, 470 - h, 130, h, c[2], null, 4);
+      T(gg, x + 65, 470 - h - 8, c[1] + ' 件', { 'font-size': 15, 'font-weight': 650, fill: c[2] === C.b ? C.b : C.ink, 'text-anchor': 'middle' });
+      T(gg, x + 65, 494, c[0], { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
+      fin(gg, 11.4 + i * 0.4);
+    });
+    fin(TZ.panel(g2, PX, 150, '医療を参照先に', C.b, [['需要の変動、処理時間の', 15], ['ばらつき、無断キャンセル', 15], ['が TAS と似ている', 15], null, ['交通・物流と IT は', 14, C.muted], ['似ていないとして外した', 14, C.muted]]), 12.8, 0.8);
+    TZ.note(g2, '論文 Figure 2 の件数から作図');
 
-    // ===== scene 3: health care vs TAS =====
+    // ===== scene 3: three health-care ideas -> four TAS measures =====
     var g3 = S.g[2];
-    var hc = el('g', {}, g3);
-    box(hc, 70, 140, 220, 220, C.bsoft, C.b, 14);
-    T(hc, 180, 180, '医療', { 'font-size': 20, 'font-weight': 700, fill: C.b, 'text-anchor': 'middle' });
-    T(hc, 180, 214, '患者が診療の', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    T(hc, 180, 238, '時間枠を予約する', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    T(hc, 180, 290, '予約の方法 A, B, C …', { 'font-size': 15, fill: C.b, 'text-anchor': 'middle' });
-    fin(hc, 16.6);
-    var ta = el('g', {}, g3);
-    box(ta, 400, 140, 190, 220, '#fff', C.ink, 14);
-    T(ta, 495, 180, 'TAS', { 'font-size': 20, 'font-weight': 700, fill: C.ink, 'text-anchor': 'middle' });
-    T(ta, 495, 214, 'トラックが', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    T(ta, 495, 238, '搬入の時間枠を', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    T(ta, 495, 262, '予約する', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    fin(ta, 17.4);
-    fin(arrow(g3, 296, 250, 394, 250, C.b), 18.4);
-    fin(T(g3, 345, 236, '移す', { 'font-size': 15, fill: C.b, 'text-anchor': 'middle' }), 18.4);
-    fin(T(g3, 70, 410, '方法ごとに、TAS へ移したときの効果を評価する（ベンチマーク）', { 'font-size': 15, fill: C.ink }), 19.4);
-    fin(TZ.panel(g3, PX, 150, '医療を比較の相手に', C.b, [['3 業界のうち', 16], ['最も有望と判断', 16], null, ['評価の基準と点数は', 14, C.muted], ['本文未読のため描かない', 14, C.muted]]), 20.2, 0.8);
-    TZ.note(g3, '模式図（方法 A, B, C は名前を伏せた置き場所）');
+    T(g3, 70, 96, '医療の考え方', { 'font-size': 15, fill: C.muted });
+    T(g3, 380, 96, 'TAS の方策', { 'font-size': 15, fill: C.muted });
+    var src3 = [['オープンアクセス', 150], ['重複予約', 255], ['断片化の解消（Lian ら）', 360]];
+    var dst3 = [['オープンアクセス', 130], ['重複予約 (1) 固定の時間枠', 210], ['重複予約 (2) 柔軟な時間枠', 290], ['断片化の解消', 370]];
+    src3.forEach(function (r, i) {
+      var gg = el('g', {}, g3);
+      box(gg, 70, r[1] - 26, 230, 52, C.bsoft, C.b, 10);
+      T(gg, 185, r[1] + 6, r[0], { 'font-size': 15, 'font-weight': 600, fill: C.b, 'text-anchor': 'middle' });
+      fin(gg, 16.6 + i * 0.4);
+    });
+    dst3.forEach(function (r, i) {
+      var gg = el('g', {}, g3);
+      box(gg, 380, r[1] - 24, 230, 48, '#fff', C.ink, 10);
+      T(gg, 495, r[1] + 6, r[0], { 'font-size': 14, fill: C.ink, 'text-anchor': 'middle' });
+      fin(gg, 18.2 + i * 0.3);
+    });
+    [[0, 0], [1, 1], [1, 2], [2, 3]].forEach(function (m, k) {
+      fin(arrow(g3, 302, src3[m[0]][1], 376, dst3[m[1]][1], C.b), 18.4 + k * 0.3);
+    });
+    fin(T(g3, 70, 440, '対象の工程：時間枠の予約と、枠ごとの台数の上限の決定', { 'font-size': 15, fill: C.ink }), 19.8);
+    fin(TZ.panel(g3, PX + 20, 150, '断片化の解消', C.b, [['希望日時の近くの枠を、', 15], ['断片化を減らす効果の', 15], ['順に並べて提示する', 15], null, ['選ぶ義務はない', 14, C.muted]]), 20.4, 0.8);
+    TZ.note(g3, '論文 3.2 節と 4.3.1 節をもとにした模式図');
 
-    // ===== scene 4: the two findings =====
+    // ===== scene 4: Table 1 totals =====
     var g4 = S.g[3];
-    T(g4, 70, 92, '要旨の結論', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
-    var f1 = el('g', {}, g4);
-    box(f1, 70, 120, 520, 110, C.bsoft, null, 14);
-    T(f1, 100, 162, '医療の時間枠予約は', { 'font-size': 18, fill: C.ink });
-    T(f1, 100, 198, 'TAS へ特に移しやすい', { 'font-size': 20, 'font-weight': 700, fill: C.b });
-    fin(f1, 24.6);
-    var f2 = el('g', {}, g4);
-    box(f2, 70, 260, 520, 130, C.b, null, 14);
-    T(f2, 100, 300, '効果の評価が最も高い方法', { 'font-size': 17, fill: '#fff' });
-    T(f2, 100, 338, '固定の時間枠での重複予約', { 'font-size': 22, 'font-weight': 700, fill: '#fff' });
-    T(f2, 100, 370, 'overbooking of appointments in fixed time windows', { 'font-size': 15, fill: '#fff' });
-    fin(f2, 26.0);
-    TZ.note(g4, '要旨の記述のみ（数値なし）');
+    T(g4, 70, 80, '5 つの基準（各 0〜3 点）の合計（論文 Table 1）', { 'font-size': 15, fill: C.muted });
+    var X0 = 300, SC = 30;
+    el('line', { x1: X0, x2: X0, y1: 110, y2: 430, stroke: C.ink, 'stroke-width': 1.5 }, g4);
+    [0, 5, 10, 15].forEach(function (v) {
+      el('line', { x1: X0 + v * SC, x2: X0 + v * SC, y1: 110, y2: 430, stroke: C.hair }, g4);
+      T(g4, X0 + v * SC, 452, String(v), { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
+    });
+    [['重複予約 (1) 固定の時間枠', 8, C.b], ['オープンアクセス', 7, C.gray], ['重複予約 (2) 柔軟な時間枠', 6, C.gray], ['断片化の解消', 6, C.gray]].forEach(function (r, i) {
+      var y = 130 + i * 74;
+      T(g4, X0 - 12, y + 30, r[0], { 'font-size': 15, fill: C.ink, 'text-anchor': 'end' });
+      grow(box(g4, X0, y + 8, 0, 36, r[2], null, 4), 'width', r[1] * SC, 24.6 + i * 0.5);
+      fin(T(g4, X0 + r[1] * SC + 10, y + 33, r[1] + ' 点', { 'font-size': 16, 'font-weight': 650, fill: r[2] === C.gray ? C.ink : r[2] }), 25.2 + i * 0.5);
+    });
+    TZ.note(g4, '論文 Table 1 の数値から作図（採点は著者らによる主観評価）');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['移しやすい業界', '医療'], ['評価が最も高い方法', '固定の時間枠での重複予約']],
+      cards: [['最高評価（15 点満点）', '固定の時間枠での重複予約 8 点'], ['Lian らの断片化の解消', '6 点']],
       venue: 'HICL · 2019', title: ['Potential of non-port slot', 'booking systems for TAS'], tsize: 32,
       sub: '港湾以外の時間枠予約を TAS に活かす可能性', authors: ['Ann-Kathrin Lange, Stephan Krüger,', 'Anne Kathrina Schwientek, Carlos Jahn'], url: 'doi.org/10.15480/882.2495'
     });

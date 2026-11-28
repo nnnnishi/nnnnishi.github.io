@@ -100,8 +100,8 @@ window.TZ = (function () {
 })();
 // =====================================================================
 // teaser-scenes.js — Sauré, Patrick, Tyldesley, Puterman, Dynamic multi-appointment patient scheduling for
-// radiation therapy (EJOR 2012). Unofficial explainer written from the abstract only (body not read).
-// All scenes are schematics (labelled 模式図); there are no numerical results in this teaser.
+// radiation therapy (EJOR 2012). Unofficial explainer (published PDF).
+// Scene 1 uses Table 1 of the paper, scene 4 the Total row of Table 4. Scenes 2-3 are schematics (模式図).
 // Colours: orange = treatment delay / wasted capacity, the problem; blue = the MDP + affine ADP approach.
 // =====================================================================
 (function () {
@@ -109,11 +109,11 @@ window.TZ = (function () {
   var T = TZ.T;
 
   var CAPTIONS = [
-    { ja: '放射線治療の開始が<span class="A">遅れる</span>と、患者の苦痛やがんの制御に悪い影響がありうる。', en: '' },
-    { ja: '1 人の患者が何回も治療に通うので、1 件の受付が先の複数の日の容量を使う。', en: '' },
-    { ja: '<span class="B">提案法</span>は届いた患者に容量を割り当てる問題を割引つき無限期間の MDP で書く。', en: '' },
-    { ja: '状態が多すぎるので、価値関数をアフィン関数で近似し、等価な線形計画を列生成で解く。', en: '' },
-    { ja: 'BCCA のデータにもとづくシミュレーションで、得られた方策を評価した。', en: '' }
+    { ja: 'ブリティッシュコロンビア州では、14 日以内に治療を始められた患者は<span class="A">7 割台</span>にとどまる。', en: '' },
+    { ja: '治療は何日も続き 1 回の長さも違うので、1 件の受付が先の複数の日の枠を使う。', en: '' },
+    { ja: '<span class="B">提案法</span>は予約受付を MDP で書き、価値関数を日ごとの枠数の 1 次式で近似して解く。', en: '' },
+    { ja: 'BCCA のデータでは、10 営業日以内に治療を始めた割合が 73% から 96% に上がった。', en: '' },
+    { ja: '長さのそろわない複数回の予約を、将来の枠の費用まで見て入れる研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
   var PX = 660;
@@ -134,22 +134,24 @@ window.TZ = (function () {
     var S = {};
     S.g = [0, 1, 2, 3, 4].map(function () { return el('g', {}, svg); });
 
-    // ===== scene 1: waiting patients =====
+    // ===== scene 1: Table 1 (share initiated within 14 days) =====
     var g1 = S.g[0];
-    T(g1, 70, 80, '治療の開始を待つ患者', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
-    S.q1 = [];
-    for (var i = 0; i < 6; i++) {
-      var pg = el('g', {}, g1), x = 110 + i * 78;
-      el('circle', { cx: x, cy: 200, r: 18, fill: '#fff', stroke: C.a, 'stroke-width': 2 }, pg);
-      el('rect', { x: x - 18, y: 224, width: 36, height: 50, rx: 10, fill: '#fff', stroke: C.a, 'stroke-width': 2 }, pg);
-      S.q1.push({ g: pg, t0: 0.8 + i * 0.4 });
-    }
-    S.arrow1 = el('g', {}, g1);
-    el('line', { x1: 100, x2: 540, y1: 320, y2: 320, stroke: C.a, 'stroke-width': 2.5 }, S.arrow1);
-    el('path', { d: 'M540 312 L556 320 L540 328 Z', fill: C.a }, S.arrow1);
-    T(S.arrow1, 100, 352, '待ち時間が延びる', { 'font-size': 15, fill: C.a, 'font-weight': 600 });
-    S.p1 = TZ.panel(g1, PX, 150, '開始の遅れの害', C.a, [['苦痛、生活の質の低下', 15], ['がんの制御や生存の悪化', 15], null, ['治療に使う資源は高価で', 15, C.muted], ['使い方に無駄が出やすい', 15, C.muted]]);
-    TZ.note(g1, '模式図（要旨にもとづく）');
+    T(g1, 70, 76, '14 日以内に治療を始めた患者の割合（論文 Table 1）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    var t1 = [['2004', 76.4], ['2005', 71.3], ['2006', 73.8], ['2007', 77.0], ['2008', 70.0]];
+    var B1 = 430, K1 = 3.2;
+    el('line', { x1: 90, x2: 580, y1: B1, y2: B1, stroke: C.ink, 'stroke-width': 1.5 }, g1);
+    el('line', { x1: 90, x2: 580, y1: B1 - 100 * K1, y2: B1 - 100 * K1, stroke: C.hair, 'stroke-width': 1, 'stroke-dasharray': '5 5' }, g1);
+    T(g1, 584, B1 - 100 * K1 + 5, '100%', { 'font-size': 14, fill: C.muted });
+    S.b1 = t1.map(function (d, i) {
+      var x = 110 + i * 92, h = d[1] * K1;
+      var r = el('rect', { x: x, y: B1, width: 62, height: 0, fill: C.a }, g1);
+      var lb = el('text', { x: x + 31, y: B1 - h - 10, 'font-size': 15, 'font-weight': 650, fill: C.a, 'text-anchor': 'middle' }, g1);
+      lb.textContent = d[1].toFixed(1) + '%';
+      T(g1, x + 31, B1 + 24, d[0], { 'font-size': 14, fill: C.ink, 'text-anchor': 'middle' });
+      return { r: r, lb: lb, h: h, t0: 0.8 + i * 0.5 };
+    });
+    S.p1 = TZ.panel(g1, PX, 150, '待ちの目安は 14 日', C.a, [['開始の遅れは、腫瘍の進行や', 15], ['生存率の低下と関係する', 15], null, ['遅れは容量の不足だけでなく', 14, C.muted], ['予約の入れ方からも生じる', 14, C.muted]]);
+    TZ.note(g1, '論文 Table 1 の数値から作図');
 
     // ===== scene 2: multi-appointment blocks =====
     var g2 = S.g[1];
@@ -161,8 +163,8 @@ window.TZ = (function () {
       { r: block(g2, 2, 1, 4, C.gray), t0: 10.2 },
       { r: block(g2, 3, 4, 5, C.a), t0: 11.0 }
     ];
-    S.lb2 = T(g2, X0, Y0 + 4 * RH + 34, '新しい患者 1 人が先の 5 日分の枠を使う', { 'font-size': 15, fill: C.a, 'font-weight': 600 });
-    S.p2 = TZ.panel(g2, PX, 150, '複数回の予約', C.a, [['1 件の受付が', 15], ['先の複数の日の容量を使い、', 15], ['その後の受付に長く響く', 15]]);
+    S.lb2 = T(g2, X0, Y0 + 4 * RH + 34, '新しい治療 1 件が先の 5 日分の枠を使う', { 'font-size': 15, fill: C.a, 'font-weight': 600 });
+    S.p2 = TZ.panel(g2, PX, 150, '複数回の予約', C.a, [['1 件の受付が', 15], ['先の複数の日の容量を使う', 15], null, ['長さのそろわない治療は', 14, C.muted], ['使えない隙間を残す', 14, C.muted], ['（論文は「テトリスのよう」）', 14, C.muted]]);
     TZ.note(g2, '模式図（日数と人数は解説者が置いた例）');
 
     // ===== scene 3: MDP loop =====
@@ -175,34 +177,37 @@ window.TZ = (function () {
       return b;
     }
     S.m3 = [
-      box(g3, 80, 120, 200, 80, '状態', '予約表と待つ患者', C.b),
-      box(g3, 360, 120, 200, 80, '行動', '治療の開始日を決める', C.b),
-      box(g3, 220, 300, 200, 80, '費用と次の状態', '新しい患者が届く', C.b)
+      box(g3, 80, 120, 200, 80, '状態', '予約済みの枠と待つ治療', C.b),
+      box(g3, 360, 120, 200, 80, '行動', '開始日と残業の枠', C.b),
+      box(g3, 220, 300, 200, 80, '費用と次の状態', '待ち・残業の費用、新規依頼', C.b)
     ];
     S.ar3 = el('g', {}, g3);
     [['M280 160 L356 160'], ['M480 204 L400 296'], ['M240 296 L170 204']].forEach(function (d) {
       el('path', { d: d[0], stroke: C.b, 'stroke-width': 2.2, fill: 'none', 'marker-end': '' }, S.ar3);
     });
     T(S.ar3, 320, 440, '割引つきの将来の費用の合計を最小にする', { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
-    S.p3 = TZ.panel(g3, PX, 150, 'マルコフ決定過程', C.b, [['割引つき・無限期間', 15], ['費用効果のよい容量の', 15], ['割り当てを求める', 15], null, ['状態の数が膨大で', 15, C.muted], ['そのままでは解けない', 15, C.muted]]);
-    TZ.note(g3, '模式図（要旨にもとづく）');
+    S.p3 = TZ.panel(g3, PX, 130, 'アフィン近似', C.b, [['状態は 10^300 通り超', 15], ['価値関数を', 15], ['W₀ + Σ U_m u_m + Σ V_m v_m', 14], ['   + Σ W_i w_i で近似', 14], null, ['U_m：m 日目の枠が 1 つ', 14, C.muted], ['埋まる将来の費用', 14, C.muted], ['双対を列生成で解く', 14, C.muted]]);
+    TZ.note(g3, '模式図');
 
-    // ===== scene 4: affine approximation + column generation =====
+    // ===== scene 4: Table 4, Total row =====
     var g4 = S.g[3];
-    S.eq4 = T(g4, 90, 140, 'V(状態) ≈ W₀ + Σ Wᵢ × 状態の変数ᵢ', { 'font-size': 22, 'font-weight': 650, fill: C.b });
-    S.l4a = T(g4, 90, 190, '価値関数を 1 次式（アフィン関数）で近似する', { 'font-size': 15, fill: C.ink });
-    S.cols4 = [];
-    for (var c = 0; c < 8; c++) {
-      var r = el('rect', { x: 100 + c * 52, y: 250, width: 40, height: 150, rx: 4, fill: C.b, 'fill-opacity': 0.25 + 0.09 * c }, g4);
-      S.cols4.push({ r: r, t0: 26.6 + c * 0.35 });
-    }
-    S.l4b = T(g4, 90, 440, '等価な線形計画に、必要な列だけを順に足して解く（列生成）', { 'font-size': 15, fill: C.ink });
-    S.p4 = TZ.panel(g4, PX, 150, '近似動的計画法', C.b, [['変数が近似の係数だけに', 15], ['減る', 15], null, ['列生成で', 15, C.muted], ['大きな線形計画を解く', 15, C.muted]]);
-    TZ.note(g4, '模式図（式は一般形。論文の記号とは異なる）');
+    T(g4, 70, 64, '期限内に治療を始めた割合（%、全種類の合計、論文 Table 4）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    S.bars4 = TZ.pairs(g4, {
+      x0: 260, x1: 800, v0: 0, v1: 100, y0: 100, rowH: 104, t0: 24.6, dt: 0.8, ticks: [0, 25, 50, 75, 100],
+      rows: [
+        { label: '1 営業日以内', a: 5, b: 26, la: '5', lb: '26' },
+        { label: '5 営業日以内', a: 29, b: 53, la: '29', lb: '53' },
+        { label: '10 営業日以内', a: 73, b: 96, la: '73', lb: '96' }
+      ]
+    });
+    T(g4, 260, 470, '■ 目先の費用だけを見る方策', { 'font-size': 14, fill: C.a });
+    T(g4, 500, 470, '■ 近似最適な方策', { 'font-size': 14, fill: C.b });
+    T(g4, 260, 496, '残業の増加は 1 日平均 3 分', { 'font-size': 14, fill: C.muted });
+    TZ.note(g4, '論文 Table 4 の数値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['題材', 'BC がん機関の放射線治療'], ['解き方', 'アフィン近似＋列生成']],
+      cards: [['10 営業日以内の開始', '73% → 96%'], ['割引した費用の平均', '$185,843 → $121,974']],
       venue: 'EJOR 2012', title: ['Dynamic multi-appointment patient', 'scheduling for radiation therapy'], tsize: 30,
       sub: '放射線治療のための複数回予約の動的な患者スケジューリング', authors: ['Antoine Sauré, Jonathan Patrick, Scott Tyldesley, Martin L. Puterman'], url: 'doi.org/10.1016/j.ejor.2012.06.046'
     });
@@ -211,20 +216,19 @@ window.TZ = (function () {
 
   function render(S, t) {
     TZ.fades(S.g, BOUNDS, t);
-    S.q1.forEach(function (q) { q.g.setAttribute('opacity', seg(t, q.t0, q.t0 + 0.4)); });
-    S.arrow1.setAttribute('opacity', seg(t, 3.4, 4.0));
-    S.p1.setAttribute('opacity', seg(t, 4.4, 5.2));
+    S.b1.forEach(function (b) {
+      var k = H.ease(seg(t, b.t0, b.t0 + 0.7));
+      b.r.setAttribute('height', b.h * k); b.r.setAttribute('y', 430 - b.h * k);
+      b.lb.setAttribute('opacity', seg(t, b.t0 + 0.5, b.t0 + 0.9));
+    });
+    S.p1.setAttribute('opacity', seg(t, 4.2, 5.0));
     S.bl2.forEach(function (b) { b.r.forEach(function (r, k) { r.setAttribute('opacity', seg(t, b.t0 + k * 0.1, b.t0 + k * 0.1 + 0.3)); }); });
     S.lb2.setAttribute('opacity', seg(t, 12.0, 12.6));
     S.p2.setAttribute('opacity', seg(t, 12.6, 13.4));
     S.m3.forEach(function (m, i) { m.setAttribute('opacity', seg(t, 16.6 + i * 0.7, 17.1 + i * 0.7)); });
     S.ar3.setAttribute('opacity', seg(t, 19.0, 19.6));
     S.p3.setAttribute('opacity', seg(t, 19.8, 20.6));
-    S.eq4.setAttribute('opacity', seg(t, 24.6, 25.2));
-    S.l4a.setAttribute('opacity', seg(t, 25.4, 26.0));
-    S.cols4.forEach(function (c) { c.r.setAttribute('opacity', seg(t, c.t0, c.t0 + 0.3)); });
-    S.l4b.setAttribute('opacity', seg(t, 29.6, 30.2));
-    S.p4.setAttribute('opacity', seg(t, 30.0, 30.8));
+    TZ.renderBars(S.bars4, t);
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

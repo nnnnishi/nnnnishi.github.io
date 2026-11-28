@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gupta と Wang（2008）：患者の選択を入れて、診療所の予約受付を収益管理として解く（論文解説）</title>
-<meta name="description" content="Revenue Management for a Primary-Care Clinic in the Presence of Patient Choice（Operations Research 2008）の非公式の解説。当日受診と先の予約が混ざる診療所で、患者が医師と時間帯を選ぶことを入れたマルコフ決定過程をつくり、医師が1人ならしきい値型の方策が最適になることを示した研究を、要旨と書誌情報にもとづいて紹介する。">
+<meta name="description" content="Revenue Management for a Primary-Care Clinic in the Presence of Patient Choice（Operations Research 2008）の非公式の解説。当日受診と先の予約が混ざる診療所で、患者が医師と時間帯を選ぶことを入れたマルコフ決定過程をつくり、医師が1人なら予約上限の方策が最適になること、医師が複数なら全体の予約数に応じた上限を使うヒューリスティックがほぼ最適になることを示した研究を紹介する。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -13,8 +13,8 @@
 /* =====================================================================
    PAPER PROJECT PAGE (unofficial explainer, Japanese only)
    Layout : one left-aligned column. Prose 42rem, figures 62rem.
-   Colour : --a (orange) = accepting advance bookings without regard to the capacity needed by later same-day requests
-            --b (blue)   = threshold-type acceptance policy and heuristics based on the partial characterization
+   Colour : --a (orange) = first-come-first-served booking and heuristics that ignore the structure (H3, H4, FCFS)
+            --b (blue)   = booking limits from the structural results (single-physician limit b*, heuristic H1)
    Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
    ===================================================================== */
 :root {
@@ -189,7 +189,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <li><b>Lei Wang</b><span>SmartOps Corporation</span></li>
   </ul>
 
-  <p class="lead">当日受診と先の日の予約の両方を受ける診療所では、<span class="A">先の予約を受けすぎる</span>と当日の患者の枠が足りなくなり、受けなさすぎると待ちが延び、枠が空いたまま終わる。Gupta と Wang は、患者が医師と時間帯を選ぶことを入れたマルコフ決定過程で予約の受付を書き、医師が 1 人なら<span class="B">しきい値型の受付方策</span>が最適になることを示した。医師が複数の場合は、最適方策の構造を一部明らかにし、それにもとづくヒューリスティックと上界を提案した。</p>
+  <p class="lead">当日受診と先の日の予約の両方を受ける診療所では、<span class="A">先の予約を来た順に受ける</span>と当日の患者の枠が足りなくなり、受けなさすぎると枠が空いたまま終わる。Gupta と Wang は、患者が医師と時間帯を選ぶことを入れたマルコフ決定過程で予約の受付を書いた。医師が 1 人なら、新聞売り子問題と同じ形の式で決まる<span class="B">予約上限</span>まで受ける方策が最適になる。医師が複数の場合は最適方策の構造を一部明らかにし、それにもとづくヒューリスティック H1 は 40 通りの例で最適との差が平均 0.30% だった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1287/opre.1080.0542">DOI</a>
@@ -202,76 +202,112 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。当日の依頼と先の予約が同じ枠を取り合う様子、受けすぎと受けなさすぎの両方の損、空き枠がしきい値を下回ったら先の予約を断るしきい値型の方策、医師が複数のときのヒューリスティックと上界、まとめの5場面。数値はすべて解説者が置いた例。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。当日の依頼と先の予約が同じ枠を取り合う様子、受けすぎと受けなさすぎの両方の損、予約上限まで受ける方策、実際の診療所のデータを使ったシミュレーションでの方策ごとの週の収益、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
       <span class="tdots"></span>
-      <span>論文を40秒で（すべて解説者による模式図）。音声なし。</span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
     </figcaption>
   </figure>
 
-  <p class="src" style="margin-top:1.5rem">このページは論文の要旨と書誌情報にもとづく。本文は未読で、式の形や数値の結果は書いていない。</p>
-
   <ul class="points">
-    <li><span class="k">患者の選択を入れたマルコフ決定過程</span><span class="d">患者は緊急度、好きな時間帯、主治医へのこだわりがそれぞれ違う。予約の依頼を受けるかどうかを、収益を最大にするように決める。</span></li>
-    <li><span class="k">医師が 1 人ならしきい値型が最適</span><span class="d">選択の確率が弱い条件を満たせば、最適な受付方策はしきい値型になる（要旨による）。</span></li>
-    <li><span class="k">医師が複数ならヒューリスティックと上界</span><span class="d">最適方策の構造を一部明らかにし、それにもとづく 2 つのヒューリスティックがかなり正確だったと要旨は述べる。</span></li>
+    <li><span class="k">医師が 1 人なら予約上限が最適</span><span class="d">患者の選択が「正規形」という弱い条件を満たせば、予約数が \(b^* = [\kappa - F^{-1}(\eta)]^+\) に達するまで受け、それ以降は断る方策が最適になる（定理 1、系 1）。</span></li>
+    <li><span class="k">H1 は最適から平均 0.30%</span><span class="d">医師 2 人の 40 通りの例で、H1 の利益は最適より平均 0.30%、最大 4.09% 低いだけだった。来た順に受ける方策は平均 4.08%、最大 30.94% 低かった。</span></li>
+    <li><span class="k">週の収益 17,839.6 → 19,481.5</span><span class="d">実際の診療所のデータを使い、患者が 3 回まで予約を試みるシミュレーションで、来た順に受ける方策と H1 を比べた（論文 Table 3）。約 9.2% の増加（解説者の計算）。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
     <h2>当日受診を受け入れる診療所では、先の予約をどこまで受けるかが当日の患者の受け入れを左右する</h2>
-    <p>advanced access（当日受診の仕組み）を取り入れた診療所では、患者は当日の受診か、先の日の予約かを選べる。待ち時間を短くし、満足度を上げるための仕組みである。そのぶん診療所は医師の枠を先の予約と当日の患者の間でどう分けるかを決めなければならない。</p>
-    <p>要旨によれば、先の予約を受けすぎると当日の依頼に回せる枠が足りなくなる。逆に受けなさすぎると、待ちが延び、患者が主治医以外にかかる割合が増え、枠が使われないまま終わる可能性も高くなる。</p>
+    <p>advanced access（当日受診の仕組み）を取り入れた診療所では、患者は空いている当日の枠か、都合のよい先の日の枠かを選べる。待ち時間を短くし、満足度を上げるための仕組みである。そのぶん診療所は医師の枠を先の予約と当日の患者の間でどう分けるかを決めなければならない。先の予約を受けすぎると当日の依頼に回せる枠が足りなくなり、受けなさすぎると待ちが延び、患者が主治医以外にかかる割合が増え、枠が使われないまま終わる可能性も高くなる。</p>
+    <p>患者が枠を選ぶと、この問題は難しくなる。論文の冒頭の例では、医師 1 人・4 枠の日に、先の予約の電話が 3 件、当日の患者が 1 人来る。患者が好きな枠を選ぶと、最初の患者の枠 1 の依頼を断るのが最適になる場合がある。つまり、患者の選び方によっては、予約数の上限だけで決める方策は最適にならない。論文は、どんな選び方なら単純な方策が最適になるかを調べ、単純な構造がない場合に使えるヒューリスティックを提案する。</p>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>患者の到着と患者の選択の両方が不確かな中で、どの予約の依頼を受けるかを決める</h2>
+    <h2>1 日分の枠を、時間を逆向きに数える有限期間のマルコフ決定過程として書く</h2>
     <ul class="def">
-      <li><strong>患者の違い</strong>：要旨は、患者が自分の必要をどれだけ急ぐと考えるか、好きな時間帯、主治医（PCP）へのこだわり（loyalty）がそれぞれ違うと述べる。</li>
-      <li><strong>決めること</strong>：収益を最大にするように、どの予約の依頼を受けるかを決める。</li>
-      <li><strong>モデル</strong>：患者の選択の振る舞いをはっきり入れたマルコフ決定過程。状態、行動、選択モデルの具体的な形は本文を読めておらず、ここには書かない。</li>
+      <li><strong>枠と期間</strong>：医師は \(n\) 人で、医師 \(i\) の枠は \(\kappa_i\) 個、合計 \(\kappa\) 個。予約の受付開始から当日までを \(\tau\) 期に分け、時間は \(\tau\) から 1 へ逆向きに数える。各期の予約の電話は多くても 1 件。</li>
+      <li><strong>患者</strong>：\(t \ge 1\) に電話する通常の患者は、特定の医師と時間帯を好む。望む枠が取れなければ予約せず、診療所に罰 \(\pi_1\) がかかる。当日（\(t = 0\)）に来る患者は急ぐと考えており、空いている枠ならどれでも受ける。</li>
+      <li><strong>状態と選択</strong>：状態 \(\vec s\) は各枠が埋まっているかどうかの 0-1 ベクトル。医師 \(m\) の患者が状態 \(\vec s\) を見て医師 \(i\) の枠 \(j\) を求める確率を \(P_t^{ijm}(\vec s)\) とする。診療所は依頼を聞いてから受けるか断るかを決める。</li>
+      <li><strong>収益と費用</strong>：通常の患者が主治医にかかると \(r_1\)、別の医師なら \(r_1'\)（当日の患者は \(r_2, r_2'\)）。主治医以外にかかると 1 回の受診あたりの収益が約 15% 下がるという調査を引いている。当日の患者を枠に入れられなければ 1 人 \(c\)（残業や救急外来に回す費用）、使われなかった枠には 1 枠 \(\pi_2\) がかかる。\(r_1 + \pi_1 < r_2 + c\) を仮定する。</li>
     </ul>
+    <p>状態の数は枠の数だけ 2 を掛けた数になる。医師 10 人、1 人 30 枠の診療所では \(2^{300}\) 通りで、後ろ向き帰納法ではそのまま解けない。断られた患者が別の日にかけ直すことはモデルに入れず、あとでシミュレーションで確かめる。</p>
+    <p>選択の確率には次の「正規形」の条件だけを置く。ある空き枠 \(k\) が埋まっても、残りの空き枠が選ばれる確率は下がらない、という条件である。</p>
+    <div class="eq">\[ P_t^j(\vec s) \le P_t^j(\vec s + \vec e_k) \qquad \forall\, j \in \mathcal A(\vec s + \vec e_k) \]</div>
+    <p>独立需要モデル、多項ロジット、確率効用最大化のモデルはどれも正規形である（命題 1）。正規形は「無関係な選択肢からの独立性」（IIA）より弱い条件である。</p>
   </section>
 
   <section id="method">
     <div class="kicker">手法と理論</div>
-    <h2>医師が 1 人ならしきい値型の方策が最適になり、医師が複数なら構造の一部とヒューリスティックと上界を示す</h2>
+    <h2>医師が 1 人なら新聞売り子問題の形の予約上限が最適になり、医師が複数なら全体の予約数に応じた上限で受付を決める</h2>
+    <p>医師が 1 人のとき、当日の患者から得られる収益は埋まった枠の数 \(s\) だけで決まる。当日の需要 \(X\) の分布関数を \(F\) とすると、最終期の価値は次の式になり、\(s\) について凹である。</p>
+    <div class="eq">\[ h(s) = -cE(X) + (r_2 + c)(\kappa - s) - (r_2 + \pi_2 + c)\, E\{(\kappa - X - s)^+\} \]</div>
+    <div class="eq">\[ \eta = \frac{r_2 + c - r_1 - \pi_1}{r_2 + \pi_2 + c}, \qquad b^* = [\kappa - F^{-1}(\eta)]^+ \]</div>
     <ul class="def">
-      <li><strong>医師が 1 人の診療所</strong>：選択の確率が弱い条件を満たせば、最適な方策はしきい値型になることを証明した（要旨による。条件の具体的な形は未確認）。</li>
-      <li><strong>医師が複数の診療所</strong>：最適方策の構造を部分的に明らかにし、いくつかのヒューリスティックと上界を提案した。</li>
+      <li><strong>予約上限（定理 1、系 1）</strong>：選択が正規形なら、どの時点でも、予約数が \(b^*\) より少なければどの枠の依頼も受け、\(b^*\) に達したら断るのが最適である。先の患者のために枠を残しても得はなく、枠を残す意味は当日の患者のためだけにある。\(b^*\) は \(r_1, \pi_1, \pi_2\) が大きいほど大きく、\(r_2, c\) が大きいほど小さい。</li>
+      <li><strong>医師が複数の場合（定理 2）</strong>：主治医以外にかかると収益が下がるので、予約上限の構造は成り立たない。論文は、医師 \(i\) の予約数がしきい値 \(\hat b_i(s)\) 以上になったらその医師への依頼を断るべきことを示した。しきい値は診療所全体の予約数 \(s\) で決まる。</li>
+      <li><strong>ヒューリスティック</strong>：H1 は 2 つのしきい値 \(\hat b_i'(s) \le \hat b_i(s)\) を使い、医師 \(i\) の予約数がその間にあるときはその医師の担当患者（パネル）の依頼だけを受ける。H2 は全体の予約数によらない 2 つの上限を使う。H3 は多次元の新聞売り子問題の解、H4 は当日の需要の平均だけ枠を残す。FCFS は空いていれば来た順に受ける。上界 UB は主治医以外にかかる損をなくした問題の最適値である。</li>
+      <li><strong>当日の詰め込み枠（命題 2）</strong>：1 つの枠に 2 人を入れられる枠を最大 \(y\) 個許すと、最適な予約上限 \(\tilde b^*\) は \(b^* \le \tilde b^* \le b^* + y\) を満たす。上限は増えるが、増える数は追加した枠の数より少ない。</li>
     </ul>
-    <svg class="fig" viewBox="0 0 640 220" role="img" aria-label="しきい値型の受付方策の模式図。その日の空き枠の数がしきい値より多いあいだは先の予約を受け、しきい値以下になると当日の患者のために残す。">
-      <g font-size="14">
-        <rect x="40" y="60" width="44" height="44" rx="6" fill="#1D4ED8"/><rect x="92" y="60" width="44" height="44" rx="6" fill="#1D4ED8"/><rect x="144" y="60" width="44" height="44" rx="6" fill="#1D4ED8"/>
-        <rect x="196" y="60" width="44" height="44" rx="6" fill="#1D4ED8"/><rect x="248" y="60" width="44" height="44" rx="6" fill="#fff" stroke="#16202E"/><rect x="300" y="60" width="44" height="44" rx="6" fill="#fff" stroke="#16202E"/>
-        <rect x="352" y="60" width="44" height="44" rx="6" fill="#fff" stroke="#16202E"/><rect x="404" y="60" width="44" height="44" rx="6" fill="#fff" stroke="#16202E"/>
-        <line x1="296" y1="40" x2="296" y2="124" stroke="#C2410C" stroke-width="2" stroke-dasharray="5 4"/>
-        <text x="40" y="44" fill="#16202E">ある医師のある日の枠</text>
-        <text x="40" y="146" fill="#1D4ED8">先の予約で埋まった枠</text>
-        <text x="300" y="146" fill="#16202E">当日の患者のために残す枠</text>
-        <text x="300" y="36" fill="#C2410C">しきい値</text>
-        <text x="40" y="190" fill="#5B6676">空き枠がしきい値より多いあいだは先の予約を受け、しきい値に達したら断る</text>
-      </g>
-    </svg>
-    <p class="src">図1　しきい値型の受付の考え方の模式図（解説者が描いたもの。論文の方策の正確な形ではない）。</p>
+    <figure>
+      <img src="assets/fig1_h1_policy.png" alt="Policy H1 for physician 1 in a two-doctor clinic, plotted over the total number of booked clinic slots s (horizontal, 0 to 30) and physician 1's booked slots s1 (vertical, 0 to 20). Open circles (accept all requests) fill the lower-left region; grey circles (accept only physician 1's own patients) form a narrow band between the dashed curve b-hat-prime and the solid curve b-hat; black dots (reject all) fill the upper right. Both thresholds fall as s grows." loading="lazy">
+      <figcaption>図1　医師 2 人の診療所での、医師 1 の H1 の受付の領域。横軸は診療所全体の予約数 \(s\)、縦軸は医師 1 の予約数 \(s_1\)。白は全員受ける、灰色は医師 1 の担当患者だけ受ける、黒は全員断る（論文の Figure 1 より）。</figcaption>
+    </figure>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>数値実験では、構造にもとづく 2 つのヒューリスティックがかなり正確だったと要旨は述べる</h2>
-    <p>要旨によれば、医師が複数の場合の数値実験で、最適方策の部分的な構造にもとづく 2 つのヒューリスティックがかなり正確だった。さらに、患者の主治医へのこだわり、診療所全体の負荷、医師の間の負荷の偏りが、診療所の最適な利益にどう影響するかも調べている。具体的な数値は本文を読めておらず、ここには載せない。</p>
+    <h2>構造にもとづく H1 と H2 はほぼ最適で、実際の診療所のデータを使ったシミュレーションでも H1 の週の収益が最も高かった</h2>
+    <p>まず、患者が 1 回だけ予約を試みる場合を、最適値を後ろ向き帰納法で計算して比べた。医師 2 人、1 人 10 枠、\(\tau = 200\) 期で、1 日を 2 枠ずつ 5 つの時間帯に分け、患者は 1・3・5 番目の時間帯を好む。選択は多項ロジットである。基準の設定では最適値 446.89 に対して、H1 は 0.019%、H2 は 0.084%、H3 は 4.60%、H4 は 4.87%、FCFS は 1.60% 低く、UB は 5.95% 高かった（論文 Table 1）。パラメータを変えた 19 通りと、当日の需要のばらつきを変えた 9 通り（Table 2）などを合わせた 40 通りで、最適との差の平均と最大は次のとおりである。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>方策</th><th>平均の差</th><th>最大の差</th></tr></thead>
+      <tbody>
+        <tr><td class="B">H1</td><td class="B">0.30%</td><td class="B">4.09%</td></tr>
+        <tr><td class="B">H2</td><td class="B">0.39%</td><td class="B">4.35%</td></tr>
+        <tr><td class="A">H3</td><td>5.14%</td><td>13.93%</td></tr>
+        <tr><td class="A">H4</td><td>5.44%</td><td>14.17%</td></tr>
+        <tr><td class="A">FCFS</td><td>4.08%</td><td>30.94%</td></tr>
+        <tr><td>上界 UB</td><td>5.82%</td><td>8.91%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　40 通りの例での最適値との差（論文 5.2.1 節の本文の値）。</p>
+    <p>医師の負荷が偏っている例では、医師どうしの受付を連動させる H1 が H2 よりかなり良かった。医師の負荷を 0.6 から 1.7 に上げると、負荷が低いうちはどの方策も最適に近いが、負荷が高いと FCFS の差は約 30% まで広がったが、H1 と H2 の差は約 4% にとどまった（図2）。</p>
+    <figure>
+      <img src="assets/fig2_workload_accuracy.png" alt="Percentage distance from the optimum versus nominal physician workload rho from 0.6 to 1.7 for heuristics H1 to H4, FCFS (circles) and the upper bound (crosses). H1 and H2 stay near zero until about 1.2 and reach about 4 percent at 1.7; H3 and H4 rise to about 14 percent; FCFS is near zero below 0.9 but climbs steeply to about 31 percent at 1.7; the upper bound stays between about 3 and 7 percent." loading="lazy">
+      <figcaption>図2　医師の負荷 \(\rho_1 = \rho_2\) と、各方策の最適値からの差（%）。\(\%\Delta_1\)〜\(\%\Delta_4\) が H1〜H4、\(\%\Delta_5\) が FCFS、\(\%\Delta_6\) が上界（論文の Figure 2 より）。</figcaption>
+    </figure>
+    <p>次に、ミネアポリス・セントポール地域の中規模の診療所（医師 10 人、15 分枠）のデータを使い、患者が別の日に 3 回まで予約を試みるシミュレーションを行った。1 回の反復は 10 年分の運用で、1,000 回くり返した。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>指標</th><th class="B">H1</th><th class="B">H2</th><th class="A">H3</th><th class="A">H4</th><th class="A">FCFS</th></tr></thead>
+      <tbody>
+        <tr><td>週の平均収益</td><td class="B">19,481.5</td><td>19,111.8</td><td>18,591.1</td><td>18,403.8</td><td>17,839.6</td></tr>
+        <tr><td>使われなかった枠（%）</td><td class="B">3.11</td><td>3.63</td><td>4.05</td><td>4.28</td><td>4.42</td></tr>
+        <tr><td>枠を超えた当日の需要（%）</td><td class="B">9.88</td><td>12.52</td><td>4.94</td><td>2.66</td><td>18.58</td></tr>
+        <tr><td>3 回試みても予約できなかった患者（%）</td><td class="B">0.36</td><td>0.75</td><td>3.83</td><td>4.96</td><td>0.19</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表2　患者が 3 回まで予約を試みるシミュレーションの結果（論文 Table 3 の一部）。</p>
+    <ul class="def">
+      <li><strong>負荷</strong>：通常の患者の負荷を共通の倍率で変えると、H1、H2、FCFS では、需要が容量を少し上回るときに利益が最大になった。患者の選択が確率的なので、予約しない患者が必ず出るためである。</li>
+      <li><strong>主治医へのこだわり</strong>：医師 12 人の例では、医師の負荷がそろっているなら、患者が主治医にこだわるほど利益は上がった。負荷が偏っているときは、こだわりが強すぎると医師どうしで患者を融通できなくなり、利益が下がった。</li>
+      <li><strong>負荷の偏り</strong>：医師の負荷をそろえるほど利益は上がり、その効果は診療所全体の負荷が低いほど大きかった。</li>
+    </ul>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
     <h2>患者が医師と時間帯を選ぶ診療所の予約受付を、収益管理の問題として定式化した初期の代表作である</h2>
     <ul class="def">
-      <li><strong>扱うもの</strong>：当日の依頼と先の予約の枠の取り合い、患者の時間帯と医師の選択。1 件の受診は 1 枠である。</li>
-      <li><strong>美容室の問題への使い方</strong>：美容室にも、当日の飛び込み客と事前予約の客、担当の美容師を指名する客がいる。「指名の客や当日の客のために、空きがしきい値を下回ったら先の予約を断る」という受付の形は、そのまま比較の基準になる（解説者の考え）。違いは、美容室では施術時間によって必要な連続した枠の数が客ごとに違い、空き枠の数だけでなく空きの並び方も受付を左右する点である。</li>
-      <li><strong>関連</strong>：<a href="../feldman-2014/">Feldman ら（2014）</a>と <a href="../wang-fung-2015/">Wang と Fung（2015）</a>は、患者の選択を入れて見せる日や枠を決める方向へ進めた。</li>
+      <li><strong>扱うもの</strong>：当日の依頼と先の予約の枠の取り合い、患者の医師と時間帯の選択、主治医以外にかかる損。1 件の受診は 1 枠で、枠どうしは当日の患者にとって交換可能である。</li>
+      <li><strong>限界</strong>：断られた患者のかけ直しは最適化のモデルに入れず、シミュレーションで確かめるだけである。最適な方策が分かるのは医師が 1 人の場合だけで、医師が複数の場合は構造の一部とヒューリスティックにとどまる。</li>
+      <li><strong>美容室の問題への使い方</strong>：美容室にも、当日の飛び込み客と事前予約の客、担当の美容師を指名する客がいる。H1 のように「美容師ごとの予約数と店全体の予約数で、受ける客を決める」規則は、そのまま比較の基準になる（解説者の考え）。違いは、論文では埋まった枠の数だけで当日の価値が決まるのに対し、美容室では施術時間分の連続した空きが要り、空き枠の並び方も価値を左右する点である。正規形の条件も、ある枠が埋まると前後の開始時刻が使えなくなる美容室では、そのままは成り立たない可能性がある。</li>
+      <li><strong>関連</strong>：<a href="../feldman-2014/">Feldman ら（2014）</a>と <a href="../wang-fung-2015/">Wang と Fung（2015）</a>は、受けるか断るかではなく、どの日や枠を見せるかを決める方向へ進めた。</li>
     </ul>
   </section>
 
@@ -290,7 +326,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1287/opre.1080.0542}
 }</pre>
     </div>
-    <p class="src">要旨と書誌情報にもとづく。本文は未読。要旨、所属、巻・号・ページ、DOI は RePEc（IDEAS）の書誌から取った。</p>
+    <p class="src">ページの数式と数値は、出版版（Operations Research 56(3), 576–592）の PDF による。オンライン付録（証明など）は読んでいない。書誌は論文の PDF の表記から取った。</p>
   </section>
 </main>
 

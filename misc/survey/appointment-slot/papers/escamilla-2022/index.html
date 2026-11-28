@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Escamilla（2022）：入隊検査所の一括到着を、分割シフトや予約制に変えたらどうなるかをシミュレーションで比べる（論文解説）</title>
-<meta name="description" content="A Decision Support Simulation to Analyze Scheduling Alternatives for Applicant Processing at Military Entrance Processing Stations (MEPS)（空軍工科大学の修士論文, 2022）の非公式の解説。全員が朝に一括で到着する現在の受付を、2 回に分けた到着、予約の時間枠、一部の検査を飛ばす優先レーンに変える案を、離散事象シミュレーションで比べる。要旨と書誌情報にもとづく。">
+<meta name="description" content="A Decision Support Simulation to Analyze Scheduling Alternatives for Applicant Processing at Military Entrance Processing Stations (MEPS)（空軍工科大学の修士論文, 2022）の非公式の解説。全員が朝 6 時に一括で到着する現在の受付を、2 回に分けた到着、3〜8 個の予約枠、一部の説明を飛ばす優先レーンに変える案を、Simio の離散事象シミュレーションで比べる。最後の到着枠が 9 時を過ぎると持ち越しが増え、現状維持が最もリスクの小さい選択肢だった。">
 <meta property="og:title" content="Escamilla（2022）：入隊検査所の一括到着を、分割シフトや予約制に変えたらどうなるかをシミュレーションで比べる（論文解説）">
-<meta property="og:description" content="A Decision Support Simulation to Analyze Scheduling Alternatives for Applicant Processing at Military Entrance Processing Stations (MEPS)（空軍工科大学の修士論文, 2022）の非公式の解説。全員が朝に一括で到着する現在の受付を、2 回に分けた到着、予約の時間枠、一部の検査を飛ばす優先レーンに変える案を、離散事象シミュレーションで比べる。要旨と書誌情報にもとづく。">
+<meta property="og:description" content="A Decision Support Simulation to Analyze Scheduling Alternatives for Applicant Processing at Military Entrance Processing Stations (MEPS)（空軍工科大学の修士論文, 2022）の非公式の解説。全員が朝 6 時に一括で到着する現在の受付を、2 回に分けた到着、3〜8 個の予約枠、一部の説明を飛ばす優先レーンに変える案を、Simio の離散事象シミュレーションで比べる。最後の到着枠が 9 時を過ぎると持ち越しが増え、現状維持が最もリスクの小さい選択肢だった。">
 <meta property="og:type" content="article">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -186,12 +186,10 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <li><b>Jonathan M. Escamilla</b><span>Air Force Institute of Technology（指導教員 Phillip M. LaCasse）</span></li>
   </ul>
 
-  <p class="lead">米軍の入隊検査所（MEPS）では、志願者の<span class="A">全員が 1 日の始めに一括で到着</span>し、順に検査を受ける。代わりの受付方法は試行の段階から先に進んでいない。Escamilla は検査所の流れを離散事象シミュレーションで作り、<span class="B">2 回に分けた到着、予約の時間枠、一部の検査を飛ばす優先レーン</span>の 3 つの案を、現状と比べた。</p>
-
-  <p class="src">要旨と書誌情報にもとづく。本文は未読（大学のリポジトリの PDF を取得できなかった）。結論は同じ研究をまとめた学術誌の論文（LaCasse, Champagne, Escamilla, 2024）の要旨から補った。数値の結果と、本文で Lian ら（2010）をどう扱っているかは確認していない。</p>
+  <p class="lead">米軍の入隊検査所（MEPS）では、志願者の<span class="A">全員が朝 6 時に一括で到着</span>し、待ち時間が長くなる。Escamilla は 2019 年度の実データから検査所の離散事象シミュレーションを作り、<span class="B">2 回に分けた到着、3〜8 個の予約枠、一部の説明を飛ばす優先レーン</span>を現状と比べた。分けて到着させる案は待ち時間を減らすように見えるが、最後の到着枠が 9 時を過ぎると、その日のうちに終わらない志願者（持ち越し）が増え、処理人数も減った。結論は、現状維持が最もリスクの小さい選択肢で、優先レーンは DEP の志願者が多い日に使える、というものである。</p>
 
   <div class="links">
-    <a class="btn primary" href="https://scholar.afit.edu/etd/5339">AFIT Scholar（修士論文）</a>
+    <a class="btn primary" href="https://scholar.afit.edu/etd/5339">AFIT Scholar（本文 PDF）</a>
     <a class="btn" href="https://doi.org/10.1177/15485129221134536">学術誌版の DOI（2024）</a>
     <a class="btn" href="#bibtex">BibTeX</a>
   </div>
@@ -201,57 +199,99 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。朝に全員が一括で到着する様子、2回に分けた到着、予約の時間枠、一部の検査を飛ばす優先レーン、学術誌版の要旨にある結論とまとめの5場面。すべて解説者による模式図。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。朝6時に40人が一括で到着する現状、6時と11時の2回に分けた到着と持ち越しの増加、3〜8個の予約枠と9時のしきい値、一部の説明を飛ばす優先レーンと待ち時間の短縮、結論の5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
       <span class="tdots"></span>
-      <span>論文を40秒で（解説者による模式図。要旨にもとづく）。音声なし。</span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
     </figcaption>
   </figure>
 
   <ul class="points">
-    <li><span class="k">現状は朝の一括到着</span><span class="d">志願者は全員、検査の日の始めに 1 つの集団として到着する。代わりの方法は試行より先に進んでいない。</span></li>
-    <li><span class="k">3 つの案を離散事象シミュレーションで比較</span><span class="d">2 回に分けた到着（分割シフト）、予約の時間枠、一部の検査を飛ばす優先レーンを、複数の指標で現状と比べる。</span></li>
-    <li><span class="k">分割シフトは処理人数が足りない</span><span class="d">学術誌版の要旨では、6 時と 11 時の 2 回に分けると処理できる人数が受け入れられない水準まで下がる。予約制の結果は時間枠の間隔と到着時刻しだいで分かれた。</span></li>
+    <li><span class="k">最後の到着枠は 9 時まで</span><span class="d">予約枠の最後が 9 時より後になる案では、持ち越しが増え、処理できる人数が減った。今の運用のままでは、9 時以降の到着を受ける予約制は成り立たないと著者は述べる。</span></li>
+    <li><span class="k">分割シフトで持ち越しが 7.5〜10.5 人増</span><span class="d">大規模の検査所で 6 時と 11 時に分けると、持ち越しは現状より 7.52〜10.54 人多く、DEP の志願者の処理数は平均 8〜12 人少なかった（95% 信頼区間、論文 Table 4.3 と §4.6）。</span></li>
+    <li><span class="k">優先レーンは待ち時間を 64〜78 分短縮</span><span class="d">一括到着のまま 25% の DEP の志願者に説明を飛ばさせると、大規模の検査所で DEP の待ち時間が 64〜78 分短くなり、持ち越しは現状と同じかそれ以下だった（§4.10、Table 4.3）。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>入隊検査所は志願者を朝にまとめて受け入れており、代わりの方法を評価する一般的なモデルがなかった</h2>
-    <p>米軍の入隊処理司令部（USMEPCOM）は国防長官府の下の機関で、志願者が入隊できるかを判定する。その現場が入隊検査所（MEPS）で、志願者は 1 日の始めに一括で到着し、いくつもの検査の窓口を順に回る。代わりの受付方法は試行されたが、その先には進んでいない。要旨はその理由の 1 つとして、提案された方法が業務にどう影響するかを判断する一般的なモデルが司令部にないことを挙げる。</p>
+    <h2>入隊検査所は志願者を朝にまとめて受け入れて待ち時間が長く、代わりの方法を評価するモデルがなかった</h2>
+    <p>米軍の入隊処理司令部（USMEPCOM）は、全国 65 か所の入隊検査所（MEPS）で、適性検査、健康診断、入隊の手続きを行う。志願者は 1 日の始めに 1 つの集団で到着し、いくつもの窓口を順に回る。この方法は機能しているが、志願者の待ち時間が長い。分割シフトや予約制などの代案は話し合われてきたが、試行の段階から先に進んでいない。理由の 1 つは、案が業務にどう影響するかを評価できる、検査所の流れ全体のモデルがなかったことである。過去の検査所のシミュレーション（Feo ら 1992、Maurina と Chakravarthy 2015）は、今の運用の意思決定に使える形ではなかった。</p>
+    <p>修士論文はどの検査所の規模にも使える汎用の意思決定支援モデルを作り、受付方法の代案を比べることを目的とする。DEP（入隊を約束して後日に基礎訓練へ行く志願者）と Ship（手続きを終えるとそのまま基礎訓練へ向かう志願者）を中心に、1 日の処理をシミュレーションする。</p>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>検査所の流れを離散事象シミュレーションで再現し、到着のさせ方と窓口の通り方を変えた案を比べる</h2>
-    <p>修士論文は検査所での志願者の処理を離散事象シミュレーションで作り、意思決定の支援に使えるようにした。比べる案は次の 3 つである（定義の細部は学術誌版の要旨による）。</p>
+    <h2>6 時に始まり 16 時 30 分に終わる 1 日を再現し、終わらなかった志願者を持ち越しとして数える</h2>
+    <p>モデルは Simio で作った離散事象シミュレーションで、小・中・大の 3 つの規模の検査所を表せる。処理は 6 時に始まり、16 時 30 分の時点で終わっていない志願者は「持ち越し（holdover）」として列から外し、数える（入隊業務の連絡官の窓口だけは 16 時 45 分）。持ち越した志願者は別の日にもう一度来なければならない。</p>
     <ul class="def">
-      <li><strong>分割シフト</strong>：志願者を 6 時と 11 時の 2 回に分けて到着させる。</li>
-      <li><strong>予約制</strong>：志願者を 3、4、6、8 個のいずれかの予約の時間枠に分けて到着させる。</li>
-      <li><strong>優先レーン</strong>：一部の志願者が選んだ検査の窓口を飛ばせるようにする。</li>
+      <li><strong>3 つの部門</strong>：適性検査、健康診断、業務（各軍の連絡官を含む）。健康診断は性別や志願者の種類で流れが分かれ、いくつかの作業は集団でまとめて行う。</li>
+      <li><strong>志願者の種類と優先度</strong>：Ship（優先度 1）、当日処理（2）、特定日の志願者（3）、DEP（4）、夜間の適性検査（5）。数の小さいほうが窓口で先に処理される。DEP と Ship は 6 時に一括で生成する。</li>
+      <li><strong>データ</strong>：USMEPCOM の情報システム USMIRS の 2019 年度（2018 年 10 月〜2019 年 9 月）の 4,724,647 件の記録。各部門の出入りの時刻はあるが、部門内の個々の作業の時間はない。よく知られた分布は当てはまりが悪く（たとえば Weibull 分布のカイ二乗検定で p = 0.005）、経験分布を使った。部門内の作業は人員計画のモデルと海軍大学院の修士論文（Linton 2021）の値で補った。</li>
+      <li><strong>仮定</strong>：週 5 日の通常の業務時間で、無断キャンセル（予定の志願者が来ないこと）は 0 とする。昼休みは待ち時間の中に含まれるとみなす。</li>
+      <li><strong>検証</strong>：DEP や Ship が最も多かった日（MAXDEP、MAXShip）を USMEPCOM の実績と比べた。中規模の検査所の MAXDEP では、モデルの滞在時間は実績より DEP で 5〜22 分、Ship で 3〜5 分短かったが、10 時間の処理日の中では小さい差として、モデルは妥当と判断された。乱数は 120 本の系列に分けた共通乱数法で、案どうしの比較の誤差を抑えた。</li>
     </ul>
-    <p>各案の結果を複数の評価指標で現状の基準と比べる。どの指標を使ったか、何回の反復で評価したか、どのデータでモデルを作ったかは、要旨には書かれていない。</p>
+  </section>
+
+  <section id="method">
+    <div class="kicker">比べた案</div>
+    <h2>DEP の志願者の到着のさせ方を、1 回・2 回・3〜8 回の予約枠と優先レーンの組み合わせで変える</h2>
+    <p>Ship の志願者の数と到着は変えず、DEP の到着の回数と間隔だけを変える。DEP が多い日（HeavyDEP）と Ship が多い日（HeavyShip）のそれぞれで、1 日の処理を比べた。予約枠は Gupta と Denton（2008）のブロック予約の考え方で組んだ。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>案</th><th>DEP の到着</th><th>枠の間隔</th><th>大規模の HeavyDEP の到着数（DEP, Ship）</th></tr></thead>
+      <tbody>
+        <tr><td class="A">現状</td><td>1 回（6 時）</td><td>—</td><td>(40, 8)</td></tr>
+        <tr><td class="B">優先レーン 1・2（Alt1、Alt2）</td><td>1 回</td><td>—</td><td>(30, 8)＋優先レーン 10</td></tr>
+        <tr><td>分割シフト（Alt3）</td><td>2 回（6 時、11 時）</td><td>300 分</td><td>1 回あたり (20, 8)</td></tr>
+        <tr><td>分割シフト＋優先レーン（Alt4、Alt5）</td><td>2 回</td><td>300 分</td><td>(15, 8)＋優先レーン 5</td></tr>
+        <tr><td>予約制 3 枠（Alt6）</td><td>3 回</td><td>120 分</td><td>(13, 8)</td></tr>
+        <tr><td>予約制 4 枠（Alt7）</td><td>4 回</td><td>60 分</td><td>(10, 8)</td></tr>
+        <tr><td>予約制 6 枠（Alt8）</td><td>6 回</td><td>45 分</td><td>(7, 8)</td></tr>
+        <tr><td>予約制 8 枠（Alt9）</td><td>8 回</td><td>平均 30 分の指数分布</td><td>(5, 8)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　比べた案（論文 Appendix C と Appendix F）。予約制の到着数は 1 枠あたりの人数。ほかに、医療技術者の午前と午後の配置を 10/90、70/30、90/10 に変える 3 案もある（基準は 50/50）。</p>
+    <ul class="def">
+      <li><strong>優先レーン</strong>：DEP の志願者の 25% を優先レーンの志願者とし、優先レーン 1 は司令官の説明を、優先レーン 2 は司令官の説明と健康診断の説明の両方を飛ばして、健康診断へ直接進ませる。USMEPCOM が 2018 年に提案した優先レーンの取り組み（HDHC ELANE）をまねた案である。</li>
+      <li><strong>最後の枠の時刻</strong>：分割シフトの 2 回目は 11 時、予約制の最後の枠は 3 枠で 10 時、4 枠で 9 時、6 枠で 9 時 45 分、8 枠で 9 時 30 分になる。</li>
+      <li><strong>比較の方法</strong>：各案を 15 回反復して始め、すべての指標で相対誤差が 5% になるまで反復を足した。現状を基準に、Bonferroni 法の 95% 同時信頼区間で比べる。指標は持ち越しの数、処理人数、滞在時間、健康診断部門での時間、待ち時間、職員の稼働率など。</li>
+    </ul>
   </section>
 
   <section id="results">
-    <div class="kicker">結論（要旨より）</div>
-    <h2>分割シフトは処理できる人数が減りすぎて今のモデルでは成り立たず、予約制の効果は時間枠の間隔と到着時刻しだいだった</h2>
+    <div class="kicker">実験の結果</div>
+    <h2>分けて到着させると待ち時間は減るが、9 時より後に来る志願者が終わらずに持ち越しが増え、処理人数も減った</h2>
+    <figure>
+      <img src="assets/fig1_holdovers_table.png" alt="Table of 95% Bonferroni confidence intervals for the difference in number of holdovers versus the current policy, HeavyDEP scenario, for large, medium and small MEPS. Two-window alternatives (Alt3 to Alt5) are red (worse) in all sizes, with large MEPS intervals of 7.52 to 10.54 for Alt3. The single-window express lane alternatives Alt1 and Alt2 are green or no difference. Appointment alternatives Alt6 to Alt9 are mostly red." loading="lazy">
+      <figcaption>図1　DEP が多い日の持ち越しの数の、現状との差の 95% 同時信頼区間（赤は現状より悪い、緑は現状よりよい、白は差なし）。論文の Table 4.3 より。</figcaption>
+    </figure>
     <ul class="def">
-      <li><strong>分割シフト</strong>：処理できる志願者の数が受け入れられない水準まで下がるので、現在のモデルの下では実行可能ではない。</li>
-      <li><strong>予約制</strong>：結果はまちまちで、鍵になるのは予約の集団どうしの間隔と、それぞれの到着時刻である。</li>
-      <li><strong>優先レーン</strong>：要旨の範囲では、結論は確認できなかった。</li>
+      <li><strong>持ち越し</strong>：2 回に分ける案（Alt3〜Alt5）は、すべての規模で持ち越しが大きく増えた。分割シフトでは現状より大規模で 7.52〜10.54 人、中規模で 6.09〜8.28 人、小規模で 2.17〜3.33 人多い。分割シフトに優先レーンを加えても、平均で 1〜3 人多く持ち越す。一括到着の優先レーン（Alt1、Alt2）は、大規模で持ち越しが減り、中・小規模では現状と差がないか少ない。</li>
+      <li><strong>9 時のしきい値</strong>：最後の枠が 10 時の 3 枠の予約制は、すべての規模で持ち越しが増えた。著者は、今の運用では 9 時より後の到着を受ける予約制は、持ち越しの大幅な増加なしには支えられないと結論する。</li>
+      <li><strong>処理人数</strong>：Ship の処理人数はどの案でも変わらなかった。DEP の処理人数は 2 回に分けると大規模で平均 8〜12 人、中規模で 7〜8 人、小規模で 2〜3 人減った。4・6・8 枠の予約制は大・中規模では現状と差がなく、小規模で平均 1〜2 人減った。</li>
     </ul>
-    <p class="src">この節の結論は学術誌版（LaCasse, Champagne, Escamilla, Journal of Defense Modeling and Simulation 21(2), 2024）の要旨による。修士論文の要旨には結論の記述がない。数値の結果は本文を読めていないので載せていない。</p>
+    <figure>
+      <img src="assets/fig2_dep_throughput.png" alt="Interval plot of DEP total throughput by alternative for large (blue), medium (red) and small (green) MEPS, HeavyDEP scenario. The two-window alternatives Alt3, Alt4 and Alt5 sit clearly below the baseline for large and medium MEPS; the express lane and most appointment alternatives overlap the baseline." loading="lazy">
+      <figcaption>図2　DEP が多い日の DEP の志願者の処理人数（青：大規模、赤：中規模、緑：小規模。区間は 95% の対比較の信頼区間）。論文の Figure 4.4 より。</figcaption>
+    </figure>
+    <ul class="def">
+      <li><strong>滞在時間と待ち時間</strong>：DEP が多い日には、どの案も DEP の滞在時間と待ち時間を減らした。ただし分割シフトや予約制で減ったのは、遅く来た志願者が 16 時 30 分に外されるためで、見かけの改善だと著者は注意する。持ち越しの増えない一括到着の優先レーンでは、DEP の待ち時間が大規模で 64〜78 分、中規模で 45〜60 分、小規模で 90〜107 分短くなった。滞在時間の短縮は優先レーン 1 で大規模 35〜64 分、優先レーン 2 ではすべての規模で 1 時間を超えた。</li>
+      <li><strong>Ship が多い日</strong>：予約制では、DEP の健康診断部門での時間が現状より 10.5〜43 分長くなり、中規模の 3 枠と 4 枠の予約制では DEP の待ち時間が 23〜41 分、18〜36 分増えた。</li>
+      <li><strong>職員の稼働率</strong>：予約制は大・中規模で職員の稼働率を上げる。2 回に分ける案では、医師の稼働率が中規模で 1〜4%、小規模で 9〜13% 下がった。5 時間あく到着の間に、医師の前の列がなくなるためである。</li>
+    </ul>
+    <p>著者の結論は、一括到着を続けることが最もリスクが小さく最良の選択肢である、というものである。処理人数を最大にする点で現状を上回る案はなく、Ship が多い日には持ち越しを最も少なくするのも現状だった。優先レーンは実行可能で、DEP の志願者が多い日に勧められる。分割シフトと 3〜8 枠の予約制は今の運用のままでは勧めない。導入するなら、9 時のしきい値を設けても、運用の調整が必要になるとしている。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>一括到着から予約制への切り替えを、現場のシミュレーションで事前に確かめる研究である</h2>
+    <h2>Lian らの予約表の断片化を文献の章で取り上げるが、実験では使わず、到着の枠の数と時刻を比べる研究である</h2>
     <ul class="def">
-      <li><strong>リストでの扱い</strong>：このリストでは<a href="../lian-2010/">Lian ら（2010）</a>を引用する研究の 1 つとして挙げている。本文を読めていないので、Lian らの schedule defragmentation をどの文脈で引いているかは確認できていない。</li>
-      <li><strong>美容室の予約との違い</strong>：ここで決めるのは、1 日の到着をいくつの時間枠に分けるかという受付の設計で、個々の予約をどの空きに入れるかではない。予約表の空きの断片化も扱わない。</li>
-      <li><strong>使えるところ</strong>：時間枠の数と間隔を変えると処理人数と混雑がどう動くかを、導入前にシミュレーションで比べる、という評価の手順は参考になる。分割シフトのように、到着を分ける案が処理人数を減らすことがある点も、受入率の指標を設計するときに意識しておきたい。</li>
+      <li><strong>Lian ら（2010）の扱い</strong>：文献の章（§2.3）で 1 段落を割いて紹介する。予約表に細切れの空きがあると新しい受付を入れにくく、職員の稼働率も下がる。検査所が予約制にして予約表が断片化すれば、飛び込みの志願者を受けられない恐れがある。著者は、Lian らの研究が予約枠を割り当てて断片化を減らすための「手引き」になると書く。さらに、断片化の解消は飛び込みやオンライン予約を受け、予約の長さがいろいろな診療所で最も役立つという Lian らの結論を引き、飛び込みの志願者がいて、種類と性別で処理時間が違う検査所も「理論上は」恩恵を受けうると述べる。USMEPCOM の優先レーンの手順書が取り入れた文献の 1 つとしても名前を挙げる。ただし、シミュレーションの案には断片化の解消を入れておらず、予約枠は Gupta と Denton のブロック予約で組んでいる。<a href="../lian-2010/">Lian ら（2010）の解説</a>も参照。</li>
+      <li><strong>美容室の予約との対応</strong>：決めるのは 1 日の到着をいくつの枠に分け、最後の枠を何時にするかで、個々の予約をどの空きに入れるかではない。それでも、閉店時刻（ここでは 16 時 30 分）から逆算して、最後の受付をいつまでにするかで終わらない客が増える、という結果は、施術時間の長い予約を営業時間の終わりに入れられるかという問題と同じ形をしている。</li>
+      <li><strong>使えるところ</strong>：待ち時間だけを指標にすると、遅く来た人が外されることで改善したように見えるという注意は、受入率の指標を設計するときにも当てはまる。待ち時間や滞在時間と、断った数（持ち越し）や処理人数を一緒に見る必要がある。</li>
     </ul>
   </section>
 
@@ -269,7 +309,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   url    = {https://scholar.afit.edu/etd/5339}
 }</pre>
     </div>
-    <p class="src">書誌情報は AFIT Scholar の論文ページ（授与 2022 年 3 月、Department of Operational Sciences、AFIT の番号 AFIT-ENS-MS-22-M-124）から取った。本文は未読で、要旨と書誌情報にもとづく。結論の一部は学術誌版の要旨（scholar.afit.edu/facpub/1045、DOI 10.1177/15485129221134536）から取った。</p>
+    <p class="src">ページの内容と数値は、AFIT Scholar で公開されている修士論文の PDF（AFIT-ENS-MS-22-M-124、2022 年 3 月）の本文による。図 1 と図 2 は同じ PDF から切り出した。同じ研究をまとめた学術誌版（LaCasse, Champagne, Escamilla, Journal of Defense Modeling and Simulation 21(2), 2024、DOI 10.1177/15485129221134536）は要旨だけを読んだ。学術誌版の要旨は予約制の結果を「まちまち」と書くが、修士論文の結論は予約制を勧めないとしている。</p>
   </section>
 </main>
 

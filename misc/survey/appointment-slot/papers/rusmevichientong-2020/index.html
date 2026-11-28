@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rusmevichientong ら（2020）：ランダムな時間だけ使われて戻る商品の品揃えを動的に決める（論文解説）</title>
-<meta name="description" content="Dynamic Assortment Optimization for Reusable Products with Random Usage Durations（Management Science, 2020）の非公式の解説。顧客が提示された品揃えから商品を選び、ランダムな時間使って返すとき、価値関数の線形近似にもとづく方策で最適な期待収益の 50% 以上を保証する。要旨と書誌情報にもとづく。">
+<meta name="description" content="Dynamic Assortment Optimization for Reusable Products with Random Usage Durations（Management Science, 2020）の非公式の解説。顧客が提示された品揃えから商品を選び、ランダムな時間使って返すとき、在庫 1 単位ごとの価値を後ろ向きに計算する線形近似と、静的な方策へのロールアウトで、最適な期待収益の 50% 以上を保証する方策を作る。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Rusmevichientong ら（2020）再利用される商品の動的な品揃えの解説">
 <meta property="og:description" content="利用時間がランダムな再利用商品の品揃えに、最適な期待収益の 50% 以上を保証する方策を示す。非公式の解説。">
@@ -16,8 +16,8 @@
 /* =====================================================================
    PAPER PROJECT PAGE (unofficial explainer, Japanese only)
    Layout : one left-aligned column. Prose 42rem, figures 62rem.
-   Colour : --a (orange) = the exact dynamic programme and its high-dimensional state
-            --b (blue)   = the tractable policies (linear value-function approximation, rollout) and their guarantees
+   Colour : --a (orange) = the exact dynamic programme, its high-dimensional state, and the benchmarks
+            --b (blue)   = the paper's policies (greedy on linear value functions, rollout) and their results
    Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
    ===================================================================== */
 :root {
@@ -190,16 +190,15 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <p class="subtitle">利用時間がランダムな再利用商品の動的な品揃えの最適化</p>
 
   <ul class="authors">
-    <li><b>Paat Rusmevichientong</b></li>
-    <li><b>Mika Sumida</b></li>
-    <li><b>Huseyin Topaloglu</b></li>
+    <li><b>Paat Rusmevichientong</b><span>Marshall School of Business, University of Southern California</span></li>
+    <li><b>Mika Sumida</b><span>School of ORIE, Cornell Tech</span></li>
+    <li><b>Huseyin Topaloglu</b><span>School of ORIE, Cornell Tech</span></li>
   </ul>
 
-  <p class="lead">レンタルや駐車場のように、顧客が商品を選んでランダムな時間使い、使い終わると返す場面では、誰に何を見せるかがその後に貸せる在庫を左右する。<span class="A">動的計画法でそのまま解く</span>には、手元の在庫と使用中の商品をすべて状態に持つ必要があり、状態の次元が高すぎる。Rusmevichientong らは、<span class="B">価値関数の線形近似</span>にもとづく計算できる方策を作り、最適な期待収益の 50% 以上を保証した。</p>
+  <p class="lead">クラウドの計算資源、服のレンタル、駐車場のように、顧客が商品を選んでランダムな時間使い、使い終わると返す場面では、誰に何を見せるかがその後に貸せる在庫を左右する。<span class="A">動的計画法でそのまま解く</span>には、手元の在庫と、何期使われているかごとの使用中の数をすべて状態に持つ必要があり、状態の数が多すぎる。Rusmevichientong らは、<span class="B">在庫 1 単位ごとの価値を後ろ向きに計算する線形近似と、それにもとづく静的な方策へのロールアウト</span>で、最適な期待収益の 50% 以上を保証する方策を作った。シアトルの駐車場のデータでは、ロールアウトの方策の収益が固定価格より平均 4.3% 高かった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1287/mnsc.2019.3346">論文（DOI）</a>
-    <a class="btn" href="https://par.nsf.gov/biblio/10172517">NSF PAR</a>
     <a class="btn" href="#bibtex">BibTeX</a>
   </div>
 </header>
@@ -208,7 +207,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。顧客が提示された品揃えから選び、使って返す様子、手元の在庫と使用中の商品の両方を持つ高次元の状態、価値関数の線形近似とロールアウトによる方策、要旨が示す 3 つの保証、まとめの5場面。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。顧客が提示された品揃えから選び、使って返す様子、手元の在庫と使用期間ごとの使用中の数を持つ高次元の状態、在庫 1 単位を独立に扱う線形近似とロールアウト、計算実験でのロールアウトの方策の収益の増加率、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
@@ -217,49 +216,104 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     </figcaption>
   </figure>
 
-  <p class="src">要旨と書誌情報にもとづく。本文は未読。要旨は出版社（INFORMS）のページ、書誌情報は Crossref の記録から取った。モデルの記号、方策の具体的な形、実験の数値は確認できていない。</p>
-
   <ul class="points">
-    <li><span class="k">最適な期待収益の 50% 以上</span><span class="d">価値関数の線形近似にもとづく、計算できる方策で保証する（要旨）。</span></li>
-    <li><span class="k">ロールアウトでも 50% 以上</span><span class="d">利用時間が無限（買い切り）か負の二項分布のとき、簡単な静的な方策へのロールアウトが効率よく計算でき、同じ保証を持つ（要旨）。</span></li>
-    <li><span class="k">在庫が多いと最適に近づく</span><span class="d">利用時間が無限のとき、ロールアウトの変種の最適値に対する収益の比は 1 に近づき、その速さは最小の在庫量の立方根で決まる（要旨）。</span></li>
+    <li><span class="k">最適な期待収益の 50% 以上</span><span class="d">線形の価値関数の近似に対する貪欲な方策（定理 3.2）と、静的な方策へのロールアウト（4.2 節）の両方が、最適な方策の期待収益の半分以上を保証する。</span></li>
+    <li><span class="k">在庫 1 単位を独立に扱って価値を計算</span><span class="d">1 単位の商品が各期に需要を受ける確率を \(\phi^t_i(\hat A^t)/C_i\) とみなし、手元にある単位と \(\ell\) 期使われている単位の価値を後ろ向きの漸化式で求める。</span></li>
+    <li><span class="k">駐車場の価格で固定価格より +4.3%</span><span class="d">シアトルの路上駐車のデータから作った 12 の問題で、ロールアウトの方策の収益は 1 つの固定価格より平均 4.3%、線形近似の方策より平均 2.0% 高かった（論文 Table 2）。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
     <h2>再利用される商品の品揃えでは、いま貸した商品が返るまでのあいだ、ほかの顧客に見せられる在庫が減る</h2>
-    <p>品揃えの最適化は、顧客が提示された商品の中から選択モデルに従って選ぶとき、どの商品の集合を見せるかを決める問題である。在庫が限られていると、いま人気の商品を見せて売り切るか、あとの顧客のために見せずに残すかの判断が要る。再利用される商品（レンタル品、駐車場の区画など）では、貸した商品はランダムな時間ののちに戻り、また貸せる。このため在庫は減る一方ではなく、使用中の商品がいつ戻るかまで考える必要がある。</p>
+    <p>品揃えの最適化は、顧客が提示された商品の中から選択モデルに従って選ぶとき、どの商品の集合を見せるかを決める問題である。在庫が限られていると、いま人気の商品を見せて売り切るか、あとの顧客のために見せずに残すかの判断が要る。論文はクラウドの計算資源、服のレンタル、トランクルーム、路上駐車のように、商品が使われたあとに戻ってまた貸せる場面を扱う。この場合、手元の在庫だけでなく、使用中の商品がいつ戻るかまで考える必要がある。</p>
+    <p>先行研究との違いとして論文は次を挙げる。<a href="../levi-2010/">Levi と Radovanović（2010）</a>は顧客の選択を扱わず、状態を見ない静的な方策を解析した。Owen と Simchi-Levi（2017）は選択を入れたが、利用時間を指数分布とし、在庫のない商品も提示しうる静的な方策で \(1/e\) 倍を保証した。この論文は一般の選択モデル、時期で変わる料金、任意の利用時間の分布を許し、状態を見て判断する方策に保証をつける。予約を前もって受けることは扱わない。</p>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>顧客が来るたびに品揃えを決め、有限の販売期間の期待収益の合計を最大にする</h2>
-    <p>要旨によれば、顧客は順に来て、提示された品揃えから 1 つを選び、ランダムな時間使ったあと返す。目的は有限の販売期間の期待収益の合計を最大にする品揃えの方策を見つけることである。動的計画法で書くと、状態は手元の在庫と、いま使われている商品の両方を含み、次元が高くなる。利用時間が無限の場合は、顧客が商品を買い取って返さない、ふつうの在庫つきの品揃えの問題に当たる。</p>
+    <h2>状態は「手元の数」と「何期使われているかごとの使用中の数」で、その次元の高さが動的計画法を難しくする</h2>
+    <p>商品が \(n\) 種類あり、商品 \(i\) の在庫は \(C_i\) 単位である。販売期間は \(T\) 期で、各期に顧客が 1 人来る。品揃え \(S\) を提示すると、期 \(t\) の顧客は商品 \(i\) を確率 \(\phi^t_i(S)\) で選ぶ。借りた顧客は最初に \(r^t_i\) を払い、使っている各期に \(\pi^t_i\) を払う。利用時間は商品ごとの分布に従い、\(\ell\) 期使われた単位が次の期に返る確率（ハザード率）を \(\rho_{i,\ell}\) と書く。</p>
+    <ul class="def">
+      <li><strong>状態</strong>：\(q_{i,0}\) は商品 \(i\) の手元の数、\(q_{i,\ell}\)（\(\ell \ge 1\)）はちょうど \(\ell\) 期使われている数である。使用中の各単位は確率 \(\rho_{i,\ell}\) で返るので、次の期の状態は二項分布で決まる。</li>
+      <li><strong>動的計画法</strong>：価値関数 \(J^t(q)\) は使用中の単位からの賃料と、品揃えの選択の最大化で書ける（論文の式 (3)）。顧客が商品 \(i\) を借りると、その単位は確率 \(1-\rho_{i,0}\) で次の期にも使用中になる。そのときの価値の差 \(\mathbb{E}\{J^{t+1}(X(q)) - J^{t+1}(X(q)-e_{i,0}+e_{i,1})\}\) が、1 単位を貸すことの機会費用である。</li>
+      <li><strong>仮定</strong>：商品を足しても既存の商品が選ばれる確率は上がらない（代替性）。提示できる集合の部分集合も提示できる。この仮定のもとでは、最適な方策は在庫のない商品を提示しない。多項ロジットや入れ子ロジットなど、ランダム効用最大化にもとづくモデルはこれを満たす。</li>
+    </ul>
+    <p>状態の数は \(n\) と \(T\) について指数的に増えるので、最適な方策を求めるのは難しい。</p>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>価値関数を線形関数で近似すると計算できる方策が得られ、特別な利用時間の分布ではロールアウトでさらに改善できる</h2>
+    <h2>在庫 1 単位ずつの価値を後ろ向きに計算し、それを機会費用として品揃えを選ぶと、最適の半分以上が保証される</h2>
+    <p>3 節では価値関数を状態の線形関数で近似する。</p>
+    <div class="eq">\[ \hat J^t(q) = \sum_{i}\sum_{\ell \ge 0} \hat\nu^t_{i,\ell}\, q_{i,\ell} \]</div>
+    <p>\(\hat\nu^t_{i,0}\) は手元の 1 単位の価値、\(\hat\nu^t_{i,\ell}\) は \(\ell\) 期使われている 1 単位の価値である。期 \(T\) から後ろ向きに、まず在庫を無視した「理想の品揃え」を求める。</p>
+    <div class="eq">\[ \hat A^t = \arg\max_{S} \sum_i \phi^t_i(S)\Big[r^t_i + \pi^t_i - (1-\rho_{i,0})\big(\hat\nu^{t+1}_{i,0} - \hat\nu^{t+1}_{i,1}\big)\Big] \]</div>
+    <p>次に、1 単位が期 \(t\) に需要を受ける確率を \(\phi^t_i(\hat A^t)/C_i\) として、手元の単位の価値を更新する。</p>
+    <div class="eq">\[ \hat\nu^t_{i,0} = \frac{\phi^t_i(\hat A^t)}{C_i}\Big[r^t_i + \pi^t_i + \rho_{i,0}\hat\nu^{t+1}_{i,0} + (1-\rho_{i,0})\hat\nu^{t+1}_{i,1}\Big] + \Big(1 - \frac{\phi^t_i(\hat A^t)}{C_i}\Big)\hat\nu^{t+1}_{i,0} \]</div>
+    <p>使用中の単位の価値は \(\hat\nu^t_{i,\ell} = \pi^t_i + \rho_{i,\ell}\hat\nu^{t+1}_{i,0} + (1-\rho_{i,\ell})\hat\nu^{t+1}_{i,\ell+1}\) である。論文はこれを、各単位を独立に管理する（顧客を \(C_i\) 単位のどれかに等確率で振り分ける）方策の期待収益と解釈する。その方策自体は使わず、価値の近似にだけ使う。</p>
+    <svg class="fig" viewBox="0 0 640 230" role="img" aria-label="在庫 1 単位の状態の流れ。手元の単位は確率 φ/C で貸し出され、ℓ 期使われた単位は確率 ρ_ℓ で手元に戻り、確率 1−ρ_ℓ で ℓ+1 期目に進む。">
+      <g font-size="15" text-anchor="middle">
+        <rect x="30" y="80" width="120" height="56" rx="10" fill="#E7EEFC" stroke="#1D4ED8" stroke-width="2"/>
+        <text x="90" y="106" fill="#1D4ED8" font-weight="600">手元</text><text x="90" y="126" fill="#16202E">価値 ν₀</text>
+        <rect x="250" y="80" width="120" height="56" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.6"/>
+        <text x="310" y="106" fill="#16202E" font-weight="600">1 期使用中</text><text x="310" y="126" fill="#16202E">価値 ν₁</text>
+        <rect x="470" y="80" width="120" height="56" rx="10" fill="#fff" stroke="#16202E" stroke-width="1.6"/>
+        <text x="530" y="106" fill="#16202E" font-weight="600">ℓ 期使用中</text><text x="530" y="126" fill="#16202E">価値 ν_ℓ</text>
+        <path d="M150 100 H246" stroke="#1D4ED8" stroke-width="2" fill="none"/><path d="M240 95 L248 100 L240 105" fill="#1D4ED8"/>
+        <text x="198" y="90" fill="#1D4ED8">確率 φ/C</text>
+        <path d="M370 100 H466" stroke="#16202E" stroke-width="1.6" fill="none" stroke-dasharray="5 4"/><path d="M460 95 L468 100 L460 105" fill="#16202E"/>
+        <text x="418" y="90" fill="#5B6676">1−ρ で次へ</text>
+        <path d="M530 136 C 530 200, 90 200, 90 140" stroke="#5B6676" stroke-width="1.6" fill="none"/><path d="M85 146 L90 138 L95 146" fill="#5B6676"/>
+        <text x="310" y="214" fill="#5B6676">確率 ρ_ℓ で返却され手元に戻る</text>
+        <text x="320" y="40" fill="#16202E">貸すたびに r + π、使用中は毎期 π を得る</text>
+      </g>
+    </svg>
+    <p class="src">図1　線形近似が想定する在庫 1 単位の状態の流れ（解説者による模式図。論文の式 (6) とその説明を図にした）。</p>
     <ul class="def">
-      <li><strong>線形近似</strong>：最適な価値関数の線形近似にもとづいて方策を作る。計算でき、最適な期待収益の 50% 以上を保証する。</li>
-      <li><strong>ロールアウト</strong>：利用時間が無限か負の二項分布のときは、簡単な静的な方策を基にしたロールアウト（今の判断のあとは基の方策に従うとして価値を見積もる方法）が効率よく計算できる。これは分離可能な非線形の価値関数の近似に当たり、やはり 50% 以上を保証する。</li>
-      <li><strong>漸近的な最適性</strong>：利用時間が無限のとき、ロールアウトの変種の収益は、最小の在庫量 \(C_{\min}\) が大きくなると最適値に近づく。その速さは \(C_{\min}\) の立方根で決まる。</li>
+      <li><strong>貪欲な方策</strong>：毎期、在庫のある商品の中から、\(r^t_i + \pi^t_i - (1-\rho_{i,0})(\hat\nu^{t+1}_{i,0} - \hat\nu^{t+1}_{i,1})\) を収益とみなした期待収益が最大の品揃えを提示する。最適の 50% 以上を保証する（定理 3.2）。ただし、在庫が 1 単位でもあれば、提示するかどうかは在庫の量によらない。</li>
+      <li><strong>ロールアウト</strong>：在庫によらず毎期 \(\hat A^t\) を提示する静的な方策も 50% 以上を保証する（補題 4.1）。その価値関数は商品ごとに分かれる（補題 4.2）。各期に「今の判断のあとは静的な方策に従う」として最良の品揃えを選ぶと、在庫の量を見た判断になり、保証も保たれる。</li>
+      <li><strong>計算できる場合</strong>：利用時間が負の二項分布 \(1+\mathrm{NegBin}(s_i,\eta_i)\) なら、状態は「何回不満を感じたか」ごとの利用者数の \(s_i\) 次元で済み、\(s_i\) が小さければ計算できる。利用時間が無限（買い切り）なら状態は手元の数だけになる。</li>
+      <li><strong>買い切りの場合の強い保証</strong>：最小の在庫を \(C_{\min}\)、初期料金の時期による変動の最大比を \(R\) とすると、調整したロールアウトは最適の \(\max\{1/2,\ 1 - R/(2\sqrt[3]{C_{\min}})\}\) 倍以上を得る。\(C_{\min}=100\)、\(R=1\) なら 89% である。</li>
     </ul>
-    <p>近似の具体的な形と保証の証明は本文を読めておらず、このページでは書けない。</p>
+    <p>将来の到着を無視する近視眼的な方策はいくらでも悪くなりうることも、付録で例を示している。</p>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>シミュレーションとシアトルの駐車場のデータで、方策は保証よりはるかに良く、ロールアウトで収益がはっきり上がった</h2>
-    <p>要旨によれば、実験は合成データと、シアトルの駐車場の実際の取引データで行った。方策の実際の性能は性能保証の 50% を大きく上回り、ロールアウトで目に見える改善があったとされる。具体的な数値は本文を読めておらず、載せていない。</p>
+    <h2>買い切りの品揃えでも駐車場の価格づけでも、ロールアウトの方策は比べた方策の中で最も強い部類に入った</h2>
+    <p>1 つ目の実験は買い切り（利用時間が無限）の品揃えで、商品 6、顧客の型 6、\(T=300\)、多項ロジットの 12 問題である。選り好みする型ほど遅く来るように到着を作り、在庫を守る判断が要る設定にした。比べたのは、貪欲な方策（GR）、<span class="B">ロールアウト（RO）</span>、入札価格（BP）、LP の解から品揃えを抽出する方法（OS）、動的計画法の分解（DC）、近視眼的な方策（MY）、在庫に応じて収益を割り引く方法（IB、Golrezaei ら 2014）である。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>比べた相手</th><th>GR</th><th>BP</th><th>OS</th><th>DC</th><th>MY</th><th>IB</th></tr></thead>
+      <tbody>
+        <tr><td class="B">RO の収益の増加（12 問題の平均）</td><td>2.0%</td><td>4.7%</td><td>1.5%</td><td>0.0%</td><td>16.9%</td><td>10.4%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　買い切りの品揃えの実験で、RO が各方法より何 % 収益が高かったか（論文 Table 1 の Average の行）。</p>
+    <p>RO の収益は DC とほぼ同じだが、論文によれば DC には性能保証がない。標本路 1 本のシミュレーションにかかる時間は、RO が平均 4.1 秒、GR が 1.8 秒で、BP・OS・DC の 147.3〜240.6 秒より短かった。将来の到着を見ない MY と IB との差は、選り好みする客が遅く来る問題で特に大きかった。</p>
+    <p>2 つ目の実験はシアトル市の公開データ（2017 年 6 月の平日 20 日、中心部の 40 ブロック、11 時〜16 時）による路上駐車の価格づけである。約 4 ブロックずつ 11 の区域を 1 つの商品とし、運転者ごとに近い 5 区域の価格を $2・$4・$6（1 時間あたり）から選んで提示する。駐車時間は \(1+\mathrm{NegBin}(2,\eta_i)\) で表した。行きたい区域はデータにないので、実際に止めた区域の近くから無作為に選んで補っており、論文は市の実際の運用と比べないよう注意している。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>時間帯、到着の倍率、台数</th><th>上界</th><th class="B">RO</th><th>GR</th><th>OS</th><th>FP</th></tr></thead>
+      <tbody>
+        <tr><td>11–14 時、2.5、79</td><td>344</td><td class="B">329</td><td>320</td><td>325</td><td>321</td></tr>
+        <tr><td>11–14 時、3.5、55</td><td>452</td><td class="B">396</td><td>390</td><td>385</td><td>370</td></tr>
+        <tr><td>11–16 時、2.5、79</td><td>631</td><td class="B">591</td><td>575</td><td>582</td><td>575</td></tr>
+        <tr><td>11–16 時、3.5、55</td><td>812</td><td class="B">696</td><td>686</td><td>679</td><td>644</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表2　駐車場の価格づけの期待収益（論文 Table 2 から 4 行を抜き出した。FP は全区域・全時間で 1 つの固定価格。どの問題でも $4 が最良だった）。</p>
+    <p>RO の収益は GR、OS、FP より平均でそれぞれ 2.0%、2.1%、4.3% 高かった。需要が容量を大きく上回る問題ほど、OS と FP との差が大きかった（需要と容量の比は問題によって 0.72 から 1.61）。一方、RO の価値関数の計算には 1,550〜17,201 秒かかった。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>利用時間のある資源の受付を、顧客が選ぶ品揃えの問題に広げた研究である</h2>
+    <h2>利用時間のある資源の受付を、顧客が選ぶ品揃えの問題に広げ、在庫 1 単位の価値という考え方で性能保証をつけた研究である</h2>
     <ul class="def">
-      <li><strong>近い点</strong>：美容室で、どのメニューや担当者を予約画面に見せるかを決める問題は、品揃えの提示に当たる。施術時間だけ担当者がふさがり、終わると戻る点も再利用される商品と同じである。</li>
-      <li><strong>違う点</strong>：要旨の範囲では、利用は顧客が来た時点で始まり、将来の時刻を予約する仕組みは書かれていない。在庫を数で扱うので、空き時間がどう分かれるか（断片化）は現れない。</li>
+      <li><strong>近い点</strong>：美容室で、どのメニューや担当者を予約画面に見せるかを決める問題は品揃えの提示に当たる。施術時間だけ担当者がふさがり、終わると戻る点も再利用される商品と同じである。在庫 1 単位の価値 \(\hat\nu\) を機会費用として収益から引く考え方は、担当者の空き時間の価値を見積もって提示する枠を絞る指標に応用できる可能性がある（解説者の見方）。</li>
+      <li><strong>違う点</strong>：論文は予約を前もって受けることを扱わず、利用は顧客が来た期に始まる。在庫を数で扱うので、空き時間がどう分かれるか（断片化）は現れない。</li>
       <li><strong>系統</strong>：選択のない受付の問題で LP にもとづく保証を示した <a href="../levi-2010/">Levi と Radovanović（2010）</a>の設定を、選択モデルつきの動的な品揃えに広げた研究と見られる（解説者の整理）。オンラインの品揃えの競争比には <a href="../goyal-2025/">Goyal ら（2025）</a>がある。</li>
     </ul>
   </section>
@@ -279,7 +333,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1287/mnsc.2019.3346}
 }</pre>
     </div>
-    <p class="src">書誌情報は Crossref の記録による。内容は INFORMS のページに載った要旨と NSF PAR の記録の要旨だけにもとづく。本文は未読で、著者の所属も確認していない。</p>
+    <p class="src">ページの数式・数値・所属は出版社の PDF（Articles in Advance 版、2020 年 1 月 29 日公開、pp. 1–25）による。巻・号・ページは Crossref の記録による。論文には図がなく、結果は表で示されているので、このページの図は解説者が描いた。</p>
   </section>
 </main>
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lian ら（2010）：外来の予約表の断片化を、患者と医師の希望を使って減らす（論文解説）</title>
-<meta name="description" content="Clinical appointment process: improvement through schedule defragmentation（IEEE Engineering in Medicine and Biology Magazine, 2010）の非公式の解説。ふつうの予約の入れ方は空き時間を細かく分けてしまうとして、患者と医師の双方の希望を使って断片化を減らす予約の入れ方を提案し、シミュレーションで予約の受入率と稼働率が上がることを示した論文を、要旨と書誌情報にもとづいて紹介する。">
+<title>Lian ら（2010）：外来の予約表で、空きの塊が少ない枠から勧めて断片化を減らす（論文解説）</title>
+<meta name="description" content="Clinical appointment process: improvement through schedule defragmentation（IEEE Engineering in Medicine and Biology Magazine, 2010）の非公式の解説。空き枠の候補ごとに予約後の空きの塊の数（断片化指数）を数えて少ない順に患者に示す手順と、患者が勧めに従う度合い（協力比）を変えたシミュレーションで受入率と稼働率が上がる結果を紹介する。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -184,16 +184,15 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <p class="subtitle">外来の予約の手順：予約表の断片化の解消による改善</p>
 
   <ul class="authors">
-    <li><b>Jie Lian</b></li>
-    <li><b>K. DiStefano</b></li>
-    <li><b>S. D. Shields</b></li>
-    <li><b>C. Heinichen</b></li>
-    <li><b>M. Giampietri</b></li>
-    <li><b>Lian Wang</b></li>
+    <li><b>Jie Lian</b><span>Micro Systems Engineering Inc.（Biotronik グループ）</span></li>
+    <li><b>Kori DiStefano</b><span>Westside Pediatric Clinic</span></li>
+    <li><b>Somer D. Shields</b><span>Shepperd Consulting</span></li>
+    <li><b>Cindy Heinichen</b><span>Oregon Health &amp; Science University Richmond Clinic</span></li>
+    <li><b>Melissa Giampietri</b><span>LifeWorks Northwest</span></li>
+    <li><b>Lian Wang</b><span>Oregon Medical Laser Center, Providence St. Vincent Medical Center</span></li>
   </ul>
 
-  <p class="lead">診療所は予約システムで患者が医師にかかる時間を決めるが、ふつうの予約の入れ方では<span class="A">空き時間が細かく分かれ（断片化し）</span>、予約表を効率よく使えない。Lian らは<span class="B">患者と医師の双方の希望を使って断片化を減らす予約の入れ方</span>を提案し、シミュレーションで、同じ需要のもとで予約の受入率と診療時間の稼働率が上がることを示した。</p>
-  <p class="src">このページは出版社と PubMed の要旨、Crossref の書誌情報、この論文を引用した Koetter ら（2015）の説明にもとづく。本文は未読で、数値や式は載せていない。著者の所属は確認できなかった。</p>
+  <p class="lead">外来の予約では、患者の好みの枠や最初に見つかった枠に入れていくうちに、<span class="A">空き時間が短い塊に分かれ（断片化し）</span>、長い診察が入らなくなる。Lian らは空き枠の候補ごとに入れた後の<span class="B">空きの塊の数（断片化指数）</span>を数えて少ない順に並べ、患者にできるだけ上の候補を選んでもらう手順を提案した。15分枠の例では、患者が医師の勧める候補を選ぶ度合いを少し上げるだけで、断片化指数が 10 から 3 に下がった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1109/MEMB.2009.935718">論文（IEEE）</a>
@@ -206,7 +205,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ふつうの予約の入れ方で空き時間が細かく分かれる様子、空きの合計は足りていても長い予約が入らないこと、患者と医師の希望を使って空きをまとめる予約の入れ方、要旨が述べる結果、まとめの5場面。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ふつうの予約の入れ方で空き時間が細かく分かれる様子、空きの合計は足りていても長い診察が入らないこと、候補ごとに空きの塊の数を数えて少ない順に並べる手順、協力の度合いを変えたときの断片化指数、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
@@ -216,57 +215,81 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   </figure>
 
   <ul class="points">
-    <li><span class="k">断片化が減り、受入率と稼働率が上がる</span><span class="d">患者と医師が協力して予約を入れると断片化が減り、同じ需要のもとで予約の受入率と診療時間の稼働率が上がる（要旨、シミュレーション）。</span></li>
-    <li><span class="k">単位枠を短くする効果には条件がある</span><span class="d">診療時間を正確に推定できる場合には、予約の単位枠を短くすると効率をさらに上げられる可能性があると要旨は述べる。</span></li>
-    <li><span class="k">臨床医へのアンケート</span><span class="d">方法を実際に使うときの機会と課題を、臨床医へのアンケートで調べた（要旨）。</span></li>
+    <li><span class="k">断片化指数 10 → 3</span><span class="d">15分枠・10件の予約の例で、協力比（患者が医師の勧める候補を選ぶ度合い）を 1.0 から 2.0 に上げたときの空きの塊の数（論文 Fig. 3）。協力比 100 でも 2 までしか下がらない。</span></li>
+    <li><span class="k">断片化指数 = 空きの塊の数</span><span class="d">候補ごとに仮に予約を入れ、孤立した空き枠または隣り合う空き枠の並びを1つと数える。指数が小さい候補ほど上に並べ、同じなら早い時刻を上にする。</span></li>
+    <li><span class="k">132,300 通りの条件でシミュレーション</span><span class="d">予約の件数、所要時間の分布、枠の長さ、協力比を変えて各100回。どの所要時間の分布でも、協力比を上げると受入率と稼働率がともに上がった。</span></li>
   </ul>
-  <p class="src">要点は要旨と書誌情報にもとづく。本文は未読。</p>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>ふつうの予約の入れ方では、空き時間が細かく分かれて予約表を効率よく使えない</h2>
-    <p>診療所は予約システムで、患者がいつ医師にかかれるかを管理する。要旨によれば、ふつうの予約の入れ方は空き時間を細かく分けてしまい（断片化）、予約の受付が非効率になる。空き時間の合計が足りていても、長い診察に必要な連続した空きがなければ、その予約は入らない。題名の defragmentation は、計算機のディスクの断片化を解消する「デフラグ」と同じ言葉である。</p>
-    <p>この論文を引用した <a href="../koetter-2015/">Koetter ら（2015）</a>は、この論文を「医療者の予約表の断片化を減らし、追加の予約のための大きな空きを残す」例として紹介している。</p>
+    <h2>ふつうの予約の入れ方では、患者の好みの枠や取り消しのたびに空き時間が短い塊に分かれていく</h2>
+    <p>医師の1日の予約表は長さの決まった重ならない枠（単位枠）に分かれている。予約の依頼が来ると、受付は必要な連続枠の数 \(K\) を見積もり、\(K\) 個以上の空きが続く候補をすべて探す。候補がなければ断る。患者に時刻の希望がなければ最初に見つかった候補か適当な候補を、希望があればその枠を割り当てる。こうして患者の好みの枠を割り当てたり、予約が取り消されたりするうちに、予約表は断片化する。論文の Fig. 1 の例では、空き枠はどちらも7つだが、一方は7か所に、もう一方は3か所にまとまっている。前者では2枠続けて要る予約が、空き枠が2つ残っているのに断られる。</p>
+    <p>論文は従来の手順で見落とされてきた点を2つ挙げる。1つは、断片化を小さくするようにどの枠を割り当てるかの決まった指針がなく、候補ごとに断片化への影響を量的に評価していないこと。もう1つは、患者の好みは「好き・嫌い」の二択ではなく連続的で、医院の効率に役立つと説明されれば、午前を少し好む患者も午後を喜んで受け入れることがある点である。予約の研究は医師の稼働率と患者の待ち時間を主な目的にしてきたが、予約の依頼をどれだけ受けられるか（受入率）はあまり扱われてこなかった、と論文は述べる。</p>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>患者と医師の双方の希望を使い、空き時間がまとまって残るように予約を入れる</h2>
-    <p>要旨によれば、提案は患者と医師の双方の希望（preferences）を考慮した予約表の断片化の解消法である。断片化の測り方、希望の表し方、枠の選び方の具体的な手順は、本文を未読のため紹介できない。</p>
-    <svg class="fig" viewBox="0 0 640 260" role="img" aria-label="Schematic. Top: appointments placed wherever they happen to land leave short free gaps between them, so a long appointment does not fit. Bottom: the same appointments placed next to each other leave one long free block that fits the long appointment.">
-      <g font-size="13" fill="#5B6676">
-        <text x="20" y="28">ふつうの入れ方（模式図）</text>
-        <text x="20" y="148">断片化を減らす入れ方（模式図）</text>
-      </g>
-      <g fill="#fff" stroke="#D9DEE6" stroke-width="1.2">
-        <rect x="20" y="40" width="600" height="40" rx="6"/><rect x="20" y="160" width="600" height="40" rx="6"/>
-      </g>
-      <g fill="#CBD2DC">
-        <rect x="70" y="44" width="80" height="32" rx="4"/><rect x="230" y="44" width="60" height="32" rx="4"/><rect x="370" y="44" width="80" height="32" rx="4"/><rect x="520" y="44" width="40" height="32" rx="4"/>
-        <rect x="24" y="164" width="80" height="32" rx="4"/><rect x="106" y="164" width="60" height="32" rx="4"/><rect x="168" y="164" width="80" height="32" rx="4"/><rect x="250" y="164" width="40" height="32" rx="4"/>
-      </g>
-      <g fill="none" stroke="#C2410C" stroke-width="2" stroke-dasharray="5 4">
-        <rect x="24" y="44" width="44" height="32" rx="4"/><rect x="152" y="44" width="76" height="32" rx="4"/><rect x="292" y="44" width="76" height="32" rx="4"/><rect x="452" y="44" width="66" height="32" rx="4"/><rect x="562" y="44" width="54" height="32" rx="4"/>
-      </g>
-      <rect x="292" y="164" width="324" height="32" rx="4" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-dasharray="5 4"/>
-      <text x="20" y="104" font-size="13" fill="#C2410C" font-weight="600">短い空きが5つ。長い診察は入らない</text>
-      <text x="300" y="224" font-size="13" fill="#1D4ED8" font-weight="600">同じ予約で、長い空きが1つ残る</text>
-    </svg>
-    <p class="src">図1　断片化の考え方（解説者による模式図。論文の図ではなく、論文の手順を再現したものでもない）。</p>
+    <h2>候補ごとに仮に予約を入れて空きの塊を数え、塊の少ない候補から順に患者に示す</h2>
+    <p>提案する手順では、医師側（提供者側）が好む順に空き枠の候補を並べたリストを作る。医師側が好むのは、大きな連続した空きが残る、断片化の小さい予約表である。患者には上の候補を選ぶよう勧めるが、義務ではない。こうして患者と医師の双方の好みを予約に反映させる。好みのすり合わせは、交渉、インセンティブ、または候補を上から1つずつ示して断られたら次を示す、といった方法で行えるとする。</p>
+    <ul class="def">
+      <li>依頼が来たら必要な枠の数を見積もり、依頼を受けられる候補をすべて探す。なければ断る。</li>
+      <li>候補ごとに仮の割当を行い、断片化指数を計算する。断片化指数は割り当てた後に残る空きの塊（孤立した1つの空き枠、または隣り合う空き枠の並び）の数である。Fig. 1 の2つの予約表では7と3になる。</li>
+      <li>断片化指数の小さい順に候補を並べる。同じ指数の候補は時刻の早いほうを上にする（遅い時間に空きを残し、後から来る依頼を受けやすくする）。</li>
+      <li>並べたリストを患者に示し、できるだけ上の候補を選んでもらう。</li>
+    </ul>
+    <figure>
+      <img src="assets/fig2_flowchart.png" alt="Flowchart of the proposed scheduling process: receive request, determine number of slots, search schedule; if no slots can serve the request it is denied; otherwise for each option do a mock allocation and count open blocks as the fragmentation index, sort all options by the index, and give the patient the ranked list." loading="lazy">
+      <figcaption>図1　断片化の解消にもとづく予約の手順（論文の Fig. 2 より）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="model">
+    <div class="kicker">シミュレーションの設定</div>
+    <h2>患者が勧められた候補を選ぶ度合いを「協力比」として、予約の件数や所要時間の分布と組み合わせて調べた</h2>
+    <p>評価の指標は2つで、どちらも1日ごとに測る。受入率は受けた予約の数を依頼の数で割ったもの、稼働率は医師が実際に診療した時間を勤務時間で割ったものである。</p>
+    <ul class="def">
+      <li>1日の依頼は11〜20件（1件刻み）。勤務は午前4時間と午後4時間で、間に1時間の休憩がある（計8時間）。</li>
+      <li>必要な診療時間は歪正規分布（skew normal）に従う。位置 \(\mu\) は10〜50分（5分刻み）、尺度 \(\sigma\) は1〜10分（1分刻み）、形 \(\alpha\) は −3〜3（1刻み）で、\(\alpha = 0\) なら正規分布、正なら右に、負なら左に裾が伸びる。</li>
+      <li>単位枠は5分・10分・15分の3通り。診療時間は枠の倍数に切り上げる（15分枠なら16〜30分の診療は2枠）。最短は1枠、最長は60分とする。</li>
+      <li>協力比はリストで隣り合う候補 \(O_A\)（上）と \(O_B\) について、患者が \(O_A\) を選ぶ確率と \(O_B\) を選ぶ確率の比である。1.0 は医師側の好みを無視してどちらも同じ確率で選ぶことを表し、従来の手順にあたる。1.0、1.25、1.5、2.0、2.5、5.0、100 の7通りを調べ、すべての隣り合う組に同じ比を使う。</li>
+    </ul>
+    <p>組み合わせは \(10 \times 9 \times 10 \times 7 \times 3 \times 7 = 132{,}300\) 通りで、それぞれ100回の乱数で走らせて受入率と稼働率の平均を取った。あわせて、オレゴン州ポートランドの4つの医院（産婦人科、小児科、プライマリケア、精神科）の運営責任者に聞き取りを行った。</p>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>シミュレーションで、患者と医師の協力は断片化を減らし、予約の受入率と稼働率を上げた（要旨）</h2>
-    <p>要旨によれば、計算機シミュレーションで、患者と医師が協力して予約を入れると断片化が減り、同じ需要のもとで予約の受入率と診療時間の稼働率が上がった。また、診療時間を正確に推定できる場合には、予約の単位枠を短くすることで効率をさらに上げられる可能性があるとする。逆に言えば、診療時間の推定が粗いと、枠を細かくしても効果は見込みにくい（解説者の読み）。最後に、臨床医へのアンケートで、この方法を実際に使うときの機会と課題を調べた。シミュレーションの条件と数値は、本文を未読のため載せない。</p>
+    <h2>協力比を少し上げるだけで断片化は大きく減り、同じ件数の依頼で受入率と稼働率がともに上がった</h2>
+    <p>Fig. 3 の例は、15分枠、所要時間の分布が \(\mu = 15\) 分、\(\sigma = 5\) 分、\(\alpha = -1\) の場合である。約4分の3の依頼が1枠（15分）、約4分の1が2枠（30分）を要する。10件（1枠が6件、2枠が4件）を受けた後の断片化指数は次のとおりである。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>協力比</th><th>1.0</th><th>1.25</th><th>1.5</th><th>2.0</th><th>100</th></tr></thead>
+      <tbody>
+        <tr><td>断片化指数（空きの塊の数）</td><td class="A">10</td><td>6</td><td>5</td><td class="B">3</td><td class="B">2</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　10件の予約を受けた後の断片化指数（論文 Fig. 3 の本文の値）。</p>
+    <figure>
+      <img src="assets/fig3_schedule_maps.png" alt="Panel (a): the skew-normal service-time density and the histogram of appointment lengths (about three quarters one 15-minute slot, one quarter two slots). Panels (b) to (f): schedule maps over a 9-hour day after ten requests for co-op ratios 1.0, 1.25, 1.5, 2.0 and 100; booked slots become more clustered and the open time more contiguous as the ratio rises." loading="lazy">
+      <figcaption>図2　(a) 所要時間の分布と必要な枠の数の分布、(b)〜(f) 協力比 1.0、1.25、1.5、2.0、100 のときの10件後の予約表（論文の Fig. 3 より）。</figcaption>
+    </figure>
+    <p>協力比を 1.0 から 2.0 に少し上げるだけで断片化指数は10から3に急に下がり、100 まで上げても追加の改善は小さい。論文は医師側の好みを少し考えるだけで、従来の手順より断片化を大きく減らせるとまとめる。</p>
+    <p>10分枠で所要時間の分布を変えた6つの条件（Fig. 4〜9）では、どの条件でも次の傾向が見られた。依頼が多いほど稼働率は上がり受入率は下がる。依頼の件数が同じなら、協力比を上げると稼働率も受入率も上がる。そのほか、所要時間が長い（\(\mu\) が大きい）と受入率は大きく下がり、左に裾が伸びた分布（短い診療が多い）では受入率が上がり、右に裾が伸びた分布では下がった。単位枠を短くすると受入率は上がり、稼働率は下がった（Fig. 4、10、11）。</p>
+    <figure>
+      <img src="assets/fig4_rates.png" alt="Utilization rate (left) and acceptance rate (right) versus co-op ratio from 1 to 5, for 12 to 20 requests per day, with 10-minute slots and service time mean 30, scale 10, shape 0. Both rates rise with the co-op ratio; more requests give higher utilization and lower acceptance." loading="lazy">
+      <figcaption>図3　協力比ごとの稼働率（左）と受入率（右）。10分枠、\(\mu = 30\) 分、\(\sigma = 10\) 分、\(\alpha = 0\)、線は1日の依頼数 \(N\)（論文の Fig. 4 より）。</figcaption>
+    </figure>
+    <p>考察では協力比を上げる効果を需要との関係で説明する。需要が多いときは、断片化の小さい予約表でより多くの依頼を受けられるので稼働率が上がる。需要が少ないときは、短い時間で診療を済ませて空き枠が多く残るので稼働率が下がる。需要が供給を上回ると、協力比が高いところで受入率も稼働率も頭打ちになる（\(N = 20\)）。需要が供給を下回ると、協力比によらずすべての依頼を受けられる（Fig. 6 と 8 の \(N = 12\)）。ほとんどの予約が1枠で済む場合も、協力比は効かない（データは示されていない）。所要時間の分布を正確に推定できれば、単位枠を短くしてさらに効率を上げられるとする。</p>
+    <p>聞き取りでは、予約の取り方は医院によって大きく違った。産婦人科と精神科は数か月前の予約が多く、小児科とプライマリケアは当日の予約が多い。予約の長さも産婦人科で 10/20/30/40 分、小児科で 5/10/15/20/30 分、プライマリケアで 15/20 分、精神科で 30/90 分だった。断片化の問題はどの医院も認めたが、予約がほぼ常に埋まっている産婦人科と、ほとんどが1枠（30分）の精神科では目立たず、長さの違う当日予約の多い小児科で目立った。その小児科では最近、単位枠を10分から5分に短くし、量的な分析はないものの効率が上がったと感じているという。全員が、既存の予約ソフトの追加機能として魅力があると答えた。課題としては各社の予約ソフトに組み込むことと、効果を対照のある長期の比較研究で示すことが挙がった。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>予約表の断片化を名指しで問題にし、それを減らす予約の入れ方を医療の予約で示した早い研究である</h2>
+    <h2>空きの塊の数という単純な指標で候補を並べ、断片化を予約の受入率の問題として示した早い研究である</h2>
     <ul class="def">
-      <li><strong>指標</strong>：要旨が挙げる評価は、断片化の度合い、予約の受入率、診療時間の稼働率である。受入率と稼働率はこの分野の基本の指標になっている。</li>
-      <li><strong>美容室の予約への使い方</strong>：診察の長さが患者ごとに違い、連続した空きが要るという構造は、施術時間が違う美容室の予約と同じである。客の希望の時間帯と店側の並べ方の希望を合わせて枠を選ぶという考え方は、そのまま指標づくりの出発点になる。単位枠を細かくする効果が所要時間の推定精度に左右されるという指摘は、施術時間の見積もりの粗い美容室でも確かめる価値がある。</li>
+      <li><strong>指標</strong>：断片化指数は予約を入れた後の空きの塊の数である。塊の長さや将来の依頼の分布は使わない。評価は受入率と稼働率で、この分野の基本の指標になっている。</li>
+      <li><strong>限界（論文が挙げるもの）</strong>：シミュレーションだけで、実際の運用での検証が要る。予約を、すべての依頼が割当の前に分かっている単一のバッチとしてモデル化した。空き枠があれば患者は必ずどれかを選ぶ（断らない）と仮定した。所要時間はかなり正確に見積もれるとし、来院時刻や無断キャンセルは考えない。</li>
+      <li><strong>美容室の予約への使い方</strong>：診療の長さが患者ごとに違い、連続した空きが要るという構造は、施術時間が違う美容室の予約と同じである。候補ごとに仮に入れて空きの塊を数え、少ない順に示すという手順は、そのまま比較の基準（ベースライン）になる。違いとして、この指数は塊の長さを区別しないので、次に来そうな施術時間より短い塊と長い塊を同じ1つと数える。将来の施術時間の分布で塊を重み付けすると、研究中の指標との差がはっきりする。所要時間の推定が粗いと単位枠を細かくしても効果が出にくいという指摘は、美容室でも確かめる価値がある。</li>
       <li><strong>この論文を引用する研究</strong>：<a href="../koetter-2015/">Koetter ら（2015）</a>は断片化の考え方を EV カーシェアの予約表の採点に広げた。<a href="../lange-2019/">Lange ら（2019）</a>は港湾のトラック予約、<a href="../huang-2013/">Huang（2013）</a>は付帯サービスを含む外来予約でこの論文を引用している。</li>
     </ul>
   </section>
@@ -277,7 +300,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
       <button type="button" class="btn copy" id="copy">コピー</button>
 <pre class="bib" id="bib">@article{lian2010clinical,
   title   = {Clinical Appointment Process: Improvement Through Schedule Defragmentation},
-  author  = {Lian, Jie and DiStefano, K. and Shields, S. D. and Heinichen, C. and Giampietri, M. and Wang, Lian},
+  author  = {Lian, Jie and DiStefano, Kori and Shields, Somer D. and Heinichen, Cindy and Giampietri, Melissa and Wang, Lian},
   journal = {IEEE Engineering in Medicine and Biology Magazine},
   volume  = {29},
   number  = {2},
@@ -286,7 +309,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1109/MEMB.2009.935718}
 }</pre>
     </div>
-    <p class="src">要旨と書誌情報にもとづく。本文は未読。書誌情報は Crossref（DOI 10.1109/MEMB.2009.935718）、要旨は PubMed（PMID 20659850）の内容を伝える QxMD のページから取った。Koetter ら（2015）による紹介は同論文の本文から。</p>
+    <p class="src">ページの記述・数値・図は出版版の PDF（IEEE Engineering in Medicine and Biology Magazine, March/April 2010, pp. 127–134）による。著者の所属は論文末尾の著者紹介から取った。図の傾向の説明は論文の本文の記述によるもので、図から値を読み取ってはいない。</p>
   </section>
 </main>
 

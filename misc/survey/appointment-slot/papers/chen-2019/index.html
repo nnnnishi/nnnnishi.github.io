@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chen ら（2019）：番号制の外来予約で、予約の割り振り方と遅刻への対応を比べる（論文解説）</title>
-<meta name="description" content="Healthcare scheduling policies in a sequence-number based appointment system for outpatients' arrivals: Early, on time, or late?（Computers &amp; Industrial Engineering, 2019）の非公式の解説。要旨と書誌情報にもとづく。番号制の外来予約で、2 つの予約の割り振り方と 3 つの遅刻への対応を、過去の経験から到着時刻を決める患者のモデルのもとで比べる。">
+<meta name="description" content="Healthcare scheduling policies in a sequence-number based appointment system for outpatients' arrivals: Early, on time, or late?（Computers &amp; Industrial Engineering, 2019）の非公式の解説。予約表が断片化しない台湾の番号制の外来予約で、目安の来院時刻の決め方 2 つと番号を飛ばされた患者の扱い 3 つを、過去の経験から来院時刻を変える患者のモデルでシミュレーションし、plateau-dome と 3 つの列の組み合わせで平均の待ち時間が 15.3 分から 11.8 分に減ることを示す。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Chen ら（2019）：番号制の外来予約で、予約の割り振り方と遅刻への対応を比べる（論文解説）">
-<meta property="og:description" content="Healthcare scheduling policies in a sequence-number based appointment system for outpatients' arrivals: Early, on time, or late?（Computers &amp; Industrial Engineering, 2019）の非公式の解説。要旨と書誌情報にもとづく。番号制の外来予約で、2 つの予約の割り振り方と 3 つの遅刻への対応を、過去の経験から到着時刻を決める患者のモデルのもとで比べる。">
+<meta property="og:description" content="Healthcare scheduling policies in a sequence-number based appointment system for outpatients' arrivals: Early, on time, or late?（Computers &amp; Industrial Engineering, 2019）の非公式の解説。予約表が断片化しない台湾の番号制の外来予約で、目安の来院時刻の決め方 2 つと番号を飛ばされた患者の扱い 3 つを、過去の経験から来院時刻を変える患者のモデルでシミュレーションし、plateau-dome と 3 つの列の組み合わせで平均の待ち時間が 15.3 分から 11.8 分に減ることを示す。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -195,7 +195,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <li><b>Yu-Chao Shao</b><span>National Taiwan University</span></li>
   </ul>
 
-  <p class="lead">外来の患者にとって待ち時間は満足度を左右する。予約に順番の番号を割り当てる番号制の予約では、患者は自分の番を予想して早く来たり遅れて来たりする。Chen らは、患者が期待と過去の経験から到着時刻を決めるモデルを作り、<span class="A">均等な割り振りとよく使われる 2 つの遅刻への対応</span>と比べて、<span class="B">plateau-dome の割り振りと 3 つの列を使う遅刻への対応</span>のほうが待ち時間を減らすことを示した。</p>
+  <p class="lead">時間枠に患者を 1 人ずつ割り当てる予約では、患者の希望の枠を割り当てたり予約を取り消したりするうちに予約表が断片化し、遅れた患者の枠は空いてしまう。台湾の病院が使う番号制の予約では、医師は番号の順に診て、来ていない患者は飛ばすので断片化は起きない。代わりに、番号を飛ばされた患者をいつ診るかと、目安の来院時刻の決め方が待ち時間を左右する。Chen らは、患者が過去の経験から来院時刻を変えるモデルでシミュレーションし、<span class="A">均等な目安の時刻と、よく使われる遅刻への対応</span>より、<span class="B">plateau-dome の目安の時刻と 3 つの列を使う対応</span>のほうが平均の待ち時間が短い（15.3 分に対して 11.8 分）ことを示した。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1016/j.cie.2019.02.033">Paper（DOI）</a>
@@ -207,60 +207,93 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。番号を持った患者が早く・時間どおり・遅れて来る様子、前回の待ち時間から次の到着時刻を決める患者のモデル、比べた2つの割り振り方と3つの遅刻への対応、要旨の結論、まとめの5場面。すべて要旨をもとにした模式図。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。時間枠制で遅れた患者の枠が空く様子と番号制で次の患者を呼ぶ様子、前回の経験から来院時刻を更新する患者のモデル、2つの目安の時刻の決め方と3つの遅刻への対応、論文Table 1の平均待ち時間の比較、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
       <span class="tdots"></span>
-      <span>論文を40秒で（解説者による模式図。要旨にもとづく）。音声なし。</span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
     </figcaption>
   </figure>
 
-  <p class="src">このページは要旨と書誌情報（OpenAlex、Semantic Scholar の登録情報）にもとづく。本文は未読である。plateau-dome の具体的な形、遅刻への対応の詳しい規則、評価の方法と数値は確認できていないので書いていない。</p>
-
   <ul class="points">
-    <li><span class="k">番号制の外来予約を扱う</span><span class="d">予約に順番の番号を割り当てる方式。要旨によれば、この方式での割り振り方と遅刻への対応の組み合わせは、これまでほとんど研究されていない。</span></li>
-    <li><span class="k">患者の到着を行動のモデルで表す</span><span class="d">限定合理性と適応的期待の理論を使い、患者が期待と過去の経験から行動するモデルを作る。</span></li>
-    <li><span class="k">plateau-dome と 3 つの列で待ち時間が減る</span><span class="d">均等な割り振りと、よく使われる 2 つの遅刻への対応より、待ち時間を減らした。</span></li>
+    <li><span class="k">平均の待ち時間 15.3 分 → 11.8 分</span><span class="d">均等な目安の時刻と L1 の組み合わせに対して、plateau-dome と L3 の組み合わせ（論文 Table 1 の 16 の場面の平均）。</span></li>
+    <li><span class="k">番号制では予約表が断片化しない</span><span class="d">医師は番号の順に診て、来ていない患者は飛ばす。時間枠制で遅刻が生む空きの代わりに、飛ばされた患者の扱いが問題になる。</span></li>
+    <li><span class="k">患者は前回の経験で来院時刻を変える</span><span class="d">限定合理性と適応的期待の理論にもとづき、呼ばれた時刻と目安の時刻のずれを次の来院に反映させる。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>外来の待ち時間は、患者の満足度と次の来院への期待を左右する</h2>
-    <p>医療機関は患者の待ち時間を顧客満足と次の来院への期待を測る主な尺度と見ている。待ち時間は予約の決め方だけでなく、患者がいつ来るかにも左右される。</p>
-    <p>題名の問い「早く来るか、時間どおりか、遅れるか」が示すように、論文は患者の到着の早さと遅さを中心に置く。</p>
+    <h2>時間枠制の予約では、希望の枠の割当と取消で予約表が断片化し、遅刻した患者の枠が空く</h2>
+    <p>時間枠制の予約では、医師の診療時間を有限個の時間枠に分け、依頼に応じて割り当てる。論文はここで <a href="../lian-2010/">Lian ら（2010）</a>を引き、患者の希望の枠を割り当てたり以前の予約を取り消したりすると予約表が断片化し、効率に限界が出ると述べる。</p>
+    <figure>
+      <img src="assets/fig1_timeslot_fragmentation.png" alt="Figure 1 of the paper: four 20-minute time slots from 9:00 to 10:20. Outpatient 2 misses the 9:20 slot, outpatient 3 arrives at 9:35, and outpatient 2 arrives at 9:38 but cannot be served ahead of outpatient 3 and must be rescheduled, leaving the physician idle during slot 2.">
+      <figcaption>図1　時間枠制の例。20 分の枠が 4 つある。2 番の患者は 9:20 の枠に間に合わず、9:38 に来ても 3 番より先には診てもらえず、別の日時に予約し直すことになる。2 番の枠のあいだ医師は空いている（論文の Figure 1 より）。</figcaption>
+    </figure>
+    <p>台湾の病院や診療所は番号制（sequence-number based）の予約を使う。予約を申し込んだ順に、番号と目安の来院時刻を渡す。医師は目安の時刻ではなく番号の順に診て、呼んだ患者が来ていなければ次の患者を呼ぶ。そのため予約表の断片化は起きず、遅刻や無断キャンセルで医師が空くこともない。代わりに、番号を飛ばされた患者をいつ診るか（遅刻への対応）が必要になる。たとえば「番号どおりの患者を 2 人診たら、飛ばされた患者を 1 人診る」という対応がよく使われる。</p>
+    <p>患者は過去の経験から目安の時刻をどう受け取るかを変える。番号を飛ばされないように早く来る患者が増えると、診療の始めに患者が集まる。飛ばされた経験のある患者は、診療の終わりに遅く来るかもしれない。著者らの知る限り、番号制と飛ばされた患者の扱いを論じた文献はない。</p>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>番号制の予約で、2 つの割り振り方と 3 つの遅刻への対応を組み合わせて比べる</h2>
-    <p>対象は予約に順番の番号を割り当てる番号制（sequence-number based）の予約システムである。論文は次の 2 つを決め方として比べる。</p>
+    <h2>目安の来院時刻の決め方 2 つと、番号を飛ばされた患者の扱い 3 つを組み合わせて比べる</h2>
+    <p>目安の来院時刻の決め方（appointment scheduling pattern）は次の 2 つである。</p>
+    <figure>
+      <img src="assets/fig3_scheduling_patterns.png" alt="Figure 3 of the paper: suggested arrival times for 15 outpatients in a three-hour session. (a) Uniform pattern: a constant 12-minute interval from 9:00 to 11:48. (b) Plateau-dome pattern: intervals rise from 4 and 8 minutes to a plateau of about 14 to 15 minutes, then fall to 8 and 4 minutes at the end.">
+      <figcaption>図2　3 時間の診療に 15 人の目安の時刻を置いた例。(a) 均等（A1）は 12 分おき。(b) plateau-dome（A2）は最初と最後の間隔が短く、中ほどが長い（論文の Figure 3 より）。</figcaption>
+    </figure>
     <ul class="def">
-      <li><strong>予約の割り振り方（scheduling pattern）</strong>：均等（uniform）と plateau-dome の 2 つ。要旨にある名前はこの 2 つだけで、plateau-dome の具体的な形は本文を読まないと分からない。</li>
-      <li><strong>遅刻への対応（late arrival policy）</strong>：3 つの列を使う方策（three-queue）と、よく使われる 2 つの方策。</li>
+      <li><strong>A1 均等</strong>：どの予約の間も同じ間隔にする。多くの診療所で使われている。</li>
+      <li><strong>A2 plateau-dome</strong>：Klassen と Yoogalingam（2009）が示した形で、間隔が急に伸びて最大値でしばらく保ち、最後に短くなる。予約数・予約の長さ・費用・無断キャンセルの水準・診療の長さが変わっても頑健だとされる。</li>
     </ul>
-    <p>評価は待ち時間で行う。要旨によれば、番号制のもとでこの組み合わせを調べた研究はほとんどない。</p>
+    <p>来た患者は 3 つに分ける。C1 は番号をまだ飛ばされていない患者、C2 は目安の時刻の範囲内に来たが番号を飛ばされていた患者、C3 は目安の時刻より遅れて来て番号を飛ばされた患者である。遅刻への対応（late arrival policy）は次の 3 つである。</p>
+    <ul class="def">
+      <li><strong>L1</strong>：C1 の列（番号順）と C2・C3 をまとめた列（来た順）を作り、C1 を 2 人診たら C2/C3 を 1 人診る。冒頭の「2 人に 1 人」の対応である。</li>
+      <li><strong>L2</strong>：C1 と C2 をまとめた列（番号順）と C3 の列（来た順）を作り、C1/C2 を 3 人診たら C3 を 1 人診る。時間どおりに来た C2 を C1 と同じ優先度で扱う。</li>
+      <li><strong>L3</strong>：C1、C2、C3 の 3 つの列を作り、C1 を 1 人、C2 を 2 人、C3 を 1 人の順で診る。列が空なら次の列の患者を診る。時間どおりに来た C2 の優先度を上げて埋め合わせる。</li>
+    </ul>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>限定合理性と適応的期待の理論で、患者が過去の経験から到着時刻を決める様子をモデルにする</h2>
-    <p>限定合理性は、人がすべての情報を使って最適に判断するのではなく、限られた情報と計算で判断するという考え方である。適応的期待は過去の経験をもとに次の予想を更新するという考え方である。論文はこの 2 つを使い、患者が期待と過去の経験にもとづいて行動する様子をモデルにする。</p>
-    <p>モデルの式、患者の数、評価がシミュレーションか実データかは、要旨に書かれていない。</p>
+    <h2>患者は、前回呼ばれた時刻と目安の時刻のずれを見て、次に来る時刻を更新する</h2>
+    <p>\(t\) 回目の来院で、目安の時刻を \(R_t\)、医師が実際に呼んだ時刻を \(C_t\)、診察の開始時刻を \(S_t\)、患者が来たいと考える時刻を \(F_t\)、実際に来た時刻を \(A_t\) とする。\(p_t\) は \(F_t\) と \(R_t\) の差で、患者が目安の時刻をどれだけ信じているかを表す。適応的期待の理論（Cagan 1956）に従い、\(p_t\) を次のように更新する（式 1）。</p>
+    <div class="eq">\[ p_t = \begin{cases} 0, &amp; t = 1 \\ \eta\, p_{t-1} + (1 - \eta)\, \theta_{t-1}, &amp; t &gt; 1 \end{cases} \]</div>
+    <p>\(\eta \in [0, 1]\) は前回までの行動をどれだけ保つかの重みで、大きいほど前回のずれに左右されず、同じ行動（早く来る、遅く来る）を続ける。\(\theta_t\) は呼ばれた時刻と目安の時刻のずれである。呼ばれたときに来ていた患者（C1）は \(\theta_t = S_t - R_t\) を直接知る（式 2）。番号を飛ばされた患者（C2・C3）は、来たときに診察中の番号 \(j_t\) と自分の番号 \(i_t\)、平均の診察時間 \(m_t\) からずれを見積もる（式 3）。</p>
+    <div class="eq">\[ \theta_t = A_t - m_t\,(j_t - i_t) - R_t \]</div>
+    <p>実際の到着 \(A_t\) は交通や個人の事情で \(F_t\) から平均 0、標準偏差 20 分の正規分布でずれる。待ち時間は、実際に来た時刻から診察が始まるまでの時間である。</p>
+    <p>シミュレーションでは 4 つのパラメータをそれぞれ 2 通りに変え、16 の場面を作った。診察時間の変動係数は \(1/\sqrt{10}\) と 1、診療は 3 時間で、平均の診察時間が 3 分または 9 分なので 1 回の患者数は 60 人または 20 人である。\(\eta\) は 0.8 と 0.2、来院の回数はガンマ分布で、慢性疾患の患者は形状 2・尺度 8、それ以外は形状 3・尺度 1 とした（台湾の統計データにもとづく）。各組み合わせを 10,000 回シミュレーションした。</p>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>比べた中では、plateau-dome の割り振りと 3 つの列を使う遅刻への対応が待ち時間を最も減らした</h2>
-    <p>要旨によれば、plateau-dome の割り振りは均等な割り振りより、3 つの列を使う遅刻への対応はよく使われる 2 つの方策より、待ち時間を減らした。どれだけ減ったかは要旨に書かれていない。</p>
+    <h2>plateau-dome の目安の時刻と 3 つの列を使う対応の組み合わせが、平均の待ち時間を最も短くした</h2>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>目安の時刻</th><th class="A">L1</th><th>L2</th><th class="B">L3</th></tr></thead>
+      <tbody>
+        <tr><td>A1 均等</td><td class="A">15.3</td><td>13.9</td><td>13.3</td></tr>
+        <tr><td>A2 plateau-dome</td><td>13.0</td><td>12.3</td><td class="B">11.8</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　16 の場面を通した平均の待ち時間（分）（論文 Table 1 の最下行）。</p>
+    <p>場面ごとに見ると、患者が 60 人の場面では L3 がどちらの目安の時刻でも最も短い。たとえば \(\eta = 0.8\)、60 人、変動係数 1、非慢性の場面では、A1・L1 が 13.1 分、A2・L3 が 10.1 分だった。一方、患者が 20 人の場面では遅刻への対応による差は小さかった。</p>
+    <ul class="def">
+      <li><strong>A2 が効く理由</strong>：始めの間隔が短いので、最初の患者が来なくても医師はすぐ次の患者を診られ、始めの無断キャンセルや遅刻の影響を抑える。終わりの間隔が短いと、最後のほうの患者はやや遅めに来ることになり、医師が飛ばされた患者を診ている間に待たずに済む。</li>
+      <li><strong>L3 が効く理由</strong>：L1 では C2/C3 の列の後ろの患者が長く待つ。L2 では C3 の患者が長く待つ。L3 は 3 つの列に優先度をつけ、目安の時刻と番号の両方に患者の注意を向けさせる。</li>
+      <li><strong>予想と違った結果</strong>：患者が少ない（20 人）ほうが待ち時間は長かった。1 人の診察が長いと、呼ばれる時刻を予想しにくいためと論文は説明する。前回の経験を強く反映する（\(\eta = 0.2\)）と待ち時間は長くなった。来院の多い慢性疾患の患者も待ち時間が長く、早く来る行動が固まるためとしている。</li>
+    </ul>
+    <p>限界として、予約のない飛び込みの患者を扱っていないことを挙げ、その影響の分析を今後の課題としている。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>予約の割り振り方を患者の到着行動と合わせて評価した研究で、予約の長さや断片化は扱わない</h2>
+    <h2>Lian らの断片化を時間枠制の限界として引き、断片化の起きない番号制で待ち時間を減らす方策を比べた研究である</h2>
     <ul class="def">
-      <li><strong>文献リストでの扱い</strong>：文献リストでは <a href="../lian-2010/">Lian ら（2010）</a>を引用する研究の 1 本としている。要旨からは Lian をどう引用しているかは確認できていない。</li>
-      <li><strong>美容室の予約への示唆</strong>：客が予約時刻より早く来たり遅れたりすることを、過去の経験から行動を変えるモデルで扱う点は、受入率の評価を現実に近づけるときに参考になる。違いは要旨の範囲では施術時間分の連続した空きや空きの断片化を扱っていない点である。</li>
+      <li><strong>Lian との関係</strong>：序論で <a href="../lian-2010/">Lian ら（2010）</a>を引き、希望の枠の割当と取消による予約表の断片化を、時間枠制の本来の限界として挙げる。番号制はこの限界を持たない方式として位置づけられている。</li>
+      <li><strong>ほかの論文との関係</strong>：<a href="../yu-2019/">Yu ら（2019）</a>はこの論文を参考文献に挙げている。</li>
+      <li><strong>美容室の予約への示唆</strong>：時間枠制で遅刻や取消が空きを生む問題を、予約の方式そのものを変えて避けるという見方は、断片化の指標を考えるときの比較の基準になる。一方、番号制は診察時間が短く順番を入れ替えられる外来向けで、施術時間分の連続した枠を前もって押さえる美容室の予約には、そのままは当てはまらない。客が経験から来店時刻を変えるモデルは、遅刻や早着を含めたシミュレーションに使える。</li>
     </ul>
   </section>
 
@@ -278,7 +311,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1016/j.cie.2019.02.033}
 }</pre>
     </div>
-    <p class="src">書誌情報と著者の所属は OpenAlex の登録情報、要旨は Semantic Scholar の登録情報から取った。本文は出版社（Elsevier）の購読が必要で、読めていない。</p>
+    <p class="src">ページの数値・式・記述は出版版の PDF（Elsevier）による。図1・図2 は論文の図を切り出したものである。書誌情報も同じ PDF から確認した。</p>
   </section>
 </main>
 

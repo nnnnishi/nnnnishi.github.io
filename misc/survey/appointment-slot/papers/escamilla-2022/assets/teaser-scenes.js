@@ -100,34 +100,40 @@ window.TZ = (function () {
 // =====================================================================
 // teaser-scenes.js — Escamilla, A Decision Support Simulation to Analyze Scheduling Alternatives for
 // Applicant Processing at Military Entrance Processing Stations (MEPS) (AFIT MS thesis, 2022).
-// Unofficial explainer based on the abstracts only (thesis + journal version). Every scene is a
-// schematic (labelled 模式図); no result numbers are drawn.
-// Colours: orange = the status-quo single batch; blue = the alternatives.
+// Unofficial explainer based on the thesis PDF. Arrival counts and window times are the large-MEPS
+// HeavyDEP settings of Appendices C and F; the 8-window case has exponential gaps (mean 30 min) and is
+// drawn evenly up to its stated final batch (09:30) — a schematic. Result numbers come from
+// Table 4.3, §4.6 and §4.10 of the thesis.
+// Colours: orange = the status-quo single batch / holdovers; blue = the alternatives.
 // =====================================================================
 (function () {
   var H = Teaser.helpers, C = H.C, el = H.el, seg = H.seg;
   var T = TZ.T;
 
   var CAPTIONS = [
-    { ja: '入隊検査所では、志願者の<span class="A">全員が朝に一括で到着</span>し、順に検査を受ける。', en: '' },
-    { ja: '案 1：<span class="B">分割シフト</span>。6 時と 11 時の 2 回に分けて到着させる。', en: '' },
-    { ja: '案 2：<span class="B">予約制</span>。3〜8 個の時間枠に分けて到着させる。', en: '' },
-    { ja: '案 3：<span class="B">優先レーン</span>。一部の志願者は選んだ窓口を飛ばす。', en: '' },
-    { ja: '学術誌版の要旨：分割シフトは処理人数が減りすぎ、予約制は時間枠の間隔しだいだった。', en: '' }
+    { ja: '入隊検査所では、DEP の志願者<span class="A">40 人が朝 6 時に一括で到着</span>する（大規模の検査所）。', en: '' },
+    { ja: '<span class="B">分割シフト</span>で 6 時と 11 時に分けると、持ち越しが現状より 7.5〜10.5 人増えた。', en: '' },
+    { ja: '<span class="B">予約制</span>は 3〜8 枠。最後の枠が 9 時を過ぎると持ち越しが増えた。', en: '' },
+    { ja: '<span class="B">優先レーン</span>は一括到着のまま説明を飛ばし、DEP の待ち時間を 64〜78 分短くした。', en: '' },
+    { ja: '結論：現状維持が最もリスクが小さく、優先レーンは DEP の多い日に使える。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 32, 40];
   var PX = 660;
   var X0 = 120, HW = 42; // 5:00 .. 17:00
   function hx(h) { return X0 + (h - 5) * HW; }
 
-  function timeline(g, y) {
+  function timeline(g, y, withClose) {
     el('line', { x1: hx(5), y1: y, x2: hx(17), y2: y, stroke: C.ink, 'stroke-width': 1.5 }, g);
     [6, 9, 12, 15].forEach(function (h) {
       el('line', { x1: hx(h), y1: y - 5, x2: hx(h), y2: y + 5, stroke: C.ink }, g);
       T(g, hx(h), y + 24, h + '時', { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
     });
+    if (withClose) {
+      el('line', { x1: hx(16.5), y1: y - 150, x2: hx(16.5), y2: y + 5, stroke: C.a, 'stroke-width': 2, 'stroke-dasharray': '5 4' }, g);
+      T(g, hx(16.5), y - 158, '16:30 終了', { 'font-size': 14, fill: C.a, 'text-anchor': 'middle' });
+    }
   }
-  // a stack of n dots above time h
+  // a stack of n dots above time h (4 per row)
   function crowd(g, h, n, color, y) {
     var dots = [];
     for (var i = 0; i < n; i++) {
@@ -141,53 +147,67 @@ window.TZ = (function () {
     var S = {};
     S.g = [0, 1, 2, 3, 4].map(function () { return el('g', {}, svg); });
 
-    // ===== scene 1: single batch =====
+    // ===== scene 1: single batch of 40 DEP =====
     var g1 = S.g[0];
-    T(g1, 70, 80, '到着の時刻', { 'font-size': 15, fill: C.muted });
-    timeline(g1, 330);
-    S.c1 = crowd(g1, 6, 40, C.a, 330);
-    S.p1 = TZ.panel(g1, PX, 140, '現状', C.a, [['全員が 1 日の始めに', 16], ['1 つの集団で到着', 16], null, ['代わりの方法は', 15, C.muted], ['試行より先に進まない', 15, C.muted]]);
-    TZ.note(g1, '模式図（人数は解説者が置いた例）');
+    T(g1, 70, 80, 'DEP の志願者の到着（大規模、DEP が多い日）', { 'font-size': 15, fill: C.muted });
+    timeline(g1, 360, true);
+    S.c1 = crowd(g1, 6, 40, C.a, 360);
+    S.p1 = TZ.panel(g1, PX, 140, '現状', C.a, [['DEP 40 人と Ship 8 人が', 16], ['6 時に一括で到着', 16], null, ['16:30 に終わらない人は', 15, C.muted], ['持ち越し（別の日に再来）', 15, C.muted]]);
+    TZ.note(g1, '到着数は論文 Appendix F');
 
     // ===== scene 2: split shift =====
     var g2 = S.g[1];
-    timeline(g2, 330);
-    S.c2a = crowd(g2, 6, 20, C.b, 330);
-    S.c2b = crowd(g2, 11, 20, C.b, 330);
-    S.p2 = TZ.panel(g2, PX, 140, '分割シフト', C.b, [['6 時と 11 時の', 16], ['2 回に分けて到着', 16]]);
-    TZ.note(g2, '模式図');
+    timeline(g2, 360, true);
+    S.c2a = crowd(g2, 6, 20, C.b, 360);
+    S.c2b = crowd(g2, 11, 20, C.b, 360);
+    S.p2 = TZ.panel(g2, PX, 140, '分割シフト', C.b, [['6 時と 11 時に 20 人ずつ', 16], null, ['持ち越し（現状との差）', 15, C.ink], ['+7.52〜10.54 人', 22, C.a, 650], null, ['DEP の処理数 −8〜12 人', 15, C.a]]);
+    TZ.note(g2, '大規模の検査所。論文 Table 4.3 と §4.6');
 
-    // ===== scene 3: appointment windows (3, 4, 6, 8) =====
+    // ===== scene 3: appointment windows (3, 4, 6, 8) and the 09:00 threshold =====
     var g3 = S.g[2];
-    timeline(g3, 330);
-    var sets = { 3: [6, 8, 10], 4: [6, 7.5, 9, 10.5], 6: [6, 7, 8, 9, 10, 11], 8: [6, 6.75, 7.5, 8.25, 9, 9.75, 10.5, 11.25] };
+    timeline(g3, 360, false);
+    el('rect', { x: hx(9), y: 150, width: hx(17) - hx(9), height: 215, fill: C.a, 'fill-opacity': 0.07 }, g3);
+    el('line', { x1: hx(9), y1: 150, x2: hx(9), y2: 365, stroke: C.a, 'stroke-width': 2, 'stroke-dasharray': '5 4' }, g3);
+    T(g3, hx(9) + 8, 168, '9 時より後の到着 → 持ち越しが増える', { 'font-size': 14, fill: C.a });
+    var sets = {
+      3: { t: [6, 8, 10], n: 13 },
+      4: { t: [6, 7, 8, 9], n: 10 },
+      6: { t: [6, 6.75, 7.5, 8.25, 9, 9.75], n: 7 },
+      8: { t: [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5], n: 5 }
+    };
     S.w3 = [3, 4, 6, 8].map(function (k, i) {
-      var gg = el('g', {}, g3), per = Math.round(40 / k);
-      sets[k].forEach(function (h) { crowd(gg, h, per, C.b, 330); });
-      T(gg, 70, 110, '時間枠 ' + k + ' 個', { 'font-size': 18, 'font-weight': 650, fill: C.b });
+      var gg = el('g', {}, g3);
+      sets[k].t.forEach(function (h) {
+        var bh = sets[k].n * 12;
+        el('rect', { x: hx(h) - 7, y: 360 - 4 - bh, width: 14, height: bh, rx: 3, fill: C.b }, gg);
+        T(gg, hx(h), 360 - 10 - bh, String(sets[k].n), { 'font-size': 14, fill: C.b, 'text-anchor': 'middle' });
+      });
+      T(gg, 70, 110, '予約 ' + k + ' 枠（1 枠 ' + sets[k].n + ' 人）', { 'font-size': 18, 'font-weight': 650, fill: C.b });
       return { g: gg, a: 16.4 + i * 1.8, b: 16.4 + (i + 1) * 1.8 };
     });
-    S.p3 = TZ.panel(g3, PX, 140, '予約制', C.b, [['3、4、6、8 個の', 16], ['時間枠に分けて到着', 16], null, ['間隔と到着時刻が鍵', 15, C.muted]]);
-    TZ.note(g3, '模式図（枠の時刻は解説者が置いた例）');
+    S.p3 = TZ.panel(g3, PX, 140, '予約制', C.b, [['最後の枠の時刻', 15], ['3 枠 10:00 / 4 枠 9:00', 15], ['6 枠 9:45 / 8 枠 9:30', 15], null, ['3 枠ではすべての規模で', 15, C.a], ['持ち越しが増えた', 15, C.a]]);
+    TZ.note(g3, '論文 Appendix C・F、§4.5（8 枠の間隔は平均 30 分の指数分布）');
 
     // ===== scene 4: express lane =====
     var g4 = S.g[3];
-    var st = ['受付', '検査 A', '検査 B', '検査 C', '面談'];
+    var st = ['到着', '司令官の説明', '健康診断の説明', '健康診断', '業務'];
     st.forEach(function (s, i) {
-      var x = 80 + i * 110;
-      el('rect', { x: x, y: 200, width: 90, height: 56, rx: 8, fill: '#fff', stroke: C.ink, 'stroke-width': 1.4 }, g4);
-      T(g4, x + 45, 234, s, { 'font-size': 15, 'text-anchor': 'middle', fill: C.ink });
+      var x = 70 + i * 116;
+      el('rect', { x: x, y: 220, width: 104, height: 56, rx: 8, fill: '#fff', stroke: C.ink, 'stroke-width': 1.4 }, g4);
+      T(g4, x + 52, 254, s, { 'font-size': 14, 'text-anchor': 'middle', fill: C.ink });
     });
-    S.path4a = el('path', { d: 'M 125 270 L 125 300 L 565 300 L 565 270', fill: 'none', stroke: C.gray, 'stroke-width': 3 }, g4);
-    T(g4, 80, 330, 'ふつうの流れ：すべての窓口を回る', { 'font-size': 14, fill: C.muted });
-    S.path4b = el('path', { d: 'M 125 196 Q 345 90 565 196', fill: 'none', stroke: C.b, 'stroke-width': 3.5 }, g4);
-    S.lab4 = T(g4, 345, 120, '優先レーン：選んだ窓口を飛ばす', { 'font-size': 15, 'font-weight': 600, fill: C.b, 'text-anchor': 'middle' });
-    S.p4 = TZ.panel(g4, PX, 140, '優先レーン', C.b, [['一部の志願者が', 16], ['選んだ窓口を飛ばす', 16], null, ['要旨の範囲では', 15, C.muted], ['結論は確認できない', 15, C.muted]]);
-    TZ.note(g4, '模式図（窓口の名前は解説者による）');
+    el('path', { d: 'M 122 290 L 122 320 L 586 320 L 586 290', fill: 'none', stroke: C.gray, 'stroke-width': 3 }, g4);
+    T(g4, 70, 350, 'ふつうの DEP：すべてを順に通る', { 'font-size': 14, fill: C.muted });
+    S.path4a = el('path', { d: 'M 122 216 Q 238 150 354 216', fill: 'none', stroke: C.b, 'stroke-width': 3 }, g4);
+    S.lab4a = T(g4, 238, 208, '優先レーン 1', { 'font-size': 14, 'font-weight': 600, fill: C.b, 'text-anchor': 'middle' });
+    S.path4b = el('path', { d: 'M 122 216 Q 296 90 470 216', fill: 'none', stroke: C.b, 'stroke-width': 3, 'stroke-dasharray': '6 4' }, g4);
+    S.lab4b = T(g4, 296, 118, '優先レーン 2', { 'font-size': 14, 'font-weight': 600, fill: C.b, 'text-anchor': 'middle' });
+    S.p4 = TZ.panel(g4, PX, 140, '優先レーン', C.b, [['DEP の 25% が説明を飛ばす', 15], null, ['DEP の待ち時間', 15, C.ink], ['−64〜78 分', 22, C.b, 650], null, ['持ち越しは現状以下', 15, C.muted]]);
+    TZ.note(g4, '大規模の検査所。論文 §3.14、§4.10、Table 4.3');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['分割シフト', '処理人数が減りすぎる'], ['予約制', '時間枠の間隔しだい']],
+      cards: [['分割シフト・予約制', '今の運用では勧めない'], ['優先レーン', 'DEP の多い日に有効']],
       venue: 'AFIT MS THESIS 2022', title: ['A Decision Support Simulation to Analyze', 'Scheduling Alternatives for Applicant', 'Processing at MEPS'], tsize: 27,
       sub: '入隊検査所の受付方法の代案の分析', authors: ['Jonathan M. Escamilla'], url: 'scholar.afit.edu/etd/5339'
     });
@@ -206,9 +226,11 @@ window.TZ = (function () {
       w.g.setAttribute('opacity', seg(t, w.a, w.a + 0.25) * (last ? 1 : 1 - seg(t, w.b, w.b + 0.25)));
     });
     S.p3.setAttribute('opacity', seg(t, 17.0, 17.8));
-    S.path4b.setAttribute('opacity', seg(t, 26.0, 26.6));
-    S.lab4.setAttribute('opacity', seg(t, 26.4, 27.0));
-    S.p4.setAttribute('opacity', seg(t, 27.4, 28.2));
+    S.path4a.setAttribute('opacity', seg(t, 25.4, 26.0));
+    S.lab4a.setAttribute('opacity', seg(t, 25.6, 26.2));
+    S.path4b.setAttribute('opacity', seg(t, 26.6, 27.2));
+    S.lab4b.setAttribute('opacity', seg(t, 26.8, 27.4));
+    S.p4.setAttribute('opacity', seg(t, 27.6, 28.4));
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 34 });

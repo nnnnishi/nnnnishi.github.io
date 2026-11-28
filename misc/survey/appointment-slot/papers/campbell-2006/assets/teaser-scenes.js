@@ -100,8 +100,8 @@ window.TZ = (function () {
 })();
 // =====================================================================
 // teaser-scenes.js — Campbell & Savelsbergh, Incentive Schemes for Attended Home Delivery Services
-// (Transportation Science 2006). Unofficial explainer written from the abstract and the authors' own
-// book chapter (body not read). All scenes are schematics (labelled 模式図); no numerical results.
+// (Transportation Science 2006). Unofficial explainer (published PDF).
+// Scenes 1-3 are schematics with explainer-chosen toy values (模式図); scene 4 uses Tables 1, 6, 7.
 // Colours: orange = costly slots chosen without incentives; blue = incentive-steered choice.
 // =====================================================================
 (function () {
@@ -112,7 +112,7 @@ window.TZ = (function () {
     { ja: '客が好きな枠を選ぶままだと、<span class="A">配送費用のかかる枠</span>に注文が入る。', en: '' },
     { ja: '枠ごとに、いまのルートに注文を入れる費用（挿入費用）が違う。', en: '' },
     { ja: '<span class="B">割引</span>を付けると、その枠を選ぶ確率が上がり、ほかの枠の確率が同じだけ下がる。', en: '' },
-    { ja: '割引額は期待利益の 2 次式を区分線形で近似した線形計画で数秒で決まる。', en: '' },
+    { ja: '線形計画で決める割引は割引なしより利益を 12〜15% 増やした。', en: '' },
     { ja: '受付の可否だけでなく、客の選ぶ枠そのものを動かす方向を開いた研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
@@ -120,7 +120,7 @@ window.TZ = (function () {
   var SL = ['9 時', '10 時', '11 時', '12 時', '13 時'];
   var P0 = [0.30, 0.25, 0.20, 0.15, 0.10];      // explainer's toy choice probabilities
   var COST = [9, 7, 2, 6, 8];                   // explainer's toy insertion costs
-  var CHEAP = 2, X = 0.04, INC = 2;             // toy: $2 incentive on slot 3, rate 0.04 per $
+  var CHEAP = 2, X = 0.2, INC = 0.4;            // toy: $0.4 incentive on slot 3; rate 0.2 per $ as in the paper
   var X0 = 110, BW = 70, GAP = 26, BASE = 420, SC = 700;
 
   function bars(g, vals, colorOf) {
@@ -143,7 +143,7 @@ window.TZ = (function () {
     T(g1, 70, 80, '客が各枠を選ぶ確率', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
     el('line', { x1: 90, x2: 590, y1: BASE, y2: BASE, stroke: C.ink, 'stroke-width': 1.5 }, g1);
     S.b1 = bars(g1, P0, function (i) { return i === 0 || i === 1 ? C.a : C.gray; });
-    S.p1 = TZ.panel(g1, PX, 150, '選ぶままにすると', C.a, [['人気の朝の枠に', 15], ['注文が集まる', 15], null, ['需要が読めず、枠は厳しく、', 14, C.muted], ['利幅は小さい（要旨）', 14, C.muted]]);
+    S.p1 = TZ.panel(g1, PX, 150, '選ぶままにすると', C.a, [['人気の朝の枠に', 15], ['注文が集まる', 15], null, ['需要が読めず、枠は厳しく、', 14, C.muted], ['利幅は小さい', 14, C.muted]]);
     TZ.note(g1, '模式図（確率は解説者が置いた例）');
 
     // ===== scene 2: insertion costs =====
@@ -167,25 +167,26 @@ window.TZ = (function () {
     S.b3 = bars(g3, P0, function (i) { return i === CHEAP ? C.b : C.gray; });
     S.inc3 = T(g3, X0 + CHEAP * (BW + GAP) + BW / 2, 130, '割引', { 'font-size': 16, 'font-weight': 650, fill: C.b, 'text-anchor': 'middle' });
     S.p3 = TZ.panel(g3, PX, 150, '確率の動き', C.b, [['割引 1 ドルあたり', 15], ['確率が率 x だけ上がる', 15], ['ほかの枠は同じ量ずつ下がる', 15], null, ['1 つの枠の割引は B まで', 14, C.muted]]);
-    TZ.note(g3, '模式図（著者らの解説の章のモデル。値は解説者の例）');
+    TZ.note(g3, '模式図（率 x = 0.2 は論文の基本設定、ほかの値は解説者の例）');
 
-    // ===== scene 4: LP and qualitative findings =====
+    // ===== scene 4: Tables 1, 6, 7 (pattern 1, average over |U|) =====
     var g4 = S.g[3];
-    S.l4 = [
-      T(g4, 80, 120, '期待利益 ＝ Σ 確率(割引) ×（収入 − 割引 − 挿入費用）', { 'font-size': 17, 'font-weight': 650, fill: C.b }),
-      T(g4, 80, 160, '確率と割引の積が入る 2 次式 → 区分線形で近似して線形計画に', { 'font-size': 15, fill: C.ink }),
-      T(g4, 80, 240, '2 種類のインセンティブ', { 'font-size': 16, 'font-weight': 650, fill: C.ink }),
-      T(g4, 100, 274, '・特定の 1 時間の枠を選んでもらう割引', { 'font-size': 15, fill: C.ink }),
-      T(g4, 100, 304, '・より広い枠を受け入れてもらう割引', { 'font-size': 15, fill: C.ink }),
-      T(g4, 80, 370, '著者らの解説の章が伝える結果（数値なし）', { 'font-size': 16, 'font-weight': 650, fill: C.ink }),
-      T(g4, 100, 404, '・割引を付ける枠は 3 つ以下で十分', { 'font-size': 15, fill: C.ink }),
-      T(g4, 100, 434, '・広い枠を受け入れてもらうほうが易しい', { 'font-size': 15, fill: C.ink })
-    ];
-    TZ.note(g4, '要旨と著者らの解説の章にもとづく（本文は未読）');
+    T(g4, 70, 64, '割引なしに対する利益の改善率（%、論文 Table 1・6・7）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    S.bars4 = TZ.pairs(g4, {
+      x0: 300, x1: 820, v0: 0, v1: 40, y0: 100, rowH: 104, t0: 24.6, dt: 0.8, ticks: [0, 10, 20, 30, 40],
+      rows: [
+        { label: '1 時間の枠（基本）', a: 6.11, b: 13.66 },
+        { label: '注文をやめうる場合', a: 21.44, b: 36.31 },
+        { label: '2 時間の枠への割引', a: 9.77, b: 14.24 }
+      ]
+    });
+    T(g4, 300, 470, '■ 一律の割引 CHPFLT', { 'font-size': 14, fill: C.a });
+    T(g4, 500, 470, '■ 線形計画で決める CHPLP', { 'font-size': 14, fill: C.b });
+    TZ.note(g4, '確率が均等なパターン 1。論文の表の数値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['決めること', '枠ごとの割引額'], ['解き方', '区分線形近似の LP']],
+      cards: [['1 時間の枠への割引（Table 1）', '利益 +13.66%'], ['注文をやめうる場合（Table 6）', '利益 +36.31%']],
       venue: 'TRANSPORTATION SCIENCE 2006', title: ['Incentive Schemes for', 'Attended Home Delivery Services'], tsize: 32,
       sub: '在宅受け取りの宅配サービスのためのインセンティブの仕組み', authors: ['Ann Melissa Campbell, Martin Savelsbergh'], url: 'doi.org/10.1287/trsc.1050.0136'
     });
@@ -208,7 +209,7 @@ window.TZ = (function () {
     S.b3.forEach(function (b, i) { setBar(b, i === CHEAP ? b.v + up : b.v - up / 4); });
     S.inc3.setAttribute('opacity', seg(t, 17.2, 17.8));
     S.p3.setAttribute('opacity', seg(t, 20.2, 21.0));
-    S.l4.forEach(function (l, i) { l.setAttribute('opacity', seg(t, 24.6 + i * 0.6, 25.1 + i * 0.6)); });
+    TZ.renderBars(S.bars4, t);
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

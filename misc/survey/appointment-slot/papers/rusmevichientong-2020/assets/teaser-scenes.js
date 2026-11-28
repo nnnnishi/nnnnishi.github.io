@@ -100,9 +100,9 @@ window.TZ = (function () {
 // =====================================================================
 // teaser-scenes.js — Rusmevichientong, Sumida & Topaloglu, Dynamic Assortment Optimization for Reusable
 // Products with Random Usage Durations (Management Science 2020). Unofficial explainer.
-// Based on the abstract only (the full text was not read). Scenes 1-3 are schematics (labelled 模式図);
-// scene 4 shows only the guarantees stated in the abstract.
-// Colours: orange = the exact DP and its high-dimensional state; blue = the tractable policies.
+// Based on the publisher's PDF (Articles in Advance). Scenes 1-3 are schematics (labelled 模式図).
+// Scene 4 uses the "Average" row of Table 1 (% gain of RO over each benchmark).
+// Colours: orange = the exact DP / the benchmarks; blue = the paper's policies.
 // =====================================================================
 (function () {
   var H = Teaser.helpers, C = H.C, el = H.el, seg = H.seg;
@@ -110,10 +110,10 @@ window.TZ = (function () {
 
   var CAPTIONS = [
     { ja: '顧客は提示された品揃えから 1 つを選び、ランダムな時間使ってから返す。', en: '' },
-    { ja: '<span class="A">動的計画法でそのまま解く</span>には、手元の在庫と使用中の商品をすべて状態に持つ必要がある。', en: '' },
-    { ja: '<span class="B">価値関数の線形近似</span>から計算できる方策を作り、特別な利用時間ではロールアウトで改善する。', en: '' },
-    { ja: 'どちらの方策も最適な期待収益の 50% 以上を保証する。', en: '' },
-    { ja: '利用時間のある資源の受付を、顧客が選ぶ品揃えの問題に広げた研究。', en: '' }
+    { ja: '<span class="A">動的計画法でそのまま解く</span>には、手元の数と、何期使われているかごとの使用中の数を状態に持つ必要がある。', en: '' },
+    { ja: '<span class="B">在庫 1 単位ずつの価値</span>を後ろ向きに計算し、それを機会費用として品揃えを選ぶ。', en: '' },
+    { ja: '買い切りの品揃えの実験で、ロールアウトの方策は近視眼的な方策より平均 16.9% 収益が高かった。', en: '' },
+    { ja: '利用時間のある資源の受付を、顧客が選ぶ品揃えの問題に広げ、最適の半分以上を保証した研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
   var PX = 660;
@@ -122,6 +122,13 @@ window.TZ = (function () {
     var gg = el('g', {}, g);
     el('rect', { x: x, y: y, width: 64, height: 44, rx: 8, fill: filled ? color : '#fff', stroke: color, 'stroke-width': 1.8 }, gg);
     T(gg, x + 32, y + 28, label, { 'font-size': 15, 'font-weight': 600, fill: filled ? '#fff' : color, 'text-anchor': 'middle' });
+    return gg;
+  }
+  function box(g, x, y, w, h, title, sub, color, fill) {
+    var gg = el('g', {}, g);
+    el('rect', { x: x, y: y, width: w, height: h, rx: 10, fill: fill || '#fff', stroke: color, 'stroke-width': 1.8 }, gg);
+    T(gg, x + w / 2, y + 26, title, { 'font-size': 15, 'font-weight': 600, fill: color, 'text-anchor': 'middle' });
+    if (sub) T(gg, x + w / 2, y + 48, sub, { 'font-size': 15, fill: C.ink, 'text-anchor': 'middle' });
     return gg;
   }
 
@@ -143,58 +150,66 @@ window.TZ = (function () {
     el('rect', { x: 230, y: 320, width: 220, height: 40, rx: 6, fill: C.gray }, S.use1);
     T(S.use1, 340, 346, 'B を使用中（ランダムな時間）', { 'font-size': 15, 'text-anchor': 'middle', fill: C.ink });
     T(S.use1, 470, 346, '→ 返す', { 'font-size': 15, fill: C.ink, 'font-weight': 600 });
-    S.p1 = TZ.panel(g1, PX, 140, '再利用される商品', C.ink, [['レンタル品、', 16], ['駐車場の区画', 16], null, ['返るまで、ほかの顧客に', 15, C.muted], ['貸せる在庫が減る', 15, C.muted]]);
+    S.p1 = TZ.panel(g1, PX, 140, '再利用される商品', C.ink, [['計算資源、服のレンタル、', 16], ['路上駐車', 16], null, ['最初に r、使用中は', 15, C.muted], ['毎期 π を払う', 15, C.muted]]);
     TZ.note(g1, '模式図');
 
     // ===== scene 2: high-dimensional state =====
     var g2 = S.g[1];
-    T(g2, 90, 110, '状態に持つもの', { 'font-size': 15, fill: C.muted });
-    S.s2 = [['手元の在庫', 'A：2　B：0　C：1'], ['使用中の商品', 'A：1　B：3　C：2'], ['（戻るまでの経過も）', '利用時間の分布しだい']].map(function (r, k) {
-      var gg = el('g', {}, g2), y = 130 + k * 80;
-      el('rect', { x: 90, y: y, width: 470, height: 58, rx: 10, fill: '#fff', stroke: C.a, 'stroke-width': 1.8 }, gg);
-      T(gg, 110, y + 36, r[0], { 'font-size': 16, 'font-weight': 600, fill: C.a });
-      T(gg, 300, y + 36, r[1], { 'font-size': 16, fill: C.ink });
+    T(g2, 90, 110, '商品 i の状態（ℓ = 使われた期数）', { 'font-size': 15, fill: C.muted });
+    var labs = ['q_i,0 手元', 'q_i,1', 'q_i,2', 'q_i,3', '…'], vals = ['2', '1', '0', '2', ''];
+    S.s2 = labs.map(function (l, k) {
+      var gg = el('g', {}, g2), x = 90 + k * 96;
+      el('rect', { x: x, y: 130, width: 86, height: 70, rx: 10, fill: k === 0 ? C.bsoft : '#fff', stroke: C.a, 'stroke-width': 1.8 }, gg);
+      T(gg, x + 43, 156, l, { 'font-size': 14, fill: C.a, 'text-anchor': 'middle', 'font-weight': 600 });
+      T(gg, x + 43, 186, vals[k], { 'font-size': 18, fill: C.ink, 'text-anchor': 'middle', 'font-weight': 650 });
       return gg;
     });
-    S.big2 = T(g2, 90, 420, '商品が増えると状態の次元が高くなり、計算できない', { 'font-size': 18, 'font-weight': 650, fill: C.a });
-    S.p2 = TZ.panel(g2, PX, 140, '厳密な動的計画法', C.a, [['顧客ごとに見せる', 15], ['品揃えを決める', 15], null, ['有限の販売期間の', 15, C.muted], ['期待収益を最大にする', 15, C.muted]]);
-    TZ.note(g2, '模式図（数値は解説者が置いた例。3 行目は解説者の補足）');
+    S.r2 = T(g2, 90, 250, 'ℓ 期使われた単位は確率 ρ_i,ℓ で次の期に返る', { 'font-size': 16, fill: C.ink });
+    S.big2 = T(g2, 90, 330, '状態の数は商品数 n と期数 T について指数的に増える', { 'font-size': 18, 'font-weight': 650, fill: C.a });
+    S.p2 = TZ.panel(g2, PX, 140, '厳密な動的計画法', C.a, [['毎期、在庫を見て', 15], ['提示する品揃えを選ぶ', 15], null, ['T 期の期待収益の', 15, C.muted], ['合計を最大にする', 15, C.muted]]);
+    TZ.note(g2, '模式図（数は解説者が置いた例）');
 
-    // ===== scene 3: approximations =====
+    // ===== scene 3: per-unit values =====
     var g3 = S.g[2];
-    S.m3 = [
-      ['価値関数の線形近似', '最適な価値関数を線形関数で近似して方策を作る', C.b],
-      ['静的な方策へのロールアウト', '利用時間が無限か負の二項分布のとき', C.b]
-    ].map(function (r, k) {
-      var gg = el('g', {}, g3), y = 130 + k * 130;
-      el('rect', { x: 90, y: y, width: 480, height: 96, rx: 12, fill: C.bsoft, stroke: C.b, 'stroke-width': 1.8 }, gg);
-      T(gg, 114, y + 40, r[0], { 'font-size': 18, 'font-weight': 650, fill: C.b });
-      T(gg, 114, y + 72, r[1], { 'font-size': 15, fill: C.ink });
-      return gg;
-    });
-    S.p3 = TZ.panel(g3, PX, 140, '計算できる方策', C.b, [['ロールアウトは、', 15], ['分離可能な非線形の', 15], ['価値関数の近似に当たる', 15], null, ['近似の具体的な形は', 14, C.muted], ['本文を未読のため省略', 14, C.muted]]);
-    TZ.note(g3, '模式図（要旨にもとづく）');
+    S.u3 = [
+      box(g3, 70, 120, 140, 64, '手元の 1 単位', '価値 ν₀', C.b, C.bsoft),
+      box(g3, 270, 120, 140, 64, 'ℓ 期使用中', '価値 ν_ℓ', C.ink)
+    ];
+    S.ar3 = el('g', {}, g3);
+    el('path', { d: 'M210 140 H266', stroke: C.b, 'stroke-width': 2, fill: 'none' }, S.ar3);
+    T(S.ar3, 238, 130, 'φ/C', { 'font-size': 14, fill: C.b, 'text-anchor': 'middle' });
+    el('path', { d: 'M340 184 C 340 230, 140 230, 140 188', stroke: C.muted, 'stroke-width': 1.6, fill: 'none' }, S.ar3);
+    T(S.ar3, 240, 240, '確率 ρ_ℓ で返る', { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
+    S.f3 = T(g3, 70, 300, '収益を r + π − (1−ρ₀)(ν₀ − ν₁) とみなして', { 'font-size': 17, 'font-weight': 650, fill: C.b });
+    S.f3b = T(g3, 70, 330, '期待収益が最大の品揃えを提示する（貪欲な方策）', { 'font-size': 17, 'font-weight': 650, fill: C.b });
+    S.f3c = T(g3, 70, 390, 'さらに、静的な方策へのロールアウトで在庫の量も見る', { 'font-size': 16, fill: C.ink });
+    S.p3 = TZ.panel(g3, PX, 140, '在庫 1 単位の価値', C.b, [['期 T から後ろ向きに', 15], ['計算する', 15], null, ['貪欲な方策もロールアウトも', 14, C.muted], ['最適の 50% 以上を保証', 14, C.muted]]);
+    TZ.note(g3, '模式図（論文の式 (5)(6) を簡略化）');
 
-    // ===== scene 4: guarantees =====
+    // ===== scene 4: Table 1 averages =====
     var g4 = S.g[3];
-    T(g4, 70, 64, '要旨が示す保証', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
-    S.c4 = [
-      ['線形近似の方策', '最適な期待収益の 50% 以上'],
-      ['ロールアウト（無限・負の二項分布）', '最適な期待収益の 50% 以上'],
-      ['ロールアウトの変種（無限）', '最小在庫 C_min の立方根に応じて最適に近づく']
-    ].map(function (r, k) {
-      var gg = el('g', {}, g4), y = 100 + k * 110;
-      el('rect', { x: 70, y: y, width: 820, height: 86, rx: 12, fill: '#fff', stroke: C.b, 'stroke-width': 2 }, gg);
-      T(gg, 96, y + 36, r[0], { 'font-size': 16, fill: C.muted });
-      T(gg, 96, y + 68, r[1], { 'font-size': 22, 'font-weight': 650, fill: C.b });
-      return gg;
+    T(g4, 70, 64, 'ロールアウト（RO）の収益が各方法より何 % 高いか（論文 Table 1 の平均）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    var X0 = 300, X1 = 820, VMAX = 20;
+    function sx(v) { return X0 + v / VMAX * (X1 - X0); }
+    [0, 5, 10, 15, 20].forEach(function (v) {
+      el('line', { x1: sx(v), x2: sx(v), y1: 90, y2: 446, stroke: C.hair, 'stroke-width': 1 }, g4);
+      T(g4, sx(v), 468, v + '%', { 'font-size': 14, fill: C.muted, 'text-anchor': 'middle' });
     });
-    S.n4 = T(g4, 70, 452, '実験（合成データ、シアトルの駐車場の取引データ）では保証より大きく良い性能', { 'font-size': 16, fill: C.ink });
-    TZ.note(g4, '要旨の記述から（本文の数値は未確認）');
+    el('line', { x1: X0, x2: X0, y1: 90, y2: 446, stroke: C.ink, 'stroke-width': 1.5 }, g4);
+    var rows = [['貪欲な方策 GR', 2.0], ['入札価格 BP', 4.7], ['LP の品揃え OS', 1.5], ['分解 DC', 0.0], ['近視眼的 MY', 16.9], ['在庫で割引 IB', 10.4]];
+    S.bars4 = rows.map(function (r, i) {
+      var y = 100 + i * 58;
+      T(g4, X0 - 14, y + 28, r[0], { 'font-size': 15, fill: C.ink, 'text-anchor': 'end' });
+      var rect = el('rect', { x: X0, y: y + 8, width: 0, height: 30, fill: C.a, 'fill-opacity': 0.85 }, g4);
+      var lab = el('text', { x: sx(r[1]) + 8, y: y + 29, 'font-size': 15, 'font-weight': 600, fill: C.a }, g4);
+      lab.textContent = '+' + r[1].toFixed(1) + '%';
+      return { rect: rect, lab: lab, w: sx(r[1]) - X0, t0: 24.6 + i * 0.6 };
+    });
+    TZ.note(g4, '買い切り（利用時間が無限）の 12 問題の平均。論文 Table 1 から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['線形近似の方策', '最適の 50% 以上'], ['実データ', 'シアトルの駐車場']],
+      cards: [['性能保証', '最適の 50% 以上'], ['シアトルの駐車場', '固定価格より +4.3%']],
       venue: 'MANAGEMENT SCIENCE 2020', title: ['Dynamic Assortment Optimization for Reusable', 'Products with Random Usage Durations'], tsize: 29,
       sub: '利用時間がランダムな再利用商品の動的な品揃え', authors: ['Paat Rusmevichientong, Mika Sumida, Huseyin Topaloglu'], url: 'doi.org/10.1287/mnsc.2019.3346'
     });
@@ -207,13 +222,17 @@ window.TZ = (function () {
     S.ch1.setAttribute('opacity', seg(t, 2.6, 3.2));
     S.use1.setAttribute('opacity', seg(t, 3.8, 4.4));
     S.p1.setAttribute('opacity', seg(t, 4.8, 5.6));
-    S.s2.forEach(function (s, i) { s.setAttribute('opacity', seg(t, 8.6 + i * 0.8, 9.1 + i * 0.8)); });
-    S.big2.setAttribute('opacity', seg(t, 11.2, 11.8));
-    S.p2.setAttribute('opacity', seg(t, 12.0, 12.8));
-    S.m3.forEach(function (m, i) { m.setAttribute('opacity', seg(t, 16.8 + i * 1.4, 17.4 + i * 1.4)); });
-    S.p3.setAttribute('opacity', seg(t, 19.6, 20.4));
-    S.c4.forEach(function (c, i) { c.setAttribute('opacity', seg(t, 24.6 + i * 1.0, 25.2 + i * 1.0)); });
-    S.n4.setAttribute('opacity', seg(t, 27.8, 28.4));
+    S.s2.forEach(function (s, i) { s.setAttribute('opacity', seg(t, 8.6 + i * 0.4, 9.0 + i * 0.4)); });
+    S.r2.setAttribute('opacity', seg(t, 10.8, 11.4));
+    S.big2.setAttribute('opacity', seg(t, 11.8, 12.4));
+    S.p2.setAttribute('opacity', seg(t, 12.6, 13.4));
+    S.u3.forEach(function (u, i) { u.setAttribute('opacity', seg(t, 16.8 + i * 0.6, 17.3 + i * 0.6)); });
+    S.ar3.setAttribute('opacity', seg(t, 18.0, 18.6));
+    S.f3.setAttribute('opacity', seg(t, 19.0, 19.6));
+    S.f3b.setAttribute('opacity', seg(t, 19.0, 19.6));
+    S.f3c.setAttribute('opacity', seg(t, 20.2, 20.8));
+    S.p3.setAttribute('opacity', seg(t, 20.8, 21.6));
+    TZ.renderBars(S.bars4, t);
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

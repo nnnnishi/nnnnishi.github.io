@@ -113,7 +113,8 @@ window.TZ = (function () {
 // =====================================================================
 // teaser-scenes.js — Lian, DiStefano, Shields, Heinichen, Giampietri, Wang, Clinical Appointment Process:
 // Improvement Through Schedule Defragmentation (IEEE EMB Magazine 2010). Unofficial explainer.
-// Based on the abstract only: every picture is a schematic (labelled 模式図) and no numbers are shown.
+// Scenes 1-3 are schematics (labelled 模式図). Scene 4 uses the fragmentation indexes stated in the text for
+// the paper's Fig. 3 example (10, 6, 5, 3, 2 open blocks for co-op ratios 1.0, 1.25, 1.5, 2.0, 100).
 // Colours: orange = conventional booking and its fragmented free time; blue = defragmentation.
 // =====================================================================
 (function () {
@@ -123,9 +124,9 @@ window.TZ = (function () {
   var CAPTIONS = [
     { ja: 'ふつうの予約の入れ方では、診察の間に<span class="A">短い空き時間</span>が散らばる。', en: '' },
     { ja: '空き時間の合計は足りていても、長い診察が入る連続した空きがない。', en: '' },
-    { ja: '<span class="B">提案法</span>は患者と医師の双方の希望を使い、断片化を減らすように予約を入れる。', en: '' },
-    { ja: 'シミュレーションでは断片化が減り、予約の受入率と稼働率が上がった（要旨）。', en: '' },
-    { ja: '予約表の断片化を名指しで問題にした、医療の予約の早い研究。', en: '' }
+    { ja: '<span class="B">提案法</span>は候補ごとに仮に予約を入れて空きの塊を数え、少ない順に患者に示す。', en: '' },
+    { ja: '15分枠・10件の例で、協力比を 1.0 から 2.0 に上げると空きの塊は 10 から 3 に減った。', en: '' },
+    { ja: '空きの塊の数という単純な指標で、断片化を予約の受入率の問題として示した研究。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
   var PX = 660, W = 40, N = 12;
@@ -168,42 +169,42 @@ window.TZ = (function () {
     S.p2 = TZ.panel(g2, PX, 140, '断片化', C.a, [['合計の空きは 6 枠', 15], ['連続した空きは最大 2 枠', 15], null, ['受入率も稼働率も', 15, C.muted], ['下がる', 15, C.muted]]);
     TZ.note(g2, '模式図');
 
-    // ===== scene 3: defragmentation with preferences =====
+    // ===== scene 3: mock allocation and the fragmentation index =====
     var g3 = S.g[2];
-    T(g3, 150, 110, '患者の希望する時間帯と医師の希望を合わせて枠を選ぶ', { 'font-size': 15, fill: C.muted });
-    day(g3, 140, '医師 A');
-    S.a3 = SCATTER.map(function (a, i) {
-      return { r: el('rect', { x: 150 + a[0] * W, y: 143, width: a[1] * W - 3, height: 38, rx: 5, fill: C.b, 'fill-opacity': 0.85 }, g3), from: a[0], to: PACKED[i][0] };
-    });
-    S.f3 = el('g', {}, g3);
-    el('rect', { x: 150 + 6 * W + 1, y: 142, width: 6 * W - 5, height: 40, rx: 5, fill: 'none', stroke: C.b, 'stroke-width': 2, 'stroke-dasharray': '5 4' }, S.f3);
-    T(S.f3, 150, 240, '同じ予約で、6 枠の連続した空きが残る', { 'font-size': 16, 'font-weight': 650, fill: C.b });
-    S.r3 = el('g', {}, g3);
-    el('rect', { x: 150 + 6 * W, y: 270, width: 3 * W - 3, height: 44, rx: 6, fill: C.b, 'fill-opacity': 0.15, stroke: C.b, 'stroke-width': 2 }, S.r3);
-    T(S.r3, 150 + 7.5 * W, 298, '3 枠の診察', { 'font-size': 15, fill: C.b, 'text-anchor': 'middle' });
-    T(S.r3, 150 + 9 * W + 12, 298, '→ 入る', { 'font-size': 16, fill: C.b, 'font-weight': 650 });
-    S.p3 = TZ.panel(g3, PX, 140, '断片化の解消', C.b, [['患者と医師の双方の', 15], ['希望を考慮する', 15], null, ['具体的な手順は', 15, C.muted], ['本文を未読のため省略', 15, C.muted]]);
-    TZ.note(g3, '模式図（論文の手順の再現ではない）');
-
-    // ===== scene 4: findings (abstract) =====
-    var g4 = S.g[3];
-    T(g4, 70, 80, '要旨が述べる結果（シミュレーション）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
-    var items = [['断片化', '減る', '↓'], ['予約の受入率', '上がる', '↑'], ['診療時間の稼働率', '上がる', '↑']];
-    S.i4 = items.map(function (it, i) {
-      var g = el('g', {}, g4), y = 110 + i * 84;
-      el('rect', { x: 70, y: y, width: 470, height: 66, rx: 12, fill: C.bsoft }, g);
-      T(g, 96, y + 41, it[0], { 'font-size': 18, fill: C.ink });
-      T(g, 440, y + 43, it[2] + ' ' + it[1], { 'font-size': 22, 'font-weight': 650, fill: C.b, 'text-anchor': 'middle' });
+    var BASE = [1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0];
+    T(g3, 150, 92, '1 枠の依頼。候補ごとに仮に入れて、空きの塊を数える', { 'font-size': 15, fill: C.muted });
+    TZ.slots(g3, { x: 150, y: 110, n: N, w: W, h: 36, label: '今', states: BASE });
+    var cands = [[2, 2], [4, 3], [9, 4]];  // [slot, open blocks after a mock allocation]
+    S.c3 = cands.map(function (c, i) {
+      var g = el('g', {}, g3), y = 190 + i * 70, st = BASE.slice(); st[c[0]] = 3;
+      TZ.slots(g, { x: 150, y: y, n: N, w: W, h: 36, label: '候補 ' + 'ABC'[i], states: st });
+      T(g, 150 + N * W + 14, y + 25, '塊 ' + c[1], { 'font-size': 17, 'font-weight': 650, fill: i === 0 ? C.b : C.ink });
       return g;
     });
-    S.n4 = el('g', {}, g4);
-    T(S.n4, 70, 395, '診療時間を正確に推定できれば、単位枠を短くして効率をさらに上げられる可能性がある', { 'font-size': 16, fill: C.ink });
-    T(S.n4, 70, 430, '臨床医へのアンケートで、導入の機会と課題も調べた', { 'font-size': 15, fill: C.muted });
-    TZ.note(g4, '要旨にもとづく（数値は本文を未読のため示さない）');
+    S.q3 = T(g3, 150, 430, 'A → B → C の順に並べ（同じ数なら早い時刻が上）、患者に上から勧める', { 'font-size': 16, 'font-weight': 650, fill: C.b });
+    S.p3 = TZ.panel(g3, PX + 40, 140, '断片化指数', C.b, [['仮の割当の後に残る', 15], ['空きの塊の数', 15], null, ['選ぶのは患者。', 15, C.muted], ['勧めに従う度合いを', 15, C.muted], ['協力比と呼ぶ', 15, C.muted]]);
+    TZ.note(g3, '模式図（手順は論文 Fig. 2 にもとづく）');
+
+    // ===== scene 4: fragmentation index vs co-op ratio (paper, Fig. 3 example) =====
+    var g4 = S.g[3];
+    T(g4, 70, 70, '10 件の予約後の空きの塊の数（15 分枠。論文 Fig. 3 の例）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    var fi = [['1.0', 10], ['1.25', 6], ['1.5', 5], ['2.0', 3], ['100', 2]];
+    S.b4 = fi.map(function (d, i) {
+      var x = 130 + i * 110, h = d[1] * 28, col = i === 0 ? C.a : C.b;
+      var r = el('rect', { x: x, y: 400 - h, width: 70, height: 0, rx: 4, fill: col, 'fill-opacity': i === 0 ? 1 : 0.85 }, g4);
+      var lab = el('text', { x: x + 35, y: 390 - h, 'font-size': 18, 'font-weight': 650, fill: col, 'text-anchor': 'middle' }, g4);
+      lab.textContent = d[1];
+      T(g4, x + 35, 428, d[0], { 'font-size': 16, fill: C.ink, 'text-anchor': 'middle' });
+      return { r: r, lab: lab, h: h, t0: 24.6 + i * 0.6 };
+    });
+    el('line', { x1: 110, x2: 680, y1: 400, y2: 400, stroke: C.ink, 'stroke-width': 1.5 }, g4);
+    T(g4, 405, 465, '協力比（患者が上の候補を選ぶ確率 ÷ 次の候補を選ぶ確率）', { 'font-size': 15, fill: C.muted, 'text-anchor': 'middle' });
+    S.p4 = TZ.panel(g4, PX + 40, 140, '少しの協力で十分', C.b, [['1.0 → 2.0 で 10 → 3', 15, C.ink, 600], ['100 でも 2', 15], null, ['協力比を上げると', 15, C.muted], ['受入率も稼働率も上がる', 15, C.muted]]);
+    TZ.note(g4, '論文の本文の値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['評価', '受入率と稼働率'], ['方法', '患者と医師の希望を使う']],
+      cards: [['空きの塊の数（協力比 1.0 → 2.0）', '10 → 3'], ['評価', '受入率と稼働率']],
       venue: 'IEEE EMB MAGAZINE 2010', title: ['Clinical Appointment Process: Improvement', 'Through Schedule Defragmentation'], tsize: 28,
       sub: '外来の予約の手順：予約表の断片化の解消による改善', authors: ['J. Lian, K. DiStefano, S. D. Shields,', 'C. Heinichen, M. Giampietri, L. Wang'], url: 'doi.org/10.1109/MEMB.2009.935718'
     });
@@ -217,13 +218,11 @@ window.TZ = (function () {
     S.p1.setAttribute('opacity', seg(t, 5.0, 5.8));
     S.r2.setAttribute('opacity', seg(t, 9.4, 10.2));
     S.p2.setAttribute('opacity', seg(t, 11.0, 11.8));
-    var k = seg(t, 17.6, 19.6);
-    S.a3.forEach(function (a) { a.r.setAttribute('x', 150 + (a.from + (a.to - a.from) * k) * W); });
-    S.f3.setAttribute('opacity', seg(t, 19.8, 20.4));
-    S.r3.setAttribute('opacity', seg(t, 21.0, 21.6));
-    S.p3.setAttribute('opacity', seg(t, 18.0, 18.8));
-    S.i4.forEach(function (g, i) { g.setAttribute('opacity', seg(t, 24.6 + i * 0.9, 25.2 + i * 0.9)); });
-    S.n4.setAttribute('opacity', seg(t, 27.8, 28.6));
+    S.c3.forEach(function (g, i) { g.setAttribute('opacity', seg(t, 17.2 + i * 0.9, 17.8 + i * 0.9)); });
+    S.q3.setAttribute('opacity', seg(t, 20.4, 21.0));
+    S.p3.setAttribute('opacity', seg(t, 18.4, 19.2));
+    S.b4.forEach(function (b) { var k = H.ease(seg(t, b.t0, b.t0 + 0.6)); b.r.setAttribute('height', b.h * k); b.r.setAttribute('y', 400 - b.h * k); b.lab.setAttribute('opacity', seg(t, b.t0 + 0.4, b.t0 + 0.8)); });
+    S.p4.setAttribute('opacity', seg(t, 28.0, 28.8));
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

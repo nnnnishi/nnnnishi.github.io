@@ -112,9 +112,9 @@ window.TZ = (function () {
 })();
 // =====================================================================
 // teaser-scenes.js — Battiti, Brunato, Battiti, RoomTetris: an optimal procedure for committing rooms to
-// reservations in hotels (JHTT 2020). Unofficial explainer, based on the abstract and on the description of
-// RoomTetris in the authors' 2021 IJCHM paper. All scenes are schematics (labelled 模式図); no numbers from
-// the 2020 paper are shown because its body was not read.
+// reservations in hotels (JHTT 2020). Unofficial explainer, based on the published PDF.
+// Scenes 1-3 are schematics (labelled 模式図). Scene 4 uses the rejection ratios in Section 3 of the paper
+// (10 rooms, 365 days, 60% one-day / 40% seven-day requests, 1,000 runs).
 // Colours: orange = immediate assignment and its gaps / rejections; blue = RoomTetris.
 // =====================================================================
 (function () {
@@ -123,10 +123,10 @@ window.TZ = (function () {
 
   var CAPTIONS = [
     { ja: '予約を受けた時点で部屋を決めると、<span class="A">短い滞在の間に隙間</span>が残り、長い滞在が入らない。', en: '' },
-    { ja: '日ごとには空き室があるのに断るのは、割当のせいで起きる<span class="A">避けられる拒否</span>である。', en: '' },
+    { ja: '日ごとには空き室があるのに断るのは、割当のせいで起きる<span class="A">避けられる超過予約</span>である。', en: '' },
     { ja: '<span class="B">RoomTetris</span> は部屋番号をチェックイン日まで決めず、その日に長い順に入れる。', en: '' },
-    { ja: 'どの日も部屋数を超えて売っていなければ、客を移さずに全予約が入る。', en: '' },
-    { ja: '割当を遅らせるだけで、避けられる拒否をなくす最適な手順。', en: '' }
+    { ja: '10室・1年の需要で、断った日数の割合は FirstFit の 24.83% から 14.46% に下がった。', en: '' },
+    { ja: '割当をチェックイン日まで遅らせるだけで、避けられる超過予約をなくす最適な手順。', en: '' }
   ];
   var BOUNDS = [0, 8, 16, 24, 33, 40];
   var PX = 660, W = 44;
@@ -147,7 +147,7 @@ window.TZ = (function () {
     el('rect', { x: 150 + 2 * W, y: 370, width: 4 * W - 3, height: 36, rx: 6, fill: C.a, 'fill-opacity': 0.15, stroke: C.a, 'stroke-width': 2 }, S.req1);
     T(S.req1, 150 + 4 * W, 394, '4 泊の要求', { 'font-size': 15, 'text-anchor': 'middle', fill: C.a });
     T(S.req1, 150 + 6 * W + 16, 394, '→ どの部屋にも入らない', { 'font-size': 15, fill: C.a, 'font-weight': 650 });
-    S.p1 = TZ.panel(g1, PX, 140, '即時割当', C.a, [['空き日数は半分あるのに', 15], ['連続した空きがない', 15], null, ['論文はこれを', 15, C.muted], ['「避けられる拒否」と呼ぶ', 15, C.muted]]);
+    S.p1 = TZ.panel(g1, PX, 140, '即時割当', C.a, [['空き日数は半分あるのに', 15], ['連続した空きがない', 15], null, ['論文はこれを', 15, C.muted], ['「避けられる超過予約」と呼ぶ', 15, C.muted]]);
     TZ.note(g1, '模式図（灰色は予約済みの日）');
 
     // ===== scene 2: avoidable vs inevitable rejection =====
@@ -162,8 +162,8 @@ window.TZ = (function () {
     T(S.cnt2, 150 - 12, 342, '空き', { 'font-size': 15, fill: C.muted, 'text-anchor': 'end' });
     S.q2 = el('g', {}, g2);
     T(S.q2, 150, 400, '日 3〜6 はどの日も空き室があるのに、4 泊の要求は入らない', { 'font-size': 16, 'font-weight': 650, fill: C.a });
-    S.p2 = TZ.panel(g2, PX, 140, '拒否の 2 種類', C.a, [['避けられない拒否：', 15, C.ink, 600], ['その日が全室売れている', 15], null, ['避けられる拒否：', 15, C.a, 600], ['空きはあるのに、割当の', 15], ['せいで入らない', 15]]);
-    TZ.note(g2, '模式図（区別は 2021 年の続編による）');
+    S.p2 = TZ.panel(g2, PX, 140, '超過予約の 2 種類', C.a, [['避けられない：', 15, C.ink, 600], ['その日が全室売れている', 15], null, ['避けられる：', 15, C.a, 600], ['空きはあるのに、割当の', 15], ['せいで入らない', 15]]);
+    TZ.note(g2, '模式図（区別は論文 4 節による）');
 
     // ===== scene 3: RoomTetris =====
     var g3 = S.g[2];
@@ -182,25 +182,27 @@ window.TZ = (function () {
     S.p3 = TZ.panel(g3, PX, 140, 'RoomTetris', C.b, [['割当をチェックイン日まで', 15], ['遅らせる', 15], null, ['将来の予約は', 15, C.muted], ['知らなくてよい', 15, C.muted]]);
     TZ.note(g3, '模式図');
 
-    // ===== scene 4: the guarantee =====
+    // ===== scene 4: rejection ratios (paper, Section 3) =====
     var g4 = S.g[3];
-    T(g4, 150, 92, '場面 3 の予約の日ごとの数（どの日も 4 室以内）', { 'font-size': 15, fill: C.muted });
-    var cnt = [3, 4, 4, 4, 4, 4, 4, 4, 3, 1];  // day counts of the stays in scene 3
-    S.b4 = cnt.map(function (c, k) {
-      var h = c * 50;
-      return { r: el('rect', { x: 150 + k * W, y: 330 - h, width: W - 6, height: 0, rx: 4, fill: C.b, 'fill-opacity': 0.8 }, g4), h: h, t0: 24.6 + k * 0.15 };
+    T(g4, 70, 64, '断った日数の割合（10 室・365 日、1 泊 60%・7 泊 40%、1,000 回の平均）', { 'font-size': 16, 'font-weight': 600, fill: C.ink });
+    var rows = [['Random', 34.29], ['FirstFit', 24.83], ['MaxSlack', 24.78], ['MinSlack', 25.03], ['RoomTetris', 14.46], ['下限', 12.10]];
+    var A0 = 200, A1 = 600;
+    el('line', { x1: A0, x2: A0, y1: 90, y2: 470, stroke: C.ink, 'stroke-width': 1.5 }, g4);
+    S.b4 = rows.map(function (r, i) {
+      var y = 96 + i * 62, col = i === 4 ? C.b : i === 5 ? C.muted : C.a;
+      T(g4, A0 - 12, y + 30, r[0], { 'font-size': 16, fill: col, 'text-anchor': 'end', 'font-weight': i === 4 ? 650 : 400 });
+      var w = (A1 - A0) * r[1] / 36;
+      var rect = el('rect', { x: A0, y: y + 10, width: 0, height: 30, fill: col, 'fill-opacity': i === 5 ? 0.5 : 1 }, g4);
+      var lab = el('text', { x: A0 + w + 8, y: y + 31, 'font-size': 16, 'font-weight': 650, fill: col }, g4);
+      lab.textContent = r[1].toFixed(2) + '%';
+      return { rect: rect, lab: lab, w: w, t0: 24.6 + i * 0.6 };
     });
-    el('line', { x1: 140, x2: 150 + 10 * W, y1: 130, y2: 130, stroke: C.ink, 'stroke-width': 1.5, 'stroke-dasharray': '6 4' }, g4);
-    T(g4, 132, 135, '部屋数 4', { 'font-size': 15, fill: C.ink, 'text-anchor': 'end' });
-    S.q4 = el('g', {}, g4);
-    T(S.q4, 150, 390, 'この条件を満たせば、RoomTetris は全予約を部屋に入れられる', { 'font-size': 16, 'font-weight': 650, fill: C.b });
-    T(S.q4, 150, 425, '受けられる予約は、日ごとの部屋数の制約だけで決まる', { 'font-size': 15, fill: C.ink });
-    S.p4 = TZ.panel(g4, PX, 140, '要旨の結果', C.b, [['最適性を証明した', 15], ['初めての手順', 15], null, ['シミュレータで拒否率を', 15, C.muted], ['大きく下げ、稼働率を上げる', 15, C.muted], ['効果は繁忙期に大きい', 15, C.muted]]);
-    TZ.note(g4, '模式図（性質の説明は 2021 年の続編による）');
+    S.p4 = TZ.panel(g4, PX + 20, 140, 'FirstFit より 41.76% 減', C.b, [['下限は、日ごとに部屋数を', 15], ['超えた需要の合計', 15], null, ['即時割当の工夫 3 つは', 15, C.muted], ['ほぼ同じ', 15, C.muted]]);
+    TZ.note(g4, '論文 3 節の数値から作図');
 
     // ===== scene 5 =====
     TZ.title(S.g[4], {
-      cards: [['割当のタイミング', 'チェックイン日まで遅らせる'], ['性質', '避けられる拒否が 0']],
+      cards: [['断った日数の割合（FirstFit → RoomTetris）', '24.83% → 14.46%'], ['性質', '避けられる超過予約が 0']],
       venue: 'JHTT 2020', title: ['RoomTetris: an optimal procedure for', 'committing rooms to reservations in hotels'], tsize: 28,
       sub: 'RoomTetris：ホテルの予約に部屋を割り当てる最適な手順', authors: ['Roberto Battiti, Mauro Brunato, Filippo Battiti'], url: 'doi.org/10.1108/JHTT-08-2019-0108'
     });
@@ -225,9 +227,11 @@ window.TZ = (function () {
     S.r3.forEach(function (r) { r.g.setAttribute('opacity', seg(t, r.t0, r.t0 + 0.4)); });
     S.req3.setAttribute('opacity', seg(t, 21.6, 22.2));
     S.p3.setAttribute('opacity', seg(t, 17.4, 18.2));
-    S.b4.forEach(function (b) { var k = H.ease(seg(t, b.t0, b.t0 + 0.6)); b.r.setAttribute('height', b.h * k); b.r.setAttribute('y', 330 - b.h * k); });
-    S.q4.setAttribute('opacity', seg(t, 27.0, 27.6));
-    S.p4.setAttribute('opacity', seg(t, 28.0, 28.8));
+    S.b4.forEach(function (b) {
+      b.rect.setAttribute('width', b.w * H.ease(seg(t, b.t0, b.t0 + 0.7)));
+      b.lab.setAttribute('opacity', seg(t, b.t0 + 0.5, b.t0 + 0.9));
+    });
+    S.p4.setAttribute('opacity', seg(t, 28.6, 29.4));
   }
 
   Teaser.start({ root: document.getElementById('teaser'), bounds: BOUNDS, captions: CAPTIONS, build: build, render: render, still: 31 });

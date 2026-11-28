@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sauré ら（2012）：放射線治療の予約を無限期間の MDP で書き、アフィン近似と列生成で解く（論文解説）</title>
-<meta name="description" content="Dynamic multi-appointment patient scheduling for radiation therapy（EJOR 2012）の非公式の解説。がん患者の放射線治療の予約を割引つき無限期間のマルコフ決定過程で書き、価値関数をアフィン関数で近似して列生成で解く方法を、要旨と書誌情報にもとづいて紹介する。">
+<meta name="description" content="Dynamic multi-appointment patient scheduling for radiation therapy（EJOR 2012）の非公式の解説。何日も続く治療を何種類も受け付ける放射線治療の予約を、割引つき無限期間のマルコフ決定過程で書き、価値関数のアフィン近似と列生成で解く。BCCA のデータにもとづくシミュレーションでは、10 営業日以内に治療を始めた割合が 73% から 96% に上がった。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -185,15 +185,13 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <p class="subtitle">放射線治療のための複数回予約の動的な患者スケジューリング</p>
 
   <ul class="authors">
-    <li><b>Antoine Sauré</b></li>
-    <li><b>Jonathan Patrick</b></li>
-    <li><b>Scott Tyldesley</b></li>
-    <li><b>Martin L. Puterman</b></li>
+    <li><b>Antoine Sauré</b><span>University of British Columbia</span></li>
+    <li><b>Jonathan Patrick</b><span>University of Ottawa</span></li>
+    <li><b>Scott Tyldesley</b><span>British Columbia Cancer Agency</span></li>
+    <li><b>Martin L. Puterman</b><span>University of British Columbia</span></li>
   </ul>
 
-  <p class="lead">放射線治療では、治療の開始が遅れると患者の苦痛や生活の質の低下を招き、がんの制御や生存にも悪い影響がありうる。一方で治療に使う資源は高価で、<span class="A">使い方に無駄が出やすい</span>。Sauré らはブリティッシュコロンビアがん機関（BCCA）の予約を題材に、届いた患者に治療の枠を割り当てる問題を<span class="B">割引つき無限期間のマルコフ決定過程</span>で書き、価値関数のアフィン近似と列生成で解いた。</p>
-
-  <p class="src">このページは要旨と書誌情報にもとづく。本文は未読のため、数値の結果と式の細部は載せていない。</p>
+  <p class="lead">放射線治療は何日も続けて通う治療で、1 回の長さも種類ごとに違う。<span class="A">来た順に予約を入れる</span>と、急ぐ患者が後回しになるか、使えない隙間が予約表に残る。Sauré らはこの予約受付を<span class="B">割引つき無限期間のマルコフ決定過程</span>で書き、価値関数のアフィン近似と列生成で近似最適な方策を求めた。ブリティッシュコロンビアがん機関（BCCA）のデータにもとづくシミュレーションでは、10 営業日以内に治療を始めた割合が、目先の費用だけを見る方策の 73% から 96% に上がった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1016/j.ejor.2012.06.046">DOI</a>
@@ -206,56 +204,90 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。治療の開始の遅れが患者に悪影響を与えること、1人の患者が複数日の治療枠を占める予約表、予約受付を割引つき無限期間のマルコフ決定過程で書くこと、価値関数のアフィン近似と列生成、まとめの5場面。数値の結果は含まない。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ブリティッシュコロンビア州では14日以内に治療を始められた割合が70〜77%にとどまること、1人の患者が何日も続く治療枠を使う予約表、予約受付をマルコフ決定過程で書き価値関数をアフィン関数で近似すること、目先の費用だけを見る方策との比較で10営業日以内の開始が73%から96%に上がった結果、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
       <span class="tdots"></span>
-      <span>論文を40秒で（解説者による模式図。要旨にもとづく）。音声なし。</span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
     </figcaption>
   </figure>
 
   <ul class="points">
-    <li><span class="k">複数回の予約を同時に扱う</span><span class="d">題名のとおり、1 人の患者に複数回の予約（multi-appointment）を割り当てる。届いた患者に治療装置の容量を割り当てる問題として書く。</span></li>
-    <li><span class="k">割引つき無限期間の MDP</span><span class="d">費用を抑えながら容量を割り当てる方策を、割引つき無限期間のマルコフ決定過程（MDP）として定式化する。</span></li>
-    <li><span class="k">アフィン近似＋列生成</span><span class="d">状態が多すぎて直接は解けないので、価値関数をアフィン関数で近似し、それと等価な線形計画を列生成で解く。BCCA のデータにもとづくシミュレーションで評価した。</span></li>
+    <li><span class="k">10 営業日以内の開始 73% → 96%</span><span class="d">BCCA のバンクーバーがんセンターのデータにもとづくシミュレーションで、目先の費用だけを見る方策と比べた結果（論文 Table 4 と本文）。残業は 1 日平均 3 分増えただけだった。</span></li>
+    <li><span class="k">治療を「何日 × 何枠」の形で表す</span><span class="d">治療の種類ごとに、毎日続く各回が何枠を使うかをベクトルで持つ（例：初回 2 枠、残り 4 回は 1 枠）。1 件の受付が先の複数の日の容量を同時に使う。</span></li>
+    <li><span class="k">アフィン近似＋列生成</span><span class="d">状態の数は実例で \(10^{300}\) を超える。価値関数を日ごとの予約済みの枠数の 1 次式で近似し、変数が \(2M+I+1\) 個の線形計画の双対を列生成で解く。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>放射線治療では開始の遅れが患者に害を与え、費用のかかる資源の使い方にも無駄が出やすい</h2>
-    <p>要旨によると、放射線治療の開始の遅れは、患者の苦痛、生活の質の低下、がんの制御や生存の悪化につながりうる。一方で、治療に使う資源は高価で、使い方に無駄が出やすい。論文はブリティッシュコロンビアがん機関（BCCA）での予約の運用を題材にする。</p>
-    <p>放射線治療は 1 回で終わらず、同じ患者が何回も治療に通う。題名の multi-appointment はこの点を指す。1 件の予約受付が先の複数の日の容量を同時に使うので、今日の割り当てがその後の受付に長く影響する。</p>
+    <h2>治療は何日も続き、1 回の長さも違うので、来た順に入れると急ぐ患者が待たされ、予約表に使えない隙間が残る</h2>
+    <p>放射線治療の開始の遅れは、腫瘍の進行、症状の持続、心理的な苦痛、がんの制御率や生存率の低下と関係することが報告されている。カナダの放射線腫瘍医の学会が示す、緊急でない治療の待ち時間の上限は 14 日である。ブリティッシュコロンビア州で 14 日以内に治療を始められた割合は、2004〜2008 年に 70.0〜77.0% だった（論文 Table 1）。</p>
+    <p>論文は、遅れの原因は容量の不足だけでなく予約の入れ方にもあるとし、難しさを 3 つ挙げる。治療は部位、目的、緊急度で何種類にも分かれる。多くの治療は 1 日から 8 週間、平日に毎日続けて行う。1 回の長さは 12〜60 分と治療によって違う。このため、来た順に入れる方策では、後から来た急ぐ患者が待たされるか、長さのそろわない治療が使えない隙間を予約表に残す。論文はこれを「テトリスのよう」と表現する。</p>
+    <figure>
+      <img src="assets/fig1_treatment_patterns.png" alt="Three treatment patterns drawn as blocks of appointment slots over consecutive days. Pattern (a) has a first session of two slots followed by four one-slot sessions; pattern (b) a first session of three slots followed by four two-slot sessions; pattern (c) has two-slot sessions on the first and fifth days and one-slot sessions on the other days." loading="lazy">
+      <figcaption>図1　治療のパターンの例。横が日、縦の積み重ねが 1 回に使う予約枠の数。(b) は初回 3 枠、残り 4 回が各 2 枠の治療を表す（論文の Figure 1 より）。</figcaption>
+    </figure>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>届いた患者に治療装置の容量を割り当てる問題を、割引つき無限期間のマルコフ決定過程として書く</h2>
-    <p>要旨の言葉では、目的は「届いた患者に放射線治療の容量を費用効果よく割り当てる」ことで、これを割引つき無限期間の MDP として定式化する。マルコフ決定過程は状態（ここでは予約表と待っている患者の様子）を見て行動（いつ治療を始めるか）を選び、将来まで含めた期待費用を小さくする枠組みである。</p>
-    <p>状態の定義、費用の項目、待ち時間の目標の扱いなどの詳細は本文を読めていないため、このページでは書かない。</p>
+    <h2>毎日の終わりに、待っている治療を何日目から始めるかと、どの日に残業枠を使うかを決める</h2>
+    <p>予約の担当者は毎日の終わりに、その日に届いた依頼とまだ入れていない依頼を見て、各治療を何日目から始めるかを決める。治療の種類 \(i\) は、各回が使う枠の数を並べたベクトル \(\vec r_i = (r_{i1}, \dots, r_{il_i})\) で表す（\(l_i\) は回数）。</p>
+    <ul class="def">
+      <li><strong>状態</strong>：\(\vec s = (\vec u, \vec v, \vec w)\)。\(u_m\) は \(m\) 日目に予約済みの通常の枠の数、\(v_m\) は残業の枠の数、\(w_i\) は種類 \(i\) の待っている治療の数。</li>
+      <li><strong>行動</strong>：\(x_{in}\) は種類 \(i\) の治療を \(n\) 日目から始める数、\(y_m\) は \(m\) 日目に使う残業の枠の数。1 日の予約は通常の容量 \(C_r\) と残業の容量 \(C_o\) の和を超えられない。決めきれない依頼は翌日に回せる。</li>
+      <li><strong>費用</strong>：治療の開始までの待ちに対する罰金 \(c_{in}\)、残業の費用 \(h_m\)、翌日に回した依頼の罰金 \(g_i\) の和（式 8）。</li>
+    </ul>
+    <div class="eq">\[ c(\vec s, \vec a) = \sum_{i=1}^{I}\sum_{n=1}^{N} c_{in} x_{in} + \sum_{m=1}^{M} h_m y_m + \sum_{i=1}^{I} g_i \Big( w_i - \sum_{n=1}^{N} x_{in} \Big) \]</div>
+    <p>このモデルが決めるのは日ごとの容量の割り当てで、何時の枠に入れるかや、どの装置を使うかではない。それは後の段階で別に決める。装置はどれも同じとみなし、容量を合計して扱う。</p>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>状態が多すぎるので、価値関数をアフィン関数で近似し、等価な線形計画を列生成で解く</h2>
-    <p>MDP は線形計画として書き直せる。ただし状態と行動の組み合わせが膨大で、そのままでは解けない。論文は価値関数をアフィン関数（状態を表す変数の 1 次式に定数を足したもの）で近似して変数を減らし、得られた線形計画を列生成で解く（要旨による）。</p>
-    <div class="eq">\[ V(s) \;\approx\; W_0 + \sum_{i} W_i\, s_i \]</div>
-    <p class="src">式は、アフィン近似の一般形を解説者が書いたもの。\(s_i\) は状態を表す変数、\(W\) は近似の係数で、論文の記号とは一致しない可能性がある。</p>
-    <p>列生成は、制約が非常に多い（双対では変数が非常に多い）線形計画を、必要な列だけを少しずつ足しながら解く方法である。Patrick と Puterman が著者に入る <a href="../patrick-2008/">Patrick ら（2008）</a>も、診断の予約を同じ近似動的計画法の枠組みで解いている。</p>
+    <h2>価値関数を日ごとの予約済みの枠数の 1 次式で近似し、近似した線形計画の双対を列生成で解く</h2>
+    <p>最適方策は最適性方程式（式 9）を解けば得られるが、実例の状態は \(10^{300}\) 通りを超え、行動は \(10^{500}\) 通りを超える。論文は MDP を等価な線形計画に書き直し、価値関数を次のアフィン関数で近似する（式 11）。</p>
+    <div class="eq">\[ v(\vec u, \vec v, \vec w) \approx W_0 + \sum_{m=1}^{M} U_m u_m + \sum_{m=1}^{M} V_m v_m + \sum_{i=1}^{I} W_i w_i \]</div>
+    <ul class="def">
+      <li><strong>係数の意味</strong>：\(U_m\) は \(m\) 日目の通常の枠が 1 つ埋まったときの将来の費用の増分、\(V_m\) は残業の枠、\(W_i\) は待っている治療が 1 件増えたときの増分である。</li>
+      <li><strong>列生成</strong>：近似した線形計画の変数は \(2M+I+1\) 個に減るが、制約は状態と行動の組の数だけ残る。そこで双対を、制約を最も破る状態と行動の組を整数計画で探して 1 つずつ足す列生成で解く。</li>
+      <li><strong>方策</strong>：求めた係数を使い、毎日の予約を整数計画（式 15）で決める。治療を \(n\) 日目から始める係数 \(C_{in}\) は、待ちの罰金と、先の日の枠を使う将来の費用（\(U\) の和）を、翌日に回さずに済む利点と比べたものになる。需要が通常の容量を超えなければ \(U, V, W\) は 0 になり、方策は目先の費用だけを見る方策と同じになる。</li>
+    </ul>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>BCCA のデータにもとづくシミュレーションで、得られた方策を評価した</h2>
-    <p>要旨によると、近似から得られた方策を、BCCA のデータにもとづくシミュレーションで評価した。比較の対象と数値の結果は、本文を読めていないためこのページには載せない。</p>
+    <h2>バンクーバーのがんセンターのデータでは、急がない治療を後ろに回し、10 営業日以内の開始を 73% から 96% に上げた</h2>
+    <p>バンクーバーがんセンターで 2009 年 4 月〜2010 年 3 月に完了した乳がん、頭頸部がん、肺がん、前立腺がんの治療 2,061 件を使った。枠の使い方は 461 通りあったので、緊急度、部位、目的で 18 種類にまとめた。依頼は 1 日平均 8.25 件のポアソン分布、通常の容量は 120 枠（12 分の枠で、装置 3 台が 8 時間動く）で、平均の需要より 6 枠ほど少ない。残業は 15 枠まで。1,500 日のシミュレーションを 10 回行い、目先の費用だけを見る方策（現在のやり方の近似）と比べた。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>方策</th><th>1 営業日以内</th><th>5 営業日以内</th><th>10 営業日以内</th><th>15 営業日以内</th></tr></thead>
+      <tbody>
+        <tr><td class="A">目先の費用だけを見る方策</td><td class="A">5 ± 2</td><td class="A">29 ± 4</td><td class="A">73 ± 6</td><td class="A">99 ± 1</td></tr>
+        <tr><td class="B">近似最適な方策</td><td class="B">26 ± 7</td><td class="B">53 ± 6</td><td class="B">96 ± 3</td><td class="B">100 ± 0</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　全種類の合計で、期限内に治療を始めた割合（%）。論文 Table 4 の Total の行。20 営業日以内はどちらも 100%。</p>
+    <ul class="def">
+      <li>残業は 1 日平均 3 分増え、統計的には有意だが小さい。通常の枠の利用率はどちらも約 99.5% で差はなかった。割引した費用の平均は 185,843.06 ドルから 121,973.57 ドルに下がった。</li>
+      <li>近似最適な方策は、急がない種類 15〜18 を 10 営業日目以降に入れ、種類 7〜14 の多くを最初の 5 営業日に入れた。代わりに最も急ぐ種類 1〜3 の待ちは少し延びた（例：種類 1 の 1 営業日以内の開始は 70% から 66%）。</li>
+      <li>小さな例（6 つのシナリオ）では、回数が多い治療ほど早く、1 回が短い治療ほど遅く、急ぐ治療ほど早く入れる傾向が見られ、方策は種類ごとの需要の大きさにはよらなかった。</li>
+      <li>近似最適な方策を求める計算は 1 時間 45 分だった。</li>
+    </ul>
+    <figure>
+      <img src="assets/fig4_day_preferences.png" alt="Booking day preferences for treatment types 1, 4, 7, 14, 17 and 18 over the first 25 workdays. Types 1, 4, 7 and 14 prefer workday 1; type 1 should then be booked as early as possible, while type 7 prefers workdays 5, 4, 3, 2 next. The least urgent types 17 and 18 prefer workday 10, so they are deferred to make room for more urgent treatments." loading="lazy">
+      <figcaption>図2　治療の種類ごとの、開始日の好ましさの順位。丸が最も好ましい日、矢印は推奨される入れる順。急がない種類 17 と 18 は 10 営業日目が最も好ましい（論文の Figure 4 より）。</figcaption>
+    </figure>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>1 件の受付が先の複数の日の容量を使う予約を、近似動的計画法で扱った例である</h2>
+    <h2>長さのそろわない複数回の予約が隙間を作る問題を、日ごとの枠の限界費用で将来への影響を測って扱った</h2>
     <ul class="def">
-      <li><strong>系統</strong>：<a href="../patrick-2008/">Patrick ら（2008）</a>の近似動的計画法を、1 人が複数回の枠を使う予約に広げた研究と位置づけられる。<a href="../liu-ziya-2010/">Liu ら（2010）</a>は 1 枠の外来予約で、無断キャンセルを扱う。</li>
-      <li><strong>美容室の問題への示唆</strong>：1 件の予約が複数の単位時間を同時に占める点は、施術時間分の連続した空きが必要な美容室の予約と似ている。違いは、放射線治療の複数回は別々の日に分かれ、美容室の施術は 1 日の中で連続した時間を占めることである。今日の受付が将来の受付を狭める効果を価値関数で測る考え方は、断片化の損失を見積もる指標の参考になる。</li>
+      <li><strong>系統</strong>：<a href="../patrick-2008/">Patrick ら（2008）</a>の、優先度の違う患者を近似動的計画法で予約する枠組みを、複数回の予約、長さの違う回、一部だけの残業に広げた。論文は複数回の予約を動的な予約受付の最適化に入れた最初の研究だとする。<a href="../liu-ziya-2010/">Liu ら（2010）</a>は 1 枠の外来予約で、無断キャンセルを扱う。</li>
+      <li><strong>限界</strong>：装置はどれも同じとみなし、装置ごとの制約や待ちリストは扱わない。キャンセルと無断キャンセルも今後の課題とした。評価は同じ装置 3 台で 18 種類を扱う単純化したセンターのモデルで行った。</li>
+      <li><strong>美容室の問題への示唆</strong>：論文は、長さのそろわない治療が使えない隙間を作ることを、来た順の予約の問題点として明示している。この点は美容室の予約の断片化と同じである。ただしモデルは日ごとの枠の合計だけを数え、1 日の中のどこに空きが残るかは扱わない。日ごとの枠が 1 つ埋まる限界費用 \(U_m\) を、予約を入れたときの機会費用として断片化の指標に組み込む使い方が考えられる（解説者の考え）。</li>
     </ul>
   </section>
 
@@ -274,7 +306,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1016/j.ejor.2012.06.046}
 }</pre>
     </div>
-    <p class="src">要旨と書誌情報にもとづく。本文は未読。書誌は RePEc（IDEAS）のページから取った。著者の所属は確認できなかったので載せていない。</p>
+    <p class="src">ページの数式、数値、図は出版版の PDF による。書誌と所属もその PDF の表記から取った。</p>
   </section>
 </main>
 

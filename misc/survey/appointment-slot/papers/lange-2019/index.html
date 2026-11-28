@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lange ら（2019）：港湾のトラック予約に他業界の時間枠予約を移せるか（論文解説）</title>
-<meta name="description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。要旨と書誌情報にもとづく。港湾のトラック予約システム（TAS）に他業界の時間枠予約の方法を移せるかを体系的な文献調査で調べ、医療が最も有望として比較を行い、固定の時間枠での重複予約の評価が最も高かったとする。">
+<meta name="description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。港湾のトラック予約システム（TAS）に他業界の時間枠予約を移せるかを文献調査で調べ、医療のオープンアクセス・重複予約・予約表の断片化の解消（Lian ら 2010）を TAS 向けの方策にして 5 つの基準で採点し、固定の時間枠での重複予約が最も高い評価になったとする。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Lange ら（2019）：港湾のトラック予約に他業界の時間枠予約を移せるか（論文解説）">
-<meta property="og:description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。要旨と書誌情報にもとづく。港湾のトラック予約システム（TAS）に他業界の時間枠予約の方法を移せるかを体系的な文献調査で調べ、医療が最も有望として比較を行い、固定の時間枠での重複予約の評価が最も高かったとする。">
+<meta property="og:description" content="Potential of non-port slot booking systems for TAS（HICL 2019）の非公式の解説。港湾のトラック予約システム（TAS）に他業界の時間枠予約を移せるかを文献調査で調べ、医療のオープンアクセス・重複予約・予約表の断片化の解消（Lian ら 2010）を TAS 向けの方策にして 5 つの基準で採点し、固定の時間枠での重複予約が最も高い評価になったとする。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
    PAPER PROJECT PAGE (unofficial explainer, Japanese only)
    Layout : one left-aligned column. Prose 42rem, figures 62rem.
    Colour : --a (orange) = peaks in truck arrivals at container terminals and the port-only view of TAS research
-            --b (blue)   = time-slot booking methods transferred from health care, and the approach rated best (overbooking in fixed time windows)
+            --b (blue)   = health-care time-slot methods transferred to TAS, and the best-rated measure (overbooking in fixed time windows)
    Lang   : Japanese only. data-lang="ja" is fixed; it stays only because teaser-engine.js reads it.
    ===================================================================== */
 :root {
@@ -189,13 +189,13 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <p class="subtitle">港湾以外の時間枠予約システムをトラック予約システム（TAS）に活かす可能性</p>
 
   <ul class="authors">
-    <li><b>Ann-Kathrin Lange</b><span>所属は未確認</span></li>
-    <li><b>Stephan Krüger</b><span>所属は未確認</span></li>
-    <li><b>Anne Kathrina Schwientek</b><span>所属は未確認</span></li>
-    <li><b>Carlos Jahn</b><span>所属は未確認</span></li>
+    <li><b>Ann-Kathrin Lange</b><span>Hamburg University of Technology</span></li>
+    <li><b>Stephan Krüger</b><span>Hamburg University of Technology</span></li>
+    <li><b>Anne Kathrina Schwientek</b><span>Hamburg University of Technology</span></li>
+    <li><b>Carlos Jahn</b><span>Hamburg University of Technology</span></li>
   </ul>
 
-  <p class="lead">港湾のコンテナターミナルでは、<span class="A">トラックの到着が特定の時間に集中する</span>。トラック予約システム（TAS）はこの集中を抑える方法だが、TAS の研究は港湾の中だけで考えられることが多かった。Lange らは<span class="B">他業界の時間枠予約の方法</span>を体系的な文献調査で探し、医療が最も有望とみて比較した。その結果、医療の時間枠予約は TAS へ特に移しやすく、固定の時間枠での重複予約（overbooking）の評価が最も高かった。</p>
+  <p class="lead">港湾のコンテナターミナルでは<span class="A">トラックの到着が時間によって大きく変わり</span>、ゲート前が混雑する。トラック予約システム（TAS）はこれを抑える方法だが、TAS の研究は港湾の中だけで考えられてきた。Lange らは文献調査で<span class="B">医療の時間枠予約</span>を最も近い参照先に選び、オープンアクセス、重複予約、予約表の断片化の解消の 3 つの考え方を TAS に移す 4 つの方策を作った。5 つの基準で採点すると、固定の時間枠での重複予約が 15 点満点の 8 点で 1 位、断片化の解消は 6 点だった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.15480/882.2495">Paper（DOI）</a>
@@ -208,60 +208,88 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ターミナルでトラックの到着が集中する様子、他業界の時間枠予約を文献調査で絞り込む流れ、医療の方法を TAS への移しやすさと効果で比べる様子、要旨の結論、まとめの5場面。すべて要旨をもとにした模式図。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。ターミナルでトラックの到着が集中する様子、9,566件から202件まで文献を絞り込み医療が143件で最多になる流れ、医療の3つの考え方からTASの4つの方策を作る様子、論文Table 1の合計点の比較、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
       <span class="tdots"></span>
-      <span>論文を40秒で（解説者による模式図。要旨にもとづく）。音声なし。</span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
     </figcaption>
   </figure>
 
-  <p class="src">このページは要旨と書誌情報（TUHH の機関リポジトリ、RePEc）にもとづく。本文は未読である。文献調査で残った 3 業界のうち医療以外の名前、比較の基準と点数、医療の各手法の評価の表は確認できていないので書いていない。</p>
-
   <ul class="points">
-    <li><span class="k">移しやすい業界を 3 つに絞る</span><span class="d">体系的な文献調査で、時間枠予約の方法を港湾へ移しやすい業界を 3 つ見つけた。</span></li>
-    <li><span class="k">最も有望な医療を比較の相手にする</span><span class="d">3 つのうち医療が最も有望と判断し、医療の時間枠予約の方法を TAS と比べた（ベンチマーク）。</span></li>
-    <li><span class="k">固定の時間枠での重複予約の評価が最も高い</span><span class="d">調べた方法の中で、効果の評価が最もよかったのは、固定の時間枠に予約を重複して入れる方法だった。</span></li>
+    <li><span class="k">文献 9,566 件 → 202 件</span><span class="d">Scopus と Web of Science で時間枠予約の文献を集めて絞り込むと、医療 143 件、交通・物流 44 件、IT 15 件が残った。医療を参照先に選んだ。</span></li>
+    <li><span class="k">医療の 3 つの考え方を TAS に移す</span><span class="d">オープンアクセス、重複予約（固定の時間枠と柔軟な時間枠の 2 通り）、Lian ら（2010）の予約表の断片化の解消。</span></li>
+    <li><span class="k">重複予約（固定の時間枠）が 8 点で 1 位</span><span class="d">5 つの基準を 0〜3 点で採点した合計（論文 Table 1）。オープンアクセス 7 点、柔軟な時間枠での重複予約と断片化の解消が 6 点。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>トラック予約システムはターミナルへの到着の集中を抑えるが、他業界の方法はほとんど参照されてこなかった</h2>
-    <p>TAS は港湾のコンテナターミナルでトラックの到着のピークを抑える方法である。ピークが下がると、ターミナルの運営費と運送会社の待ち時間が減る。</p>
-    <p>要旨によれば、港湾の TAS は新しい分野として扱われることが多く、他の業界の予約方法を参照した研究は少ない。他業界の方法がどれだけ港湾に移せるかを体系的に調べた研究はまだなかった。</p>
+    <h2>トラック予約システムは到着の山を崩すが、他業界の予約の知見はほとんど使われてこなかった</h2>
+    <p>ターミナルのゲートはボトルネックで、混雑するとトラックの待ち時間と排出が増える。混雑の主な原因はトラックの到着の変動である。TAS では、ターミナルの運営者が搬入・搬出できる時間枠を決め、運送会社がその中から選んで予約する。論文は Chen、Govindan と Yang（2013）に従い、TAS の働きを、枠ごとの台数の上限（クォータ）の決定、時間枠の予約、コンテナとトラックの登録、ゲートでの照合、管理の 5 つに分ける。</p>
+    <figure>
+      <img src="assets/fig1_interference.png" alt="Figure 1 of the paper: four truck arrival patterns (belated, early, non-appointed, on schedule) on the left are linked by arrows to four effects on the TAS on the right (equipment overload, long waiting queue, equipment idling, increased emissions).">
+      <figcaption>図1　TAS を乱す到着の型（左）と、ターミナルへの影響（右）。遅れ・早着・予約なしの到着が設備の過負荷、長い待ち行列、設備の遊休、排出の増加につながる（論文の Figure 1 より。元は Li ら（2016））。</figcaption>
+    </figure>
+    <p>著者らによれば、TAS は全く新しい仕組みとして扱われることが多く、他業界の知見はほとんど参照されてこなかった。例外は医療と港湾の時間枠予約の似ている点と違う点を短く比べた Huynh と Walton（2011）だけである。似ている点として、需要が不規則に変動する、処理時間が一定でない、無断キャンセル（no-show）が多い、時間を守ることが重要である、の 4 つが挙がっている。</p>
   </section>
 
   <section id="model">
     <div class="kicker">問題設定</div>
-    <h2>港湾以外の時間枠予約の仕組みから、TAS に移せる要素を探す</h2>
-    <p>論文の目的は港湾以外で使われている時間枠予約の仕組みの要素を調べ、TAS に合わせて取り入れることで TAS を改善することである。トラックはターミナルの時間枠を予約し、その時間に来る。患者が診療の予約枠を取る医療の予約と同じく、限られた処理能力を時間枠に分けて配る仕組みである。</p>
+    <h2>他業界の時間枠予約のどの性質が TAS に関係し、どこまで移せるかを問う</h2>
+    <p>論文の問いは 2 つである。</p>
+    <ul class="def">
+      <li><strong>問い 1</strong>：港湾以外の時間枠予約システムのどの性質が、港湾の TAS に関係するか。体系的な文献調査で答える。</li>
+      <li><strong>問い 2</strong>：その性質はどこまで TAS に移せるか。業界の外を相手にしたベンチマーク（比較分析）と、効用値分析（基準ごとの点数の合計による評価）で答える。</li>
+    </ul>
+    <p>ベンチマークでは TAS の働きのうち「時間枠の予約」と「クォータの決定」の 2 つの工程を対象にする。前者は無断キャンセルや予約なしの到着への対応を、後者は時間枠の長さと個々の時間枠の扱いを改善できる工程として選ばれた。</p>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>体系的な文献調査で業界を 3 つに絞り、最も有望な医療の方法を TAS と比べる</h2>
+    <h2>文献を 202 件に絞って医療を参照先に選び、医療の 3 つの考え方を TAS の 4 つの方策に作り直す</h2>
+    <p>検索式は (("Appointment" AND "System") OR ("Time Slot") AND ("Management" OR "Booking" OR "Scheduling")) で、Scopus と Web of Science を使った。9,566 件から、期間（2005〜2018 年）、文献の種類（学術誌の論文）、分野、題名、要旨の順に絞り込み、202 件が残った。</p>
+    <figure>
+      <img src="assets/fig2_literature_funnel.png" alt="Figure 2 of the paper: a funnel showing the number of publications after each filtering stage in Scopus and Web of Science (time frame 7,602 and 1,964; document type 5,491 and 1,768; general topic 3,250 and 1,307; title 1,938 and 947), then 2,496 after abstract screening and 202 at the end, split into traffic/logistics 44, health care 143 and IT 15.">
+      <figcaption>図2　文献の絞り込み。最後の 202 件は医療 143 件、交通・物流 44 件、IT 15 件に分かれる（論文の Figure 2 より）。</figcaption>
+    </figure>
+    <p>交通・物流と IT は、需要の変動、長さの違うサービス時間、無断キャンセルによる需要の急な消失といった性質が TAS と似ていないとして外した。医療の中でも、当日の患者をすばやくさばく運用レベルの計画は外し、戦術・戦略レベルの 3 つの考え方を選んだ。</p>
     <ul class="def">
-      <li><strong>文献調査</strong>：体系的な文献分析で、予約の仕組みが港湾のトラック予約へよく移せる業界を 3 つ見つける。</li>
-      <li><strong>ベンチマーク</strong>：3 つのうち医療が最も有望と判断し、医療の時間枠予約の方法を TAS へ移したときの効果を評価する。</li>
+      <li><strong>オープンアクセス</strong>：前もって予約する通常の患者と、当日に予約を入れる患者を組み合わせる（Robinson と Chen 2010、Chen と Robinson 2014）。TAS では、通常の予約と並行して当日数時間前の予約を受け、無断キャンセルや予約の変更で空いた枠を埋める。</li>
+      <li><strong>重複予約</strong>：無断キャンセルに備えて枠の容量より多く予約を入れる（Chen ら 2018）。方策 (1) は固定の時間枠で、1 日または時間帯の最初の枠を重複予約し、以降の枠は無断キャンセルの確率に応じて重複させ、時間帯の終わりでは残業を避けるために重複させない。方策 (2) は柔軟な時間枠で、最初の枠だけを重複予約し、ほかの枠は 1 枠 1 台にして、時間帯の最後の枠を長くする。</li>
+      <li><strong>断片化の解消</strong>：<a href="../lian-2010/">Lian ら（2010）</a>の方法である。予約の依頼が来たら空いている候補をすべて示し、予約表全体の断片化への効果の順に並べる。TAS では、運送会社の希望日時の近くにある時間枠を、断片化を減らす効果の大きい順に並べて提示する。運送会社にその枠を選ぶ義務はない。最もよい枠から 1 つずつ示し、断られたら次を示す方法も挙げる。</li>
     </ul>
-    <p>本文を読めていないので、評価の基準や採点の方法はここでは書かない。</p>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>医療の時間枠予約は TAS へ特に移しやすく、固定の時間枠での重複予約の評価が最も高かった</h2>
-    <p>要旨の結論は 2 点である。医療の時間枠予約の仕組みは TAS へ特に移しやすい。調べた方法の中で、効果の評価が最もよかったのは、固定の時間枠に予約を重複して入れる方法（overbooking of appointments in fixed time windows）だった。</p>
-    <p>重複予約は一般には来ない予約を見込んで時間枠の容量より多く予約を受ける方法を指す（論文での定義は未確認）。どれだけの効果が見込めるかの数値は要旨に書かれていない。</p>
+    <h2>5 つの基準で採点すると、固定の時間枠での重複予約が 8 点で最も高く、断片化の解消は 6 点だった</h2>
+    <p>各方策を 5 つの基準で 0（悪い）〜3（とてもよい）の整数で採点し、合計を効用値とした。点数は基準ごとに見つかった文献をもとに、方策どうしを比べて決めている。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>基準</th><th>オープンアクセス</th><th class="B">重複予約 (1)</th><th>重複予約 (2)</th><th>断片化の解消</th></tr></thead>
+      <tbody>
+        <tr><td>導入の費用</td><td>2</td><td class="B">2</td><td>0</td><td>1</td></tr>
+        <tr><td>ターミナルの生産性への影響</td><td>1</td><td class="B">2</td><td>3</td><td>2</td></tr>
+        <tr><td>港の混雑への影響</td><td>1</td><td class="B">1</td><td>1</td><td>1</td></tr>
+        <tr><td>トラックの所要時間への影響</td><td>1</td><td class="B">1</td><td>1</td><td>1</td></tr>
+        <tr><td>顧客満足への影響</td><td>2</td><td class="B">1</td><td>1</td><td>1</td></tr>
+        <tr><td><strong>合計</strong></td><td><strong>7</strong></td><td class="B"><strong>8</strong></td><td><strong>6</strong></td><td><strong>6</strong></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　方策の評価（論文 Table 1）。重複予約 (1) は固定の時間枠、(2) は柔軟な時間枠。</p>
+    <p>1 位の重複予約 (1) も、すべての基準で最もよいわけではない。生産性への影響は重複予約 (2) が 3 点で最も高く、顧客満足はオープンアクセスが 2 点で最も高い。港の混雑とトラックの所要時間への影響は、4 つの方策がすべて 1 点だった。</p>
+    <p>著者らは、比べたのが最も似ている医療の 1 業界だけであること、採点が主観的で別の結果もありうることを限界に挙げる。方策の効果はターミナルに合わせたシミュレーションで確かめ、繰り返し調整することを勧めている。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>医療の予約方法を港湾へ移す可能性を調べた研究で、Lian らは医療の予約方法の例として登場する</h2>
+    <h2>Lian らの断片化を減らす予約の提示を、医療の外の時間枠予約に移す案を具体的に書いた研究である</h2>
     <ul class="def">
-      <li><strong>Lian との関係</strong>：文献リストを作る段階の確認では、この論文は医療の予約方法の例として <a href="../lian-2010/">Lian ら（2010）</a>を取り上げ、予約時に空いている候補をすべて提示する手順に触れている。このページの作成では本文を読めておらず、引用の文面は確かめていない。</li>
+      <li><strong>Lian との関係</strong>：医療の 3 つの考え方の 1 つとして <a href="../lian-2010/">Lian ら（2010）</a>を詳しく紹介する。従来の予約の方法は予約表を断片化させて非効率になること、空いている候補をすべて示して断片化への効果の順に並べること、患者が協力すると断片化が減って稼働率が上がることをまとめている。</li>
       <li><strong>その後</strong>：同じ著者の博士論文 <a href="../lange-2025/">Lange（2025）</a>は、他業界から移せる解決策の調査を含め、TAS の改善策を 2 段階のシミュレーションで評価した。</li>
-      <li><strong>美容室の予約への示唆</strong>：医療の予約方法が他業界へ移せるかを評価する枠組みは、医療の予約研究（Lian ら など）の知見を美容室へ移すときの考え方として参考になる。ただし要旨の範囲では、施術時間分の連続した空きを確保する問題や空きの断片化は扱っていない。</li>
+      <li><strong>美容室の予約への示唆</strong>：運送会社の希望の近くにある枠を、断片化を減らす効果の順に並べて提示し、選ぶかどうかは相手に任せる、という TAS 向けの案は、美容室の予約画面で空き枠を並べる順を決める問題とそのまま対応する。一方で、断片化の効果の数え方は書かれておらず、採点も文献にもとづく主観的なものなので、指標の設計やシミュレーションでの検証は別に必要である。</li>
     </ul>
   </section>
 
@@ -274,12 +302,15 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   author    = {Lange, Ann-Kathrin and Kr{\"u}ger, Stephan and Schwientek, Anne Kathrina and Jahn, Carlos},
   booktitle = {Digital Transformation in Maritime and City Logistics: Smart Solutions for Logistics. Proceedings of the Hamburg International Conference of Logistics (HICL), Vol. 28},
   editor    = {Jahn, Carlos and Kersten, Wolfgang and Ringle, Christian M.},
+  publisher = {epubli GmbH},
+  address   = {Berlin},
   pages     = {138--162},
   year      = {2019},
+  isbn      = {978-3-7502-4949-3},
   doi       = {10.15480/882.2495}
 }</pre>
     </div>
-    <p class="src">書誌情報は RePEc（IDEAS）の登録情報、要旨は TUHH の機関リポジトリ（TORE）の論文ページによる。本文の PDF は EconStor と TORE で公開されているが、どちらも自動取得を受け付けなかったため読めていない。出版者は RePEc では TUHH の Institute of Business Logistics and General Management と記されているが、BibTeX には書いていない。著者の所属は確認できなかった。</p>
+    <p class="src">ページの数値と記述は、EconStor で公開されている出版版の PDF（hdl.handle.net/10419/209391）による。書誌情報も同じ PDF の表紙の引用情報から取った。論文は CC BY-SA 4.0 で公開されており、図1・図2 は論文の図をそのまま切り出したものである。</p>
   </section>
 </main>
 

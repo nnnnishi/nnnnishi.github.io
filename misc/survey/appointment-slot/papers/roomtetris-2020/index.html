@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Battiti ら（2020）：部屋番号をチェックイン日まで決めない RoomTetris は最適な部屋割りになる（論文解説）</title>
-<meta name="description" content="RoomTetris: an optimal procedure for committing rooms to reservations in hotels（JHTT 2020）の非公式の解説。予約時に部屋番号を決めると避けられる拒否が生じることを指摘し、割当をチェックイン日まで遅らせる RoomTetris と、その最適性を紹介する。要旨と書誌情報、同じ著者の2021年の論文の説明にもとづく。">
+<meta name="description" content="RoomTetris: an optimal procedure for committing rooms to reservations in hotels（JHTT 2020）の非公式の解説。予約時に部屋番号を決めると避けられる拒否が生じることを示し、割当をチェックイン日まで遅らせて長い順に入れる RoomTetris の最適性の証明と、10室・1年のシミュレーションで断った日数が 24.83% から 14.46% に下がった結果を紹介する。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
@@ -189,8 +189,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
     <li><b>Filippo Battiti</b><span>Ciaomanager Srl</span></li>
   </ul>
 
-  <p class="lead">多くのホテルは予約を受けた時点で部屋番号を決める。論文はこの<span class="A">早い割当は最適でなく</span>、稼働率が高いときに避けられるはずの拒否を生むと指摘する。Battiti らは部屋番号を<span class="B">チェックイン日まで決めない RoomTetris</span> を提案し、最適であることを証明して、ホテルのシミュレータで拒否率を大きく下げられることを示した。</p>
-  <p class="src">このページは出版社のページの要旨と書誌情報、同じ著者の続編 <a href="../roomtetris-2021/">Battiti ら（2021）</a>による RoomTetris の説明にもとづく。2020年の論文の本文は未読で、表や数値は載せていない。</p>
+  <p class="lead">多くのホテルは予約を受けた時点で部屋番号を決める。この<span class="A">早い割当</span>では、空いた日が部屋ごとに散らばり、稼働率が高いときに長い滞在を断ることになる。Battiti らは部屋番号を<span class="B">チェックイン日まで決めず、その日に始まる予約を長い順に入れる RoomTetris</span> を提案し、どの日も部屋数を超えて売らない限り全予約を入れられることを証明した。10室・1年のシミュレーションでは、断った日数の割合が、多くのホテルの実務に近い FirstFit の 24.83% から 14.46% に下がった。</p>
 
   <div class="links">
     <a class="btn primary" href="https://doi.org/10.1108/JHTT-08-2019-0108">論文（Emerald）</a>
@@ -202,7 +201,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   <figure class="teaser" id="teaser">
     <div class="stage">
       <p class="tcap" aria-live="polite"></p>
-      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予約時に部屋を決めると隙間ができて長い滞在が入らなくなること、避けられない拒否と避けられる拒否の区別、チェックイン日に長い順に部屋を決める RoomTetris、どの日も部屋数以内なら全予約が入るという性質、まとめの5場面。"></svg>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。予約時に部屋を決めると隙間ができて長い滞在が入らなくなること、避けられない拒否と避けられる拒否の区別、チェックイン日に長い順に部屋を決める RoomTetris、割当の方法ごとの断った日数の割合、まとめの5場面。"></svg>
     </div>
     <figcaption class="tctl">
       <button type="button" class="tb" data-act="toggle">再生</button>
@@ -212,61 +211,72 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   </figure>
 
   <ul class="points">
-    <li><span class="k">早い割当は最適でない</span><span class="d">予約時に部屋番号を決めると、稼働率が高いときに、日ごとの空きは足りているのに断る予約（避けられる拒否）が出る。</span></li>
-    <li><span class="k">割当をチェックイン日まで遅らせる</span><span class="d">RoomTetris は受けた予約を部屋番号なしで持ち、チェックイン日にその日に始まる予約を長い順に空き部屋へ入れる（2021年の論文の説明）。</span></li>
-    <li><span class="k">最適性を証明した初めての手順</span><span class="d">論文は、この問題で最適性の証明がついた初めてのアルゴリズムだとする。効果は繁忙期・予約の多い時期に大きい。</span></li>
+    <li><span class="k">断った日数 24.83% → 14.46%</span><span class="d">10室・365日、1泊（確率0.6）と7泊（確率0.4）が混ざる需要で、FirstFit と RoomTetris の比較（1,000回の平均）。断った日数は 41.76% 減った。</span></li>
+    <li><span class="k">下限 12.10% に近い</span><span class="d">日ごとに部屋数を超えた需要を足した、どの方法でも避けられない断りの割合。RoomTetris との差は、1日でも満室の日を含む7泊の予約は全体が断られることによる。</span></li>
+    <li><span class="k">どの日も部屋数以内なら必ず入る</span><span class="d">チェックイン日の順に割り当てるので、前日までの予約がすべて入っていれば当日の予約も入る。帰納法で最適性を示した。</span></li>
   </ul>
 
   <section id="background">
     <div class="kicker">背景</div>
-    <h2>予約を受けた時点で部屋を決めると、稼働率が高いときに避けられるはずの拒否が出る</h2>
-    <p>ホテルの部屋の割当（room committing）は、受けた予約に部屋番号を決める作業である。多くのホテルは予約が入るとすぐに部屋を決める。要旨によれば、この早い割当は最適でなく、稼働率が高いときに避けられる拒否を生む。続編の <a href="../roomtetris-2021/">2021年の論文</a>は拒否を2種類に分ける。要求した日のどれかがすでに全室売れている<strong>避けられない拒否</strong>と、日ごとには空きがあるのに割当のせいで入らない<strong>避けられる拒否</strong>である。チェックイン後に客を移さないのがふつうなので、割当がまずいと滞在の間に隙間が残り、長い滞在が入らなくなる。</p>
+    <h2>予約を受けた時点で部屋番号を決めると、空いた日が部屋ごとに散らばり、長い滞在が入らなくなる</h2>
+    <p>ホテルは部屋そのものではなく部屋タイプを売ることが多く、どの部屋番号に入れるか（room committing）には自由がある。それでも、部屋を個別に売っていたり、受付係が手で割り当てたり、チャネルマネージャー（予約サイトとの接続ソフト）が受けた直後に部屋番号を決めたりして、予約の直後に部屋が決まることが多い。稼働率が高くなると、空きはまだあるのに部屋ごとに散らばり、2日以上の依頼に必要な連続した空きが見つからなくなる。そこで予約サイトでの販売を早めに止めたり、シーズン初めに3泊以上などの最短滞在日数を課したりする。経験豊富な従業員がときどき部屋割りを組み直す作業を、論文は「RoomTetris」や「room candy crush」のようなゲームにたとえる。</p>
+    <p>論文は超過予約（オーバーブッキング）を受けず、到着後に客を別の部屋へ移さないと仮定する。そのうえで、ある日の予約数が部屋数を超える<strong>避けられない超過予約</strong>と、どの日も部屋数以内なのに割当のせいで入らない<strong>避けられる超過予約</strong>を区別する。前者はどんな割当でも解消できない。</p>
+    <figure>
+      <img src="assets/fig7_avoidable.png" alt="Two-room example over dates 1 to 7: reservation 1 in room 1 and reservation 2 in room 2 are already fixed, leaving no single room free for reservation 3, although at most two reservations overlap on any date." loading="lazy">
+      <figcaption>図1　避けられる超過予約の例。2室のホテルで予約1と2を別々の部屋に入れてしまうと、どの日も同時に泊まるのは2件以下なのに予約3が入らない。RoomTetris なら予約3を予約2より先に割り当てる（論文の Figure 7 より）。</figcaption>
+    </figure>
   </section>
 
   <section id="method">
     <div class="kicker">手法</div>
-    <h2>RoomTetris は部屋番号をチェックイン日まで決めず、その日に始まる予約を長い順に入れる</h2>
-    <p>2021年の論文による RoomTetris の説明は次のとおりである。</p>
+    <h2>RoomTetris は部屋番号をチェックイン日まで決めず、その日に始まる予約を長い順に空き部屋へ入れる</h2>
+    <p>ホテルは日単位で部屋を売り、予約は受けた日、開始日、終了日を持つとする。状態は、行が部屋、列が日の 0/1 の表（RoomPlan）で表す。比べる割当の方法は次のとおりである。</p>
     <ul class="def">
-      <li>要求を受けたときは、部屋番号を決めずに予約を保存する。受けるかどうかは要求した日のどれも全室売れていないか（避けられない拒否にならないか）で決める。</li>
-      <li>チェックイン日に、その日に始まる予約を長いものから順に、最初の空き部屋へ入れる。</li>
-      <li>将来の予約を知らなくても動く（オンラインの手順である）。</li>
+      <li><span class="A">ImmediateRandom</span>：依頼が来たら部屋をランダムな順に見て、全日空いている最初の部屋に入れる。工夫のない基準。</li>
+      <li><span class="A">ImmediateFirstFit</span>：部屋を決まった順（0番から）に見て、最初に入る部屋に入れる。多くのホテルの実務に近い。</li>
+      <li><span class="A">ImmediateMaxSlack / MinSlack</span>：予約の前後に続く空き日数（前と後の少ないほう、スラック）が最大または最小になる部屋に入れる。大きな空きを残す、または予約を寄せて大きな空きを残す、という2つの直感を形にしたもの。</li>
+      <li><span class="B">RoomTetris（LazyJustInTime）</span>：依頼が来ても部屋は決めず、日ごとの予約数が部屋数以内に収まるかだけで受けるかを決める。チェックイン日に、その日に始まる予約を長いものから順に最初の空き部屋へ入れる。将来の予約を知る必要はない。チェックイン日は、その日の予約と取り消しがすべて分かる最後の時点でもある。</li>
     </ul>
-    <p>2021年の論文は、どの日も部屋数を超えて売っていなければ、RoomTetris は客を移さずにすべての予約を入れられると述べ、「避けられない拒否がないこと」がそのための必要十分条件だとする。この意味で、受けられる予約の集合は日ごとの部屋数の制約だけで決まり、割当の仕方で減ることがない。2020年の論文はこの最適性を定理として示したと要旨で述べている（証明は本文を未読のため紹介できない）。</p>
-    <svg class="fig" viewBox="0 0 640 300" role="img" aria-label="Schematic. Left: stays committed at booking leave one-day gaps in each of three rooms, so a three-night request finds no room although each night has one free room. Right: the same six stays assigned on their check-in days, longest first, leave four consecutive free nights in room 3.">
-      <g font-size="13" fill="#5B6676">
-        <text x="20" y="24">予約時に割当（模式図）</text>
-        <text x="340" y="24">チェックイン日に割当（模式図）</text>
-        <text x="20" y="62">室1</text><text x="20" y="112">室2</text><text x="20" y="162">室3</text><text x="60" y="194">日1〜5</text>
-        <text x="340" y="62">室1</text><text x="340" y="112">室2</text><text x="340" y="162">室3</text>
-      </g>
-      <g fill="#CBD2DC"><rect x="60" y="44" width="78" height="28" rx="4"/><rect x="180" y="44" width="78" height="28" rx="4"/><rect x="100" y="94" width="78" height="28" rx="4"/><rect x="220" y="94" width="38" height="28" rx="4"/><rect x="60" y="144" width="38" height="28" rx="4"/><rect x="140" y="144" width="78" height="28" rx="4"/></g>
-      <g fill="none" stroke="#C2410C" stroke-width="2" stroke-dasharray="5 4"><rect x="140" y="44" width="38" height="28" rx="4"/><rect x="60" y="94" width="38" height="28" rx="4"/><rect x="180" y="94" width="38" height="28" rx="4"/><rect x="100" y="144" width="38" height="28" rx="4"/><rect x="220" y="144" width="38" height="28" rx="4"/></g>
-      <text x="60" y="210" font-size="13" fill="#C2410C" font-weight="600">3泊の要求：入る部屋がない</text>
-      <g fill="#1D4ED8" fill-opacity="0.85"><rect x="380" y="44" width="78" height="28" rx="4"/><rect x="460" y="44" width="78" height="28" rx="4"/><rect x="380" y="94" width="38" height="28" rx="4"/><rect x="420" y="94" width="78" height="28" rx="4"/><rect x="500" y="94" width="78" height="28" rx="4"/><rect x="540" y="144" width="38" height="28" rx="4"/></g>
-      <rect x="380" y="144" width="158" height="28" rx="4" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-dasharray="5 4"/>
-      <text x="380" y="210" font-size="13" fill="#1D4ED8" font-weight="600">同じ予約で、室3に4泊の連続した空き</text>
-      <g font-size="12" fill="#5B6676">
-        <text x="60" y="240">どちらも同じ6件の予約で、どの日も空きは1室。違いは空きが連続しているか</text>
-      </g>
-    </svg>
-    <p class="src">図1　割当のタイミングの違い（解説者による模式図。論文の図ではない）。</p>
+    <p>即時割当の方法では、「どの日も部屋数以内」という受付の条件は、後で連続した空きが残ることを保証しない。RoomTetris ではこの条件が必要十分になる、というのが論文の主張である。証明は日付についての帰納法である。1日目はホテルが空なので、その日に始まる予約はすべて入る（部屋数以内であることは条件から分かる）。\(d-1\) 日目までに始まる予約がすべて入っているとする。条件から、\(d\) 日目に始まる予約の数は、続いている予約が使っていない部屋の数を超えない。しかも開始日の順に割り当てているので、\(d\) 日目に空いている部屋は、後の予約がまだ割り当てられていないため、それ以降もずっと空いている。よって \(d\) 日目に始まる予約はすべて入る。</p>
+    <figure>
+      <img src="assets/fig8_slices.png" alt="Seven-day slices of a 10-room plan. Left: on day 1 all rooms are empty, so all reservations checking in that day are placed. Right: on date d, reservations checked in earlier (thick-bordered) are already placed, and enough rooms are free from date d onward for those checking in on d." loading="lazy">
+      <figcaption>図2　最適性の証明の考え方。左：1日目は全室空いているので、その日に始まる予約はすべて入る。右：\(d\) 日目には、それまでに始まった予約（太枠）がすべて入っており、\(d\) 日目に始まる予約が入る部屋が残っている（論文の Figure 8 より）。</figcaption>
+    </figure>
   </section>
 
   <section id="results">
     <div class="kicker">実験の結果</div>
-    <h2>ホテルのシミュレータで、賢い割当は拒否率を大きく下げ、稼働率を上げた（要旨）</h2>
-    <p>要旨によれば、論文は理論の結果と実験を組み合わせ、ホテルのシミュレータで、現実的なものを含むいくつかの状況について、最適な方法とヒューリスティックを、ランダムまたは最適でない割当と比べた。結果として、賢い割当は拒否率を大きく下げ、稼働率（各期に売れた部屋やベッドの割合）を上げられるとする。効果は繁忙期・予約の多い時期に最も大きく、価格の方針によっては RevPAR（販売可能な客室1室あたりの売上）の改善につながると見込む。具体的な数値は本文を未読のため載せない。続編の <a href="../roomtetris-2021/">2021年の論文</a>には、50室・1年のシミュレーションで RoomTetris の拒否率が 0% になった表がある。</p>
-    <p>トレント大学の広報は、50室の平均的なイタリアのホテルで年間の売上が5〜10%増えると見積もっている。これは広報の見積もりで、論文の表の値ではない。</p>
+    <h2>満室に近い需要で、RoomTetris は断った日数の割合を 14.46% に下げ、下限の 12.10% に近づけた</h2>
+    <p>満室に近い状況を作るため、期間内に依頼される泊数の合計がホテルの容量と等しくなるように需要を作った。部屋数10、期間365日、依頼される泊数は計3,650。各依頼は確率0.4で7泊、0.6で1泊で、開始日は一様にランダムである。乱数を変えて1,000回試し、依頼された日数のうち断った日数の割合を比べた。客室の価格が一定なら、この割合は失った利益に比例する。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>方法</th><th>断った日数の割合</th><th>断った日数（平均）</th></tr></thead>
+      <tbody>
+        <tr><td class="A">ImmediateRandom</td><td>34.29%</td><td>1,250.24</td></tr>
+        <tr><td class="A">ImmediateFirstFit</td><td>24.83%</td><td>905.47</td></tr>
+        <tr><td class="A">ImmediateMaxSlack</td><td>24.78%</td><td>903.67</td></tr>
+        <tr><td class="A">ImmediateMinSlack</td><td>25.03%</td><td>912.62</td></tr>
+        <tr><td class="B">RoomTetris</td><td class="B">14.46%</td><td class="B">526.96</td></tr>
+        <tr><td>下限（部屋数を超えた需要の合計）</td><td>12.10%</td><td></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　10室・365日、1泊と7泊が混ざる需要での比較（論文 3節の本文の値）。</p>
+    <p>即時割当の3つの工夫（FirstFit、MaxSlack、MinSlack）はほぼ同じで、ランダムより約9.5ポイント少ないだけである。RoomTetris は FirstFit より断った日数を41.76%減らした。長い予約ほど繁忙期（価格の高い時期）に断られやすいので、収益の改善は 24.83 − 14.46 = 10.37 ポイントを上回ると論文は見込む。下限は日ごとに部屋数を超えた需要を足したもので、どの方法でもこれ以上は減らせない。残りの差は、7泊の予約は1日でも満室の日を含めば全体が断られるために生じる。</p>
+    <figure>
+      <img src="assets/fig4_room_plans.png" alt="Three room plans of a 10-room hotel over about 45 days, coloured squares for occupied nights: Random (top) leaves many scattered white gaps, FirstFit (middle) fewer, and RoomTetris (bottom) packs reservations into nearly continuous rows." loading="lazy">
+      <figcaption>図3　割当の方法ごとの部屋割り。上から Random、FirstFit、RoomTetris（論文では JIT）。色付きの四角が予約の入った夜、白が空き（論文の Figure 4 より）。</figcaption>
+    </figure>
+    <p>ほかの比較も行っている。依頼がすべて1泊を先、7泊を後の順に来る不運な場合、ランダムな割当で断る日数は48.3%に達する。FirstFit では、1タイプの部屋数を25室に増やしても断る確率は16.87%残る。1泊の依頼をすべて断る厳しい最短滞在日数の制限を課すと（FirstFit）、断る割合は31.6%になり、RoomTetris よりずっと悪い。客が特定の部屋番号を指定する予約が混ざる場合、指定がランダムに置かれ残りを RoomTetris で割り当てると、指定が10%で断る割合は16.92%、20%で20.3%、50%で30.15%と、すべてランダムに置く場合に近づいていく（論文 Figure 5）。</p>
   </section>
 
   <section id="position">
     <div class="kicker">予約枠の断片化と予約受付の研究の中での位置づけ</div>
-    <h2>断片化を指標で抑えるのではなく、割当を遅らせて断片化そのものを避ける研究である</h2>
+    <h2>断片化を指標で抑えるのではなく、割当を遅らせて断片化そのものを避けられる場合があることを示した</h2>
     <ul class="def">
-      <li><strong>考え方</strong>：受けるかどうかは日ごとの部屋数だけで判断し、どの部屋に入れるかは情報がそろうチェックイン日に決める。区間（滞在）の割当を開始時刻の順に行う貪欲法である。</li>
-      <li><strong>限界（要旨より）</strong>：キャンセルと超過予約（オーバーブッキング）を含む拡張、複数の部屋タイプでのアップグレード、収益管理との統合は今後の課題とされる。同じタイプのどの部屋でもよいこと、チェックイン後に部屋を移さないことが前提である。</li>
-      <li><strong>美容室の予約への使い方</strong>：指名のない予約なら、担当の施術者を当日（または施術の開始時）まで決めずに、時間帯ごとの人数だけで受けるかを判断すれば、施術者の割当による断片化は起きない。違いは、美容室では予約ごとに開始時刻が違い、指名やメニューごとの技能の制約があることで、ホテルのように「どの部屋でもよい」とは限らない。</li>
+      <li><strong>考え方</strong>：受けるかどうかは日ごとの部屋数だけで判断し、どの部屋に入れるかは情報がそろうチェックイン日に決める。開始日の順に区間を割り当てる貪欲法で、避けられる超過予約は起きない。</li>
+      <li><strong>限界と今後</strong>：キャンセルと超過予約を含む拡張、複数の部屋タイプでのアップグレード、収益管理との統合（1人利用と2人利用で価格が違う場合など）を今後の課題とする。同じタイプのどの部屋でもよいこと、到着後に部屋を移さないことが前提で、部屋番号を指定する予約が増えると効果は急に落ちる。</li>
+      <li><strong>美容室の予約への使い方</strong>：指名のない予約なら、担当の施術者を開始時刻まで決めずに、時間帯ごとの人数だけで受けるかを判断すれば、施術者の割当による断片化は起きない。違いは、美容室では予約ごとに開始時刻が細かく違い、指名やメニューごとの技能の制約があることである。指名が10%混ざるだけで断る割合が上がるという結果は、指名の多い店では割当を遅らせる効果が小さいことを示唆する。</li>
       <li><strong>関連</strong>：<a href="../roomtetris-2021/">2021年の続編</a>は、ランダムな割当で長い滞在がどれだけ断られるかを計算し、最短滞在日数の制限の見直しを論じる。<a href="../zhang-li-huh/">Zhang ら（2026）</a>は割当を購入時に決める設定で選択を考慮した品揃えを扱う。</li>
     </ul>
   </section>
@@ -286,7 +296,7 @@ table.tbl th.A, table.tbl td.A { color: var(--a); } table.tbl th.B, table.tbl td
   doi     = {10.1108/JHTT-08-2019-0108}
 }</pre>
     </div>
-    <p class="src">要旨と書誌情報にもとづく。本文は未読。書誌情報は Emerald の論文ページとトレント大学の機関リポジトリ（IRIS）の記録から取った。RoomTetris の手順と性質の説明は、同じ著者の2021年の論文（IJCHM、本文を確認）による。広報の数値はトレント大学のプレスリリースから。</p>
+    <p class="src">ページの記述・数値・図は出版版の PDF（Emerald）による。巻・号・ページは Emerald の論文ページとトレント大学の機関リポジトリ（IRIS）の記録から取った。論文は下限と RoomTetris の差を 2.46% と書いているが、14.46 − 12.10 は 2.36 になる（解説者の計算）ため、ページでは差の値を載せていない。</p>
   </section>
 </main>
 
