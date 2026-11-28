@@ -651,6 +651,21 @@ papers:
     method: 制約プログラミング（AND/OR 探索、キャッシュ）
     data: CP4IM と UCI の 24 データ（二値化）
     note: DL8 のキャッシュつき探索を制約プログラミングの枠組みで表し、専用の制約伝播で探索を減らす
+  - id: sat-paths
+    title: "SAT-based Encodings for Optimal Decision Trees with Explicit Paths"
+    authors: "M. Janota, A. Morgado"
+    year: 2020
+    venue: "SAT 2020"
+    url: "https://doi.org/10.1007/978-3-030-51825-7_35"
+    explainer: sat-paths
+    short: "Janota & Morgado"
+    code: ""
+    category: sat-cp
+    split: 単変量（二値の特徴量）
+    objective: ノードの数、または深さを優先したノードの数（データを誤りなく分けることが制約）
+    method: SAT（経路の符号化、トポロジー分割）、MaxSAT による経路長の下界
+    data: Narodytska らの PMLB 標本ベンチマーク（20%・50%）
+    note: 根から葉までの経路を辞書順に並べた変数で表す SAT 符号化と、木の上部を固定するトポロジー分割により、大きさと深さの両方を制御して最適な木を求める
 
   # ---- 連続最適化 ----
   - id: norouzi-2015
