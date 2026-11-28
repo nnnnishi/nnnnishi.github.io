@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yang ら（2024）：相互推薦の評価指標、因果的定式化、手法の再検討（論文解説）</title>
+<meta name="description" content="Revisiting Reciprocal Recommender Systems: Metrics, Formulation, and Method（KDD 2024）の非公式の解説。両側を別々に測る従来の順位指標の問題を指摘し、重複推薦を除いたカバー率・両側の安定性・人数差を考慮した順位を測る 5 つの指標と、両側への推薦を因果介入とみなす手法 CRRS を紹介する。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Noto+Sans+JP:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+/* =====================================================================
+   PAPER PROJECT PAGE (unofficial explainer, Japanese only)
+   Layout : one left-aligned column. Prose 42rem, figures 62rem.
+   Section: kicker label -> one-sentence claim (h2) -> short prose -> at most one figure.
+   Colour : two semantic accents only, used consistently in text, maths, figures and the teaser.
+            --a (orange) = conventional single-sided ranking metrics, redundant recommendations,
+                           and baseline models (BPRMF, D-BPRMF, LFRR, LightGCN, D-LightGCN, DPGNN)
+            --b (blue)   = the five holistic metrics (CRecall, CPrecision, SRecall, SPrecision, RNDCG),
+                           bilateral-treatment causal formulation, and CRRS with vacant-slot reranking
+   ===================================================================== */
+:root {
+  --paper: #FFFFFF;
+  --ink: #16202E;
+  --muted: #5B6676;
+  --hair: #D9DEE6;
+  --panel: #F2F4F7;
+  --a: #C2410C;      --a-soft: #FCEBDF;
+  --b: #1D4ED8;      --b-soft: #E7EEFC;
+  --font-en: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --prose: 42rem;
+  --wide: 62rem;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-ja); font-size: 1.0625rem; line-height: 1.8; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, header.hero, footer { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--b); text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--b); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: var(--prose); }
+.A { color: var(--a); font-weight: 600; } .B { color: var(--b); font-weight: 600; }
+.katex { font-size: 1.04em; }
+
+/* ---------- notice: unofficial explainer ---------- */
+.notice { max-width: calc(var(--wide) + 3rem); margin: 0 auto; padding: 1rem 1.5rem 0; }
+.notice p { max-width: none; font-size: 0.88rem; line-height: 1.6; color: var(--muted); background: var(--panel); border-radius: 10px; padding: 0.7rem 1rem; }
+.notice a { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+header.hero { padding-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.venue { font: 600 0.875rem/1.4 var(--font-en); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+h1 { font-family: var(--font-en); font-size: clamp(2rem, 4.8vw, 3.2rem); font-weight: 650; line-height: 1.1; letter-spacing: -0.022em; max-width: 24ch; }
+.subtitle { font-size: 1.15rem; color: var(--muted); font-weight: 500; margin-top: -0.6rem; }
+.authors { display: flex; flex-wrap: wrap; gap: 0.9rem 2.25rem; margin: 0; padding: 0; list-style: none; }
+.authors li { display: flex; flex-direction: column; line-height: 1.4; }
+.authors b { font-weight: 600; }
+.authors span { font-size: 0.875rem; color: var(--muted); }
+.lead { font-size: 1.25rem; line-height: 1.6; max-width: 40rem; }
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem; border-radius: 999px;
+  font: 600 0.95rem/1.2 var(--font-en); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: var(--paper); cursor: pointer;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--ink); color: #fff; }
+.btn.primary:hover { background: #26344A; }
+
+/* ---------- teaser ---------- */
+.teaser { max-width: var(--wide); margin: 2.75rem 0 0; }
+.stage { border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; background: #fff; }
+.tcap { padding: 1.1rem 1.4rem 0; font-weight: 600; font-size: clamp(1rem, 2.1vw, 1.3rem); line-height: 1.5; min-height: 3.7em; max-width: none; word-break: auto-phrase; }
+.tcap.in { animation: capin 0.45s ease both; }
+@keyframes capin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stage svg { display: block; width: 100%; height: auto; cursor: pointer; }
+.stage svg text { font-family: inherit; }
+.mi { font-family: 'STIX Two Text', 'Times New Roman', Times, serif; font-style: italic; }
+.tctl { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.tb { font: 600 0.82rem/1 var(--font-ja); border: 1.5px solid var(--hair); background: #fff; color: var(--ink); border-radius: 999px; padding: 0.45rem 0.85rem; cursor: pointer; }
+.tdots { display: inline-flex; gap: 4px; }
+.tdots button { width: 30px; height: 20px; border: 0; padding: 0; cursor: pointer; background: linear-gradient(var(--hair), var(--hair)) center / 100% 5px no-repeat; }
+.tdots button[aria-current="step"] { background-image: linear-gradient(var(--ink), var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .tcap.in { animation: none; } }
+
+/* ---------- key points ---------- */
+.points { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 14px; overflow: hidden; max-width: var(--wide); }
+.points li { background: var(--paper); padding: 1.25rem 1.3rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.points .k { font: 650 1.3rem/1.15 var(--font-ja); }
+.points span.d { font-size: 0.93rem; color: var(--muted); line-height: 1.6; }
+
+/* ---------- sections ---------- */
+section { padding: 4.5rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; scroll-margin-top: 1rem; }
+.kicker { font: 600 0.8rem/1.4 var(--font-ja); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h2 { font-size: clamp(1.45rem, 2.8vw, 1.95rem); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; max-width: 24em; }
+h2, .lead, .subtitle, .points .k { word-break: auto-phrase; }
+.eq { max-width: var(--prose); overflow-x: auto; padding: 0.4rem 0; }
+.def { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: var(--prose); }
+.def li { padding-left: 1rem; border-left: 3px solid var(--hair); }
+
+figure { margin: 0.6rem 0 0; max-width: var(--wide); }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; max-width: var(--prose); line-height: 1.6; }
+
+/* ---------- self-drawn inline SVG figures ---------- */
+svg.fig { display: block; width: 100%; max-width: var(--wide); height: auto; border: 1px solid var(--hair); border-radius: 12px; background: #fff; padding: 0.5rem; }
+svg.fig text { font-family: var(--font-ja); }
+p.src { font-size: 0.9rem; color: var(--muted); }
+.points .k .katex { font-size: 1.1em; }
+
+/* ---------- result tables ---------- */
+table.tbl { border-collapse: collapse; font-size: 0.9rem; width: 100%; }
+table.tbl th, table.tbl td { padding: 0.4rem 0.65rem; text-align: right; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl thead th { font-weight: 600; border-bottom: 1.5px solid var(--ink); }
+table.tbl th.A, table.tbl td.A { color: var(--a); }
+table.tbl th.B, table.tbl td.B { color: var(--b); font-weight: 600; }
+table.tbl tr.sep td { border-top: 1.5px solid var(--hair); }
+.tblwrap { max-width: var(--wide); overflow-x: auto; }
+.tblwrap.narrow { max-width: var(--prose); }
+
+/* ---------- BibTeX ---------- */
+.bibwrap { position: relative; max-width: var(--wide); }
+pre.bib { margin: 0; background: var(--panel); border-radius: 12px; padding: 1.1rem 1.2rem; font: 0.85rem/1.55 var(--font-mono); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.8rem; font-family: var(--font-ja); }
+
+footer { padding-top: 4.5rem; padding-bottom: 3rem; color: var(--muted); font-size: 0.85rem; }
+footer p { max-width: none; }
+
+@media (max-width: 760px) {
+  .points { grid-template-columns: 1fr; }
+  main, header.hero, footer, .notice { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="notice">
+  <p>このページは論文の著者によるものではありません。西村直樹が論文を読んでまとめた非公式の解説です。正確な内容は論文本文を確認してください。<a href="../../">← 双方向市場の推薦 文献リストへ</a></p>
+</div>
+
+<header class="hero">
+  <div class="venue">KDD · 2024</div>
+  <h1>Revisiting Reciprocal Recommender Systems: Metrics, Formulation, and Method</h1>
+  <p class="subtitle">相互推薦システムの再検討：評価指標、定式化、手法</p>
+
+  <ul class="authors">
+    <li><b>Chen Yang</b><span>Nanbeige Lab, BOSS Zhipin / Renmin University of China</span></li>
+    <li><b>Sunhao Dai</b><span>Renmin University of China</span></li>
+    <li><b>Yupeng Hou</b><span>University of California, San Diego</span></li>
+    <li><b>Wayne Xin Zhao</b><span>Renmin University of China</span></li>
+    <li><b>Jun Xu</b><span>Renmin University of China</span></li>
+    <li><b>Yang Song</b><span>Nanbeige Lab, BOSS Zhipin</span></li>
+    <li><b>Hengshu Zhu</b><span>Career Science Lab, BOSS Zhipin</span></li>
+  </ul>
+
+  <p class="lead">相互推薦の多くの研究は<span class="A">両側の利用者を別々に測る従来の順位指標</span>をそのまま使ってきた。そのため、同じ組を双方に重複して推薦しても別々の成功として二重に数えてしまう。Yang らは、重複を除いたカバー率、両側の安定性、人数差を考慮した順位を測る <span class="B">5 つの評価指標</span>を提案し、両側への推薦を因果推論の介入とみなす手法 <span class="B">CRRS</span> を示した。求人とオンラインデートの 2 つの実データで、CRRS は MF 系・グラフ系の双方で最も高いカバー率とマッチ組数を得た。</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://doi.org/10.1145/3637528.3671734">Paper</a>
+    <a class="btn" href="https://arxiv.org/abs/2408.09748">arXiv</a>
+    <a class="btn" href="https://github.com/RUCAIBox/CRRS">Code</a>
+    <a class="btn" href="#bibtex">BibTeX</a>
+  </div>
+</header>
+
+<main>
+  <figure class="teaser" id="teaser">
+    <div class="stage">
+      <p class="tcap" aria-live="polite"></p>
+      <svg viewBox="0 0 960 540" role="img" aria-label="40秒の解説アニメーション。両側を別々に評価する従来指標が重複推薦を見分けられないこと、カバー率と安定性を分けて測る5つの新指標、両側への推薦を2つの介入とみなして空き枠の期待値で再順位づけするCRRSの仕組み、求人とデートの実データでのCRecall@50の比較、まとめの5場面。"></svg>
+    </div>
+    <figcaption class="tctl">
+      <button type="button" class="tb" data-act="toggle">再生</button>
+      <span class="tdots"></span>
+      <span>論文を40秒で（解説者による模式図を含む）。音声なし。</span>
+    </figcaption>
+  </figure>
+
+  <ul class="points">
+    <li><span class="k">5 つの全体評価指標</span><span class="d">重複推薦を除いたカバー率（CRecall・CPrecision）、双方同時推薦の安定性（SRecall・SPrecision）、両側の人数差を重みづけた RNDCG の 3 観点で評価する。</span></li>
+    <li><span class="k">両側の推薦を因果介入とみなす</span><span class="d">潜在反応の枠組みで 3 通りの推薦パターン（\(10, 11, 01\)）ごとにモデルを学習し、推薦しない側の空き枠によるマッチ期待値 \(\bar{y}\) を加えて再順位づけする。</span></li>
+    <li><span class="k">CRecall@50 が両データで最良</span><span class="d">CRRS（LightGCN）は求人データで 0.4670（10,490 組）、デートデータで 0.3387（1,743 組）となり、MF 系・グラフ系のどちらでも既存手法を上回った（論文 Table 3）。</span></li>
+  </ul>
+
+  <section id="background">
+    <div class="kicker">背景</div>
+    <h2>従来の相互推薦研究は両側を別々に評価してきたため、同じ組への重複推薦を区別できない</h2>
+    <p>オンライン求人、オンラインデート、SNS などの相互推薦（Reciprocal Recommender Systems, RRS）では、2 つの側の利用者が互いに受け入れたときにマッチが成立する。それにもかかわらず、多くの既存研究は片側推薦の枠組みを踏襲し、Recall・Precision・NDCG を A 側と B 側で別々に計算してきた。</p>
+    <p>しかし、両側への推薦の結果は互いに結びついている。たとえば求人で、求職者への推薦をきっかけに採用側とのマッチがすでに成立するなら、同じ相手を採用側にも重ねて推薦するのは重複（redundant recommendation）になる。片側ごとの評価ではこの重複を 2 件の成功として数えてしまうが、システム全体のマッチ組数は増えていない。一方、<a href="../su-2022/">Su ら（2022）</a>や Tomita ら（2022）のようなマッチング市場の枠組みはシステム全体を扱うが、実データでは得にくい真の関連度（ground truth of relevance）に強く依存すると論文は指摘する。</p>
+  </section>
+
+  <section id="metrics">
+    <div class="kicker">評価指標</div>
+    <h2>全体のカバー率、両側の安定性、人数差を考慮した順位の 3 観点から 5 つの指標を定義する</h2>
+    <p>両側の利用者集合を \(\mathcal{A} = \{a_1, \dots, a_n\}\) と \(\mathcal{B} = \{b_1, \dots, b_m\}\) とし、有向のやり取りを \(\mathcal{I} = \{\langle a_i, b_j, d_{ij}, r_{ij} \rangle\}\) で表す。\(d_{ij} \in \{0, 1\}\) はやり取りの向き（\(1\) が \(a_i \to b_j\)、\(0\) が \(b_j \to a_i\)）、\(r_{ij} \in \{0, 1\}\) は最終的なマッチの有無である。各利用者に長さ \(K\) の推薦リストを出すとき、全マッチ組数を \(\mathrm{M}\)、A 側と B 側の真陽性の総和を \(\mathrm{TP}_A, \mathrm{TP}_B\)、両側から同時に推薦された真陽性組の数を \(\mathrm{TP}_{A \cap B}\) とおいて、次の 5 つの指標を定める（4.1 節）。</p>
+    <div class="eq">\[ \mathrm{CRecall} = \frac{\mathrm{TP}_A + \mathrm{TP}_B - \mathrm{TP}_{A \cap B}}{\mathrm{M}}, \qquad \mathrm{CPrecision} = \frac{\mathrm{TP}_A + \mathrm{TP}_B - \mathrm{TP}_{A \cap B}}{(n + m)K} \]</div>
+    <div class="eq">\[ \mathrm{SRecall} = \frac{\mathrm{TP}_{A \cap B}}{\mathrm{M}}, \qquad \mathrm{SPrecision} = \frac{\mathrm{TP}_{A \cap B}}{(n + m)K}, \qquad \mathrm{RNDCG@K} = \frac{n \cdot \mathrm{NDCG}_A + m \cdot \mathrm{NDCG}_B}{n + m} \]</div>
+    <ul class="def">
+      <li><strong>全体のカバー率（CRecall・CPrecision）</strong>：双方に重複推薦された組 \(\mathrm{TP}_{A \cap B}\) を 1 回だけ数えることで、少なくとも片側から推薦されたマッチ組の割合と精度を測る。</li>
+      <li><strong>両側の安定性（SRecall・SPrecision）</strong>：両側から同時に推薦されたマッチ組の割合と精度を測る。双方の同時推薦によってマッチ成立の見込みが高まり得る場面を見る指標である。</li>
+      <li><strong>人数差を考慮した順位評価（RNDCG@K）</strong>：求職者 1,000 人に対して求人 100 件のように両側の人数が大きく異なる市場で、単純平均ではなく人数 \(n, m\) で重みづけて両側の NDCG を統合する。</li>
+    </ul>
+    <figure>
+      <svg class="fig" viewBox="0 0 880 340" role="img" aria-label="4人の利用者に上位1件ずつ推薦する3つの例。従来指標のRecallはいずれも0.5だが、CRecallは1、0.5、0.75、SRecallは0、0.5、0.25、マッチ組数は4、2、3と違いが表れる。">
+        <defs>
+          <marker id="arr-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="#C2410C"/>
+          </marker>
+          <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="#1D4ED8"/>
+          </marker>
+        </defs>
+        <!-- column separators -->
+        <line x1="150" y1="16" x2="150" y2="310" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <line x1="390" y1="16" x2="390" y2="310" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <line x1="630" y1="16" x2="630" y2="310" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <!-- row separators -->
+        <line x1="20" y1="186" x2="860" y2="186" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <line x1="20" y1="218" x2="860" y2="218" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <line x1="20" y1="250" x2="860" y2="250" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+        <line x1="20" y1="282" x2="860" y2="282" stroke="#D9DEE6" stroke-dasharray="4 4"/>
+
+        <!-- left labels -->
+        <text x="85" y="108" font-size="14" font-weight="600" fill="#16202E" text-anchor="middle">推薦パターン</text>
+        <text x="85" y="207" font-size="14" font-weight="600" fill="#C2410C" text-anchor="middle">従来 Recall</text>
+        <text x="85" y="239" font-size="14" font-weight="600" fill="#1D4ED8" text-anchor="middle">CRecall</text>
+        <text x="85" y="271" font-size="14" font-weight="600" fill="#1D4ED8" text-anchor="middle">SRecall</text>
+        <text x="85" y="302" font-size="14" font-weight="600" fill="#16202E" text-anchor="middle">マッチ組数</text>
+
+        <!-- Case (1): 4 distinct one-sided recs -->
+        <g transform="translate(150,0)">
+          <text x="120" y="32" font-size="14" font-weight="650" fill="#16202E" text-anchor="middle">例 (1) 重複なし</text>
+          <!-- edges (all 4 matched) -->
+          <line x1="70" y1="78" x2="70" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="170" y1="78" x2="170" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="70" y1="78" x2="170" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="170" y1="78" x2="70" y2="132" stroke="#16202E" stroke-width="2"/>
+          <!-- arrows (4 one-sided) -->
+          <line x1="56" y1="128" x2="56" y2="84" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <line x1="184" y1="128" x2="184" y2="84" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <line x1="150" y1="84" x2="108" y2="107" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <line x1="124" y1="117" x2="152" y2="132" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <!-- nodes -->
+          <rect x="52" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₁</text>
+          <rect x="152" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₂</text>
+          <circle cx="70" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₁</text>
+          <circle cx="170" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₂</text>
+          <!-- numbers -->
+          <text x="120" y="207" font-size="15" fill="#C2410C" text-anchor="middle">0.5</text>
+          <text x="120" y="239" font-size="15" font-weight="650" fill="#1D4ED8" text-anchor="middle">1</text>
+          <text x="120" y="271" font-size="15" fill="#1D4ED8" text-anchor="middle">0</text>
+          <text x="120" y="302" font-size="15" font-weight="650" fill="#16202E" text-anchor="middle">4</text>
+        </g>
+
+        <!-- Case (2): 2 mutual recs -->
+        <g transform="translate(390,0)">
+          <text x="120" y="32" font-size="14" font-weight="650" fill="#16202E" text-anchor="middle">例 (2) すべて重複</text>
+          <!-- edges (2 matched, 2 potential dashed) -->
+          <line x1="70" y1="78" x2="70" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="170" y1="78" x2="170" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="70" y1="78" x2="170" y2="132" stroke="#9AA3B0" stroke-width="1.6" stroke-dasharray="4 4"/>
+          <line x1="170" y1="78" x2="70" y2="132" stroke="#9AA3B0" stroke-width="1.6" stroke-dasharray="4 4"/>
+          <!-- mutual arrows -->
+          <line x1="56" y1="128" x2="56" y2="84" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <line x1="84" y1="84" x2="84" y2="128" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <line x1="156" y1="84" x2="156" y2="128" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <line x1="184" y1="128" x2="184" y2="84" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <!-- nodes -->
+          <rect x="52" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₁</text>
+          <rect x="152" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₂</text>
+          <circle cx="70" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₁</text>
+          <circle cx="170" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₂</text>
+          <!-- numbers -->
+          <text x="120" y="207" font-size="15" fill="#C2410C" text-anchor="middle">0.5</text>
+          <text x="120" y="239" font-size="15" font-weight="650" fill="#1D4ED8" text-anchor="middle">0.5</text>
+          <text x="120" y="271" font-size="15" fill="#1D4ED8" text-anchor="middle">0.5</text>
+          <text x="120" y="302" font-size="15" font-weight="650" fill="#16202E" text-anchor="middle">2</text>
+        </g>
+
+        <!-- Case (3): 1 mutual + 2 one-sided -->
+        <g transform="translate(630,0)">
+          <text x="120" y="32" font-size="14" font-weight="650" fill="#16202E" text-anchor="middle">例 (3) 一部が重複</text>
+          <!-- edges (3 matched, 1 potential dashed) -->
+          <line x1="70" y1="78" x2="70" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="170" y1="78" x2="170" y2="132" stroke="#16202E" stroke-width="2"/>
+          <line x1="70" y1="78" x2="170" y2="132" stroke="#9AA3B0" stroke-width="1.6" stroke-dasharray="4 4"/>
+          <line x1="170" y1="78" x2="70" y2="132" stroke="#16202E" stroke-width="2"/>
+          <!-- arrows -->
+          <line x1="56" y1="128" x2="56" y2="84" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <line x1="150" y1="84" x2="108" y2="107" stroke="#1D4ED8" stroke-width="2.2" marker-end="url(#arr-b)"/>
+          <line x1="156" y1="84" x2="156" y2="128" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <line x1="184" y1="128" x2="184" y2="84" stroke="#C2410C" stroke-width="2.2" marker-end="url(#arr-a)"/>
+          <!-- nodes -->
+          <rect x="52" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₁</text>
+          <rect x="152" y="46" width="36" height="32" rx="5" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="67" font-size="14" fill="#16202E" text-anchor="middle">a₂</text>
+          <circle cx="70" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="70" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₁</text>
+          <circle cx="170" cy="150" r="18" fill="#fff" stroke="#16202E" stroke-width="1.8"/>
+          <text x="170" y="155" font-size="14" fill="#16202E" text-anchor="middle">b₂</text>
+          <!-- numbers -->
+          <text x="120" y="207" font-size="15" fill="#C2410C" text-anchor="middle">0.5</text>
+          <text x="120" y="239" font-size="15" font-weight="650" fill="#1D4ED8" text-anchor="middle">0.75</text>
+          <text x="120" y="271" font-size="15" fill="#1D4ED8" text-anchor="middle">0.25</text>
+          <text x="120" y="302" font-size="15" font-weight="650" fill="#16202E" text-anchor="middle">3</text>
+        </g>
+
+        <!-- legend -->
+        <g transform="translate(155,328)" font-size="12.5" fill="#5B6676">
+          <line x1="0" y1="-4" x2="22" y2="-4" stroke="#1D4ED8" stroke-width="2" marker-end="url(#arr-b)"/>
+          <text x="30" y="0">片側のみの推薦</text>
+          <line x1="150" y1="-4" x2="172" y2="-4" stroke="#C2410C" stroke-width="2" marker-end="url(#arr-a)"/>
+          <text x="180" y="0">双方に重複した推薦</text>
+          <line x1="330" y1="-4" x2="356" y2="-4" stroke="#16202E" stroke-width="2"/>
+          <text x="364" y="0">成立したマッチ</text>
+          <line x1="485" y1="-4" x2="511" y2="-4" stroke="#9AA3B0" stroke-width="1.6" stroke-dasharray="4 4"/>
+          <text x="519" y="0">潜在的なマッチ（未推薦）</text>
+        </g>
+      </svg>
+      <figcaption>図1　同じ潜在マッチ関係（4 組すべてがマッチ候補）に対して、4 人へ上位 1 件ずつ推薦した 3 通りの例（論文 Fig. 2 を再作図）。従来の平均 Recall はいずれも 0.5 で区別できないが、CRecall と SRecall は重複の程度と実際のマッチ組数の違いを捉える。</figcaption>
+    </figure>
+  </section>
+
+  <section id="method">
+    <div class="kicker">定式化と手法</div>
+    <h2>両側への推薦を 2 つの介入とみなし、3 つの潜在反応モデルと空き枠の期待値で再順位づけする</h2>
+    <p>両側への推薦が組み合わさってマッチの成否に影響する仕組みを扱うため、論文は潜在反応（potential outcome）の枠組みで相互推薦を定式化する。組 \((a_i, b_j)\) について、\(a_i\) に \(b_j\) を推薦するかどうかを \(T_A \in \{0, 1\}\)、\(b_j\) に \(a_i\) を推薦するかどうかを \(T_B \in \{0, 1\}\) とすると、介入の割り当ては \(T = (T_A, T_B) \in \{10, 11, 01, 00\}\) の 4 通りになる（定義 1）。どちらにも推薦しない \(T = 00\) ではマッチが起こらないため \(\hat{y}_{00} = 0\) とする。</p>
+    <p>実際のデータでは 1 つの組に対して 1 通りの介入の結果しか観測できない（反事実の問題）。論文は「似た利用者は似た介入効果を持つ」という仮定のもとで、既存の推薦モデル（BPRMF や LightGCN など）を基盤モデルとして 3 つ用意し、互いに独立なパラメータで \(\hat{y}_{10} = f_{10}(a_i, b_j)\)、\(\hat{y}_{11} = f_{11}(a_i, b_j)\)、\(\hat{y}_{01} = f_{01}(a_i, b_j)\) をそれぞれ予測する（5.2.2 節）。</p>
+    <p>さらに、片側に推薦しない選択をすると、その利用者の推薦枠に<strong>空き枠（vacant slot）</strong>ができ、別の相手を推薦することで新たなマッチが見込める（その期待値を \(\bar{y}(a_i)\) や \(\bar{y}(b_j)\) とする）。論文は各介入の期待値に空き枠の期待値を足して比べ（表 1）、合計の期待マッチ数が最も大きい介入を選ぶ再順位づけを提案する（式 9〜11）。</p>
+    <div class="tblwrap narrow">
+    <table class="tbl">
+      <thead><tr><th>介入 \((T_A, T_B)\)</th><th>組 \((a_i, b_j)\) の期待値</th><th>A 側の空き枠</th><th>B 側の空き枠</th><th>合計の期待値</th></tr></thead>
+      <tbody>
+        <tr><td>\((1, 0)\)（A 側のみ推薦）</td><td>\(\hat{y}_{10}\)</td><td>\(0\)</td><td>\(\bar{y}(b_j)\)</td><td>\(\hat{y}_{10} + \bar{y}(b_j)\)</td></tr>
+        <tr><td>\((1, 1)\)（両側に推薦）</td><td>\(\hat{y}_{11}\)</td><td>\(0\)</td><td>\(0\)</td><td>\(\hat{y}_{11}\)</td></tr>
+        <tr><td>\((0, 1)\)（B 側のみ推薦）</td><td>\(\hat{y}_{01}\)</td><td>\(\bar{y}(a_i)\)</td><td>\(0\)</td><td>\(\hat{y}_{01} + \bar{y}(a_i)\)</td></tr>
+        <tr><td>\((0, 0)\)（どちらも推薦せず）</td><td>\(\hat{y}_{00} = 0\)</td><td>\(\bar{y}(a_i)\)</td><td>\(\bar{y}(b_j)\)</td><td>\(\bar{y}(a_i) + \bar{y}(b_j)\)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表1　4 通りの介入と、推薦しない側の空き枠によるマッチの期待値（論文 Table 1 にもとづく）。</p>
+    <div class="eq">\[ s_{a_i} = \mathrm{IsMax}(\hat{y}_{11}) \cdot \hat{y}_{11} + \mathrm{IsMax}\big(\hat{y}_{10} + \bar{y}(b_j)\big) \cdot \hat{y}_{10} \]</div>
+    <div class="eq">\[ s_{b_j} = \mathrm{IsMax}(\hat{y}_{11}) \cdot \hat{y}_{11} + \mathrm{IsMax}\big(\hat{y}_{01} + \bar{y}(a_i)\big) \cdot \hat{y}_{01} \]</div>
+    <ul class="def">
+      <li><strong>\(\mathrm{IsMax}\) と空き枠の推定</strong>：\(\mathrm{IsMax}(y)\) は、引数 \(y\) が集合 \(\mathcal{S} = \{\hat{y}_{11},\; \hat{y}_{01} + \bar{y}(a_i),\; \hat{y}_{10} + \bar{y}(b_j),\; \bar{y}(a_i) + \bar{y}(b_j)\}\) の最大値と一致するときだけ 1、それ以外は 0 を返す。\(\bar{y}(a_i)\) と \(\bar{y}(b_j)\) は、相手側から一定数の利用者をサンプリングし、基盤モデルで関連度を計算して近似する。</li>
+      <li><strong>2 段階の学習（アルゴリズム 1）</strong>：第 1 段階では実際のマッチラベル \(r_{ij}\) を使って BPR 損失 \(\mathcal{L}_{\mathrm{pretrain}}\) で基盤モデルを事前学習し、3 つの介入モデルを同じ埋め込みで初期化する。第 2 段階では介入ごとのデータ \(\mathcal{D}_{10}, \mathcal{D}_{11}, \mathcal{D}_{01}\) による BPR 損失 \(\mathcal{L}_t\) に \(\mathcal{L}_{\mathrm{pretrain}}\) を加えて微調整する。</li>
+      <li><strong>重複推薦に対する立場（5.4 節）</strong>：LinkedIn のように片側の推薦だけで十分になり得るサービスと、Tinder のように双方の「いいね」が必須のサービスでは、重複推薦の望ましさが異なる。論文は重複推薦を抑えて全体のカバー率（CRecall・CPrecision）を優先する立場を取る。</li>
+    </ul>
+  </section>
+
+  <section id="results">
+    <div class="kicker">実験の結果</div>
+    <h2>求人とオンラインデートの実データで、CRRS はカバー率とマッチ組数で既存手法を上回った</h2>
+    <p>評価には 2 つの大規模な実データを用いた。<strong>Recruitment</strong>（Yang ら 2022）はオンライン求人プラットフォームの 2 週間のやり取りログ（A 側 32,161 人、B 側 25,665 人、やり取り 790,725 件、マッチ 224,636 件、疎さ 99.90%）である。<strong>Dating</strong>（Libimseti）は異性間の評価ログで、双方の評価が 8 以上の組をマッチとみなした（A 側 6,391 人、B 側 6,516 人、やり取り 605,288 件、マッチ 51,474 件、疎さ 98.55%、論文 Table 2）。どちらも 5-core で前処理し、8 : 1 : 1 で学習・検証・テストに分割して、全候補を順位づけて上位 50 件（\(K = 50\)）で評価した。オフライン評価では、片側だけに推薦された正例でもマッチが成立するとみなしている。</p>
+    <p>比較対象は、MF 系の <span class="A">BPRMF</span>、両側で別パラメータの <span class="A">D-BPRMF</span>、相互推薦モデルの <span class="A">LFRR</span>（Neve と Palomares 2019）、グラフ系の <span class="A">LightGCN</span>、<span class="A">D-LightGCN</span>、<span class="A">DPGNN</span>（Yang ら 2022）である。表 2 と図 2 に全体指標の結果を示す。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>データ・系統</th>
+          <th>手法</th>
+          <th>SRecall@50</th>
+          <th>RNDCG@50</th>
+          <th>CRecall@50</th>
+          <th>CPrecision@50</th>
+          <th>マッチ組数</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Recruitment（MF 系）</td><td class="A">BPRMF</td><td>0.0617</td><td>0.0989</td><td>0.3388</td><td>0.0052</td><td>7,610</td></tr>
+        <tr><td></td><td class="A">D-BPRMF</td><td>0.0152</td><td>0.0620</td><td>0.2336</td><td>0.0036</td><td>5,247</td></tr>
+        <tr><td></td><td class="A">LFRR</td><td>0.0967*</td><td>0.1054</td><td>0.3530</td><td>0.0054</td><td>7,929</td></tr>
+        <tr><td></td><td class="B">CRRS（BPRMF）</td><td>0.0242</td><td>0.1050</td><td class="B">0.3968*</td><td class="B">0.0061*</td><td class="B">8,913*</td></tr>
+        <tr class="sep"><td>Recruitment（グラフ系）</td><td class="A">LightGCN</td><td>0.0638</td><td>0.0832</td><td>0.3609</td><td>0.0056</td><td>8,106</td></tr>
+        <tr><td></td><td class="A">D-LightGCN</td><td>0.0414</td><td>0.0649</td><td>0.2811</td><td>0.0043</td><td>6,314</td></tr>
+        <tr><td></td><td class="A">DPGNN</td><td>0.1535*</td><td>0.1447*</td><td>0.4555</td><td>0.0070</td><td>10,231</td></tr>
+        <tr><td></td><td class="B">CRRS（LightGCN）</td><td>0.1248</td><td>0.1142</td><td class="B">0.4670*</td><td class="B">0.0073*</td><td class="B">10,490*</td></tr>
+        <tr class="sep"><td>Dating（MF 系）</td><td class="A">BPRMF</td><td>0.0830</td><td>0.0660</td><td>0.2795</td><td>0.0062</td><td>1,439</td></tr>
+        <tr><td></td><td class="A">D-BPRMF</td><td>0.0419</td><td>0.0207</td><td>0.2055</td><td>0.0045</td><td>1,058</td></tr>
+        <tr><td></td><td class="A">LFRR</td><td>0.0968</td><td>0.0706</td><td>0.3045</td><td>0.0067</td><td>1,567</td></tr>
+        <tr><td></td><td class="B">CRRS（BPRMF）</td><td class="B">0.0993*</td><td class="B">0.0751*</td><td class="B">0.3086*</td><td class="B">0.0068</td><td class="B">1,588*</td></tr>
+        <tr class="sep"><td>Dating（グラフ系）</td><td class="A">LightGCN</td><td>0.0753</td><td>0.0633</td><td>0.2549</td><td>0.0056</td><td>1,312</td></tr>
+        <tr><td></td><td class="A">D-LightGCN</td><td>0.0732</td><td>0.0700</td><td>0.2986</td><td>0.0066</td><td>1,537</td></tr>
+        <tr><td></td><td class="A">DPGNN</td><td>0.0997</td><td>0.0738</td><td>0.3007</td><td>0.0067</td><td>1,548</td></tr>
+        <tr><td></td><td class="B">CRRS（LightGCN）</td><td class="B">0.1221*</td><td class="B">0.0849*</td><td class="B">0.3387*</td><td class="B">0.0075*</td><td class="B">1,743*</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="src">表2　Recruitment と Dating の全体指標（論文 Table 3 の Overall 欄から抜粋。SPrecision@50 と片側指標は省略）。* は各系統内での最良値が対応のある t 検定（\(p < 0.05\)）で統計的に有意であることを示す。</p>
+
+    <figure>
+      <svg class="fig" viewBox="0 0 880 350" role="img" aria-label="論文Table 3のCRecall@50の棒グラフ。RecruitmentのMF系ではBPRMF 0.3388、LFRR 0.3530、CRRS 0.3968。Recruitmentのグラフ系ではLightGCN 0.3609、DPGNN 0.4555、CRRS 0.4670。DatingのMF系ではBPRMF 0.2795、LFRR 0.3045、CRRS 0.3086。Datingのグラフ系ではLightGCN 0.2549、DPGNN 0.3007、CRRS 0.3387。">
+        <!-- titles -->
+        <text x="20" y="28" font-size="15" font-weight="650" fill="#16202E">CRecall@50 の比較（論文 Table 3）</text>
+        <g transform="translate(500,16)" font-size="13" fill="#5B6676">
+          <rect x="0" y="0" width="14" height="12" rx="2" fill="#C2410C" fill-opacity="0.45"/>
+          <text x="20" y="11">基盤モデル</text>
+          <rect x="102" y="0" width="14" height="12" rx="2" fill="#C2410C"/>
+          <text x="122" y="11">相互推薦ベースライン</text>
+          <rect x="266" y="0" width="14" height="12" rx="2" fill="#1D4ED8"/>
+          <text x="286" y="11">CRRS</text>
+        </g>
+
+        <!-- Left panel: Recruitment (scale: 400px per 1.0 -> 0.5 = 200px) -->
+        <text x="160" y="60" font-size="14" font-weight="650" fill="#16202E">Recruitment（求人）</text>
+        <line x1="160" y1="74" x2="160" y2="306" stroke="#16202E" stroke-width="1.3"/>
+        <line x1="240" y1="74" x2="240" y2="306" stroke="#D9DEE6"/>
+        <line x1="320" y1="74" x2="320" y2="306" stroke="#D9DEE6"/>
+        <line x1="360" y1="74" x2="360" y2="306" stroke="#D9DEE6"/>
+        <text x="160" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="240" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.2</text>
+        <text x="320" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.4</text>
+        <text x="360" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.5</text>
+
+        <!-- MF group -->
+        <text x="150" y="99" font-size="13" fill="#5B6676" text-anchor="end">BPRMF</text>
+        <rect x="160" y="84" width="135.5" height="20" rx="3" fill="#C2410C" fill-opacity="0.45"/>
+        <text x="302" y="99" font-size="13" fill="#C2410C">0.3388</text>
+
+        <text x="150" y="131" font-size="13" fill="#5B6676" text-anchor="end">LFRR</text>
+        <rect x="160" y="116" width="141.2" height="20" rx="3" fill="#C2410C"/>
+        <text x="307" y="131" font-size="13" fill="#C2410C">0.3530</text>
+
+        <text x="150" y="163" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">CRRS（BPRMF）</text>
+        <rect x="160" y="148" width="158.7" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="325" y="163" font-size="13" font-weight="650" fill="#1D4ED8">0.3968</text>
+
+        <!-- Graph group -->
+        <text x="150" y="211" font-size="13" fill="#5B6676" text-anchor="end">LightGCN</text>
+        <rect x="160" y="196" width="144.4" height="20" rx="3" fill="#C2410C" fill-opacity="0.45"/>
+        <text x="310" y="211" font-size="13" fill="#C2410C">0.3609</text>
+
+        <text x="150" y="243" font-size="13" fill="#5B6676" text-anchor="end">DPGNN</text>
+        <rect x="160" y="228" width="182.2" height="20" rx="3" fill="#C2410C"/>
+        <text x="348" y="243" font-size="13" fill="#C2410C">0.4555</text>
+
+        <text x="150" y="275" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">CRRS（LightGCN）</text>
+        <rect x="160" y="260" width="186.8" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="353" y="275" font-size="13" font-weight="650" fill="#1D4ED8">0.4670</text>
+
+        <!-- Right panel: Dating (scale: 400px per 1.0 -> 0.5 = 200px) -->
+        <text x="605" y="60" font-size="14" font-weight="650" fill="#16202E">Dating（Libimseti）</text>
+        <line x1="605" y1="74" x2="605" y2="306" stroke="#16202E" stroke-width="1.3"/>
+        <line x1="685" y1="74" x2="685" y2="306" stroke="#D9DEE6"/>
+        <line x1="765" y1="74" x2="765" y2="306" stroke="#D9DEE6"/>
+        <line x1="805" y1="74" x2="805" y2="306" stroke="#D9DEE6"/>
+        <text x="605" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0</text>
+        <text x="685" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.2</text>
+        <text x="765" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.4</text>
+        <text x="805" y="325" font-size="12" fill="#5B6676" text-anchor="middle">0.5</text>
+
+        <!-- MF group -->
+        <text x="595" y="99" font-size="13" fill="#5B6676" text-anchor="end">BPRMF</text>
+        <rect x="605" y="84" width="111.8" height="20" rx="3" fill="#C2410C" fill-opacity="0.45"/>
+        <text x="723" y="99" font-size="13" fill="#C2410C">0.2795</text>
+
+        <text x="595" y="131" font-size="13" fill="#5B6676" text-anchor="end">LFRR</text>
+        <rect x="605" y="116" width="121.8" height="20" rx="3" fill="#C2410C"/>
+        <text x="733" y="131" font-size="13" fill="#C2410C">0.3045</text>
+
+        <text x="595" y="163" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">CRRS（BPRMF）</text>
+        <rect x="605" y="148" width="123.4" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="735" y="163" font-size="13" font-weight="650" fill="#1D4ED8">0.3086</text>
+
+        <!-- Graph group -->
+        <text x="595" y="211" font-size="13" fill="#5B6676" text-anchor="end">LightGCN</text>
+        <rect x="605" y="196" width="102.0" height="20" rx="3" fill="#C2410C" fill-opacity="0.45"/>
+        <text x="713" y="211" font-size="13" fill="#C2410C">0.2549</text>
+
+        <text x="595" y="243" font-size="13" fill="#5B6676" text-anchor="end">DPGNN</text>
+        <rect x="605" y="228" width="120.3" height="20" rx="3" fill="#C2410C"/>
+        <text x="731" y="243" font-size="13" fill="#C2410C">0.3007</text>
+
+        <text x="595" y="275" font-size="13" font-weight="600" fill="#1D4ED8" text-anchor="end">CRRS（LightGCN）</text>
+        <rect x="605" y="260" width="135.5" height="20" rx="3" fill="#1D4ED8"/>
+        <text x="747" y="275" font-size="13" font-weight="650" fill="#1D4ED8">0.3387</text>
+      </svg>
+      <figcaption>図2　論文 Table 3 の CRecall@50 の比較。両データ・両系統で CRRS が最も高いカバー率を得た（D-BPRMF と D-LightGCN は表 2 に掲載）。</figcaption>
+    </figure>
+
+    <ul class="def">
+      <li><strong>カバー率と安定性のトレードオフ</strong>：Recruitment では LFRR や DPGNN が多くの片側指標や RNDCG で CRRS を上回る一方、CRRS は CRecall・CPrecision・マッチ組数で最良になった。CRRS（LightGCN）は DPGNN と比べて CRecall が 0.4555 から 0.4670 へ上がった反面、SRecall は 0.1535 から 0.1248 へ下がった。重複推薦を減らすことでカバー率と安定性がトレードオフになる様子が表れている。一方、疎さがより低い Dating（98.55% 対 99.90%）ではこのトレードオフは出ず、CRRS（LightGCN）は片側指標を含めすべての指標で最良になった（CRRS（BPRMF）は全体指標と A 側指標で最良、B 側指標では LFRR が上回った）。</li>
+      <li><strong>従来指標との比較実験（6.2.2 節、論文 Fig. 4）</strong>：Dating の BPRMF の推薦結果（BPRMF-Ori）に対し、重複推薦を別の非重複マッチ組に入れ替えた BPRMF-Uni と、逆に非重複を重複に入れ替えた BPRMF-Rep を作った。3 つとも従来の順位指標（Recall = 0.1760）は完全に同じだが、CRecall は 0.2795・0.3625・0.1398、マッチ組数は 1,347・1,578・789 と大きく変わった。</li>
+      <li><strong>要素の切り分け（アブレーション、論文 Table 4）</strong>：CRRS（BPRMF）から微調整・事前学習・再順位づけをそれぞれ外すと、どの要素を外しても CRecall@50 が下がった。Recruitment では再順位づけを外すと CRecall@50 が 0.3968 から 0.3091 へ大きく下がり（代わりに SRecall@50 は 0.0242 から 0.0757 へ上昇）、再順位づけの寄与が大きかった。Dating では事前学習（外すと 0.2986）と微調整（外すと 0.2927）の寄与が大きく、再順位づけの効果（外すと 0.3011、ありで 0.3086）は比較的小さかった。</li>
+      <li><strong>重複推薦の順位分布（6.2.4 節、論文 Fig. 5）</strong>：BPRMF の上位 50 件で重複した真陽性組の順位を調べると、大多数がリストの上位に集中していた。論文は、両側の順位の差を直接最適化する目的関数では効果が薄い可能性があり、潜在反応にもとづく再順位づけが有効である根拠としている。</li>
+    </ul>
+  </section>
+
+  <section id="position">
+    <div class="kicker">双方向市場の推薦の研究の中での位置づけ</div>
+    <h2>両側を別々に測る従来の相互推薦から、全体のマッチ数と両側介入の因果効果を見る枠組みへ広げた</h2>
+    <ul class="def">
+      <li><strong>目的</strong>：重複推薦の扱いを明示した全体指標で相互推薦を評価し、既存の推薦モデルをそのまま基盤に使い、システム全体のマッチ組数（カバー率）を増やす。</li>
+      <li><strong>解き方</strong>：両側への推薦を 2 つの介入 \((T_A, T_B)\) として潜在反応モデルを 3 通り学習し、推薦しない側の空き枠の期待値 \(\bar{y}\) を考慮して再順位づけする。</li>
+      <li><strong>前提と限界</strong>：オフライン評価では片側への推薦だけでマッチが成立すると仮定しており、双方の「いいね」が必須のサービスではカバー率優先の設計がそのまま当てはまらない場合がある（5.4 節）。因果グラフ（論文 Fig. 1）では交絡因子を単純化のため省略しており、「似た利用者は似た介入効果を持つ」という協調的な仮定を置いている。また、市場全体の順位を最適化する <a href="../su-2022/">Su ら（2022）</a>や <a href="../tomita-2023/">Tomita ら（2023）</a>との直接の実験比較はなく、検証は 2 つの実データのオフライン評価のみである。</li>
+      <li><strong>つながり</strong>：同じ中国人民大学（Zhao ら）と BOSS Zhipin の研究グループによる求人推薦モデル DPGNN（2022）や行動系列の相互推薦 ReSeq（2023）に続く研究で、比較相手には LFRR（Neve と Palomares 2019）と DPGNN を置いている。</li>
+    </ul>
+  </section>
+
+  <section id="bibtex">
+    <div class="kicker">BibTeX</div>
+    <div class="bibwrap">
+      <button type="button" class="btn copy" id="copy">コピー</button>
+<pre class="bib" id="bib">@inproceedings{yang2024revisiting,
+  title     = {Revisiting Reciprocal Recommender Systems: Metrics, Formulation, and Method},
+  author    = {Yang, Chen and Dai, Sunhao and Hou, Yupeng and Zhao, Wayne Xin and Xu, Jun and Song, Yang and Zhu, Hengshu},
+  booktitle = {Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+  year      = {2024},
+  doi       = {10.1145/3637528.3671734}
+}</pre>
+    </div>
+    <p class="src">ページの数式と数値は arXiv 版（2408.09748）の原稿ソースによる。KDD 2024 の会議名と DOI は原稿に記載されたものを用いた。ページ番号は原稿で確認できないため省略している。</p>
+  </section>
+</main>
+
+<footer>
+  <p>このページは論文の著者によるものではなく、西村直樹が論文を読んでまとめた非公式の解説です。誤りがあれば解説者の責任です。正確な記述は論文本文を参照してください。</p>
+</footer>
+
+<script src="assets/teaser-engine.js"></script>
+<script src="assets/teaser-scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+// ---------- maths ----------
+renderMathInElement(document.body, {
+  delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+  throwOnError: false,
+  ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg']
+});
+
+// ---------- copy citation ----------
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this, text = document.getElementById('bib').textContent;
+  var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(function () { done('コピーしました'); }, function () { done('選択してコピーしてください'); });
+  else done('選択してコピーしてください');
+});
+</script>
+</body>
+</html>

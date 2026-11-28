@@ -3,7 +3,7 @@
 # id は系譜の図と矢印で使う識別子、short は図での呼び名（論文を足すときは必ず付ける）。
 # explainer を書くと papers/<explainer>/ の解説ページへリンクする。groups は lineage_groups の id。
 
-updated: "2026-11-25"
+updated: "2026-11-28"
 
 intro: "求人サービスやオンラインデートのように、利用者に別の利用者を推薦する双方向市場（二面市場）の推薦の文献をまとめたページです。ふつうの推薦はアイテムを薦められた利用者が選べば成功ですが、双方向市場では薦められた相手も応じたときにだけマッチングが成立します。そのため、双方の選好をどう組み合わせるか、人気のある利用者に推薦が集中する混雑をどう避けるか、両側の機会をどう公平に配るかが問題になります。相互推薦の手法、マッチング理論、混雑と公平性、オフ方策評価、求人とオンラインデートの応用を中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -264,6 +264,22 @@ papers:
     eval: "オフライン"
     data: "求人サイトの実データ"
     note: "求職者と求人の双方の行動の系列をモデル化し、両方向の関心を同時に学習する"
+  - id: revisiting-rrs
+    title: "Revisiting Reciprocal Recommender Systems: Metrics, Formulation, and Method"
+    authors: "C. Yang, S. Dai, Y. Hou, W. X. Zhao, J. Xu, Y. Song, H. Zhu"
+    year: 2024
+    venue: "KDD 2024"
+    url: "https://arxiv.org/abs/2408.09748"
+    short: "CRRS"
+    explainer: revisiting-rrs
+    groups: [ruc]
+    code: "https://github.com/RUCAIBox/CRRS"
+    category: "reciprocal"
+    domain: "求人、オンラインデート"
+    prefs: "両側への推薦を 2 つの介入とみなす潜在反応モデル"
+    eval: "オフライン"
+    data: "求人サイトの実データ、Libimseti"
+    note: "両側を別々に測る従来の順位指標が重複した推薦を二重に数える問題を指摘し、全体のカバー率（CRecall・CPrecision）・両側の安定性（SRecall・SPrecision）・人数差を考慮した順位（RNDCG）の 5 指標を提案する。両側への推薦を因果介入とみなす CRRS と空き枠による再順位づけで、求人とデートの実データのカバー率とマッチ組数を高める"
   # ---- 市場全体の順位最適化 ----
   - id: su-2022
     title: "Optimizing Rankings for Recommendation in Matching Markets"
