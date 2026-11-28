@@ -1,0 +1,535 @@
+# /misc/survey/appointment-slot/ のデータ。論文は papers に追記するだけで表に出る（年の降順で自動ソート）。
+# category は categories の id のどれか。確認できなかった項目は "" のままにする。
+# id は系譜の図と矢印で使う識別子、short は図での呼び名（論文を足すときは必ず付ける）。
+# explainer を書くと papers/<explainer>/ の解説ページへリンクする（2026-11-28 時点で解説ページはまだない）。groups は lineage_groups の id。
+
+updated: "2026-11-28"
+
+intro: "美容室やクリニックのように、予約ごとに必要な時間の長さが違い、施術時間分の連続した空きがないと予約を受けられないサービスで、どの枠に予約を入れるかを扱う文献をまとめたページです。空いている時間の合計が足りていても、短い隙間に分かれてしまう（断片化する）と長い予約が入らなくなります。断片化の測り方と抑え方、ホテルの連泊のように連続した区間を予約する収益管理、利用時間のある資源のオンライン配分、顧客の選択を考慮した予約受付、宅配の時間枠管理、計算機の資源断片化を中心に、論文・データセット・評価指標・サーベイを表にしました。"
+
+categories_note: "論文の表の「系統」は主な貢献で1つに決めています。複数の系統にまたがる論文もあります。予約枠の断片化を正面から扱う研究は少ないため、同じ構造を持つ隣の分野（ホテル、宅配、計算機）の研究も載せています。"
+
+papers_note: "「予約の長さ」は1件の予約が占める時間が1枠に固定か、可変で連続した区間を占めるか、「決めること」は受付の可否・提示する枠・枠や部屋の割当のどれを決めるか、「評価」は理論・シミュレーション・実データのどれで検証したかです。会議名とリンクは出版社・RePEc・arXiv のページで確認できたものだけを載せています。"
+
+explainer_note: ""
+
+datasets_note: "予約の長さと予約の時刻がそろった公開データは少なく、この分野の論文の多くは需要分布を仮定したシミュレーションで評価しています。到着や予約の長さの分布を作るのに使える公開データを挙げます。"
+
+metrics_note: "予約を受けた件数だけでなく、資源の稼働率、空きの分かれ方、理論上の最適値との比を合わせて見ます。"
+
+footer: "掲載している情報は各論文の出版社・RePEc・arXiv・Crossref のページで確認した内容にもとづきます。"
+
+categories:
+  - id: fragmentation
+    label: "断片化の評価と抑制"
+    color: "#cf222e"
+    idea: "予約後の空き時間がどれだけ細かく分かれるかを指標にし、断片化が小さくなる枠に予約を入れる。部屋や担当者の割当を後回しにして連続した空きを残す方法もある"
+    setting: "予約の長さがばらつき、長い予約が入らないことが問題になるとき"
+    examples: "Lian et al. (2010), Battiti et al. (2020, 2021), Zhang, Li & Huh (2026)"
+  - id: consecutive-rm
+    label: "連続区間の収益管理"
+    color: "#8250df"
+    idea: "ホテルの連泊や鉄道の区間のように、連続した区間をまとめて使う予約をネットワーク収益管理として扱う。区間ごとの機会費用（bid price）や LP にもとづいて受付を決める"
+    setting: "予約が複数の時間単位にまたがり、どの予約を受けるかで後の受付が変わるとき"
+    examples: "Bitran & Mondschein (1995), Bertsimas & Shioda (2003), Hu & Wu (2025)"
+  - id: reusable
+    label: "再利用資源のオンライン配分"
+    color: "#0a7f86"
+    idea: "一定時間使われたあと戻ってくる資源（部屋、車、機器）を、到着する顧客に順に配る。LP にもとづく方策や競争比の保証を示す"
+    setting: "利用時間のある資源を、将来の到着を考えながら逐次配るとき"
+    examples: "Levi & Radovanović (2010), Gong et al. (2022), Goyal et al. (2025)"
+  - id: choice
+    label: "選択を考慮した予約受付"
+    color: "#0969da"
+    idea: "どの枠を提示すると顧客がどれを選ぶかを選択モデルで表し、提示する枠の集合や順序を最適化する。将来の顧客のために需要の集中する枠を残す"
+    setting: "顧客が提示された枠から選ぶ予約システムで、何を見せるかを決めるとき"
+    examples: "Gupta & Wang (2008), Feldman et al. (2014), Liu et al. (2019)"
+  - id: dynamic-appt
+    label: "動的な予約スケジューリング"
+    color: "#bc4c00"
+    idea: "予約受付をマルコフ決定過程として書き、価値関数を線形関数などで近似して（近似動的計画法）解く。複数回の予約や無断キャンセルも扱う"
+    setting: "医療機関の予約受付を、将来の需要を考えて逐次決めるとき"
+    examples: "Patrick et al. (2008), Liu, Ziya & Kulkarni (2010), Sauré et al. (2012)"
+  - id: timeslot
+    label: "時間枠管理（宅配）"
+    color: "#1a7f37"
+    idea: "宅配で顧客に提示する配達時間帯を、配送ルートのコストと将来の受注を考えて決める。受け入れたときの機会費用を近似して提示や価格を決める"
+    setting: "時間帯ごとの容量が他の予約との組み合わせで変わるとき"
+    examples: "Campbell & Savelsbergh (2005), Agatz et al. (2011), Yang et al. (2016)"
+  - id: systems
+    label: "区間スケジューリング・計算機資源"
+    color: "#57606a"
+    idea: "時間区間の要求を順に受けるオンライン区間スケジューリングの理論と、計算機の事前予約や GPU 割当での資源断片化。将来の要求の分布で重み付けした断片化の指標がある"
+    setting: "断片化の指標や配置ルールの考え方を他の分野から借りたいとき"
+    examples: "Lipton & Tomkins (1994), Castillo et al. (2008), Weng et al. (2023)"
+
+lineage_first_year: 2008
+lineage_lanes: [fragmentation, consecutive-rm, reusable, choice, dynamic-appt, timeslot, systems]
+
+lineage_groups:
+  - { id: trento, label: "Trento（Battiti・Brunato）" }
+  - { id: ubc, label: "UBC（Puterman・Patrick）" }
+  - { id: liu-ziya, label: "Columbia・UNC（Liu・Ziya）" }
+  - { id: savelsbergh, label: "Iowa・Georgia Tech（Campbell・Savelsbergh）" }
+  - { id: reusable-group, label: "Columbia・MIT（Goyal・Iyengar・Simchi-Levi）" }
+
+lineage_note: "横は年、縦は系統です。矢印は古い論文から、それを引き継いだ新しい論文へ向かいます。実線は同じグループの続編や手法の直接の拡張、破線は比較相手や出発点に挙げた関係です。これは初版で、論文の本文で関係を確認できたのは RoomTetris の2本だけです。それ以外の矢印は、著者の重なりと研究の流れからの推測（点線）で、本文ではまだ確認していません。2007 年以前の論文は左端の1列にまとめています。研究グループは著者の所属から決めています。破線の枠は解説ページのない論文です（現在はすべて）。"
+
+lineage:
+  - { from: roomtetris-2020, to: roomtetris-2021, kind: ext, why: "同じ著者ら。2020 年の RoomTetris（部屋番号の確定を遅らせ、長い滞在から詰める）を使い、最短滞在日数の制限を見直すべきだと論じる" }
+  - { from: bitran-1995, to: hu-wu-2025, kind: base, why: "連泊を考慮したホテルの収益管理を、連続区間の予約の古典として出発点にする", guess: true }
+  - { from: hu-wu-2025, to: zhang-li-huh, kind: base, why: "連続区間の予約に対する近似比つきのオンライン方策を、複数の物理的なコピーと区間の分割を扱うモデルに広げる", guess: true }
+  - { from: levi-2010, to: rusmevichientong-2020, kind: base, why: "再利用資源の LP にもとづく方策を出発点に、ランダムな利用時間と品揃えの選択を加える", guess: true }
+  - { from: levi-2010, to: gong-2022, kind: base, why: "再利用資源の収益管理の先行研究として、オンラインの品揃え問題に広げる", guess: true }
+  - { from: gong-2022, to: goyal-2025, kind: ext, why: "著者が重なる。再利用資源のオンライン配分の競争比を、漸近的に最適な値まで改善する", guess: true }
+  - { from: gong-2022, to: zhang-cheung, kind: base, why: "再利用資源のオンライン配分の先行研究として比べ、確率的な到着のもとで最適値に近い方策を示す", guess: true }
+  - { from: gupta-wang-2008, to: feldman-2014, kind: base, why: "患者の選択を考慮した診療所の予約受付を、複数日の提示と無断キャンセルを含むモデルに広げる", guess: true }
+  - { from: liu-ziya-2010, to: feldman-2014, kind: ext, why: "著者が重なる。無断キャンセルを考慮した動的な予約受付に、患者の選択を加える", guess: true }
+  - { from: feldman-2014, to: liu-2019, kind: ext, why: "著者が重なる。日の提示を一括で決める問題から、枠を逐次に提示する問題へ進める", guess: true }
+  - { from: patrick-2008, to: saure-2012, kind: ext, why: "同じグループ。優先度つきの予約受付の近似動的計画法を、1人が複数回の予約を要する放射線治療に広げる", guess: true }
+  - { from: campbell-2005, to: campbell-2006, kind: ext, why: "同じ著者。時間枠つき宅配の受注判断に、時間帯ごとの割引などのインセンティブを加える", guess: true }
+  - { from: campbell-2005, to: agatz-2011, kind: ext, why: "著者が重なる。受注時の判断から、どの地域にどの時間枠を提示するかの計画へ広げる", guess: true }
+  - { from: agatz-2011, to: yang-2016, kind: base, why: "時間枠管理の先行研究として、顧客の選択モデルと機会費用の近似にもとづく動的な提示へ進める", guess: true }
+
+papers:
+  # ---- 断片化の評価と抑制 ----
+  - id: lian-2010
+    title: "Clinical appointment process: improvement through schedule defragmentation"
+    authors: "J. Lian, K. DiStefano, S. D. Shields, C. Heinichen, M. Giampietri, L. Wang"
+    year: 2010
+    venue: "IEEE Eng. Med. Biol. Mag."
+    url: "https://doi.org/10.1109/MEMB.2009.935718"
+    short: "Lian+ 2010"
+    category: "fragmentation"
+    domain: "外来診療"
+    duration: "可変（連続する枠）"
+    decision: "提示する枠"
+    eval: "シミュレーション、アンケート"
+    note: "ふつうの予約受付は空き時間を細かく分けてしまうとして、患者と医師の双方の希望を使って断片化を減らす予約の入れ方を提案する。シミュレーションで断片化が減り、予約の受入率と稼働率が上がることを示す。単位枠を短くする効果は施術時間の分布がよく推定できている場合に限るとする"
+  - id: roomtetris-2020
+    title: "RoomTetris: an optimal procedure for committing rooms to reservations in hotels"
+    authors: "R. Battiti, M. Brunato, F. Battiti"
+    year: 2020
+    venue: "J. Hosp. Tour. Technol."
+    url: "https://doi.org/10.1108/JHTT-08-2019-0108"
+    short: "RoomTetris 2020"
+    groups: [trento]
+    category: "fragmentation"
+    domain: "ホテル"
+    duration: "可変（連泊）"
+    decision: "部屋の割当"
+    eval: "シミュレーション"
+    note: "予約に部屋番号を割り当てる room committing 問題で、割当をチェックイン時まで遅らせ、連続した空きが残る順に部屋を決める RoomTetris を提案し、最適であることを示す"
+  - id: roomtetris-2021
+    title: "RoomTetris in room committing: why the role of minimum-length-of-stay requirements should be revisited"
+    authors: "R. Battiti, M. Brunato, F. Battiti"
+    year: 2021
+    venue: "IJCHM"
+    url: "https://doi.org/10.1108/IJCHM-11-2020-1364"
+    short: "RoomTetris 2021"
+    groups: [trento]
+    category: "fragmentation"
+    domain: "ホテル"
+    duration: "可変（連泊）"
+    decision: "部屋の割当"
+    eval: "シミュレーション"
+    note: "短い滞在が散らばると部屋割りに小さな隙間ができ、満室でなくても長い滞在を断ることになる。10室・稼働率50%の例で7泊の要求の約92%が断られることを示し、RoomTetris で割り当てれば最短滞在日数の制限は見直せると論じる"
+  - id: zhang-li-huh
+    title: "Multi-Capacity Online Assortment Optimization with Consecutive Stays under Markov Chain Choice"
+    authors: "H. Zhang, Y. Li, W. T. Huh"
+    year: 2026
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2610.27661"
+    short: "Zhang+ 2026"
+    category: "fragmentation"
+    domain: "ホテル、レンタル"
+    duration: "可変（連続する枠）"
+    decision: "提示する枠、コピーの割当"
+    eval: "理論"
+    note: "同じ商品に複数の物理的なコピーがあり、予約は1つのコピーの連続した区間を占める。各コピーの空きを極大な空き区間で持ち、区間が売れると最大2つの残り区間に分かれる様子をモデルに入れる。Markov chain 選択モデルのもとで、容量によらない近似比を示す"
+  # ---- 連続区間の収益管理 ----
+  - id: bitran-1995
+    title: "An Application of Yield Management to the Hotel Industry Considering Multiple Day Stays"
+    authors: "G. R. Bitran, S. V. Mondschein"
+    year: 1995
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.43.3.427"
+    short: "Bitran+ 1995"
+    category: "consecutive-rm"
+    domain: "ホテル"
+    duration: "可変（連泊）"
+    decision: "受付の可否"
+    eval: "理論、シミュレーション"
+    note: "連泊を考慮したホテルの収益管理の古典。複数日にまたがる予約の受付を動的計画法で考え、実用的な方策を検討する"
+  - id: bertsimas-shioda-2003
+    title: "Restaurant Revenue Management"
+    authors: "D. Bertsimas, R. Shioda"
+    year: 2003
+    venue: "Oper. Res."
+    url: "https://www.mit.edu/~dbertsim/papers/Revenue%20Management/Restaurant%20Revenue%20Management.pdf"
+    short: "Bertsimas+ 2003"
+    category: "consecutive-rm"
+    domain: "レストラン"
+    duration: "可変（滞在時間）"
+    decision: "受付の可否、テーブルの割当"
+    eval: "シミュレーション"
+    note: "滞在時間の異なる客をテーブルに割り当てる予約受付と来店客の案内を、整数計画と確率計画で扱う。サービス業で「時間×席」を扱う近い例"
+  - id: hu-wu-2025
+    title: "Constant-Factor Algorithms for Revenue Management with Consecutive Stays"
+    authors: "M. Hu, T. Wu"
+    year: 2025
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.2025.1994"
+    short: "Hu+ 2025"
+    category: "consecutive-rm"
+    domain: "ホテル、鉄道"
+    duration: "可変（連続する区間）"
+    decision: "受付の可否、提示する枠"
+    eval: "理論"
+    note: "連続した区間を必要とする予約に対し、受付・拒否型と品揃え提示型（BAM 選択モデル）の両方で、最適なオンライン方策に対する定数の近似比を示す（arXiv:2506.00909）"
+  # ---- 再利用資源のオンライン配分 ----
+  - id: levi-2010
+    title: "Provably Near-Optimal LP-Based Policies for Revenue Management in Systems with Reusable Resources"
+    authors: "R. Levi, A. Radovanović"
+    year: 2010
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.1090.0714"
+    short: "Levi+ 2010"
+    category: "reusable"
+    domain: "レンタル、計算資源"
+    duration: "ランダムな利用時間"
+    decision: "受付の可否"
+    eval: "理論"
+    note: "一定時間使われたあと戻る資源の受付を LP にもとづく方策で決め、最適に近いことを示す"
+  - id: rusmevichientong-2020
+    title: "Dynamic Assortment Optimization for Reusable Products with Random Usage Durations"
+    authors: "P. Rusmevichientong, M. Sumida, H. Topaloglu"
+    year: 2020
+    venue: "Manag. Sci."
+    url: "https://doi.org/10.1287/mnsc.2019.3346"
+    short: "Rusmevichientong+ 2020"
+    category: "reusable"
+    domain: "レンタル"
+    duration: "ランダムな利用時間"
+    decision: "提示する商品"
+    eval: "理論、シミュレーション"
+    note: "ランダムな時間だけ使われる商品について、顧客の選択を考慮した動的な品揃えの方策と性能保証を示す"
+  - id: gong-2022
+    title: "Online Assortment Optimization with Reusable Resources"
+    authors: "X.-Y. Gong, V. Goyal, G. N. Iyengar, D. Simchi-Levi, R. Udwani, S. Wang"
+    year: 2022
+    venue: "Manag. Sci."
+    url: "https://doi.org/10.1287/mnsc.2021.4134"
+    short: "Gong+ 2022"
+    groups: [reusable-group]
+    category: "reusable"
+    domain: "レンタル"
+    duration: "ランダムな利用時間"
+    decision: "提示する商品"
+    eval: "理論"
+    note: "再利用資源のオンラインの品揃え問題で、到着順を敵対的にしても成り立つ競争比を示す"
+  - id: goyal-2025
+    title: "Asymptotically Optimal Competitive Ratio for Online Allocation of Reusable Resources"
+    authors: "V. Goyal, G. Iyengar, R. Udwani"
+    year: 2025
+    preprint_year: 2020
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.2021.0695"
+    short: "Goyal+ 2025"
+    groups: [reusable-group]
+    category: "reusable"
+    domain: "レンタル"
+    duration: "利用時間"
+    decision: "資源の割当"
+    eval: "理論"
+    note: "再利用資源のオンライン配分で、漸近的に最適な競争比を達成するアルゴリズムを示す（arXiv:2002.02430）"
+  - id: zhang-cheung
+    title: "Online Resource Allocation for Reusable Resources"
+    authors: "X. Zhang, W. C. Cheung"
+    year: 2022
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2212.02855"
+    short: "Zhang+ 2022"
+    category: "reusable"
+    domain: "レンタル"
+    duration: "連続する D 期間"
+    decision: "資源の割当、品揃え"
+    eval: "理論"
+    note: "各割当が資源を一定期間連続して占める設定で、反復的な乗法重み更新（iMWU）が最適値の（1−ε）倍の報酬を得ることを示す。断片化そのものは扱わない"
+  - id: ao-2024
+    title: "Two-stage Online Reusable Resource Allocation: Reservation, Overbooking and Confirmation Call"
+    authors: "R. Ao, H. Fu, D. Simchi-Levi"
+    year: 2024
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2410.15245"
+    short: "Ao+ 2024"
+    groups: [reusable-group]
+    category: "reusable"
+    domain: "ホテル"
+    duration: "可変（連泊）"
+    decision: "受付の可否、オーバーブッキング"
+    eval: "理論"
+    note: "事前予約、キャンセル、飛び込み客、オーバーブッキング、前日の確認連絡を含む連泊型の資源配分。日ごとの安全在庫で予約数に上限を設ける方策を示す。無断キャンセルまで考えるときの参考"
+  # ---- 選択を考慮した予約受付 ----
+  - id: gupta-wang-2008
+    title: "Revenue Management for a Primary-Care Clinic in the Presence of Patient Choice"
+    authors: "D. Gupta, L. Wang"
+    year: 2008
+    venue: "Oper. Res."
+    url: "https://ideas.repec.org/a/inm/oropre/v56y2008i3p576-592.html"
+    short: "Gupta+ 2008"
+    category: "choice"
+    domain: "診療所"
+    duration: "1枠"
+    decision: "受付の可否、提示する枠"
+    eval: "理論、シミュレーション"
+    note: "患者が医師と時間帯を選ぶ診療所の予約受付を、収益管理の問題として定式化した初期の代表作"
+  - id: feldman-2014
+    title: "Appointment Scheduling Under Patient Preference and No-Show Behavior"
+    authors: "J. Feldman, N. Liu, H. Topaloglu, S. Ziya"
+    year: 2014
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.2014.1286"
+    short: "Feldman+ 2014"
+    groups: [liu-ziya]
+    category: "choice"
+    domain: "外来診療"
+    duration: "1枠"
+    decision: "提示する日"
+    eval: "理論、シミュレーション"
+    note: "患者が提示された日から選び、キャンセルや無断キャンセルもある予約受付を扱う。最適性の差に上界のある静的モデルと、LP と列生成で解く動的な方策を示す"
+  - id: wang-fung-2015
+    title: "Dynamic appointment scheduling with patient preferences and choices"
+    authors: "J. Wang, R. Y. K. Fung"
+    year: 2015
+    venue: "IMDS"
+    url: "https://doi.org/10.1108/IMDS-12-2014-0372"
+    short: "Wang+ 2015"
+    category: "choice"
+    domain: "外来診療"
+    duration: "1枠"
+    decision: "提示する枠"
+    eval: "シミュレーション"
+    note: "患者の選好と選択を考慮して提示する予約枠を決め、収益を最大化する。動的計画法を LP に直し、分解と列生成で解く"
+  - id: liu-2019
+    title: "Managing Appointment Booking Under Customer Choices"
+    authors: "N. Liu, P. M. van de Ven, B. Zhang"
+    year: 2019
+    preprint_year: 2016
+    venue: "Manag. Sci."
+    url: "https://doi.org/10.1287/mnsc.2018.3150"
+    short: "Liu+ 2019"
+    groups: [liu-ziya]
+    category: "choice"
+    domain: "予約全般"
+    duration: "1枠"
+    decision: "提示する枠と順序"
+    eval: "理論、シミュレーション"
+    note: "枠の一括提示と逐次提示を MDP で比べ、逐次提示では将来価値の小さい枠から見せる最適方策があることを示す。残り枠数 ÷ 将来の予想需要の比で提示順を決める Drain heuristic を提案する（arXiv:1609.05064）"
+  # ---- 動的な予約スケジューリング ----
+  - id: patrick-2008
+    title: "Dynamic Multipriority Patient Scheduling for a Diagnostic Resource"
+    authors: "J. Patrick, M. L. Puterman, M. Queyranne"
+    year: 2008
+    venue: "Oper. Res."
+    url: "https://doi.org/10.1287/opre.1080.0590"
+    short: "Patrick+ 2008"
+    groups: [ubc]
+    category: "dynamic-appt"
+    domain: "画像診断"
+    duration: "1枠"
+    decision: "予約日の割当"
+    eval: "理論、シミュレーション"
+    note: "優先度の異なる患者の予約受付をマルコフ決定過程で書き、線形の価値関数近似（近似動的計画法）で解く。案1・案2のような評価関数を「価値関数の近似」として置き直すときの手本"
+  - id: liu-ziya-2010
+    title: "Dynamic Scheduling of Outpatient Appointments Under Patient No-Shows and Cancellations"
+    authors: "N. Liu, S. Ziya, V. G. Kulkarni"
+    year: 2010
+    venue: "MSOM"
+    url: "https://doi.org/10.1287/msom.1090.0272"
+    short: "Liu+ 2010"
+    groups: [liu-ziya]
+    category: "dynamic-appt"
+    domain: "外来診療"
+    duration: "1枠"
+    decision: "予約日の割当"
+    eval: "シミュレーション"
+    note: "無断キャンセルとキャンセルのある外来予約で、予約を何日先に入れるかを動的に決めるヒューリスティクスを提案する"
+  - id: saure-2012
+    title: "Dynamic multi-appointment patient scheduling for radiation therapy"
+    authors: "A. Sauré, J. Patrick, S. Tyldesley, M. L. Puterman"
+    year: 2012
+    venue: "EJOR"
+    url: "https://doi.org/10.1016/j.ejor.2012.06.046"
+    short: "Sauré+ 2012"
+    groups: [ubc]
+    category: "dynamic-appt"
+    domain: "放射線治療"
+    duration: "複数回の予約"
+    decision: "予約日の割当"
+    eval: "シミュレーション（実データ）"
+    note: "1人が複数回の治療枠を必要とする予約を無限期間の MDP で書き、アフィンな価値関数近似と列生成で解く。複数枠を同時に占める予約の扱いが参考になる"
+  # ---- 時間枠管理（宅配） ----
+  - id: campbell-2005
+    title: "Decision Support for Consumer Direct Grocery Initiatives"
+    authors: "A. M. Campbell, M. W. P. Savelsbergh"
+    year: 2005
+    venue: "Transp. Sci."
+    url: "https://ideas.repec.org/a/inm/ortrsc/v39y2005i3p313-327.html"
+    short: "Campbell+ 2005"
+    groups: [savelsbergh]
+    category: "timeslot"
+    domain: "ネットスーパー"
+    duration: "時間枠"
+    decision: "受付の可否、時間枠"
+    eval: "シミュレーション"
+    note: "配達時間枠つきの注文を受けるかどうかを、配送ルートへの影響と将来の注文を考えて決める"
+  - id: campbell-2006
+    title: "Incentive Schemes for Attended Home Delivery Services"
+    authors: "A. M. Campbell, M. Savelsbergh"
+    year: 2006
+    venue: "Transp. Sci."
+    url: "https://ideas.repec.org/a/inm/ortrsc/v40y2006i3p327-341.html"
+    short: "Campbell+ 2006"
+    groups: [savelsbergh]
+    category: "timeslot"
+    domain: "宅配"
+    duration: "時間枠"
+    decision: "時間枠ごとのインセンティブ"
+    eval: "シミュレーション"
+    note: "顧客を配送効率のよい時間枠に誘導するためのインセンティブ（割引など）を設計する"
+  - id: agatz-2011
+    title: "Time Slot Management in Attended Home Delivery"
+    authors: "N. Agatz, A. Campbell, M. Fleischmann, M. Savelsbergh"
+    year: 2011
+    venue: "Transp. Sci."
+    url: "https://ideas.repec.org/a/inm/ortrsc/v45y2011i3p435-449.html"
+    short: "Agatz+ 2011"
+    groups: [savelsbergh]
+    category: "timeslot"
+    domain: "宅配"
+    duration: "時間枠"
+    decision: "地域ごとに提示する時間枠"
+    eval: "シミュレーション（実データ）"
+    note: "どの地域にどの配達時間枠を提示するかを、配送コストと顧客サービスを考えて計画する"
+  - id: yang-2016
+    title: "Choice-Based Demand Management and Vehicle Routing in E-Fulfillment"
+    authors: "X. Yang, A. K. Strauss, C. S. M. Currie, R. Eglese"
+    year: 2016
+    venue: "Transp. Sci."
+    url: "https://doi.org/10.1287/trsc.2014.0549"
+    short: "Yang+ 2016"
+    category: "timeslot"
+    domain: "ネットスーパー"
+    duration: "時間枠"
+    decision: "時間枠の価格・提示"
+    eval: "シミュレーション（実データ）"
+    note: "顧客の時間枠の選択を多項ロジットで表し、受け入れたときの機会費用を近似して時間枠の価格を動的に決める。案2の「将来需要に対する損失」をより正面から扱う考え方"
+  # ---- 区間スケジューリング・計算機資源 ----
+  - id: lipton-tomkins-1994
+    title: "Online interval scheduling"
+    authors: "R. J. Lipton, A. Tomkins"
+    year: 1994
+    venue: "SODA 1994"
+    url: ""
+    short: "Lipton+ 1994"
+    category: "systems"
+    domain: "理論"
+    duration: "可変（区間）"
+    decision: "受付の可否"
+    eval: "理論"
+    note: "時間区間の要求が順に到着し、受けるか断るかをその場で決めるオンライン区間スケジューリングの競争比を調べる"
+  - id: castillo-2008
+    title: "Efficient Resource Management using Advance Reservations for Heterogeneous Grids"
+    authors: "C. Castillo, G. N. Rouskas, K. Harfoush"
+    year: 2008
+    venue: "IPDPS 2008"
+    url: "https://doi.org/10.1109/IPDPS.2008.4536228"
+    short: "Castillo+ 2008"
+    category: "systems"
+    domain: "グリッド計算"
+    duration: "可変（区間）"
+    decision: "サーバーと開始時刻の割当"
+    eval: "シミュレーション"
+    note: "事前予約の間に残る各サーバーの空き期間を区間として管理し、資源の断片化を抑えるように仕事を割り当てる"
+  - id: weng-2023
+    title: "Beware of Fragmentation: Scheduling GPU-Sharing Workloads with Fragmentation Gradient Descent"
+    authors: "Q. Weng, L. Yang, Y. Yu, W. Wang, X. Tang, G. Yang, L. Zhang"
+    year: 2023
+    venue: "USENIX ATC 2023"
+    url: "https://www.usenix.org/conference/atc23/presentation/weng"
+    short: "Weng+ 2023"
+    category: "systems"
+    domain: "GPU クラスタ"
+    duration: "GPU の一部（時間ではなく容量）"
+    decision: "ノードへの配置"
+    eval: "シミュレーション（実データ）"
+    note: "これから来るタスクの大きさの分布に対して、どれだけの容量が使えない状態になるかを断片化と定義し、その増加が最小になる配置を選ぶ。将来需要で重み付けした断片化という点で、案1と考え方が近い。Alibaba のトレースで割当できない GPU を最大49%減らす"
+
+datasets:
+  - name: "Hotel booking demand"
+    provider: "N. Antonio, A. de Almeida, L. Nunes（Data in Brief, 2019）"
+    url: "https://repositorio.iscte-iul.pt/handle/10071/16929"
+    sides: "ポルトガルのリゾートホテルとシティホテル"
+    feedback: "予約日、到着日、泊数、キャンセルの有無"
+    size: "2ホテル、約12万件の予約"
+    usage: "到着日・泊数・予約の先行日数の分布を推定でき、連泊（可変長の予約）の需要を作るのに使える"
+    loader: ""
+  - name: "Alibaba Cluster Trace（GPU）"
+    provider: "Alibaba"
+    url: "https://github.com/alibaba/clusterdata"
+    sides: "GPU クラスタのタスク"
+    feedback: "タスクごとの要求 GPU 量と CPU・メモリ"
+    size: ""
+    usage: "Weng et al. (2023) の断片化の評価に使われた。要求の大きさの分布つきで断片化を評価する実験の参考になる"
+    loader: ""
+
+metrics:
+  - name: "受入率"
+    what: "予約を申し込んだ件数のうち、成立した件数の割合。断片化を抑える手法の主な評価指標"
+    refs: "Lian et al. (2010), Battiti et al. (2021)"
+  - name: "稼働率"
+    what: "営業時間のうち予約で埋まった時間の割合。受入率が同じでも、長い予約を多く受けたほうが高くなる"
+    refs: "Lian et al. (2010)"
+  - name: "断片化指数"
+    what: "長さ k の連続した空きブロックの数を足し合わせたもの。重み付きの版もある。将来需要を考えない、状態だけの指標"
+    refs: "Lian et al. (2010)"
+  - name: "長さ別の拒否率"
+    what: "予約の長さ（泊数、施術時間）ごとに断られた割合を見る。断片化は長い予約ほど断られる形で現れる"
+    refs: "Battiti et al. (2021)"
+  - name: "充足率・期待収益"
+    what: "提供した枠のうち予約で埋まった割合や、受けた予約の収益の期待値。選択を考慮した予約受付の目的関数"
+    refs: "Liu et al. (2019), Feldman et al. (2014)"
+  - name: "競争比・近似比"
+    what: "将来の到着を知っている最適解（または最適なオンライン方策、LP 緩和）に対して、手法が最悪でも何割を得られるか。理論研究の性能保証"
+    refs: "Hu & Wu (2025), Goyal et al. (2025)"
+  - name: "割当できない容量"
+    what: "空いてはいるが、来る要求の大きさに対して小さすぎて使えない容量。将来の要求の分布で重み付けして測る"
+    refs: "Weng et al. (2023)"
+
+resources:
+  - name: "Outpatient Scheduling in Health Care: A Review of Literature"
+    kind: "サーベイ"
+    year: 2003
+    url: "https://econbiz.de/Record/outpatient-scheduling-in-health-care-a-review-of-literature-cayirli-tugba/10007155908"
+    note: "Cayirli & Veral（Production and Operations Management）。外来予約の研究を、予約ルールや患者の到着のモデルごとに整理する"
+  - name: "Appointment scheduling in health care: Challenges and opportunities"
+    kind: "サーベイ"
+    year: 2008
+    url: "https://btdenton.engin.umich.edu/wp-content/uploads/sites/138/2015/08/Gupta-2008.pdf"
+    note: "Gupta & Denton（IIE Transactions）。予約スケジューリングの課題を、プライマリケア・専門外来・手術室に分けて論じる"
+  - name: "Outpatient appointment systems in healthcare: A review of optimization studies"
+    kind: "サーベイ"
+    year: 2017
+    url: "https://ideas.repec.org/a/eee/ejores/v258y2017i1p3-34.html"
+    note: "Ahmadi-Javid, Jalali & Klassen（EJOR）。外来予約の最適化研究を、戦略・戦術・運用の意思決定ごとに整理する"
+  - name: "Recent advances in integrating demand management and vehicle routing: A methodological review"
+    kind: "サーベイ"
+    year: 2023
+    url: "https://ideas.repec.org/a/eee/ejores/v306y2023i2p499-518.html"
+    note: "Fleckenstein, Klein & Steinhardt（EJOR）。時間枠の提示や価格づけと配送ルートを組み合わせる研究の手法を整理する"
+  - name: "Dynamic Storage Allocation: A Survey and Critical Review"
+    kind: "サーベイ"
+    year: 1995
+    url: "https://www.cs.hmc.edu/~oneill/gc-library/Wilson-Alloc-Survey-1995.pdf"
+    note: "Wilson, Johnstone, Neely & Boles（IWMM）。メモリ割当の first-fit・best-fit と断片化の古典的なサーベイ。「最も早い候補」「隙間が最小になる候補」はベースラインとしてそのまま使える"

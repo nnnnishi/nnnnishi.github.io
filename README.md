@@ -14,6 +14,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | `/misc/survey/optimal-tree/` | `misc/survey/optimal-tree/index.html` | 最適決定木の文献リスト。中身は `_data/survey_optimal_tree.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/pricing/` | `misc/survey/pricing/index.html` | 価格最適化の文献リスト。中身は `_data/survey_pricing.yml`。解説ページは `papers/<slug>/` |
 | `/misc/survey/reciprocal-rec/` | `misc/survey/reciprocal-rec/index.html` | 双方向市場の推薦の文献リスト。中身は `_data/survey_reciprocal_rec.yml`。解説ページは `papers/<slug>/` |
+| `/misc/survey/appointment-slot/` | `misc/survey/appointment-slot/index.html` | 予約枠の断片化と予約受付の文献リスト。中身は `_data/survey_appointment_slot.yml`。解説ページはまだない |
 | `/en/`, `/en/publications/`, `/en/talks/`, `/en/cv/`, `/en/misc/` | `en/**/index.html` | 英語版。中身は日本語版と同じ include と `_data` を使う（文献リストは日本語のみ） |
 | （404） | `404.html` | 旧 URL `/survey/...` を `/misc/survey/...` に転送する |
 
@@ -35,7 +36,7 @@ GitHub Pages（Jekyll）で公開する自己紹介サイト。業績は YAML �
 | 授業 | `_data/teaching.yml` | 上から順に表示。`links` に年度ごとのシラバス |
 | News | `_data/news.yml` | 新しいものを先頭に。トップには上から5件 |
 | Research Interests | `_data/research.yml` | テーマ・例・代表的な成果 |
-| 文献リストの系譜の図 | `_data/survey_*.yml`（budget-uplift・optimal-tree・pricing・reciprocal-rec の4本とも同じ書き方） | 論文に `short`（図での呼び名）を付け、`lineage` に `from`・`to`・`kind`（`ext` か `base`）・`why` を1行足す。`from`・`to` は論文の `id`（`id` がなければ `explainer`。budget-uplift は解説のある論文を `explainer` で指し、ほかの3本は `id` で指す）。本文で確認できていない矢印は `guess: true`（pricing・reciprocal-rec で「未確認」と表示）。レーンの並びは `lineage_lanes`、研究グループのボタンは `lineage_groups`（論文の `groups` に id を書く）。左端の列にまとめる年は `lineage_first_year`（省略時 2018） |
+| 文献リストの系譜の図 | `_data/survey_*.yml`（budget-uplift・optimal-tree・pricing・reciprocal-rec・appointment-slot の5本とも同じ書き方） | 論文に `short`（図での呼び名）を付け、`lineage` に `from`・`to`・`kind`（`ext` か `base`）・`why` を1行足す。`from`・`to` は論文の `id`（`id` がなければ `explainer`。budget-uplift は解説のある論文を `explainer` で指し、ほかの4本は `id` で指す）。本文で確認できていない矢印は `guess: true`（pricing・reciprocal-rec・appointment-slot で「未確認」と表示）。レーンの並びは `lineage_lanes`、研究グループのボタンは `lineage_groups`（論文の `groups` に id を書く）。左端の列にまとめる年は `lineage_first_year`（省略時 2018） |
 | 解説ページのティーザー | `misc/survey/assets/teaser-engine.js`（共通）・各ページの `assets/teaser-scenes.js` | 再生エンジンは全解説ページで1つを共有し、各ページは `../../../assets/teaser-engine.js` で読み込む。場面はページごとの `teaser-scenes.js` に書く。エンジンを変えると全ページに効く |
 | 所属・職歴・学歴 | `cv/index.html` | 直接編集 |
 
