@@ -515,6 +515,36 @@ papers:
     note: 特徴空間のどこでもランダムフォレストと同じ予測をする最小の決定木を、動的計画法で求める
 
   # ---- SAT・制約プログラミング ----
+  - id: split
+    title: "Near-Optimal Decision Trees in a SPLIT Second"
+    authors: "V. Babbar, H. McTavish, C. Rudin, M. Seltzer"
+    year: 2025
+    venue: "ICML 2025"
+    url: "https://arxiv.org/abs/2502.15988"
+    explainer: split
+    short: "SPLIT"
+    code: "https://github.com/VarunBabbar/SPLIT-ICML"
+    category: dp-bnb
+    split: 単変量（二値の特徴量）
+    objective: 誤分類＋葉の数への罰則（正則化つき損失）
+    method: 動的計画法と分枝限定（浅い先読み深さまで）＋葉近くは貪欲
+    data: 公開データ（Bike、COMPAS など）
+    note: 厳密解ではなく near-optimal。葉の近くでは貪欲に切り替えることで最適解法より100倍超速く、性能の低下は小さい
+  - id: branches
+    title: "Branches: A Fast Dynamic Programming and Branch & Bound Algorithm for Optimal Decision Trees"
+    authors: "A. Chaouki, J. Read, A. Bifet"
+    year: 2024
+    venue: "arXiv"
+    url: "https://arxiv.org/abs/2406.02175"
+    explainer: branches
+    short: "Branches"
+    code: "https://github.com/Chaoukia/branches"
+    category: dp-bnb
+    split: 単変量（二値・順序の特徴量、多分岐も可）
+    objective: 誤分類＋分岐の数への罰則（スパース性）
+    method: AND/OR グラフ探索（AO*）、最良優先、Purification Bound
+    data: UCI の 11 データ
+    note: 深さ優先ではなく最良優先で最大深さの設定が不要。非二値の特徴量に直接対応する厳密解法。プレプリント
   - id: bessiere-2009
     title: "Minimising decision tree size as combinatorial optimisation"
     authors: "C. Bessiere, E. Hebrard, B. O'Sullivan"
