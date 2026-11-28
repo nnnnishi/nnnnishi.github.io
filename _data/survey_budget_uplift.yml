@@ -3,7 +3,7 @@
 # short は「系譜」の図での呼び名（論文を足すときは必ず付ける）。図の矢印は lineage に足す。
 # preprint_year を書くと、図ではその年の列に置く（掲載より先に arXiv 版が引用されている論文）。
 
-updated: "2026-11-26"
+updated: "2026-11-28"
 
 intro: "クーポンやポイントなどのインセンティブを、予算の範囲で誰に配るかを決める問題の文献をまとめたページです。処置にコストがかかるとき、売上の増分をコストの増分で割った値（ROI）の大きい順に配る割当てが、ナップザック問題を連続緩和した問題の最適解になります。この ROI をどう推定し、どう割り当てるかを中心に、論文・データセット・評価指標・ライブラリを表にしました。"
 
@@ -748,6 +748,19 @@ papers:
     cost: ""
     data: "合成データ, 航空会社2社の価格実験"
     note: 任意の処置割当てモデルの期待応答を RCT データから不偏に推定する方法（EOM）を示し、それを分割基準にした木のアンサンブル CTS を提案する
+  - title: "Personalized Promotion Decision Making Based on Direct and Enduring Effect Predictions"
+    authors: "J. Yang, Y. Li, D. Jobson"
+    year: 2022
+    venue: "KDD 2022 WS"
+    url: "https://arxiv.org/abs/2207.14798"
+    explainer: direct-enduring-promo
+    short: "CDEE"
+    code: ""
+    category: multi-treatment
+    treatment: 多値
+    cost: 購買時のみ（定額クーポン費用 × 期間中の購入確率）
+    data: 自社データ（Mercari、春・冬の RCT）
+    note: 期間中の購入確率（直接効果）と配布後4週間の購入金額（持続効果）を Tweedie 損失と交差エントロピー損失の階層型マルチタスク DNN（CDEE）で同時に予測し、予算制約のもとで複数クーポンから1つを割り当てる
   # ---- 方策学習 ----
   - title: "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice"
     authors: "T. Kitagawa, A. Tetenov"
